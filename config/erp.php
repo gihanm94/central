@@ -8,7 +8,7 @@ return [
     'connection' => ['ip' => '', 'port' => '8001', 'username' => '', 'verify_tls' => '0', 'timeout' => '120'],
 
     'schedule' => [
-        'enabled' => '0', 'tz' => 'Asia/Bangkok', 'hour_start' => '7', 'hour_end' => '20', 'days' => '1,2,3,4,5',
+        'enabled' => '1', 'tz' => 'Asia/Bangkok', 'hour_start' => '7', 'hour_end' => '20', 'days' => '1,2,3,4,5',
         'hot_minutes' => '3', 'cold_minutes' => '30',
     ],
 

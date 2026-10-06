@@ -32,7 +32,7 @@ final class InetBuilder
         $email  = $cust ? DB::scalar("SELECT communication_address_value FROM erp_delivery_contacts WHERE customer_id = ? AND communication_address_value LIKE '%@%' ORDER BY id LIMIT 1", [$cust['id']], self::C) : null;
         $note   = $order ? DB::scalar('SELECT delivery_note_number FROM erp_order_invoices WHERE business_contact_order_id = ? ORDER BY id LIMIT 1', [$order['id']], self::C) : null;
         $cur    = $f['currency_code'] ?: 'THB';
-        $isCredit = $order ? filter_var($order['is_credit'], FILTER_VALIDATE_BOOL) : false;
+        $isCredit = \App\Modules\Accounting\Inet\Documents::isCredit($invoiceNumber, $order ? filter_var($order['is_credit'], FILTER_VALIDATE_BOOL) : false);
 
         return [
             'no_invoice' => $invoiceNumber, 'invoice_date' => $f['invoice_date'], 'is_credit' => $isCredit, 'is_international' => strtoupper($cur) !== 'THB',

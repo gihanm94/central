@@ -22,6 +22,7 @@ $r->post('/accounting/erp/endpoints', [ErpController::class, 'saveEndpoints']);
 $r->post('/accounting/erp/login', [ErpController::class, 'login']);
 $r->post('/accounting/erp/test', [ErpController::class, 'test']);
 $r->post('/accounting/erp/run', [ErpController::class, 'run']);
+$r->get('/accounting/erp/status', [ErpController::class, 'status']);
 
 // Copies of ERP data (read only) and the e-tax page
 foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'inet' => InetController::class] as $path => $controller) {

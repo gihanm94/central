@@ -12,6 +12,7 @@ use App\Modules\Accounting\Erp\Client;
 use App\Modules\Accounting\Erp\ErpSettings;
 use App\Modules\Accounting\Erp\Schedule;
 use App\Modules\Accounting\Erp\Syncer;
+use App\Modules\Accounting\Support\Log;
 
 /** Administrators: ERP address and login, every API address, the saved token, the schedule, and "run now". */
 class ErpController extends Controller
@@ -41,7 +42,7 @@ class ErpController extends Controller
             'running' => (int) DB::scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'", [], ErpSettings::CONN),
             'hasPassword' => ErpSettings::password() !== '', 'hasInet' => (string) ErpSettings::get('inet.authorization', '') !== '',
             'configured' => ErpSettings::configured(), 'inWindow' => Schedule::inWindow(),
-            'cron' => '* * * * * '.(is_executable(PHP_BINDIR.'/php') ? PHP_BINDIR.'/php' : 'php').' '.BASE_PATH.'/bin/erp-sync.php tick',
+            'cron' => '* * * * * '.Schedule::php().' '.BASE_PATH.'/bin/erp-sync.php tick',
         ]);
     }
 
@@ -126,6 +127,25 @@ class ErpController extends Controller
         redirect('/accounting/erp#apis');
     }
 
+    /** Everything the page shows that changes while it is open (polled every few seconds). */
+    public function status(): never
+    {
+        $this->gate();
+        session_write_close();
+        $state = DB::select('SELECT entity, status, mode, last_run_at, last_ok_at, fetched, saved, duration_ms, error FROM erp_sync_state', [], ErpSettings::CONN);
+        $beat = Schedule::heartbeat();
+        $token = DB::first('SELECT session_suspended, updated_at FROM erp_tokens WHERE is_primary ORDER BY id DESC LIMIT 1', [], ErpSettings::CONN);
+        json_response([
+            'now' => time(),
+            'state' => array_map(fn ($r) => $r + ['ago' => $r['last_run_at'] ? time_ago($r['last_run_at']) : null], $state),
+            'runs' => array_map(fn ($r) => $r + ['ago' => time_ago($r['started_at'])], DB::select('SELECT id, kind, source, status, message, fetched, saved, started_at FROM erp_sync_runs ORDER BY id DESC LIMIT 12', [], ErpSettings::CONN)),
+            'running' => (int) DB::scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'", [], ErpSettings::CONN),
+            'totals' => DB::first("SELECT coalesce(sum(saved) FILTER (WHERE started_at::date = CURRENT_DATE), 0) AS today, coalesce(sum(saved), 0) AS all_time, max(finished_at) FILTER (WHERE status = 'ok') AS last_ok, count(*) FILTER (WHERE status = 'failed' AND started_at > now() - interval '1 day') AS failed_day FROM erp_sync_runs", [], ErpSettings::CONN),
+            'scheduler' => ['at' => $beat['at'] ?? null, 'by' => $beat['by'] ?? null, 'ago' => $beat ? time() - $beat['at'] : null, 'enabled' => ErpSettings::schedule('enabled') === '1', 'inWindow' => Schedule::inWindow()],
+            'token' => $token ? ['ago' => time_ago($token['updated_at']), 'minutes' => (int) round((time() - strtotime((string) $token['updated_at'])) / 60)] : null,
+        ]);
+    }
+
     /** Start a sync in the background (cron-less servers fall back to running it here). */
     public function run(): never
     {
@@ -147,10 +167,9 @@ class ErpController extends Controller
         } else {
             abort(404);
         }
-        $php = is_executable(PHP_BINDIR.'/php') ? PHP_BINDIR.'/php' : 'php';
-        if (function_exists('exec') && ! in_array('exec', array_map('trim', explode(',', (string) ini_get('disable_functions'))), true)) {
-            exec(escapeshellarg($php).' '.escapeshellarg(BASE_PATH.'/bin/erp-sync.php').' '.implode(' ', array_map('escapeshellarg', $args)).' > /dev/null 2>&1 &');
-            Session::flash('success', __('Started :what. Reload this page to see how far it got.', ['what' => $label]));
+        if (Schedule::spawn($args)) {
+            Log::info('sync', 'Started by '.$this->user()->email.': '.$label.($mode === 'all' ? ' (all rows)' : ''));
+            Session::flash('success', __('Started :what. Watch it below.', ['what' => $label]));
         } else {
             @set_time_limit(600);
             $entity !== '' ? Schedule::runEntity($entity, $mode, null, $this->user()->id) : Schedule::runGroup($group, 'manual', $this->user()->id, $mode === 'all' ? 'all' : null);

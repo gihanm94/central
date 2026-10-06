@@ -171,6 +171,14 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 - The INET URLs and key are entered on the ERP connection page, never in the repo.
 - Credit notes read the referenced invoice and amounts from the order comments (Thai or English wording).
 
+## Generate: how it finds and builds documents
+
+- `erp_documents` holds one prepared row per invoice number (customer, order, VAT no, delivery note, remark = the order's comment, credit flag). It is refreshed right after each ERP sync, only for invoices whose invoice / order / comment rows changed, so the Generate dialog is one indexed query. Building a document still reads the full source rows.
+- Credit note = the order says `is_credit` **or** the invoice number starts with 4. The Invoice / Credit note tabs and the search work together (a search only looks inside the chosen tab).
+- Generate builds every chosen invoice's JSON first, then prints the PDFs **5 at a time** (parallel Chromium) and saves. A PDF that fails keeps its JSON; the row shows the reason.
+- The company (`companies`) is seeded once by migration `…_005_documents_company_seed.sql`; edit it on Accounting → Company. INET user code / access key / API key are not seeded (the flow does not use them).
+- Auto sync: set the cron line shown on the ERP page, **or** leave it — any open accounting page starts a background `tick` when the scheduler has been quiet for a minute (default: schedule on, Mon–Fri 07:00–20:00). The ERP page shows live status, who last ran the scheduler, and the sync log.
+
 ## Accounting logs (`/accounting/logs`, administrators)
 
 Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, one JSON line per event, kept 30 days. The page follows the file live (about every 1.5 s) with filters for level, channel (`erp` API calls, `sync`, `inet` generate/send/fetch, `pdf`, `app` uncaught errors) and text search; each line opens to show URL, HTTP status, time, exception and where it happened. Secrets (keys, passwords, session ids) are masked. The **Generate** dialog shows its own run's lines live while it works. In code: `App\Modules\Accounting\Support\Log::info('inet', 'message', [...])`.

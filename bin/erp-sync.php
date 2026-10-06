@@ -23,7 +23,7 @@ $cmd = $argv[1] ?? 'tick';
 try {
     switch ($cmd) {
         case 'tick':
-            $ran = Schedule::tick();
+            $ran = Schedule::tick(($argv[2] ?? '') === 'website' ? 'website' : 'cron');
             if ($ran) { \App\Modules\Accounting\Support\Log::info('sync', 'scheduler tick ran: '.implode(', ', $ran)); }
             echo date('c').' '.($ran ? 'ran: '.implode(', ', $ran) : 'nothing due')."\n";
             break;

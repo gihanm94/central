@@ -25,49 +25,96 @@ final class Generator
 
     public static function type(string $col): string { return strtoupper($col); }
 
-    /** @return array{docs: string[], errors: array<string, string>} */
+    /** One invoice. @return array{docs: string[], errors: array<string, string>} */
     public static function generate(int $invoiceNumber, bool $autoPdf, int $by): array
     {
-        Log::info('inet', "{$invoiceNumber}: generate start", ['auto_pdf' => $autoPdf, 'by' => $by]);
+        return self::many([['invoice' => $invoiceNumber, 'auto_pdf' => $autoPdf]], $by)[$invoiceNumber];
+    }
+
+    /**
+     * Several invoices at once. Reading and building the JSON is quick and done one by one; the slow part, printing PDFs, runs
+     * $parallel Chromium processes at the same time (5 by default). A problem with one invoice never stops the others.
+     * @param array<int, array{invoice: int, auto_pdf: bool}> $items
+     * @return array<int, array{docs: string[], errors: array<string, string>}>  by invoice number
+     */
+    public static function many(array $items, int $by, int $parallel = 5): array
+    {
         $company = Company::require();
-        ['doc' => $doc, 'lines' => $lines] = DocumentData::load($invoiceNumber);
-        InetBuilder::save($invoiceNumber, $autoPdf, $by);                         // header row (customer, seller, amounts …)
-        $credit = $doc['is_credit'] ? DocumentData::creditInfo($doc) : null;
-        $types  = $doc['is_credit'] ? ['81'] : ['388', 'T01'];
-        Log::info('inet', "{$invoiceNumber}: ".($doc['is_credit'] ? 'credit note' : 'invoice').' read from the ERP copy', ['lines' => count($lines), 'documents' => $types, 'reference' => $credit['reference'] ?? null]);
-        $out    = ['docs' => [], 'errors' => []];
-        foreach ($types as $type) {
-            $c = self::col($type);
+        $res = $prep = $pages = [];
+        foreach ($items as $it) {                                                         // 1. read + build
+            $no = (int) $it['invoice'];
+            $auto = ! empty($it['auto_pdf']);
+            $res[$no] = ['docs' => [], 'errors' => []];
             try {
-                $built = JsonBuilder::build($doc, $lines, $type, $company, $credit);
-                $pdfPath = null;
-                if ($autoPdf) {
-                    $pdf = PdfRenderer::render($doc, $lines, $company, $type, true, $built['totals'], $credit);
-                    $pdfPath = self::store($invoiceNumber, $type, $pdf);
+                Log::info('inet', "{$no}: generate start", ['auto_pdf' => $auto, 'by' => $by]);
+                ['doc' => $doc, 'lines' => $lines] = DocumentData::load($no);
+                InetBuilder::save($no, $auto, $by);                                       // header row (customer, seller, amounts …)
+                $credit = $doc['is_credit'] ? DocumentData::creditInfo($doc) : null;
+                $types  = $doc['is_credit'] ? ['81'] : ['388', 'T01'];
+                Log::info('inet', "{$no}: ".($doc['is_credit'] ? 'credit note' : 'invoice').' read from the ERP copy', ['lines' => count($lines), 'documents' => $types, 'reference' => $credit['reference'] ?? null]);
+                foreach ($types as $type) {
+                    try {
+                        $built = JsonBuilder::build($doc, $lines, $type, $company, $credit);
+                        $prep[$no][$type] = ['built' => $built, 'doc' => $doc, 'credit' => $credit];
+                        if ($auto) { $pages["{$no}|{$type}"] = PdfRenderer::html($doc, $lines, $company, $type, true, $built['totals'], $credit); }
+                    } catch (\Throwable $e) {
+                        self::fail($no, $type, $doc, $e, $by, $res);
+                    }
                 }
-                $sets = ["text_{$c} = ?", "is_{$c}_generate = TRUE", "message_{$c} = NULL", "modify_{$c}_by = ?", 'auto_pdf = ?', 'updated_at = now()'];
-                $par  = [$built['json'], $by, $autoPdf ? 'true' : 'false'];
-                if ($pdfPath !== null) { $sets[] = "pdf_{$c} = ?"; $par[] = $pdfPath; }
-                // a new text invalidates what was sent before
-                $sets[] = "is_{$c}_send = FALSE"; $sets[] = "is_{$c}_fetch = FALSE"; $sets[] = "is_{$c}_download = FALSE";
-                DB::exec('UPDATE inets SET '.implode(', ', $sets).' WHERE no_invoice = ? AND is_credit = ?', [...$par, $invoiceNumber, $doc['is_credit'] ? 'true' : 'false'], self::C);
-                // amounts as written in the file (THB)
-                DB::exec('UPDATE inets SET amount = ?, tax_amount = ?, total_amount = ?, currency_code = ? WHERE no_invoice = ? AND is_credit = ?',
-                    [$built['totals']['basis'], $built['totals']['tax'], $built['totals']['grand'], 'THB', $invoiceNumber, $doc['is_credit'] ? 'true' : 'false'], self::C);
-                $out['docs'][] = $type;
-                Log::info('inet', "{$invoiceNumber} {$type}: JSON saved".($pdfPath ? ' + PDF' : ''), ['total' => $built['totals']['grand'], 'tax' => $built['totals']['tax'], 'pdf' => $pdfPath]);
+                if ($credit && ! empty($credit['reference'])) {
+                    DB::exec('UPDATE inets SET reference_invoice = ? WHERE no_invoice = ? AND is_credit = TRUE', [$credit['reference'], $no], self::C);
+                }
             } catch (\Throwable $e) {
-                $out['errors'][$type] = $e->getMessage();
-                Log::exception('inet', $e, "{$invoiceNumber} {$type} not generated");
-                DB::exec("UPDATE inets SET message_{$c} = ?, modify_{$c}_by = ?, updated_at = now() WHERE no_invoice = ? AND is_credit = ?",
-                    [mb_substr($e->getMessage(), 0, 1000), $by, $invoiceNumber, $doc['is_credit'] ? 'true' : 'false'], self::C);
+                Log::exception('inet', $e, "{$no} generate failed");
+                $res[$no]['errors']['-'] = $e->getMessage();
             }
         }
-        if ($credit && ! empty($credit['reference'])) {
-            DB::exec('UPDATE inets SET reference_invoice = ? WHERE no_invoice = ? AND is_credit = TRUE', [$credit['reference'], $invoiceNumber], self::C);
+
+        $pdfs = [];                                                                       // 2. print the PDFs, several at a time
+        if ($pages) {
+            Log::info('inet', 'Printing '.count($pages).' PDF(s), up to '.$parallel.' at a time');
+            try { $pdfs = PdfRenderer::renderMany($pages, $parallel); }
+            catch (\Throwable $e) { foreach ($pages as $k => $_) { $pdfs[$k] = $e instanceof \RuntimeException ? $e : new \RuntimeException($e->getMessage()); } }
         }
 
-        return $out;
+        foreach ($prep as $no => $types) {                                                // 3. save
+            foreach ($types as $type => $p) {
+                $type = (string) $type;                                                   // numeric keys such as 388 come back as ints
+                $doc = $p['doc'];
+                $pdf = $pdfs["{$no}|{$type}"] ?? null;
+                $pdfError = null;
+                if ($pdf instanceof \Throwable) { $pdfError = $pdf; $pdf = null; }                  // keep the JSON; only the PDF is missing
+                try {
+                    $c = self::col($type);
+                    $path = $pdf !== null ? self::store($no, $type, $pdf) : null;
+                    $sets = ["text_{$c} = ?", "is_{$c}_generate = TRUE", "message_{$c} = NULL", "modify_{$c}_by = ?", 'auto_pdf = ?', 'updated_at = now()',
+                             "is_{$c}_send = FALSE", "is_{$c}_fetch = FALSE", "is_{$c}_download = FALSE"];                    // a new text invalidates what was sent before
+                    $par  = [$p['built']['json'], $by, $pdf !== null ? 'true' : 'false'];
+                    if ($path !== null) { $sets[] = "pdf_{$c} = ?"; $par[] = $path; }
+                    $cr = $doc['is_credit'] ? 'true' : 'false';
+                    DB::exec('UPDATE inets SET '.implode(', ', $sets).' WHERE no_invoice = ? AND is_credit = ?', [...$par, $no, $cr], self::C);
+                    $t = $p['built']['totals'];                                           // amounts as written in the file (THB)
+                    DB::exec('UPDATE inets SET amount = ?, tax_amount = ?, total_amount = ?, currency_code = ? WHERE no_invoice = ? AND is_credit = ?', [$t['basis'], $t['tax'], $t['grand'], 'THB', $no, $cr], self::C);
+                    $res[$no]['docs'][] = $type;
+                    if ($pdfError) { self::fail($no, $type, $doc, new \RuntimeException('JSON saved, PDF failed: '.$pdfError->getMessage()), $by, $res); continue; }
+                    Log::info('inet', "{$no} {$type}: JSON saved".($path ? ' + PDF' : ''), ['total' => $t['grand'], 'tax' => $t['tax'], 'pdf' => $path]);
+                } catch (\Throwable $e) {
+                    self::fail($no, $type, $doc, $e, $by, $res);
+                }
+            }
+        }
+
+        return $res;
+    }
+
+    private static function fail(int $no, string $type, array $doc, \Throwable $e, int $by, array &$res): void
+    {
+        $res[$no]['errors'][$type] = $e->getMessage();
+        Log::exception('inet', $e, "{$no} {$type} not generated");
+        try {
+            DB::exec('UPDATE inets SET message_'.self::col($type).' = ?, modify_'.self::col($type).'_by = ?, updated_at = now() WHERE no_invoice = ? AND is_credit = ?',
+                [mb_substr($e->getMessage(), 0, 1000), $by, $no, $doc['is_credit'] ? 'true' : 'false'], self::C);
+        } catch (\Throwable) { /* the row may not exist yet */ }
     }
 
     /** Keep a PDF under storage/inet/<invoice>/ ; returns the key saved in the database. */

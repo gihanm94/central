@@ -50,6 +50,9 @@ try {
 
     $router = new Router();
     require BASE_PATH.'/routes/web.php';
+    if (Request::method() === 'GET' && str_starts_with($path, '/accounting')) {
+        try { \App\Modules\Accounting\Erp\Schedule::kick(); } catch (Throwable) { /* the schedule must never break a page */ }
+    }
     $router->dispatch(Request::method(), $path);
 } catch (ValidationException $e) {
     if (Request::isJson()) {

@@ -23,13 +23,23 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
     </div>
 </div>
 
-<?php $sumRows = array_sum($count); ?>
-<section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-    <?php foreach ([[__('Rows saved today'), number_format((int) $totals['today']), 'text-graphite-900'], [__('Rows saved in all runs'), number_format((int) $totals['all_time']), 'text-graphite-900'],
-        [__('Rows in the tables now'), number_format($sumRows), 'text-graphite-900'], [__('Last good run'), $totals['last_ok'] ? time_ago($totals['last_ok']) : '—', 'text-graphite-900'],
-        [$running ? __('Running now') : __('Failed runs (24 h)'), (string) ($running ?: (int) $totals['failed_day']), $running ? 'text-amber-700' : ((int) $totals['failed_day'] ? 'text-signal-700' : 'text-graphite-900')]] as [$l, $v, $c]): ?>
-    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel"><?= e($l) ?></p><p class="truncate text-xl font-semibold tabular-nums <?= $c ?>"><?= e($v) ?></p></div>
+<?php $sumRows = array_sum($count); $beat = \App\Modules\Accounting\Erp\Schedule::heartbeat(); ?>
+<div id="erp-live" data-url="<?= url('/accounting/erp/status') ?>" data-l-saved="<?= e(__('saved')) ?>" data-l-read="<?= e(__('read')) ?>" data-l-syncing="<?= e(__('Syncing now')) ?>" data-l-idle="<?= e(__('Idle')) ?>" data-l-on="<?= e(__('Schedule on')) ?>" data-l-off="<?= e(__('Schedule off')) ?>" data-l-looked="<?= e(__('looked')) ?>" data-l-ago="<?= e(__('ago')) ?>" data-l-never="<?= e(__('has not run yet')) ?>" data-l-stale="<?= e(__('The scheduler is not running: set up the cron line below, or keep an accounting page open.')) ?>" data-l-outside="<?= e(__('outside the working window')) ?>" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-graphite-900/8">
+    <span class="inline-flex items-center gap-1.5 font-medium"><span data-live-dot class="size-2 rounded-full bg-emerald-500"></span><span data-live-running><?= $running ? e(__('Syncing now')) : e(__('Idle')) ?></span></span>
+    <span class="text-steel" data-live-sched><?= e(S::schedule('enabled') === '1' ? __('Schedule on') : __('Schedule off')) ?><?= $beat ? ' · '.e(__('looked :ago ago', ['ago' => max(0, time() - $beat['at']).'s'])).' ('.e($beat['by']).')' : ' · '.e(__('has not run yet')) ?></span>
+    <span class="ml-auto text-xs text-steel" data-live-clock></span>
+</div>
+<section class="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <?php foreach ([['today', __('Rows saved today'), number_format((int) $totals['today']), 'text-graphite-900'], ['all', __('Rows saved in all runs'), number_format((int) $totals['all_time']), 'text-graphite-900'],
+        ['rows', __('Rows in the tables now'), number_format($sumRows), 'text-graphite-900'], ['last_ok', __('Last good run'), $totals['last_ok'] ? time_ago($totals['last_ok']) : '—', 'text-graphite-900'],
+        ['failed', __('Failed runs (24 h)'), (string) (int) $totals['failed_day'], (int) $totals['failed_day'] ? 'text-signal-700' : 'text-graphite-900']] as [$key, $l, $val, $c]): ?>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel"><?= e($l) ?></p><p data-stat="<?= $key ?>" class="truncate text-xl font-semibold tabular-nums <?= $c ?>"><?= e($val) ?></p></div>
     <?php endforeach ?>
+</section>
+
+<section class="panel mt-3">
+    <div class="panel-head"><h2 class="panel-title"><?= e(__('Live sync log')) ?></h2><a href="<?= url('/accounting/logs') ?>" class="text-xs text-steel hover:text-signal-700"><?= e(__('Open all logs')) ?> →</a></div>
+    <div id="erp-log" data-empty="<?= e(__('No sync lines yet today.')) ?>" class="h-56 overflow-auto rounded-b-xl bg-graphite-900 p-3 font-mono text-xs leading-5 text-white"></div>
 </section>
 
 <div class="mt-4 grid gap-4 lg:grid-cols-3">
@@ -57,7 +67,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
             <div><p class="label"><?= e(__('Days')) ?></p><div class="flex flex-wrap gap-1.5">
                 <?php foreach ($days as $n => $l): ?><label class="cursor-pointer"><input type="checkbox" name="days[]" value="<?= $n ?>" class="peer sr-only" <?= in_array((string) $n, $onDays, true) ? 'checked' : '' ?>><span class="inline-flex h-8 items-center rounded-full px-3 text-sm ring-1 ring-graphite-900/15 peer-checked:bg-graphite-900 peer-checked:text-white peer-checked:ring-graphite-900"><?= e($l) ?></span></label><?php endforeach ?>
             </div></div>
-            <div class="sm:col-span-2"><p class="label"><?= e(__('Cron line (run every minute)')) ?></p><code class="block overflow-x-auto rounded-lg bg-graphite-900 px-3 py-2 text-xs text-white"><?= e($cron) ?></code></div>
+            <div class="sm:col-span-2"><p class="label"><?= e(__('Cron line (run every minute)')) ?> <span class="font-normal text-steel">— <?= e(__('optional: without it the website starts the schedule while someone has an accounting page open')) ?></span></p><code class="block overflow-x-auto rounded-lg bg-graphite-900 px-3 py-2 text-xs text-white"><?= e($cron) ?></code></div>
         </div>
 
         <div class="panel-head border-t border-graphite-900/8"><h2 class="panel-title"><?= e(__('e-Tax portal (INET)')) ?></h2><span class="text-xs text-steel"><?= e(__('used by the e-tax invoice step that follows')) ?></span></div>
@@ -88,6 +98,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
         </section>
         <section class="panel">
             <div class="panel-head"><h2 class="panel-title"><?= e(__('Recent runs')) ?></h2></div>
+            <div data-runs>
             <?php if (! $runs): ?><p class="px-5 py-6 text-center text-sm text-steel"><?= e(__('Nothing has run yet.')) ?></p><?php else: ?>
             <ul class="divide-y divide-graphite-900/6 text-sm">
                 <?php foreach ($runs as $r): ?>
@@ -95,6 +106,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
                     <p class="text-xs text-steel"><?= e(time_ago($r['started_at'])) ?> · <span class="font-medium text-graphite-800"><?= number_format((int) $r['saved']) ?></span> <?= e(__('saved')) ?> / <?= number_format((int) $r['fetched']) ?> <?= e(__('read')) ?><?= $r['message'] ? ' · '.e(str_limit($r['message'], 80)) : '' ?></p></li>
                 <?php endforeach ?>
             </ul><?php endif ?>
+            </div>
         </section>
     </div>
 </div>
@@ -127,7 +139,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
                 </td>
                 <td class="px-3 py-2.5">
                     <?php foreach ($ents as $k): $st = $state[$k] ?? null; ?>
-                    <span class="mb-1 block text-xs"><span class="badge <?= $stateTone[$st['status'] ?? 'never'] ?>"><?= e($st['status'] ?? 'never') ?></span>
+                    <span class="mb-1 block text-xs" data-state="<?= e($k) ?>"><span class="badge <?= $stateTone[$st['status'] ?? 'never'] ?>"><?= e($st['status'] ?? 'never') ?></span>
                         <?php if ($st && $st['last_run_at']): ?> <?= e(time_ago($st['last_run_at'])) ?> · <?= number_format((int) $st['saved']) ?> <?= e(__('saved')) ?><?= $st['duration_ms'] ? ' · '.round($st['duration_ms'] / 1000, 1).'s' : '' ?><?php endif ?>
                         <?php if ($st && $st['error']): ?><span class="block max-w-xs truncate text-signal-700" title="<?= e($st['error']) ?>"><?= e($st['error']) ?></span><?php endif ?></span>
                     <?php endforeach ?>
@@ -148,3 +160,4 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
     </table></div>
     <p class="border-t border-graphite-900/8 bg-mist/50 px-5 py-2 text-xs text-steel"><?= e(__('"Sync" copies the newest rows (the number is in config/erp.php); "Full" copies every row. The numbers show how many rows each run read and saved.')) ?></p>
 </form>
+<script src="<?= asset('assets/erp-live.js') ?>" defer></script>

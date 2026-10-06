@@ -58,7 +58,7 @@ final class DocumentData
 
         $doc = [
             'invoice_no' => $invoiceNumber, 'invoice_date' => $f['invoice_date'], 'currency_code' => $cur, 'exchange_rate' => $f['exchange_rate'],
-            'is_credit' => $order ? self::bool($order['is_credit']) : false, 'is_foreign' => ! $isThaiBuyer,
+            'is_credit' => Documents::isCredit($invoiceNumber, $order ? self::bool($order['is_credit']) : false), 'is_foreign' => ! $isThaiBuyer,
             'order_id' => $order['id'] ?? null, 'order_number' => $order['order_number'] ?? ($f['customer_order_number'] ?? ''), 'order_date' => $order['order_date'] ?? null,
             'po_number' => $order['business_contact_order_number'] ?? null, 'external_comment_id' => $order['external_comment_id'] ?? null,
             'customer_id' => $cust['id'] ?? $f['customer_id'], 'customer_code' => $cust['code'] ?? $f['customer_code'], 'customer_name' => $cust['name'] ?? '',

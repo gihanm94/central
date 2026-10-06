@@ -50,6 +50,7 @@ final class Syncer
             }
             DB::exec("UPDATE erp_sync_state SET status = 'ok', last_ok_at = now(), fetched = ?, saved = ?, duration_ms = ?, error = NULL WHERE entity = ?",
                 [$fetched, $saved, (int) round((microtime(true) - $start) * 1000), $key], ErpSettings::CONN);
+            if (in_array($key, ['invoice', 'order', 'comment', 'order_invoice', 'customer'], true)) { \App\Modules\Accounting\Inet\Documents::refreshQuietly(); }
             Log::info('sync', "{$key}: done — fetched {$fetched}, saved {$saved}", ['ms' => (int) round((microtime(true) - $start) * 1000)]);
         } catch (\Throwable $e) {
             Log::exception('sync', $e, "{$key} failed", ['fetched' => $fetched, 'saved' => $saved, 'mode' => $mode]);

@@ -25,7 +25,7 @@ class InvoiceController extends ErpListController
                          max(c.name) AS customer_name, max(i.customer_order_number) AS customer_order_number, max(i.currency_code) AS currency_code, max(i.exchange_rate) AS exchange_rate,
                          count(*) AS line_count, max(i.seller) AS seller,
                          sum(coalesce(i.invoiced_quantity, 0) * coalesce(i.price, 0) * (1 - coalesce(i.discount, 0) / 100)) AS amount,
-                         bool_or(coalesce(o.is_credit, false)) AS is_credit
+                         bool_or(coalesce(o.is_credit, false) OR i.invoice_number::text LIKE '4%') AS is_credit
                   FROM erp_invoices i LEFT JOIN erp_customers c ON c.id = i.customer_id LEFT JOIN erp_orders o ON o.id = i.customer_order_id
                   WHERE i.invoice_number IS NOT NULL GROUP BY i.invoice_number) t";
     }

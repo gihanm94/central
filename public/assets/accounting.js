@@ -34,7 +34,7 @@
             tr.innerHTML = '<td class="px-3 py-2.5"><input type="checkbox" data-pick="' + esc(no) + '" class="size-4 accent-signal-600" ' + (p ? 'checked' : '') + ' aria-label="' + esc(no) + '"></td>' +
                 '<td class="px-3 py-2.5 font-medium">' + esc(no) + '</td>' +
                 '<td class="px-3 py-2.5"><input type="checkbox" data-auto="' + esc(no) + '" class="size-4 accent-signal-600 disabled:opacity-40" ' + (p ? '' : 'disabled') + (p && p.auto ? ' checked' : '') + ' aria-label="Auto PDF"></td>' +
-                '<td class="px-3 py-2.5">' + esc(r.order_no) + '</td><td class="px-3 py-2.5">' + esc(r.delivery_no) + '</td><td class="px-3 py-2.5">' + esc(r.vat_no) + '</td><td class="px-3 py-2.5 text-steel">' + esc(r.remark) + '</td>';
+                '<td class="px-3 py-2.5">' + esc(r.order_no) + '</td><td class="px-3 py-2.5">' + esc(r.delivery_no) + '</td><td class="px-3 py-2.5">' + esc(r.vat_no) + '</td><td class="max-w-[16rem] truncate px-3 py-2.5 text-left text-steel" title="' + esc(r.remark) + '">' + esc(r.remark) + '</td>';
             rowsEl.appendChild(tr);
         });
         empty.hidden = current.length > 0; pager.textContent = page + ' / ' + pages; prev.disabled = page <= 1; next.disabled = page >= pages; summary();

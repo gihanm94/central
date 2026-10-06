@@ -121,7 +121,7 @@ final class Log
             $e = json_decode($line, true);
             if (! is_array($e)) { continue; }
             if ((self::LEVELS[$e['level'] ?? 'info'] ?? 1) < $min) { continue; }
-            if (! empty($f['ch']) && ($e['ch'] ?? '') !== $f['ch']) { continue; }
+            if (! empty($f['ch']) && ! in_array($e['ch'] ?? '', explode(',', (string) $f['ch']), true)) { continue; }
             if (! empty($f['run']) && ($e['run'] ?? '') !== $f['run']) { continue; }
             if ($q !== '' && ! str_contains(mb_strtolower($line), $q)) { continue; }
             $entries[] = $e;

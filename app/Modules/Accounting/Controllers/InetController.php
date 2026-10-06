@@ -10,6 +10,7 @@ use App\Core\Support\Request;
 use App\Core\Support\Session;
 use App\Modules\Accounting\Erp\ErpSettings;
 use App\Modules\Accounting\Erp\Syncer;
+use App\Modules\Accounting\Inet\Documents;
 use App\Modules\Accounting\Inet\Generator;
 use App\Modules\Accounting\Inet\InetClient;
 use App\Modules\Accounting\Support\InetBuilder;
@@ -142,21 +143,19 @@ class InetController extends ErpListController
         $credit = Request::query('credit') === '1';
         $q      = trim((string) Request::query('q', ''));
         $page   = max(1, (int) Request::query('page', 1));
-        $where  = ['i.invoice_number IS NOT NULL', 'coalesce(o.is_credit, false) = ?', 'NOT EXISTS (SELECT 1 FROM inets n WHERE n.no_invoice = i.invoice_number)'];
-        $par    = [$credit ? 'true' : 'false'];
-        $having = '';
-        if ($q !== '') {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q).'%';
-            $having = " HAVING (i.invoice_number::text ILIKE ? OR max(i.customer_order_number) ILIKE ? OR max(o.vat_number) ILIKE ? OR max(i.customer_code) ILIKE ?)";
-            array_push($par, $like, $like, $like, $like);
+        if (! DB::scalar('SELECT 1 FROM erp_documents LIMIT 1', [], ErpSettings::CONN)) { Documents::refreshQuietly(); }     // first time: prepare everything once
+        // one tab = credit notes or invoices; the search only looks inside that tab; invoices already generated are left out
+        $where = ['d.is_credit = ?', 'NOT EXISTS (SELECT 1 FROM inets n WHERE n.no_invoice = d.invoice_number)'];
+        $par   = [$credit ? 'true' : 'false'];
+        foreach (preg_split('/\s+/', mb_strtolower($q), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $w) {
+            $where[] = "d.search LIKE ? ESCAPE '\\'";
+            $par[]   = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $w).'%';
         }
-        $from = 'FROM erp_invoices i LEFT JOIN erp_orders o ON o.id = i.customer_order_id WHERE '.implode(' AND ', $where).' GROUP BY i.invoice_number'.$having;
-        $total = (int) DB::scalar("SELECT count(*) FROM (SELECT i.invoice_number {$from}) x", $par, ErpSettings::CONN);
-        $rows = DB::select("SELECT i.invoice_number, max(i.customer_order_number) AS order_no, max(o.vat_number) AS vat_no, max(i.customer_code) AS customer_code,
-                                   (SELECT oi.delivery_note_number FROM erp_order_invoices oi WHERE oi.business_contact_order_id = max(i.customer_order_id) ORDER BY oi.id LIMIT 1) AS delivery_no
-                            {$from} ORDER BY i.invoice_number DESC LIMIT ".self::PER.' OFFSET '.(($page - 1) * self::PER), $par, ErpSettings::CONN);
+        $from  = 'FROM erp_documents d WHERE '.implode(' AND ', $where);
+        $total = (int) DB::scalar("SELECT count(*) {$from}", $par, ErpSettings::CONN);
+        $rows  = DB::select("SELECT d.invoice_number, d.order_number AS order_no, d.vat_no, d.customer_code, d.delivery_no, d.remark {$from} ORDER BY d.invoice_number DESC LIMIT ".self::PER.' OFFSET '.(($page - 1) * self::PER), $par, ErpSettings::CONN);
 
-        json_response(['rows' => $rows, 'total' => $total, 'pages' => max(1, (int) ceil($total / self::PER))]);
+        json_response(['rows' => $rows, 'total' => $total, 'pages' => max(1, (int) ceil($total / self::PER)), 'credit' => $credit]);
     }
 
     /** Generate the chosen invoices. Body (JSON): {items: [{invoice: 123, auto_pdf: true}]} */
@@ -174,17 +173,15 @@ class InetController extends ErpListController
         Log::info('inet', 'Generate: '.count($items).' invoice(s) chosen', ['by' => $by]);
         $made = 0;
         $errors = [];
-        foreach ($items as $it) {
-            $no = (int) ($it['invoice'] ?? 0);
-            if ($no <= 0) { continue; }
-            try {
-                $r = Generator::generate($no, ! empty($it['auto_pdf']), $by);
+        $items = array_values(array_filter(array_map(fn ($it) => ['invoice' => (int) ($it['invoice'] ?? 0), 'auto_pdf' => ! empty($it['auto_pdf'])], $items), fn ($it) => $it['invoice'] > 0));
+        try {
+            foreach (Generator::many($items, $by, 5) as $no => $r) {
                 if ($r['docs']) { $made++; }
-                foreach ($r['errors'] as $type => $m) { $errors[] = $no.' ('.$type.'): '.$m; }
-            } catch (\Throwable $e) {
-                Log::exception('inet', $e, $no.' generate failed');
-                $errors[] = $no.': '.$e->getMessage();
+                foreach ($r['errors'] as $type => $m) { $errors[] = $no.($type === '-' ? '' : ' ('.$type.')').': '.$m; }
             }
+        } catch (\Throwable $e) {
+            Log::exception('inet', $e, 'Generate failed');
+            $errors[] = $e->getMessage();
         }
         ($errors ? [Log::class, 'warn'] : [Log::class, 'info'])('inet', 'Generate finished: '.$made.' made, '.count($errors).' with problems', ['done' => true]);
         if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }

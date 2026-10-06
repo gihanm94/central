@@ -25,9 +25,55 @@ final class Schedule
             && (int) $d->format('G') < (int) ErpSettings::schedule('hour_end');
     }
 
-    /** Called every minute. @return string[] groups that ran */
-    public static function tick(): array
+    /* ---- who is running the scheduler: cron (bin/erp-sync.php tick) or, when nobody set up cron, the website itself (kick) ---- */
+
+    private static function beatFile(): string { return BASE_PATH.'/storage/cache/erp-heartbeat'; }
+
+    /** @return array{at: int, by: string}|null the last time the scheduler looked */
+    public static function heartbeat(): ?array
     {
+        $raw = @file_get_contents(self::beatFile());
+        if ($raw === false || ! str_contains($raw, '|')) { return null; }
+        [$t, $by] = explode('|', trim($raw), 2);
+
+        return ['at' => (int) $t, 'by' => $by];
+    }
+
+    private static function beat(string $by): void { @file_put_contents(self::beatFile(), time().'|'.$by, LOCK_EX); }
+
+    public static function php(): string
+    {
+        foreach ([PHP_BINDIR.'/php', '/usr/bin/php', '/usr/local/bin/php'] as $p) { if (is_executable($p)) { return $p; } }
+
+        return 'php';
+    }
+
+    /** Run bin/erp-sync.php in the background. */
+    public static function spawn(array $args): bool
+    {
+        if (! function_exists('exec') || in_array('exec', array_map('trim', explode(',', (string) ini_get('disable_functions'))), true)) { return false; }
+        @exec(escapeshellarg(self::php()).' '.escapeshellarg(BASE_PATH.'/bin/erp-sync.php').' '.implode(' ', array_map('escapeshellarg', $args)).' > /dev/null 2>&1 &');
+
+        return true;
+    }
+
+    /**
+     * Without cron nothing would ever run the schedule. Every accounting page (and the live ERP page) calls this: when the scheduler has not
+     * looked for ~a minute, it starts a background tick. With cron running the file is always fresh, so this does nothing.
+     */
+    public static function kick(): void
+    {
+        $b = self::heartbeat();
+        if ($b && time() - $b['at'] < 55) { return; }
+        if (ErpSettings::schedule('enabled') !== '1' || ! ErpSettings::configured() || ! self::inWindow()) { return; }
+        self::beat('website');                                   // claim it first so parallel page loads do not all start one
+        self::spawn(['tick', 'website']);
+    }
+
+    /** Called every minute. @return string[] groups that ran */
+    public static function tick(string $by = 'cron'): array
+    {
+        self::beat($by);
         if (ErpSettings::schedule('enabled') !== '1' || ! ErpSettings::configured() || ! self::inWindow()) {
             return [];
         }
@@ -63,7 +109,7 @@ final class Schedule
         }
         DB::exec('UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ?, fetched = ?, saved = ? WHERE id = ?',
             [$failed ? 'failed' : 'ok', $failed ? mb_substr(implode(' | ', $failed), 0, 1500) : count($keys).' entities, '.$mode, $fetched, $saved, $id], ErpSettings::CONN);
-        Log::info('sync', "group {$group}: run #{$id} ".($failed ? 'FAILED' : 'finished'), ['fetched' => $fetched, 'saved' => $saved, 'failed' => $failed]);
+        ($failed ? [Log::class, 'error'] : [Log::class, 'info'])('sync', "group {$group}: run #{$id} ".($failed ? 'FAILED' : 'finished'), ['fetched' => $fetched, 'saved' => $saved, 'failed' => $failed]);
         flock($lock, LOCK_UN);
 
         return $id;
