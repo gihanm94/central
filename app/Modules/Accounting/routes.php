@@ -7,6 +7,7 @@ use App\Modules\Accounting\Controllers\CustomerController;
 use App\Modules\Accounting\Controllers\ErpController;
 use App\Modules\Accounting\Controllers\InetController;
 use App\Modules\Accounting\Controllers\InvoiceController;
+use App\Modules\Accounting\Controllers\LogController;
 use App\Modules\Accounting\Controllers\OrderController;
 use App\Modules\Accounting\Controllers\ProductController;
 
@@ -39,3 +40,9 @@ $r->get('/accounting/inet/{id}/{doc}/file/{kind}', [InetController::class, 'file
 // Our company (seller on the e-tax documents) — administrators
 $r->get('/accounting/company', [CompanyController::class, 'edit']);
 $r->post('/accounting/company', [CompanyController::class, 'save']);
+
+// Logs (files, not the database) — administrators; /tail is also used by the Generate dialog
+$r->get('/accounting/logs', [LogController::class, 'index']);
+$r->get('/accounting/logs/tail', [LogController::class, 'tail']);
+$r->get('/accounting/logs/download', [LogController::class, 'download']);
+$r->post('/accounting/logs/clear', [LogController::class, 'clear']);

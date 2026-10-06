@@ -70,6 +70,7 @@ try {
     echo View::render('errors/http', ['status' => $e->status, 'message' => $e->getMessage(), 'title' => 'Error '.$e->status]);
 } catch (Throwable $e) {
     error_log((string) $e);
+    if (str_starts_with(Request::path(), '/accounting')) { \App\Modules\Accounting\Support\Log::exception('app', $e, 'Uncaught on '.Request::method().' '.Request::path()); }
     http_response_code(500);
     if (config('app.env') === 'local') {
         echo '<pre style="padding:2rem;white-space:pre-wrap;font:13px/1.5 monospace">'.e(get_class($e).': '.$e->getMessage()."\n\n".$e->getTraceAsString()).'</pre>';

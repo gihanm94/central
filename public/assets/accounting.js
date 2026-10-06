@@ -71,16 +71,27 @@
         }
         summary();
     });
+    var live = $('[data-inet-live]', dlg), logBox = $('[data-inet-log]', dlg), liveState = $('[data-inet-livestate]', dlg), stream = null;
+    dlg.addEventListener('close', function () { if (stream) { stream.stop(); stream = null; } live.hidden = true; });
     go.addEventListener('click', function () {
         go.disabled = true; err.hidden = true;
+        var run = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
         var items = Object.keys(picked).map(function (no) { return { invoice: parseInt(no, 10), auto_pdf: picked[no].auto }; });
-        fetch(url.replace(/candidates$/, 'generate'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf() }, body: JSON.stringify({ items: items }) })
+        if (window.AcctLog) {                      // follow what the server is doing, line by line
+            live.hidden = false; logBox.innerHTML = ''; liveState.textContent = '…';
+            stream = AcctLog.stream(logBox, { url: url.replace(/inet\/candidates$/, 'logs/tail'), run: run, every: 700, tail: 500 });
+        }
+        fetch(url.replace(/candidates$/, 'generate'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf() }, body: JSON.stringify({ items: items, run: run }) })
             .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Failed'); return d; }); })
             .then(function (d) {
-                if (d.errors && d.errors.length) { err.hidden = false; err.textContent = d.errors.join(' · '); dlg.addEventListener('close', function () { location.reload(); }, { once: true }); go.disabled = true; return; }
-                location.reload();
+                if (stream) { stream.now(); setTimeout(function () { if (stream) stream.stop(); }, 1200); }
+                liveState.textContent = d.made + ' ✓' + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' ✗' : '');
+                dlg.addEventListener('close', function () { location.reload(); }, { once: true });
+                if (d.errors && d.errors.length) { err.hidden = false; err.textContent = d.errors.join(' · '); }
+                else { setTimeout(function () { if (dlg.open) location.reload(); }, 2500); }
+                go.disabled = true;
             })
-            .catch(function (x) { err.hidden = false; err.textContent = x.message; go.disabled = false; });
+            .catch(function (x) { if (stream) { stream.now(); } err.hidden = false; err.textContent = x.message; go.disabled = false; });
     });
     tabs();
 })();

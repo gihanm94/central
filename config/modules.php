@@ -71,6 +71,7 @@ return [
             ['heading' => 'Setup'],
             ['label' => 'Company',        'url' => '/accounting/company', 'icon' => 'building', 'admin_only' => true],
             ['label' => 'ERP connection', 'url' => '/accounting/erp', 'icon' => 'cog', 'admin_only' => true],
+            ['label' => 'Logs',           'url' => '/accounting/logs', 'icon' => 'tasks', 'admin_only' => true],
         ],
     ],
     'inventory'  => ['name' => 'Inventory',  'icon' => 'box',       'home' => '/inventory',  'enabled' => false, 'db' => 'inventory',  'dashboards' => [], 'menu' => []],

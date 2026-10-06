@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Accounting\Inet;
 
 use App\Core\Support\DB;
+use App\Modules\Accounting\Support\Log;
 use App\Modules\Accounting\Erp\ErpSettings;
 
 /**
@@ -27,6 +28,7 @@ final class InetClient
     /** @return array{status: int, body: string} */
     public static function post(string $url, array $payload): array
     {
+        $t0 = microtime(true);
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_CONNECTTIMEOUT => 20,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json', 'Authorization: '.self::auth()]]);
@@ -34,7 +36,10 @@ final class InetClient
         $err  = $body === false ? curl_error($ch) : null;
         $st   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        if ($err !== null) { throw new \RuntimeException('INET: '.$err); }
+        $ctx = ['status' => $st, 'ms' => (int) round((microtime(true) - $t0) * 1000), 'fields' => array_keys($payload), 'answer' => mb_substr(trim((string) $body), 0, 600)];
+        if ($err !== null) { Log::error('inet', 'POST '.$url.' failed: '.$err, $ctx); throw new \RuntimeException('INET: '.$err); }
+        if ($st < 200 || $st >= 300) { Log::error('inet', 'POST '.$url.' → HTTP '.$st, $ctx); }
+        else { Log::info('inet', 'POST '.$url.' → HTTP '.$st, $ctx); }
         if ($st < 200 || $st >= 300) { throw new \RuntimeException('INET answered HTTP '.$st.': '.mb_substr(trim(strip_tags((string) $body)), 0, 300)); }
 
         return ['status' => $st, 'body' => (string) $body];
@@ -55,6 +60,7 @@ final class InetClient
         $b = curl_exec($ch);
         $st = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        ($b === false || $st >= 400 ? [Log::class, 'error'] : [Log::class, 'info'])('inet', 'GET signed PDF → HTTP '.$st, ['bytes' => is_string($b) ? strlen($b) : 0, 'url' => preg_replace('/\?.*/', '?…', $url)]);
         if ($b === false || $st >= 400 || $b === '') { throw new \RuntimeException('The signed PDF could not be downloaded (HTTP '.$st.').'); }
 
         return (string) $b;
@@ -66,6 +72,7 @@ final class InetClient
     public static function send(array $row, string $type, ?string $pdfBytes): string
     {
         $c    = Generator::col($type);
+        Log::info('inet', $row['no_invoice'].' '.$type.': send start', ['upload' => $pdfBytes !== null]);
         $text = (string) ($row["text_{$c}"] ?? '');
         if ($text === '') { throw new \RuntimeException(__('Generate the document first.')); }
         $pdfBytes ??= Generator::read($row["pdf_{$c}"] ?? null);
@@ -100,6 +107,7 @@ final class InetClient
             return __('INET is still processing it. Press Inet in a minute to fetch the signed PDF.');
         }
         $msg = '['.($r['errorcode'] ?? '?').'] '.($r['errormessage'] ?? 'Unknown error');
+        Log::error('inet', $inv.' '.$type.': INET refused it — '.$msg);
         self::mark($id, $c, ['msg' => $msg]);
         throw new \RuntimeException($msg);
     }
@@ -108,6 +116,7 @@ final class InetClient
     public static function fetch(array $row, string $type): string
     {
         $c = Generator::col($type);
+        Log::info('inet', $row['no_invoice'].' '.$type.': fetch start');
         $company = Company::require();
         $id = (int) $row['id'];
         $inv = (int) $row['no_invoice'];

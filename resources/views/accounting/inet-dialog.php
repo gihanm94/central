@@ -28,6 +28,10 @@
             <p data-inet-empty hidden class="px-5 py-10 text-sm text-steel"><?= e(__('Nothing to generate. Everything from the ERP copy is already here.')) ?></p>
         </div>
         <p data-inet-error hidden class="error mt-2"></p>
+        <div data-inet-live hidden class="mt-3">
+            <div class="mb-1 flex items-center justify-between text-xs text-steel"><span class="font-medium text-graphite-800"><?= e(__('Live log')) ?></span><span data-inet-livestate></span></div>
+            <div data-inet-log class="h-44 overflow-auto rounded-lg bg-graphite-900 p-3 font-mono text-xs leading-5 text-white"></div>
+        </div>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <div class="flex items-center gap-2">

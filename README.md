@@ -171,6 +171,10 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 - The INET URLs and key are entered on the ERP connection page, never in the repo.
 - Credit notes read the referenced invoice and amounts from the order comments (Thai or English wording).
 
+## Accounting logs (`/accounting/logs`, administrators)
+
+Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, one JSON line per event, kept 30 days. The page follows the file live (about every 1.5 s) with filters for level, channel (`erp` API calls, `sync`, `inet` generate/send/fetch, `pdf`, `app` uncaught errors) and text search; each line opens to show URL, HTTP status, time, exception and where it happened. Secrets (keys, passwords, session ids) are masked. The **Generate** dialog shows its own run's lines live while it works. In code: `App\Modules\Accounting\Support\Log::info('inet', 'message', [...])`.
+
 ## E-mail
 
 The installer defaults to **log** mode: every e-mail is saved as an HTML file in `storage/mail/`

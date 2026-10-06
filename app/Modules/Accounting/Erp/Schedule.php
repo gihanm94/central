@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Accounting\Erp;
 
 use App\Core\Support\DB;
+use App\Modules\Accounting\Support\Log;
 
 /**
  * The scheduler: bin/erp-sync.php tick (cron, every minute) decides what is due.
@@ -45,12 +46,15 @@ final class Schedule
     {
         $lock = fopen(BASE_PATH.'/storage/cache/erp-'.$group.'.lock', 'c');
         if (! $lock || ! flock($lock, LOCK_EX | LOCK_NB)) {
+            Log::warn('sync', "group {$group}: already running, skipped", ['trigger' => $trigger]);
+
             return null;
         }
         $keys = array_keys(array_filter(Syncer::entities(), fn ($d) => $group === 'all' || $d['group'] === $group));
         $mode = $forceMode ?? (in_array($group, ['hot', 'cold'], true) ? 'latest' : 'all');
         $fetched = $saved = 0;
         $id   = (int) DB::insert('erp_sync_runs', ['kind' => $group, 'source' => $trigger, 'started_by' => $by], ErpSettings::CONN);
+        Log::info('sync', "group {$group}: run #{$id} start", ['trigger' => $trigger, 'mode' => $mode, 'entities' => count($keys), 'by' => $by]);
         $failed = [];
         $syncer = new Syncer();
         foreach ($keys as $k) {
@@ -59,6 +63,7 @@ final class Schedule
         }
         DB::exec('UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ?, fetched = ?, saved = ? WHERE id = ?',
             [$failed ? 'failed' : 'ok', $failed ? mb_substr(implode(' | ', $failed), 0, 1500) : count($keys).' entities, '.$mode, $fetched, $saved, $id], ErpSettings::CONN);
+        Log::info('sync', "group {$group}: run #{$id} ".($failed ? 'FAILED' : 'finished'), ['fetched' => $fetched, 'saved' => $saved, 'failed' => $failed]);
         flock($lock, LOCK_UN);
 
         return $id;

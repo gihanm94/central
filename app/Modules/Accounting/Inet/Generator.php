@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Accounting\Inet;
 
+use App\Modules\Accounting\Support\Log;
 use App\Core\Support\DB;
 use App\Modules\Accounting\Erp\ErpSettings;
 use App\Modules\Accounting\Support\InetBuilder;
@@ -27,11 +28,13 @@ final class Generator
     /** @return array{docs: string[], errors: array<string, string>} */
     public static function generate(int $invoiceNumber, bool $autoPdf, int $by): array
     {
+        Log::info('inet', "{$invoiceNumber}: generate start", ['auto_pdf' => $autoPdf, 'by' => $by]);
         $company = Company::require();
         ['doc' => $doc, 'lines' => $lines] = DocumentData::load($invoiceNumber);
         InetBuilder::save($invoiceNumber, $autoPdf, $by);                         // header row (customer, seller, amounts …)
         $credit = $doc['is_credit'] ? DocumentData::creditInfo($doc) : null;
         $types  = $doc['is_credit'] ? ['81'] : ['388', 'T01'];
+        Log::info('inet', "{$invoiceNumber}: ".($doc['is_credit'] ? 'credit note' : 'invoice').' read from the ERP copy', ['lines' => count($lines), 'documents' => $types, 'reference' => $credit['reference'] ?? null]);
         $out    = ['docs' => [], 'errors' => []];
         foreach ($types as $type) {
             $c = self::col($type);
@@ -52,8 +55,10 @@ final class Generator
                 DB::exec('UPDATE inets SET amount = ?, tax_amount = ?, total_amount = ?, currency_code = ? WHERE no_invoice = ? AND is_credit = ?',
                     [$built['totals']['basis'], $built['totals']['tax'], $built['totals']['grand'], 'THB', $invoiceNumber, $doc['is_credit'] ? 'true' : 'false'], self::C);
                 $out['docs'][] = $type;
+                Log::info('inet', "{$invoiceNumber} {$type}: JSON saved".($pdfPath ? ' + PDF' : ''), ['total' => $built['totals']['grand'], 'tax' => $built['totals']['tax'], 'pdf' => $pdfPath]);
             } catch (\Throwable $e) {
                 $out['errors'][$type] = $e->getMessage();
+                Log::exception('inet', $e, "{$invoiceNumber} {$type} not generated");
                 DB::exec("UPDATE inets SET message_{$c} = ?, modify_{$c}_by = ?, updated_at = now() WHERE no_invoice = ? AND is_credit = ?",
                     [mb_substr($e->getMessage(), 0, 1000), $by, $invoiceNumber, $doc['is_credit'] ? 'true' : 'false'], self::C);
             }

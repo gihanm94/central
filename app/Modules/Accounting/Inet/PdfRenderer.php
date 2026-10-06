@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Accounting\Inet;
 
+use App\Modules\Accounting\Support\Log;
 use App\Core\Support\View;
 use App\Modules\Accounting\Erp\ErpSettings;
 
@@ -68,13 +69,18 @@ final class PdfRenderer
         $cmd = escapeshellarg($bin).' --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --no-pdf-header-footer --user-data-dir='.escapeshellarg("{$dir}/profile-{$id}")
             .' --print-to-pdf='.escapeshellarg($pdfFile).' '.escapeshellarg('file://'.$htmlFile).' 2>&1';
         $out = [];
+        $t0 = microtime(true);
         exec($cmd, $out, $code);
         $pdf = is_file($pdfFile) ? (string) file_get_contents($pdfFile) : '';
         @unlink($htmlFile); @unlink($pdfFile);
         foreach (glob("{$dir}/profile-{$id}") ?: [] as $p) { self::rrmdir($p); }
+        $ms = (int) round((microtime(true) - $t0) * 1000);
         if (strlen($pdf) < 500 || ! str_starts_with($pdf, '%PDF')) {
+            Log::error('pdf', 'Chromium did not make a PDF (exit '.$code.')', ['ms' => $ms, 'binary' => $bin, 'output' => array_slice($out, -6)]);
             throw new \RuntimeException(__('The PDF could not be made.').' '.mb_substr(implode(' ', array_slice($out, -2)), 0, 200));
         }
+
+        Log::info('pdf', 'PDF rendered', ['ms' => $ms, 'bytes' => strlen($pdf)]);
 
         return $pdf;
     }

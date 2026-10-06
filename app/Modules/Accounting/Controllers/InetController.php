@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Accounting\Controllers;
 
+use App\Modules\Accounting\Support\Log;
 use App\Core\Support\Activity;
 use App\Core\Support\DB;
 use App\Core\Support\Request;
@@ -167,19 +168,26 @@ class InetController extends ErpListController
             json_response(['message' => __('Choose between 1 and 200 invoices.')], 422);
         }
         @set_time_limit(600);
+        Log::run((string) Request::input('run', ''));
+        $by = $this->user()->id;
+        session_write_close();                      // the live log is read by other requests meanwhile; do not hold the session lock
+        Log::info('inet', 'Generate: '.count($items).' invoice(s) chosen', ['by' => $by]);
         $made = 0;
         $errors = [];
         foreach ($items as $it) {
             $no = (int) ($it['invoice'] ?? 0);
             if ($no <= 0) { continue; }
             try {
-                $r = Generator::generate($no, ! empty($it['auto_pdf']), $this->user()->id);
+                $r = Generator::generate($no, ! empty($it['auto_pdf']), $by);
                 if ($r['docs']) { $made++; }
                 foreach ($r['errors'] as $type => $m) { $errors[] = $no.' ('.$type.'): '.$m; }
             } catch (\Throwable $e) {
+                Log::exception('inet', $e, $no.' generate failed');
                 $errors[] = $no.': '.$e->getMessage();
             }
         }
+        ($errors ? [Log::class, 'warn'] : [Log::class, 'info'])('inet', 'Generate finished: '.$made.' made, '.count($errors).' with problems', ['done' => true]);
+        if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
         if ($made) {
             Activity::log('created', 'inet', null, (string) $made, ['Generated :n e-tax invoice(s)', ['n' => $made]], [], null, null, false, 'accounting');
         }
@@ -239,6 +247,7 @@ class InetController extends ErpListController
         try {
             Session::flash('success', InetClient::send($row, strtoupper($doc), $pdf));
         } catch (\Throwable $e) {
+            Log::exception('inet', $e, $row['no_invoice'].' '.$doc.' send failed');
             Session::flash('error', $e->getMessage());
         }
         $this->backTo($row);
@@ -253,6 +262,7 @@ class InetController extends ErpListController
         try {
             Session::flash('success', InetClient::fetch($row, strtoupper($doc)));
         } catch (\Throwable $e) {
+            Log::exception('inet', $e, $row['no_invoice'].' '.$doc.' fetch failed');
             Session::flash('error', $e->getMessage());
         }
         $this->backTo($row);

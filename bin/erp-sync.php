@@ -24,6 +24,7 @@ try {
     switch ($cmd) {
         case 'tick':
             $ran = Schedule::tick();
+            if ($ran) { \App\Modules\Accounting\Support\Log::info('sync', 'scheduler tick ran: '.implode(', ', $ran)); }
             echo date('c').' '.($ran ? 'ran: '.implode(', ', $ran) : 'nothing due')."\n";
             break;
         case 'hot': case 'cold': case 'full': case 'all':
@@ -44,6 +45,7 @@ try {
             exit(1);
     }
 } catch (Throwable $e) {
+    \App\Modules\Accounting\Support\Log::exception('sync', $e, 'bin/erp-sync '.$cmd.' failed');
     fwrite(STDERR, date('c').' '.$e->getMessage()."\n");
     exit(1);
 }

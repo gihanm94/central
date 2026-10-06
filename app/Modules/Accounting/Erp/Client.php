@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Accounting\Erp;
 
 use App\Core\Support\DB;
+use App\Modules\Accounting\Support\Log;
 
 /**
  * Talks to the ERP: logs in once, keeps the session (id + cookies) in erp_tokens for an hour, asks again on a 401,
@@ -121,6 +122,7 @@ final class Client
             $headers[] = 'Cookie: '.implode('; ', array_map(fn ($k, $v) => $k.'='.$v, array_keys($this->cookies), $this->cookies));
         }
         $setCookies = [];
+        $t0 = microtime(true);
         $ch = curl_init(ErpSettings::baseUrl().$path);
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $headers, CURLOPT_ENCODING => '',
@@ -139,6 +141,12 @@ final class Client
         $err = $out === false ? curl_error($ch) : null;
         $st  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        $ms = (int) round((microtime(true) - $t0) * 1000);
+        $shown = preg_replace('/^(\/[^?]*).*/', '$1', $path).(str_contains($path, '?') ? '?'.rawurldecode(substr($path, strpos($path, '?') + 1)) : '');
+        $ctx = ['status' => $st, 'ms' => $ms, 'bytes' => $out === false ? 0 : strlen((string) $out)];
+        if ($err !== null) { Log::error('erp', $method.' '.$shown.' failed: '.$err, $ctx); }
+        elseif ($st >= 400) { Log::error('erp', $method.' '.$shown.' → HTTP '.$st, $ctx + ['body' => mb_substr(trim(strip_tags((string) $out)), 0, 400)]); }
+        else { Log::info('erp', $method.' '.$shown.' → HTTP '.$st, $ctx); }
         if ($setCookies) {                 // a new answer replaces the old cookies, like the old client did
             $this->cookies = [];
             foreach ($setCookies as $raw) {

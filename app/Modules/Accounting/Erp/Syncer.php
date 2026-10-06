@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Accounting\Erp;
 
 use App\Core\Support\DB;
+use App\Modules\Accounting\Support\Log;
 
 /**
  * Copies one ERP entity (see config/erp.php) into its local table.
@@ -27,6 +28,7 @@ final class Syncer
         DB::exec("INSERT INTO erp_sync_state (entity, status, mode, last_run_at, error) VALUES (?, 'running', ?, now(), NULL)
                   ON CONFLICT (entity) DO UPDATE SET status = 'running', mode = EXCLUDED.mode, last_run_at = now(), error = NULL", [$key, $mode], ErpSettings::CONN);
         $fetched = $saved = 0;
+        Log::info('sync', "{$key}: start ({$mode})", ['api' => $def['api'], 'filter' => $filter, 'id' => $id]);
         try {
             $limit = $mode === 'latest' ? ($size ?? (int) $def['size']) : ($mode === 'one' ? 1 : null);
             $skip  = 0;
@@ -48,7 +50,9 @@ final class Syncer
             }
             DB::exec("UPDATE erp_sync_state SET status = 'ok', last_ok_at = now(), fetched = ?, saved = ?, duration_ms = ?, error = NULL WHERE entity = ?",
                 [$fetched, $saved, (int) round((microtime(true) - $start) * 1000), $key], ErpSettings::CONN);
+            Log::info('sync', "{$key}: done — fetched {$fetched}, saved {$saved}", ['ms' => (int) round((microtime(true) - $start) * 1000)]);
         } catch (\Throwable $e) {
+            Log::exception('sync', $e, "{$key} failed", ['fetched' => $fetched, 'saved' => $saved, 'mode' => $mode]);
             DB::exec("UPDATE erp_sync_state SET status = 'failed', fetched = ?, saved = ?, duration_ms = ?, error = ? WHERE entity = ?",
                 [$fetched, $saved, (int) round((microtime(true) - $start) * 1000), mb_substr($e->getMessage(), 0, 500), $key], ErpSettings::CONN);
             throw $e;
@@ -79,7 +83,7 @@ final class Syncer
         }
         // parents first, so rows that point at each other find what they need
         foreach ($kids as $entity => $rows) {
-            try { Store::upsert($entity, $rows); } catch (\Throwable) { /* one child type failing must not stop the rest */ }
+            try { Store::upsert($entity, $rows); } catch (\Throwable $e) { Log::exception('sync', $e, "child {$entity} not saved", ['rows' => count($rows)]); }
         }
 
         return Store::upsert($def['entity'], $main);
