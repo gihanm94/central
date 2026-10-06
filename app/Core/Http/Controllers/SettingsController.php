@@ -6,6 +6,7 @@ namespace App\Core\Http\Controllers;
 use App\Core\Support\Activity;
 use App\Core\Support\I18n;
 use App\Core\Support\Lark;
+use App\Core\Support\DB;
 use App\Core\Support\Mailer;
 use App\Core\Support\Notifier;
 use App\Core\Support\Request;
@@ -135,6 +136,15 @@ class SettingsController extends Controller
         back('success', __('Notification settings saved.'));
     }
 
+    /** The last e-mails the system tried to send, and whether each went out. */
+    public function mailLog(): string
+    {
+        $this->authorize('settings', 'view');
+        $rows = DB::select('SELECT * FROM mail_log ORDER BY id DESC LIMIT 100');
+
+        return view('settings/mail-log', ['title' => __('Mail log'), 'rows' => $rows, 'driver' => config('mail.driver'), 'host' => config('mail.host'), 'from' => config('mail.from_address')]);
+    }
+
     public function testMail(): never
     {
         $this->authorize('settings', 'edit');
@@ -142,7 +152,7 @@ class SettingsController extends Controller
         $ok = Mailer::notify($u->email, $u->name, __('Test e-mail'), [__('If you can read this, e-mail delivery works.'), __('Driver').': <strong>'.e(config('mail.driver')).'</strong>']);
         back($ok ? 'success' : 'error', $ok
             ? (config('mail.driver') === 'log' ? __('Test e-mail written to storage/mail (driver is "log").') : __('Test e-mail sent to :email.', ['email' => $u->email]))
-            : __('Sending failed. Check the mail settings in config/config.php and storage/logs/php-error.log.'));
+            : __('Sending failed. See Company settings → Mail log for the reason.'));
     }
 
     public function testLark(): never

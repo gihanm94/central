@@ -105,6 +105,7 @@ $router->group(['auth'], function (Router $r) {
     $r->get('/settings', [SettingsController::class, 'edit']);
     $r->post('/settings', [SettingsController::class, 'update']);
     $r->post('/settings/test-mail', [SettingsController::class, 'testMail']);
+    $r->get('/settings/mail-log', [SettingsController::class, 'mailLog']);
     $r->get('/settings/notifications', [SettingsController::class, 'notifications']);
     $r->post('/settings/notifications', [SettingsController::class, 'saveNotifications']);
     $r->post('/settings/test-lark', [SettingsController::class, 'testLark']);

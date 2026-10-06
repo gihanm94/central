@@ -12,14 +12,31 @@ final class Mailer
 {
     public static function send(string $to, string $toName, string $subject, string $html): bool
     {
+        $error = null;
         try {
-            return config('mail.driver') === 'smtp'
+            $ok = config('mail.driver') === 'smtp'
                 ? self::smtp($to, $toName, $subject, $html)
                 : self::log($to, $subject, $html);
         } catch (\Throwable $e) {
-            error_log('[mail] '.$e->getMessage());
+            $ok    = false;
+            $error = $e->getMessage();
+            error_log('[mail] '.$error);
+        }
+        self::record($to, $subject, $ok, $error);
 
-            return false;
+        return $ok;
+    }
+
+    /** Remember the outcome so Company settings → Mail log can show it. Never lets logging break the request. */
+    private static function record(string $to, string $subject, bool $ok, ?string $error): void
+    {
+        try {
+            DB::insert('mail_log', ['to_email' => mb_substr($to, 0, 190), 'subject' => mb_substr($subject, 0, 250), 'driver' => (string) config('mail.driver', 'log'),
+                'status' => $ok ? 'sent' : 'failed', 'error' => $ok ? null : mb_substr((string) ($error ?: 'Unknown error'), 0, 1000)], 'core', '');
+            if (random_int(1, 50) === 1) {
+                DB::exec('DELETE FROM mail_log WHERE id < (SELECT COALESCE(max(id), 0) - 1000 FROM mail_log)');
+            }
+        } catch (\Throwable) {
         }
     }
 
@@ -50,9 +67,11 @@ final class Mailer
         $c    = config('mail');
         $enc  = $c['encryption'] ?? 'tls';
         $host = ($enc === 'ssl' ? 'ssl://' : 'tcp://').$c['host'].':'.$c['port'];
-        $sock = stream_socket_client($host, $errno, $errstr, 10);
+        $verify = (bool) ($c['verify_tls'] ?? true);
+        $ctx  = stream_context_create(['ssl' => ['verify_peer' => $verify, 'verify_peer_name' => $verify, 'SNI_enabled' => true, 'peer_name' => $c['host']]]);
+        $sock = @stream_socket_client($host, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $ctx);
         if (! $sock) {
-            throw new \RuntimeException("SMTP connect failed: {$errstr}");
+            throw new \RuntimeException("SMTP connect failed ({$c['host']}:{$c['port']}): {$errstr}");
         }
         stream_set_timeout($sock, 10);
 
@@ -82,7 +101,9 @@ final class Mailer
         $cmd($ehlo, [250]);
         if ($enc === 'tls') {
             $cmd('STARTTLS', [220]);
-            stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT);
+            if (! @stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT)) {
+                throw new \RuntimeException('TLS handshake with the mail server failed (certificate not trusted? set mail.verify_tls to false in config.php only if you must)');
+            }
             $cmd($ehlo, [250]);
         }
         if (! empty($c['username'])) {
