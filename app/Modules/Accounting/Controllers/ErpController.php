@@ -89,6 +89,13 @@ class ErpController extends Controller
     {
         $this->gate();
         $changed = 0;
+        if (Request::input('overwrite_form')) {                                   // one checkbox per ERP table: update rows that already exist
+            $on = (array) Request::input('overwrite', []);
+            foreach (array_keys(Syncer::entities()) as $k) {
+                $v = isset($on[$k]) ? '1' : '0';
+                if (ErpSettings::overwrite($k) !== ($v === '1')) { ErpSettings::put('overwrite.'.$k, $v, $this->user()->id); $changed++; }
+            }
+        }
         foreach ((array) Request::input('api', []) as $key => $path) {
             if (! isset(config('erp.endpoints')[$key])) { continue; }
             $path = trim((string) $path);

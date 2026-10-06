@@ -8,6 +8,7 @@ use App\Modules\CRM\Support\Ui;
 /** Customers copied from the ERP. */
 class CustomerController extends ErpListController
 {
+    protected ?string $syncKey = 'customer';
     protected string $resource = 'accounting_customers';
     protected string $table = 'erp_customers';
     protected string $type = 'customer';

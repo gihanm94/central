@@ -21,6 +21,36 @@ abstract class ErpListController extends ResourceController
     /** column key => [label, type] for the detail page */
     abstract protected function detail(): array;
 
+    /** ERP table key (config/erp.php) this list can refresh one record of, or null */
+    protected ?string $syncKey = null;
+
+    protected function rowLinks(array $row): array
+    {
+        return $this->syncKey && $this->user()->isAdmin()
+            ? [['url' => $this->base.'/'.$row['id'].'/sync', 'label' => __('Sync from ERP'), 'icon' => 'bolt', 'post' => true]] : [];
+    }
+
+    /** Read this one record from the ERP again and update it (even when the table's Overwrite is off). */
+    public function syncRow(int $id): never
+    {
+        $this->user()->isAdmin() || abort(403);
+        $this->syncKey || abort(404);
+        try {
+            $s = new \App\Modules\Accounting\Erp\Syncer();
+            $r = $this->syncOne($s, $id);
+            \App\Core\Support\Session::flash('success', __('Read from the ERP: :n row(s) updated.', ['n' => $r]));
+        } catch (\Throwable $e) {
+            \App\Modules\Accounting\Support\Log::exception('sync', $e, $this->syncKey.' #'.$id.' sync failed');
+            \App\Core\Support\Session::flash('error', $e->getMessage());
+        }
+        redirect($this->base);
+    }
+
+    protected function syncOne(\App\Modules\Accounting\Erp\Syncer $s, int $id): int
+    {
+        return $s->run($this->syncKey, 'one', (string) $id, null, null, true)['saved'];
+    }
+
     protected function scopeSql(): array { return ['sql' => 'TRUE', 'params' => []]; }
 
     protected function canModify(array $row, string $action): bool { return false; }

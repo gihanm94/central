@@ -8,6 +8,7 @@ use App\Modules\CRM\Support\Ui;
 /** Invoices (one row per invoice number, added up from the ERP invoice log). */
 class InvoiceController extends ErpListController
 {
+    protected ?string $syncKey = 'invoice';
     protected string $resource = 'accounting_invoices';
     protected string $table = 'erp_invoices';
     protected string $type = 'invoice';
@@ -56,5 +57,11 @@ class InvoiceController extends ErpListController
             'amount'   => ['label' => __('Amount'), 'sort' => 't.amount', 'render' => fn ($r) => self::money($r['amount'], $r['currency_code'] ?: null)],
             'type'     => ['label' => __('Type'), 'render' => fn ($r) => filter_var($r['is_credit'], FILTER_VALIDATE_BOOL) ? Ui::badge(__('Credit note'), 'warn') : Ui::badge(__('Invoice'), 'neutral')],
         ];
+    }
+
+    /** the id of this list is the invoice number */
+    protected function syncOne(\App\Modules\Accounting\Erp\Syncer $s, int $id): int
+    {
+        return $s->run('invoice', 'all', null, null, 'InvoiceNumber eq '.$id, true)['saved'];
     }
 }

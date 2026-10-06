@@ -19,9 +19,9 @@ final class PdfRenderer
         '81'  => ['bg' => '#FFDBB7', 'head' => '#5c3a1a', 'text' => '#1a1a1a', 'border' => '#d9a86c'],
     ];
     private const TITLES = [
-        '388' => [['ใบกำกับภาษี / ใบส่งของ', 'TAX INVOICE / DELIVERY NOTE', 'เลขที่ใบกำกับภาษี', 'INV.NO.']],
-        'T01' => [['ใบเสร็จรับเงิน / ใบกำกับภาษี', 'RECEIPT / TAX INVOICE', 'เลขที่ใบเสร็จรับเงิน', 'REC.NO.']],
-        '81'  => [['ใบลดหนี้', 'CREDIT NOTE', 'เลขที่ใบลดหนี้', 'CN.NO.']],
+        '388' => [['ใบกำกับภาษี', 'TAX INVOICE', 'เลขที่ใบกำกับภาษี', 'TAX INV. NO.']],
+        'T01' => [['ใบเสร็จรับเงิน', 'RECEIPT', 'เลขที่ใบเสร็จรับเงิน', 'RECEIPT NO.']],
+        '81'  => [['ใบลดหนี้', 'CREDIT NOTE', 'เลขที่ใบลดหนี้', 'CN NO.']],
     ];
 
     public static function chromium(): ?string
@@ -46,17 +46,38 @@ final class PdfRenderer
     public static function html(array $doc, array $lines, array $company, string $docType, bool $thai, array $totals, ?array $credit = null): string
     {
         $vat = JsonBuilder::vat($doc);
+        $fxd = (float) ($doc['exchange_rate'] ?: 1.0);
         $items = [];
-        $no = 0;
-        foreach ($lines as $l) {
-            $fx   = $l['exchange_rate'] ?: 1.0;
-            $conv = $l['conversion_factor'];
-            $qty  = $conv != 0.0 ? Money::r($l['invoiced_quantity'] / $conv) : $l['invoiced_quantity'];
-            $gross = $l['price'] * $qty;
-            $amount = abs(Money::r(Money::r($gross - Money::r($gross * $l['discount'] / 100)) * $fx));
-            $items[] = ['no' => ($no += 10), 'part_number' => $l['part_number'], 'part_name' => $l['part_name'], 'delivery_date' => self::dmy($l['delivery_date']), 'qty' => abs($l['ordered_quantity']),
-                'unit' => $l['unit_code'], 'price' => abs($l['price'] * $fx), 'discount' => abs($l['discount']), 'amount' => $amount];
+        $sum = 0.0;
+        $rows = DocumentData::pdfRows($doc);                                  // the order's rows, like the old system
+        if ($rows) {
+            $credit81 = $docType === '81';
+            foreach ($rows as $r) {
+                $conv  = $r['conversion_factor'];
+                $q     = $conv != 0.0 ? Money::r($r['qty'] / $conv) : $r['qty'];
+                $gross = $r['price'] * $q;
+                $amt   = Money::r(Money::r($gross - Money::r($gross * $r['discount'] / 100)) * $fxd);
+                $sum  += abs($amt);
+                $items[] = ['no' => $r['no'], 'part_number' => $r['part_number'], 'part_name' => $r['part_name'], 'batch' => $r['batch'], 'sub' => $r['sub'], 'delivery_date' => self::dmy($r['delivery_date']),
+                    'qty' => abs($r['qty']), 'unit' => $r['unit'], 'price' => abs($r['price'] * $fxd), 'discount' => abs($r['discount']), 'amount' => abs($amt)];
+            }
+            $sum = Money::r($sum);
+            $tax = Money::r($sum * Money::r($vat['rate'] / 100, 4));
+            $totals = ['basis' => $sum, 'tax' => $tax, 'grand' => Money::r($sum + $tax)] + $totals;
+            $totals['basis'] = $sum; $totals['tax'] = $tax; $totals['grand'] = Money::r($sum + $tax);
+        } else {                                                              // no order rows in the copy: the invoice lines
+            $no = 0;
+            foreach ($lines as $l) {
+                $fx   = $l['exchange_rate'] ?: 1.0;
+                $conv = $l['conversion_factor'];
+                $qty  = $conv != 0.0 ? Money::r($l['invoiced_quantity'] / $conv) : $l['invoiced_quantity'];
+                $gross = $l['price'] * $qty;
+                $amount = abs(Money::r(Money::r($gross - Money::r($gross * $l['discount'] / 100)) * $fx));
+                $items[] = ['no' => ($no += 10), 'part_number' => $l['part_number'], 'part_name' => $l['part_name'], 'batch' => '', 'sub' => [], 'delivery_date' => self::dmy($l['delivery_date']), 'qty' => abs($l['ordered_quantity']),
+                    'unit' => $l['unit_code'], 'price' => abs($l['price'] * $fx), 'discount' => abs($l['discount']), 'amount' => $amount];
+            }
         }
+        $note = match ($docType) { 'T01' => $thai ? $company['receipt_note_th'] : $company['receipt_note_en'], '81' => $thai ? $company['credit_note_th'] : $company['credit_note_en'], default => '' };
         $title = self::TITLES[$docType][0];
         $number = (string) $doc['invoice_no'];
         $refDate = $credit && ! empty($credit['reference_date']) ? date('d/m/y', strtotime((string) $credit['reference_date'])) : '';
@@ -65,7 +86,7 @@ final class PdfRenderer
             'd' => $doc, 'company' => $company, 'items' => $items, 't' => $totals, 'thai' => $thai, 'docType' => $docType, 'number' => $number, 'date' => self::dmy($doc['invoice_date'], 'd-m-Y'),
             'titles' => $title, 'theme' => self::THEME[$docType], 'showShip' => $docType === '388', 'vatRate' => $vat['rate'], 'words' => Money::words($totals['grand'], 'THB', $thai),
             'credit' => $docType === '81' && $credit ? $credit + ['ref_date' => $refDate] : null, 'fonts' => self::fonts(), 'logo' => self::data('logo.jpg', 'image/jpeg'),
-            'signature' => self::data('signature.jpeg', 'image/jpeg'), 'footerText' => $footer,
+            'signature' => self::data('signature.jpeg', 'image/jpeg'), 'footerText' => $footer, 'note' => (string) $note,
         ]);
 
     }

@@ -53,9 +53,10 @@ final class Store
 
     /**
      * @param array<int, array> $rows already mapped by map()
+     * @param bool $overwrite false = only new ids are added, existing rows stay as they are
      * @return int rows written
      */
-    public static function upsert(string $entity, array $rows): int
+    public static function upsert(string $entity, array $rows, bool $overwrite = true): int
     {
         if (! $rows) { return 0; }
         $s     = self::schema($entity);
@@ -71,7 +72,7 @@ final class Store
         try {
             foreach (array_chunk($rows, $per) as $chunk) {
                 $marks = '('.implode(',', array_fill(0, count($cols), '?')).')';
-                $sql   = "INSERT INTO {$s['table']} (".implode(',', $cols).') VALUES '.implode(',', array_fill(0, count($chunk), $marks))." ON CONFLICT (id) DO UPDATE SET {$set}";
+                $sql   = "INSERT INTO {$s['table']} (".implode(',', $cols).') VALUES '.implode(',', array_fill(0, count($chunk), $marks)).($overwrite ? " ON CONFLICT (id) DO UPDATE SET {$set}" : ' ON CONFLICT (id) DO NOTHING');   // overwrite off: rows already there are left as they are
                 $par   = [];
                 foreach ($chunk as $r) { foreach ($cols as $c) { $par[] = $r[$c]; } }
                 $pdo->prepare($sql)->execute($par);

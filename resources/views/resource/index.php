@@ -14,12 +14,13 @@ $sortUrl  = function (string $key) use ($sort, $dir) {
     return url(Request::path(), array_merge($_GET, ['sort' => $key, 'dir' => $next, 'page' => null]));
 };
 $canEditAny = can($res, 'edit');
-$ro = ! empty($c['readonly']);          // read-only screens (ERP copies): no add / import
+$ro = ! empty($c['readonly']);
+$sel = ! empty($c['selectable']);       // tick rows → delete the ticked ones (typed DELETE)          // read-only screens (ERP copies): no add / import
 $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_start(); ?>
     <div id="<?= e($id) ?>" data-menu-panel hidden role="menu" class="fixed z-[70] w-48 rounded-lg bg-white p-1.5 text-sm shadow-xl ring-1 ring-graphite-900/10">
         <a role="menuitem" href="<?= url($c['base'].'/'.$row['id']) ?>" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist"><?= icon('eye', 'size-4 text-steel') ?> <?= e(__('View')) ?></a>
         <?php if ($a['edit']): ?><a role="menuitem" href="<?= url($c['base'].'/'.$row['id'].'/edit') ?>" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist"><?= icon('pencil', 'size-4 text-steel') ?> <?= e(__('Edit')) ?></a><?php endif ?>
-        <?php foreach ($a['links'] as $l): ?><a role="menuitem" href="<?= url($l['url']) ?>" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist"><?= icon($l['icon'] ?? 'eye', 'size-4 text-steel') ?> <?= e($l['label']) ?></a><?php endforeach ?>
+        <?php foreach ($a['links'] as $l): ?><?php if (! empty($l['post'])): ?><form method="POST" action="<?= url($l['url']) ?>"><?= csrf_field() ?><button role="menuitem" class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist"><?= icon($l['icon'] ?? 'eye', 'size-4 text-steel') ?> <?= e($l['label']) ?></button></form><?php else: ?><a role="menuitem" href="<?= url($l['url']) ?>" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist"><?= icon($l['icon'] ?? 'eye', 'size-4 text-steel') ?> <?= e($l['label']) ?></a><?php endif ?><?php endforeach ?>
         <?php if ($a['download']): ?><a role="menuitem" href="<?= url($c['base'].'/'.$row['id'].'/download') ?>" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist"><?= icon('download', 'size-4 text-steel') ?> <?= e(__('Download')) ?></a><?php endif ?>
         <?php if ($a['delete']): ?>
             <hr class="my-1 border-graphite-900/8">
@@ -126,12 +127,19 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
         <?php endforeach ?>
     </ul>
 
+    <?php if ($sel): ?>
+    <div data-bulk-bar hidden class="flex flex-wrap items-center gap-3 border-b border-graphite-900/8 bg-signal-50/60 px-4 py-2 text-sm">
+        <span><span data-bulk-n class="font-semibold">0</span> <?= e(__('selected')) ?></span>
+        <button type="button" class="btn bg-signal-600 py-1 text-white hover:bg-signal-700" data-bulk-delete data-url="<?= e(url($c['base'].'/bulk-delete')) ?>" data-kind="<?= e(__($c['plural'])) ?>"><?= icon('trash', 'size-4') ?> <?= e(__('Delete selected')) ?></button>
+        <button type="button" class="btn-ghost py-1" data-bulk-clear><?= e(__('Clear')) ?></button>
+    </div>
+    <?php endif ?>
     <!-- Tablets and up: table -->
     <div class="hidden overflow-x-auto md:block">
         <table class="table w-max min-w-full" data-table-el>
             <thead class="bg-white">
                 <tr>
-                    <th class="sticky left-0 z-[2] w-12 bg-white !px-2 shadow-[1px_0_0_rgba(23,24,27,.06)]"><span class="sr-only"><?= e(__('Actions')) ?></span></th>
+                    <th class="sticky left-0 z-[2] <?= $sel ? 'w-20' : 'w-12' ?> bg-white !px-2 shadow-[1px_0_0_rgba(23,24,27,.06)]"><?php if ($sel): ?><input type="checkbox" data-sel-all class="size-4 accent-signal-600" aria-label="<?= e(__('Select all')) ?>"><?php endif ?><span class="sr-only"><?= e(__('Actions')) ?></span></th>
                     <?php foreach ($columns as $key => $col): ?>
                     <th data-col="<?= e($key) ?>" <?= in_array($key, $hidden, true) && $key !== $primary ? 'hidden' : '' ?> aria-sort="<?= $sort === $key ? ($dir === 'desc' ? 'descending' : 'ascending') : 'none' ?>">
                         <?php if (! empty($col['sort'])): ?>
@@ -146,7 +154,8 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
             <?php foreach ($rows as $row): $a = $rowActions[$row['id']]; ?>
                 <tr class="group hover:bg-mist/40" data-row="<?= (int) $row['id'] ?>">
                     <td class="sticky left-0 z-[1] bg-white !px-2 shadow-[1px_0_0_rgba(23,24,27,.06)] group-hover:bg-[#f5f6f7]">
-                        <div class="relative">
+                        <div class="relative <?= $sel ? 'flex items-center gap-1.5' : '' ?>">
+                            <?php if ($sel): ?><input type="checkbox" data-sel="<?= (int) $row['id'] ?>" class="size-4 accent-signal-600" aria-label="<?= e(__('Select')) ?>"><?php endif ?>
                             <button type="button" class="btn-ghost size-8 px-0" data-menu="#row-<?= (int) $row['id'] ?>" data-placement="bottom-start" aria-haspopup="menu" aria-expanded="false" aria-label="<?= e(__('Actions')) ?>"><?= icon('dots', 'size-5') ?></button>
                             <?= $rowMenu($row, $a, 'row-'.(int) $row['id']) ?>
                         </div>

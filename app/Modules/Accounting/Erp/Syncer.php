@@ -20,11 +20,20 @@ final class Syncer
 
     public static function entities(): array { return config('erp.entities'); }
 
+    /** Overwrite setting of the ERP table that holds this entity (children of an order are saved by that table's own setting). */
+    private static function overwriteOf(string $entity): bool
+    {
+        foreach (self::entities() as $k => $d) { if ($d['entity'] === $entity) { return ErpSettings::overwrite($k); } }
+
+        return false;
+    }
+
     /** @return array{fetched: int, saved: int} */
-    public function run(string $key, string $mode = 'latest', ?string $id = null, ?int $size = null, ?string $filter = null): array
+    public function run(string $key, string $mode = 'latest', ?string $id = null, ?int $size = null, ?string $filter = null, ?bool $force = null): array
     {
         $def = self::entities()[$key] ?? throw new \InvalidArgumentException("Unknown ERP entity {$key}");
         $start = microtime(true);
+        $forced = $force ?? $mode === 'one';                                              // syncing one record by hand always updates it
         DB::exec("INSERT INTO erp_sync_state (entity, status, mode, last_run_at, error) VALUES (?, 'running', ?, now(), NULL)
                   ON CONFLICT (entity) DO UPDATE SET status = 'running', mode = EXCLUDED.mode, last_run_at = now(), error = NULL", [$key, $mode], ErpSettings::CONN);
         $fetched = $saved = 0;
@@ -44,7 +53,7 @@ final class Syncer
                 if ($page['error'] !== null) { throw new \RuntimeException($page['error']); }
                 $rows = $page['rows'];
                 $fetched += count($rows);
-                $saved   += $this->save($def, $rows);
+                $saved   += $this->save($def, $rows, $forced, $key);
                 $skip    += count($rows);
                 if (count($rows) < $top || $mode === 'one') { break; }
             }
@@ -63,7 +72,7 @@ final class Syncer
     }
 
     /** Save the rows and everything found inside them (addresses of an order, rows of an order …). */
-    private function save(array $def, array $raw): int
+    private function save(array $def, array $raw, bool $forced = true, ?string $key = null): int
     {
         $main = [];
         $kids = [];                                       // entity => rows
@@ -84,9 +93,9 @@ final class Syncer
         }
         // parents first, so rows that point at each other find what they need
         foreach ($kids as $entity => $rows) {
-            try { Store::upsert($entity, $rows); } catch (\Throwable $e) { Log::exception('sync', $e, "child {$entity} not saved", ['rows' => count($rows)]); }
+            try { Store::upsert($entity, $rows, $forced || self::overwriteOf($entity)); } catch (\Throwable $e) { Log::exception('sync', $e, "child {$entity} not saved", ['rows' => count($rows)]); }
         }
 
-        return Store::upsert($def['entity'], $main);
+        return Store::upsert($def['entity'], $main, $forced || ($key !== null && ErpSettings::overwrite($key)));
     }
 }

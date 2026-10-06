@@ -34,7 +34,7 @@
             tr.innerHTML = '<td class="px-3 py-2.5"><input type="checkbox" data-pick="' + esc(no) + '" class="size-4 accent-signal-600" ' + (p ? 'checked' : '') + ' aria-label="' + esc(no) + '"></td>' +
                 '<td class="px-3 py-2.5 font-medium">' + esc(no) + '</td>' +
                 '<td class="px-3 py-2.5"><input type="checkbox" data-auto="' + esc(no) + '" class="size-4 accent-signal-600 disabled:opacity-40" ' + (p ? '' : 'disabled') + (p && p.auto ? ' checked' : '') + ' aria-label="Auto PDF"></td>' +
-                '<td class="px-3 py-2.5">' + esc(r.order_no) + '</td><td class="px-3 py-2.5">' + esc(r.delivery_no) + '</td><td class="px-3 py-2.5">' + esc(r.vat_no) + '</td><td class="max-w-[16rem] truncate px-3 py-2.5 text-left text-steel" title="' + esc(r.remark) + '">' + esc(r.remark) + '</td>';
+                '<td class="px-3 py-2.5">' + esc(r.order_no) + '</td><td class="px-3 py-2.5">' + esc(r.delivery_no) + '</td><td class="px-3 py-2.5">' + esc(r.vat_no) + '</td><td class="max-w-[14rem] truncate px-3 py-2.5 text-left">' + (r.payment_remark ? '<span class="text-graphite-800" title="' + esc(r.payment_remark) + '">' + esc(r.payment_remark) + '</span>' : '<span class="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800 ring-1 ring-amber-200">' + esc(dlg.dataset.lNone || 'none') + '</span>') + '</td><td class="max-w-[12rem] truncate px-3 py-2.5 text-left text-steel" title="' + esc(r.remark) + '">' + esc(r.remark) + '</td>';
             rowsEl.appendChild(tr);
         });
         empty.hidden = current.length > 0; pager.textContent = page + ' / ' + pages; prev.disabled = page <= 1; next.disabled = page >= pages; summary();
@@ -71,27 +71,37 @@
         }
         summary();
     });
-    var live = $('[data-inet-live]', dlg), logBox = $('[data-inet-log]', dlg), liveState = $('[data-inet-livestate]', dlg), stream = null;
+    var live = $('[data-inet-live]', dlg), logBox = $('[data-inet-log]', dlg), liveState = $('[data-inet-livestate]', dlg), bar = $('[data-inet-bar]', dlg), stream = null,
+        goIcon = $('[data-inet-go-icon]', dlg), goSpin = $('[data-inet-spin]', dlg), goText = $('[data-inet-go-text]', dlg);
+    function working(on) {
+        goSpin.hidden = !on; goIcon.hidden = on; goText.textContent = on ? go.dataset.lWorking : go.dataset.lLabel;
+        dlg.querySelectorAll('input, [data-inet-tab], [data-inet-prev], [data-inet-next]').forEach(function (n) { n.disabled = on; });
+        dlg.classList.toggle('cursor-progress', on);
+    }
+    dlg.addEventListener('cancel', function (e) { if (go.dataset.busy === '1') e.preventDefault(); });          // Esc must not hide a running job
     dlg.addEventListener('close', function () { if (stream) { stream.stop(); stream = null; } live.hidden = true; });
     go.addEventListener('click', function () {
-        go.disabled = true; err.hidden = true;
+        go.disabled = true; go.dataset.busy = '1'; err.hidden = true;
         var run = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-        var items = Object.keys(picked).map(function (no) { return { invoice: parseInt(no, 10), auto_pdf: picked[no].auto }; });
+        var items = Object.keys(picked).map(function (no) { return { invoice: parseInt(no, 10), auto_pdf: picked[no].auto }; }), total = items.length, started = 0;
+        working(true); go.disabled = true;
+        live.hidden = false; logBox.innerHTML = ''; bar.style.width = '4%'; liveState.textContent = '0 / ' + total;
         if (window.AcctLog) {                      // follow what the server is doing, line by line
-            live.hidden = false; logBox.innerHTML = ''; liveState.textContent = '…';
-            stream = AcctLog.stream(logBox, { url: url.replace(/inet\/candidates$/, 'logs/tail'), run: run, every: 700, tail: 500 });
+            stream = AcctLog.stream(logBox, { url: url.replace(/inet\/candidates$/, 'logs/tail'), run: run, every: 600, tail: 500,
+                onEntries: function (es) { es.forEach(function (e) { if (/: generate start$/.test(e.msg || '')) started++; }); var p = Math.min(total, started); liveState.textContent = p + ' / ' + total; bar.style.width = Math.max(4, Math.round(p / total * 90)) + '%'; } });
         }
         fetch(url.replace(/candidates$/, 'generate'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf() }, body: JSON.stringify({ items: items, run: run }) })
             .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Failed'); return d; }); })
             .then(function (d) {
-                if (stream) { stream.now(); setTimeout(function () { if (stream) stream.stop(); }, 1200); }
-                liveState.textContent = d.made + ' ✓' + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' ✗' : '');
-                dlg.addEventListener('close', function () { location.reload(); }, { once: true });
-                if (d.errors && d.errors.length) { err.hidden = false; err.textContent = d.errors.join(' · '); }
-                else { setTimeout(function () { if (dlg.open) location.reload(); }, 2500); }
-                go.disabled = true;
+                if (stream) { stream.now(); setTimeout(function () { if (stream) stream.stop(); }, 1000); }
+                bar.style.width = '100%'; liveState.textContent = d.made + ' ✓' + (d.errors && d.errors.length ? ' · ' + d.errors.length + ' ✗' : '');
+                go.dataset.busy = '0'; working(false);
+                if (d.errors && d.errors.length) {            // problems: stay open so they can be read, reload when closed
+                    err.hidden = false; err.textContent = d.errors.join(' · '); go.disabled = true;
+                    dlg.addEventListener('close', function () { location.reload(); }, { once: true });
+                } else { dlg.close(); location.reload(); }   // all good: close and show the new rows
             })
-            .catch(function (x) { if (stream) { stream.now(); } err.hidden = false; err.textContent = x.message; go.disabled = false; });
+            .catch(function (x) { if (stream) { stream.now(); } go.dataset.busy = '0'; working(false); err.hidden = false; err.textContent = x.message; go.disabled = Object.keys(picked).length === 0; });
     });
     tabs();
 })();

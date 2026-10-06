@@ -1,5 +1,5 @@
 <?php /* "Select Invoices to Generate" — filled by public/assets/accounting.js. $credit = which tab the page is on */ ?>
-<dialog id="inet-dialog" data-credit="<?= $credit ? '1' : '0' ?>" aria-labelledby="inet-dialog-title"
+<dialog id="inet-dialog" data-l-none="<?= e(__('none')) ?>" data-credit="<?= $credit ? '1' : '0' ?>" aria-labelledby="inet-dialog-title"
         class="m-auto w-[min(56rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60">
     <div class="flex items-center justify-between px-5 pb-3 pt-4">
         <h2 id="inet-dialog-title" class="text-base font-semibold"><?= e(__('Select Invoices to Generate')) ?></h2>
@@ -21,7 +21,7 @@
                     <th class="w-12 px-3 py-2.5"><input type="checkbox" data-inet-all class="size-4 accent-signal-600" aria-label="<?= e(__('Tick all on this page')) ?>"></th>
                     <th class="px-3 py-2.5 font-semibold"><?= e(__('Invoice no')) ?></th><th class="px-3 py-2.5 font-semibold"><?= e(__('Auto PDF')) ?></th>
                     <th class="px-3 py-2.5 font-semibold"><?= e(__('Order no')) ?></th><th class="px-3 py-2.5 font-semibold"><?= e(__('Delivery no')) ?></th>
-                    <th class="px-3 py-2.5 font-semibold"><?= e(__('VAT no')) ?></th><th class="px-3 py-2.5 font-semibold"><?= e(__('Remark')) ?></th>
+                    <th class="px-3 py-2.5 font-semibold"><?= e(__('VAT no')) ?></th><th class="px-3 py-2.5 text-left font-semibold"><?= e(__('Payment remark')) ?></th><th class="px-3 py-2.5 text-left font-semibold"><?= e(__('Remark')) ?></th>
                 </tr></thead>
                 <tbody data-inet-rows class="divide-y divide-graphite-900/8"></tbody>
             </table>
@@ -30,6 +30,7 @@
         <p data-inet-error hidden class="error mt-2"></p>
         <div data-inet-live hidden class="mt-3">
             <div class="mb-1 flex items-center justify-between text-xs text-steel"><span class="font-medium text-graphite-800"><?= e(__('Live log')) ?></span><span data-inet-livestate></span></div>
+            <div class="mb-2 h-1.5 overflow-hidden rounded-full bg-graphite-900/10"><div data-inet-bar class="h-full w-0 rounded-full bg-signal-600 transition-all duration-300"></div></div>
             <div data-inet-log class="h-44 overflow-auto rounded-lg bg-graphite-900 p-3 font-mono text-xs leading-5 text-white"></div>
         </div>
     </div>
@@ -42,7 +43,7 @@
         <div class="flex items-center gap-3">
             <span class="text-sm text-steel"><span data-inet-count>0</span> <?= e(__('selected')) ?></span>
             <button type="button" class="btn-secondary" data-inet-close><?= e(__('Cancel')) ?></button>
-            <button type="button" class="btn-primary" data-inet-go disabled><?= icon('bolt', 'size-4') ?> <?= e(__('Generate')) ?></button>
+            <button type="button" class="btn-primary" data-inet-go data-l-working="<?= e(__('Generating…')) ?>" data-l-label="<?= e(__('Generate')) ?>" disabled><span data-inet-go-icon><?= icon('bolt', 'size-4') ?></span><svg data-inet-spin hidden class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg> <span data-inet-go-text><?= e(__('Generate')) ?></span></button>
         </div>
     </div>
 </dialog>

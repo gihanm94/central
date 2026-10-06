@@ -8,6 +8,7 @@ use App\Modules\CRM\Support\Ui;
 /** Products (parts) copied from the ERP. */
 class ProductController extends ErpListController
 {
+    protected ?string $syncKey = 'product';
     protected string $resource = 'accounting_products';
     protected string $table = 'erp_products';
     protected string $type = 'product';

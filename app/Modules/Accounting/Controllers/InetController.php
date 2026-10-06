@@ -32,6 +32,31 @@ class InetController extends ErpListController
     protected string $icon = 'doc';
     protected string $orderBy = 't.no_invoice DESC';
     private const PER = 10;
+    private static int $menuSeq = 0;
+
+    /** The list is read-only like the other ERP copies, but an administrator may remove a generated e-tax row (and its files). */
+    protected function canModify(array $row, string $action): bool { return $action === 'delete'; }
+
+    protected function meta(): array { return parent::meta() + ['selectable' => can($this->resource, 'delete')]; }
+
+    protected function beforeDelete(array $row): void
+    {
+        $dir = BASE_PATH.'/storage/inet/'.(int) $row['no_invoice'];
+        foreach (glob($dir.'/*') ?: [] as $f) { @unlink($f); }
+        @rmdir($dir);
+        Log::warn('inet', $row['no_invoice'].': e-tax row removed', ['by' => $this->user()->email]);
+    }
+
+    /** Build one invoice again (same Auto PDF choice as before). */
+    public function regenerate(int $id): never
+    {
+        $this->authorize($this->resource, 'create');
+        $row = DB::first('SELECT * FROM inets WHERE id = ?', [$id], ErpSettings::CONN) ?? abort(404);
+        @set_time_limit(300);
+        $r = Generator::many([['invoice' => (int) $row['no_invoice'], 'auto_pdf' => filter_var($row['auto_pdf'], FILTER_VALIDATE_BOOL)]], $this->user()->id)[(int) $row['no_invoice']] ?? ['docs' => [], 'errors' => []];
+        Session::flash($r['errors'] ? 'error' : 'success', $r['errors'] ? implode(' · ', $r['errors']) : __(':n invoice(s) generated.', ['n' => 1]));
+        $this->backTo($row);
+    }
 
     private function credit(): bool { return Request::query('credit') === '1'; }
 
@@ -89,14 +114,21 @@ class InetController extends ErpListController
         } else {
             $inet = '<span class="'.$off.'">'.icon('download', 'size-3.5').' Inet</span>';
         }
-        $links = '';
-        if ($gen) {
-            $links = '<a href="'.e(url($base.'/file/json')).'" target="_blank" class="text-[11px] text-steel hover:text-signal-700" title="'.e(__('The text file sent to INET')).'">JSON</a>'
-                .($hasPdf ? ' <a href="'.e(url($base.'/file/pdf')).'" target="_blank" class="text-[11px] text-steel hover:text-signal-700">PDF</a>' : '');
-        }
+        $menuId = 'dm-'.$r['id'].'-'.strtolower($type).'-'.(++self::$menuSeq);              // the phone list renders the same cells again: ids must differ
+        $item   = 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist';
+        $dead   = 'flex w-full cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-graphite-400';
+        $fileUrl = $signed ? $base.'/file/signed' : ($hasPdf ? $base.'/file/pdf' : null);
+        $menu = '<button type="button" class="'.$btn.'text-graphite-800 ring-graphite-900/20 hover:bg-mist !px-1.5" data-menu="#'.e($menuId).'" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" aria-label="'.e(__('More')).'">…</button>'
+            .'<div id="'.e($menuId).'" data-menu-panel hidden role="menu" class="fixed z-[70] w-44 rounded-lg bg-white p-1.5 text-sm shadow-xl ring-1 ring-graphite-900/10">'
+            .($gen ? '<a role="menuitem" href="'.e(url($base.'/file/json')).'" target="_blank" class="'.$item.'"><span class="w-4 text-center font-mono text-emerald-600">{}</span> '.e(__('Raw Data')).'</a>' : '<span class="'.$dead.'"><span class="w-4 text-center font-mono">{}</span> '.e(__('Raw Data')).'</span>')
+            .($fileUrl ? '<a role="menuitem" href="'.e(url($fileUrl)).'" target="_blank" class="'.$item.'">'.icon('download', 'size-4 text-sky-600').' '.e(__('Get File')).'</a>' : '<span class="'.$dead.'">'.icon('download', 'size-4').' '.e(__('Get File')).'</span>')
+            .(can($this->resource, 'create') ? '<form method="POST" action="'.e(url('/accounting/inet/'.$r['id'].'/regenerate')).'">'.csrf_field().'<button role="menuitem" class="'.$item.'" data-confirm="'.e(__('Generate this invoice again? The text file and PDF are rebuilt and anything sent is marked unsent.')).'">'.icon('bolt', 'size-4 text-amber-500').' '.e(__('Regenerate')).'</button></form>' : '')
+            .(can($this->resource, 'delete') ? '<hr class="my-1 border-graphite-900/8"><button type="button" role="menuitem" class="'.$item.' text-signal-700 hover:bg-signal-50" data-delete-url="'.e(url('/accounting/inet/'.$r['id'].'/delete')).'" data-delete-name="'.e($r['no_invoice']).'" data-delete-kind="'.e(__('e-tax invoice')).'">'.icon('trash', 'size-4').' '.e(__('Remove')).'</button>' : '')
+            .'</div>';
+        $links = $menu;
         $warn = $msg !== '' && ! str_starts_with($msg, 'OK') ? '<span class="block max-w-[14rem] truncate text-[11px] text-signal-700" title="'.e($msg).'">'.e($msg).'</span>' : '';
 
-        return '<span class="block"><span class="inline-flex items-center gap-1.5">'.$sync.$send.$inet.'<span class="ml-1 inline-flex gap-1.5">'.$links.'</span></span>'.$warn.'</span>';
+        return '<span class="block"><span class="inline-flex items-center gap-1.5">'.$sync.$send.$inet.''.$links.'</span>'.$warn.'</span>';
     }
 
     protected function columns(): array
@@ -107,13 +139,13 @@ class InetController extends ErpListController
             'intl'     => ['label' => __('International'), 'sort' => 't.is_international', 'render' => fn ($r) => filter_var($r['is_international'], FILTER_VALIDATE_BOOL) ? Ui::badge(__('Yes'), 'info') : Ui::badge(__('No'), 'neutral')],
             'amount'   => ['label' => __('Amount'), 'sort' => 't.total_amount', 'render' => fn ($r) => self::money($r['total_amount'], $r['currency_code'] !== 'THB' ? $r['currency_code'] : '฿')],
         ];
+        $cols['seller'] = ['label' => __('Seller'), 'render' => fn ($r) => e($r['seller_name'] ?: '—')];
         if ($this->credit()) {
             $cols['credit'] = ['label' => __('Credit note'), 'render' => fn ($r) => $this->docButtons($r, '81')];
         } else {
             $cols['invoice'] = ['label' => __('Invoice'), 'render' => fn ($r) => $this->docButtons($r, '388')];
             $cols['receipt'] = ['label' => __('Receipt'), 'render' => fn ($r) => $this->docButtons($r, 'T01')];
         }
-        $cols['seller'] = ['label' => __('Seller'), 'render' => fn ($r) => e($r['seller_name'] ?: '—')];
 
         return $cols;
     }
@@ -153,7 +185,7 @@ class InetController extends ErpListController
         }
         $from  = 'FROM erp_documents d WHERE '.implode(' AND ', $where);
         $total = (int) DB::scalar("SELECT count(*) {$from}", $par, ErpSettings::CONN);
-        $rows  = DB::select("SELECT d.invoice_number, d.order_number AS order_no, d.vat_no, d.customer_code, d.delivery_no, d.remark {$from} ORDER BY d.invoice_number DESC LIMIT ".self::PER.' OFFSET '.(($page - 1) * self::PER), $par, ErpSettings::CONN);
+        $rows  = DB::select("SELECT d.invoice_number, d.order_number AS order_no, d.vat_no, d.customer_code, d.delivery_no, d.remark, d.payment_remark, d.seller_name, d.missing {$from} ORDER BY d.invoice_number DESC LIMIT ".self::PER.' OFFSET '.(($page - 1) * self::PER), $par, ErpSettings::CONN);
 
         json_response(['rows' => $rows, 'total' => $total, 'pages' => max(1, (int) ceil($total / self::PER)), 'credit' => $credit]);
     }
@@ -199,10 +231,10 @@ class InetController extends ErpListController
         $row = DB::first('SELECT * FROM inets WHERE id = ?', [$id], ErpSettings::CONN) ?? abort(404);
         try {
             $s = new Syncer();
-            $s->run('invoice', 'all', null, null, 'InvoiceNumber eq '.(int) $row['no_invoice']);
+            $s->run('invoice', 'all', null, null, 'InvoiceNumber eq '.(int) $row['no_invoice'], true);
             if ($row['order_id']) {
                 $s->run('order', 'one', (string) $row['order_id']);
-                $s->run('order_row', 'all', null, null, "ParentOrderId eq '".(int) $row['order_id']."'");
+                $s->run('order_row', 'all', null, null, "ParentOrderId eq '".(int) $row['order_id']."'", true);
             }
             InetBuilder::save((int) $row['no_invoice'], ! filter_var($row['is_manual'], FILTER_VALIDATE_BOOL), $this->user()->id);
             Session::flash('success', __('Invoice :no read from the ERP again.', ['no' => $row['no_invoice']]));

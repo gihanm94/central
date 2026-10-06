@@ -179,6 +179,14 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 - The company (`companies`) is seeded once by migration `…_005_documents_company_seed.sql`; edit it on Accounting → Company. INET user code / access key / API key are not seeded (the flow does not use them).
 - Auto sync: set the cron line shown on the ERP page, **or** leave it — any open accounting page starts a background `tick` when the scheduler has been quiet for a minute (default: schedule on, Mon–Fri 07:00–20:00). The ERP page shows live status, who last ran the scheduler, and the sync log.
 
+## Accounting: PDF, sellers, overwrite
+
+- **PDF** is built like the old system: rows come from the order's own rows delivered on this invoice (not the invoice log), free-text rows (type 4) sit under their product, batch numbers come from the stock transactions, and both BILL TO and SHIP TO are always printed. The box at the bottom left holds the **payment remark** (the customer's ERP comment) and, for a receipt / credit note, the company's receipt / credit text.
+- **Payment remark** is prepared in `erp_documents` and shown in the Generate dialog (amber *none* when the customer has no comment), so you can skip an invoice before generating. Source: `erp_customers.comment_id` → `erp_comments`. Change it in `Documents::refresh()` and `DocumentData::paymentRemark()` if your ERP keeps it elsewhere.
+- **Sellers** (`/accounting/sellers`): ERP columns are read-only; e-mail, user and Lark id are edited by hand and never touched by a sync.
+- **Overwrite** (ERP connection → each table): off (default) = a sync only adds new ids; on = existing rows are updated too. **Sync from ERP** in a row menu (administrators) reads that one record and always updates it. The Inets *Sync* button does the same for an invoice and its order.
+- Inets: tick rows to delete several (type DELETE); the `…` menu of each document has Raw Data, Get File, Regenerate and Remove.
+
 ## Accounting logs (`/accounting/logs`, administrators)
 
 Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, one JSON line per event, kept 30 days. The page follows the file live (about every 1.5 s) with filters for level, channel (`erp` API calls, `sync`, `inet` generate/send/fetch, `pdf`, `app` uncaught errors) and text search; each line opens to show URL, HTTP status, time, exception and where it happened. Secrets (keys, passwords, session ids) are masked. The **Generate** dialog shows its own run's lines live while it works. In code: `App\Modules\Accounting\Support\Log::info('inet', 'message', [...])`.

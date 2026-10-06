@@ -8,6 +8,7 @@ use App\Modules\CRM\Support\Ui;
 /** Customer orders copied from the ERP. */
 class OrderController extends ErpListController
 {
+    protected ?string $syncKey = 'order';
     protected string $resource = 'accounting_orders';
     protected string $table = 'erp_orders';
     protected string $type = 'order';
@@ -52,5 +53,12 @@ class OrderController extends ErpListController
             'total'    => ['label' => __('Total'), 'sort' => 'total', 'render' => fn ($r) => self::money($r['total'])],
             'type'     => ['label' => __('Type'), 'render' => fn ($r) => filter_var($r['is_credit'], FILTER_VALIDATE_BOOL) ? Ui::badge(__('Credit'), 'warn') : Ui::badge(__('Order'), 'neutral')],
         ];
+    }
+
+    protected function syncOne(\App\Modules\Accounting\Erp\Syncer $s, int $id): int
+    {
+        $n = $s->run('order', 'one', (string) $id, null, null, true)['saved'];
+
+        return $n + $s->run('order_row', 'all', null, null, "ParentOrderId eq '".$id."'", true)['saved'];
     }
 }

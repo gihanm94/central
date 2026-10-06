@@ -82,19 +82,19 @@ tr{page-break-inside:avoid}
     <div class="bg-white <?= $k === 2 ? '' : 'bd-r' ?>" style="<?= $k === 1 ? 'flex:1;' : '' ?>"><p class="text-11px font-medium c-head bg-band" style="padding:4px 10px;"><?= $e($l) ?></p><p class="text-11px whitespace-pre leading-relaxed c-text" style="padding:5px 10px;"><?= $e($v) ?></p></div>
     <?php endforeach ?>
   </div>
-  <!-- addresses -->
+  <!-- addresses: bill to | ship to (always both, like the old documents) -->
   <div class="grid-2">
-    <div class="bd" style="border-radius:6px;overflow:hidden;"><div class="bg-band" style="padding:4px 10px;"><p class="c-head font-semibold text-10px uppercase tracking-widest"><?= $p('ที่อยู่', 'BILL TO') ?></p></div>
-      <div class="px-3 py-2 bg-white" style="min-height:48px;"><p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($d['customer_name']."\n".$d['mailing_address'].(trim((string) $d['phone']) !== '' ? "\n\n".$p('โทร', 'Tel').': '.$d['phone'] : '')) ?></p></div></div>
-    <?php if ($showShip): ?>
-    <div class="bd" style="border-radius:6px;overflow:hidden;"><div class="bg-band" style="padding:4px 10px;"><p class="c-head font-semibold text-10px uppercase tracking-widest"><?= $p('ที่อยู่จัดส่ง', 'SHIP TO') ?></p></div>
-      <div class="px-3 py-2 bg-white" style="min-height:48px;"><p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($d['customer_name']."\n".$d['delivery_address'].(trim((string) $d['delivery_note_number']) !== '' ? "\n\n".$p('อ้างอิงการส่ง', 'Delivery No.').': '.$d['delivery_note_number'] : '')) ?></p></div></div>
-    <?php endif ?>
+    <div class="bd" style="border-radius:6px;overflow:hidden;display:flex;flex-direction:column;"><div class="bg-band" style="padding:4px 10px;"><p class="c-head font-semibold text-10px uppercase tracking-widest"><?= $p('ที่อยู่', 'BILL TO') ?></p></div>
+      <div class="px-3 py-2 bg-white" style="min-height:48px;flex:1;"><p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($d['customer_name']."\n".$d['mailing_address']) ?></p></div>
+      <div class="bg-white" style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border);padding:3px 10px;"><p class="text-10px c-text"><?= $p('โทรศัพท์', 'Tel') ?> : <?= $e($d['phone'] ?: '-') ?></p><p class="text-10px c-text"><?= $p('โทรสาร', 'Fax') ?> : <?= $e($d['fax'] ?: '-') ?></p></div></div>
+    <div class="bd" style="border-radius:6px;overflow:hidden;display:flex;flex-direction:column;"><div class="bg-band" style="padding:4px 10px;"><p class="c-head font-semibold text-10px uppercase tracking-widest"><?= $p('ที่อยู่จัดส่ง', 'SHIP TO') ?></p></div>
+      <div class="px-3 py-2 bg-white" style="min-height:48px;flex:1;"><p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($d['customer_name']."\n".($d['delivery_address'] ?: $d['mailing_address'])) ?></p></div>
+      <div class="bg-white" style="border-top:1px solid var(--border);padding:3px 10px;"><p class="text-10px c-text"><?= $p('เลขที่ใบส่งของ', 'Delivery No.') ?> : <?= $e($d['delivery_note_number'] ?: '-') ?></p></div></div>
   </div>
   <!-- order info -->
   <div class="bd" style="display:grid;grid-template-columns:minmax(90px,1.4fr) minmax(80px,1fr) minmax(60px,.8fr) minmax(60px,.8fr) minmax(50px,.7fr) minmax(70px,.9fr) minmax(70px,.9fr) minmax(90px,1.4fr);border-radius:6px;overflow:hidden;">
-    <?php $cells = [[$p('คำสั่งซื้อ', 'Order No'), $d['po_number'] ?: 'N/A'], [$p('เลขที่ใบสั่งขาย', 'Sale Order No'), $d['order_number']], [$p('คลังสินค้า', 'Warehouse'), $d['warehouse']], [$p('แผนก', 'Division'), $d['seller_department']],
-        [$p('เครดิต (วัน)', 'Credit (Days)'), $d['grace_days']], [$p('วันที่ครบกำหนด', 'Due Date'), $d['due_date']], [$p('วิธีการจัดส่ง', 'Delivery Method'), $d['delivery_by']], [$p('ผู้ขาย', 'Seller'), $d['seller_name']]];
+    <?php $cells = [[$p('คำสั่งซื้อ', 'Order No'), $d['po_number'] ?: 'N/A'], [$p('เลขที่ใบสั่งขาย', 'Sale Order No'), $d['order_number']], [$p('คลังสินค้า', 'Warehouse'), ($d['warehouse_code'] ?? '') ?: $d['warehouse']], [$p('แผนก', 'Division'), ($d['seller_department_code'] ?? '') ?: $d['seller_department']],
+        [$p('เครดิต (วัน)', 'Credit (Days)'), $d['grace_days'] !== null && $d['grace_days'] !== '' ? $d['grace_days'].' days' : ''], [$p('วันที่ครบกำหนด', 'Due Date'), $d['due_date']], [$p('วิธีการจัดส่ง', 'Delivery Method'), $d['delivery_by']], [$p('ผู้ขาย', 'Seller'), $d['seller_name']]];
     foreach ($cells as $i => [$l, $v]): ?>
     <div class="bg-white <?= $i < 7 ? 'bd-r' : '' ?>" style="text-align:center;"><p class="text-11px font-medium c-head bg-band nowrap" style="padding:4px 6px;"><?= $e($l) ?></p><p class="text-11px whitespace-pre leading-relaxed c-text" style="padding:5px 6px;"><?= $e($v) ?></p></div>
     <?php endforeach ?>
@@ -108,24 +108,25 @@ tr{page-break-inside:avoid}
         <th class="px-2 py-2 text-left font-semibold text-11px"><?= $p('รายการ', 'Description') ?></th>
         <th class="px-2 py-2 text-center font-semibold text-11px" style="width:72px;"><?= $p('วันที่จัดส่ง', 'Delivery Date') ?></th>
         <th class="px-2 py-2 text-right font-semibold text-11px" style="width:60px;"><?= $p('จำนวน', 'Qty') ?></th>
-        <th class="px-2 py-2 text-right font-semibold text-11px" style="width:70px;"><?= $p('ราคา/หน่วย', 'Unit Price') ?></th>
-        <th class="px-2 py-2 text-right font-semibold text-11px" style="width:36px;"><?= $p('ส่วนลด', '%') ?></th>
+        <th class="px-2 py-2 text-right font-semibold text-11px" style="width:70px;"><?= $p('ราคาต่อหน่วย', 'Unit Price') ?></th>
+        <th class="px-2 py-2 text-right font-semibold text-11px" style="width:36px;">%</th>
         <th class="px-2 py-2 text-right font-semibold text-11px" style="width:80px;"><?= $p('จำนวนเงิน', 'Amount') ?></th>
       </tr></thead>
       <tbody>
       <?php if ($credit && ! empty($credit['reference'])): ?>
         <tr class="bg-white"><td></td><td></td><td colspan="6" class="px-2 py-2 text-11px c-text"><?= $p('การเครดิตใบกำกับสินค้าเลขที่', 'Crediting invoice number') ?> <?= $e($credit['reference']) ?> <?= $p('วันที่', 'date') ?> <?= $e($credit['ref_date']) ?></td></tr>
       <?php endif ?>
-      <?php foreach ($items as $it): ?>
+      <?php foreach ($items as $it): $hb = trim((string) ($it['batch'] ?? '')) !== ''; $sp = $hb ? '<div style="height:16px;"></div>' : ''; ?>
         <tr class="bg-white">
-          <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= (int) $it['no'] ?></td>
-          <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= $e($it['part_number']) ?></td>
-          <td class="px-2 py-2 text-11px c-text" style="vertical-align:top;"><?= $e($it['part_name']) ?></td>
-          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= $e($it['delivery_date']) ?></td>
-          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= $fmt($it['qty']) ?> <?= $e($it['unit']) ?></td>
-          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= $fmt($it['price']) ?></td>
-          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= $it['discount'] > 0 ? rtrim(rtrim(number_format($it['discount'], 2, '.', ''), '0'), '.') : '-' ?></td>
-          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><?= $fmt($it['amount']) ?></td>
+          <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= (int) $it['no'] ?></div><?= $sp ?></td>
+          <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= $e($it['part_number']) ?></div><?php if ($hb): ?><div class="text-10px c-text" style="margin-top:2px;"><?= $p('หมายเลขแบทช์', 'Batch No.') ?></div><?php endif ?></td>
+          <td class="px-2 py-2 text-11px c-text" style="vertical-align:top;"><div><?= $e($it['part_name']) ?></div><?php if ($hb): ?><div class="text-10px c-text" style="margin-top:2px;"><?= $e($it['batch']) ?></div><?php endif ?>
+            <?php foreach ($it['sub'] ?? [] as $sub): ?><div class="whitespace-pre leading-relaxed text-11px c-text" style="margin-top:10px;"><?= $e($sub) ?></div><?php endforeach ?></td>
+          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= $e($it['delivery_date']) ?></div><?= $sp ?></td>
+          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= $fmt($it['qty']) ?> <?= $e($it['unit']) ?></div><?= $sp ?></td>
+          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= $fmt($it['price']) ?></div><?= $sp ?></td>
+          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= $it['discount'] > 0 ? rtrim(rtrim(number_format($it['discount'], 2, '.', ''), '0'), '.') : '-' ?></div><?= $sp ?></td>
+          <td class="px-2 py-2 text-right text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div><?= $fmt($it['amount']) ?></div><?= $sp ?></td>
         </tr>
       <?php endforeach ?>
       </tbody>
@@ -144,7 +145,8 @@ tr{page-break-inside:avoid}
   <!-- footer: notes + signature | totals -->
   <div class="avoid-break" style="position:fixed;left:0;right:0;bottom:10mm;background:#fff;padding:0 18px 4px;display:grid;grid-template-columns:11fr 9fr;gap:10px;align-items:stretch;">
     <div class="bd-dash" style="border-radius:6px;padding:14px;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;">
-      <?php if (trim((string) $d['payment_remark']) !== ''): ?><p class="text-11px leading-relaxed c-text" style="white-space:pre-line;"><?= $e($d['payment_remark']) ?></p><?php endif ?>
+      <?php if (trim((string) $d['payment_remark']) !== ''): ?><p class="text-11px leading-relaxed mb-1 c-text" style="white-space:pre-line;text-align:left;"><?= $e($d['payment_remark']) ?></p><?php endif ?>
+      <?php if (trim((string) ($note ?? '')) !== ''): ?><p class="text-11px leading-relaxed mb-1 c-text" style="white-space:pre-line;text-align:left;"><?= $e($note) ?></p><?php endif ?>
       <div style="display:flex;gap:28px;margin-top:auto;"><div class="text-center">
         <div style="width:100px;display:flex;flex-direction:column;align-items:center;"><?php if ($signature): ?><img src="<?= $signature ?>" alt="" style="width:80px;height:40px;object-fit:contain;"><?php endif ?><div style="width:100px;border-bottom:1px solid var(--border);"></div></div>
         <p class="text-11px mt-1 c-text"><?= $p('ผู้มีอำนาจลงนาม', 'Authorized Signature') ?></p></div></div>

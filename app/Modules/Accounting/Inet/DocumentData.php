@@ -43,13 +43,17 @@ final class DocumentData
         $term  = $order && $order['payment_term_id'] ? self::one('SELECT * FROM erp_payment_terms WHERE id = ?', [$order['payment_term_id']]) : null;
         $wh    = $order && $order['warehouse_id'] ? DB::scalar('SELECT name FROM erp_warehouses WHERE id = ?', [$order['warehouse_id']], self::C) : null;
         $dm    = $order && $order['delivery_method_id'] ? self::one('SELECT * FROM erp_delivery_methods WHERE id = ?', [$order['delivery_method_id']]) : null;
-        $note  = $order ? DB::scalar('SELECT delivery_note_number FROM erp_order_invoices WHERE business_contact_order_id = ? ORDER BY id LIMIT 1', [$order['id']], self::C) : null;
+        $note  = DB::scalar('SELECT oi.delivery_note_number FROM erp_invoices i JOIN erp_order_deliveries d ON d.id = i.delivery_row_id JOIN erp_order_invoices oi ON oi.id = d.invoice_id WHERE i.invoice_number = ? LIMIT 1', [$invoiceNumber], self::C)
+            ?? ($order ? DB::scalar('SELECT delivery_note_number FROM erp_order_invoices WHERE business_contact_order_id = ? ORDER BY id LIMIT 1', [$order['id']], self::C) : null);
         $ext   = $order && $order['external_comment_id'] ? DB::scalar('SELECT raw_text FROM erp_comments WHERE id = ?', [$order['external_comment_id']], self::C) : null;
         $contacts = $cust ? DB::select('SELECT * FROM erp_delivery_contacts WHERE customer_id = ? ORDER BY id', [$cust['id']], self::C) : [];
-        $email = $phone = '';
+        $email = $phone = $fax = '';
         foreach ($contacts as $c) {
-            $v = (string) $c['communication_address_value'];
+            $v = trim((string) $c['communication_address_value']);
+            $tn = strtolower((string) $c['type_name']);
+            if ($v === '') { continue; }
             if ($email === '' && str_contains($v, '@')) { $email = $v; }
+            elseif (str_contains($tn, 'fax')) { $fax = $fax ?: $v; }
             elseif ($phone === '' && ! str_contains($v, '@') && preg_match('/\d{5,}/', $v)) { $phone = $v; }
         }
         $isThaiBuyer = strtoupper((string) $country ?: 'TH') === 'TH';
@@ -63,14 +67,15 @@ final class DocumentData
             'po_number' => $order['business_contact_order_number'] ?? null, 'external_comment_id' => $order['external_comment_id'] ?? null,
             'customer_id' => $cust['id'] ?? $f['customer_id'], 'customer_code' => $cust['code'] ?? $f['customer_code'], 'customer_name' => $cust['name'] ?? '',
             'customer_vat_no' => $vat === '' ? '0000000000000' : $vat, 'is_private' => $cust ? self::bool($cust['is_private_customer']) : false,
-            'phone' => $phone, 'email' => $email, 'mailing_address' => self::addr($mail), 'delivery_address' => self::addr($del) ?: self::addr($mail),
+            'phone' => $phone, 'fax' => $fax, 'email' => $email, 'mailing_address' => self::addr($mail), 'delivery_address' => self::addr($del) ?: self::addr($mail),
             'postal_code' => $mail['postal_code'] ?? '', 'country_code' => $country ?: 'TH',
             'vat_percentage' => $vatRow ? (float) $vatRow['percentage'] : null, 'vat_name' => $vatGroup['description'] ?? ($vatRow['description'] ?? null),
             'seller_name' => $seller ? trim($seller['first_name'].' '.$seller['last_name']) : (string) ($f['seller'] ?? ''), 'seller_department' => $dept ? (string) ($dept['name'] ?: $dept['description']) : '',
-            'warehouse' => $wh, 'grace_days' => $term ? $term['grace_period_in_days'] : null,
+            'warehouse' => $wh, 'warehouse_code' => $order && $order['warehouse_id'] ? (string) DB::scalar('SELECT coalesce(nullif(code, \'\'), name) FROM erp_warehouses WHERE id = ?', [$order['warehouse_id']], self::C) : '',
+            'seller_department_code' => $dept ? (string) ($dept['code'] ?: ($dept['name'] ?: $dept['description'])) : '', 'grace_days' => $term ? $term['grace_period_in_days'] : null,
             'due_date' => $order && $order['order_date'] && $term && $term['grace_period_in_days'] !== null ? date('d-m-Y', strtotime((string) $order['order_date'].' +'.(int) $term['grace_period_in_days'].' days')) : null,
             'delivery_by' => $dm ? ($dm['description'] ?: $dm['code']) : null, 'delivery_note_number' => $note !== null ? (string) $note : null,
-            'external_comment' => $ext, 'payment_remark' => null,
+            'external_comment' => $ext, 'payment_remark' => self::paymentRemark($cust),
         ];
 
         $out = [];
@@ -84,6 +89,54 @@ final class DocumentData
         }
 
         return ['doc' => $doc, 'lines' => $out];
+    }
+
+    /** The customer's own comment in the ERP ("send the invoice with the receipt every month-end …"). */
+    public static function paymentRemark(?array $cust): ?string
+    {
+        if (! $cust || empty($cust['comment_id'])) { return null; }
+        $t = trim((string) DB::scalar('SELECT raw_text FROM erp_comments WHERE id = ?', [$cust['comment_id']], self::C));
+
+        return $t !== '' ? $t : null;
+    }
+
+    /**
+     * The rows printed on the PDF: the order's own rows (not the invoice log) that were delivered on this invoice, in order,
+     * with free-text rows (type 4) attached to the product above them and the batch numbers of the stock movements.
+     * Port of DocumentDTO.mergeRows. Empty = no order rows in the copy (the caller falls back to the invoice lines).
+     * @return array<int, array<string, mixed>>
+     */
+    public static function pdfRows(array $doc): array
+    {
+        if (empty($doc['order_id'])) { return []; }
+        $rows = DB::select('SELECT r.*, p.part_number, p.description AS part_name, u.code AS unit_code FROM erp_order_rows r
+                              LEFT JOIN erp_products p ON p.id = r.part_id LEFT JOIN erp_units u ON u.id = r.unit_id
+                             WHERE r.parent_order_id = ? ORDER BY r.row_index, r.id', [$doc['order_id']], self::C);
+        if (! $rows) { return []; }
+        // the delivery rows of this invoice's delivery note: only those products belong on this document
+        $oi = DB::scalar('SELECT d.invoice_id FROM erp_invoices i JOIN erp_order_deliveries d ON d.id = i.delivery_row_id WHERE i.invoice_number = ? AND d.invoice_id IS NOT NULL LIMIT 1', [$doc['invoice_no']], self::C);
+        $delivered = $oi ? array_map('intval', array_column(DB::select('SELECT customer_order_row_id AS id FROM erp_order_deliveries WHERE invoice_id = ?', [$oi], self::C), 'id')) : [];
+        $out = [];
+        $cur = null;
+        $seq = 0;
+        foreach ($rows as $r) {
+            if ((int) $r['order_row_type'] === 4) {                                          // free text: belongs to the product above
+                $txt = implode("\n", array_filter(array_map('trim', preg_split('/\r?\n/', (string) $r['free_text']) ?: [])));
+                if ($cur !== null && $txt !== '') { $out[$cur]['sub'][] = $txt; }
+
+                continue;
+            }
+            if ($delivered && ! in_array((int) $r['id'], $delivered, true)) { $cur = null; continue; }
+            $batch = $r['part_id'] ? DB::scalar("SELECT string_agg(DISTINCT batch_number, ', ') FROM erp_stock_transactions WHERE part_id = ? AND order_number = ? AND coalesce(batch_number, '') <> ''", [$r['part_id'], $doc['order_number']], self::C) : null;
+            $out[] = [
+                'no' => ($seq += 10), 'part_number' => (string) $r['part_number'], 'part_name' => (string) ($r['additional_row_description'] ?: $r['part_name']), 'batch' => (string) $batch,
+                'delivery_date' => $r['delivery_date'], 'qty' => (float) $r['ordered_quantity'], 'unit' => (string) $r['unit_code'], 'price' => (float) $r['price'],
+                'discount' => (float) $r['discount'], 'conversion_factor' => (float) $r['conversion_factor'], 'sub' => [],
+            ];
+            $cur = array_key_last($out);
+        }
+
+        return $out;
     }
 
     private static function one(string $sql, array $p): ?array { return DB::first($sql, $p, self::C); }

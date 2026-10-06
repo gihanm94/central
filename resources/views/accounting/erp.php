@@ -113,7 +113,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
 
 <!-- all APIs -->
 <form method="POST" action="<?= url('/accounting/erp/endpoints') ?>" class="panel mt-4 overflow-hidden" id="apis">
-    <?= csrf_field() ?><input type="hidden" name="mode" value="latest" data-mode>
+    <?= csrf_field() ?><input type="hidden" name="mode" value="latest" data-mode><input type="hidden" name="overwrite_form" value="1">
     <div class="panel-head">
         <h2 class="panel-title"><?= e(__('APIs')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count(config('erp.endpoints')) ?></span></h2>
         <div class="flex flex-wrap items-center gap-2">
@@ -134,7 +134,8 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
                 <td class="px-4 py-2.5"><span class="font-medium"><?= e($label) ?></span><span class="block font-mono text-[11px] text-steel"><?= e($key) ?></span></td>
                 <td class="px-3 py-2.5"><input name="api[<?= e($key) ?>]" value="<?= e(S::endpoint($key)) ?>" class="input font-mono text-xs" aria-label="<?= e($label) ?>"></td>
                 <td class="px-3 py-2.5">
-                    <?php foreach ($ents as $k): ?><span class="mb-1 flex items-center gap-1.5"><span class="badge <?= $groupTone[$entities[$k]['group']] ?>"><?= e($entities[$k]['group']) ?></span><span class="text-xs"><?= e($entities[$k]['label']) ?></span></span><?php endforeach ?>
+                    <?php foreach ($ents as $k): ?><span class="mb-1 flex items-center gap-1.5"><span class="badge <?= $groupTone[$entities[$k]['group']] ?>"><?= e($entities[$k]['group']) ?></span><span class="text-xs"><?= e($entities[$k]['label']) ?></span>
+                        <label class="ml-1 inline-flex cursor-pointer items-center gap-1 text-[11px] text-steel" title="<?= e(__('Off: only new rows are added. On: rows that already exist are updated too.')) ?>"><input type="checkbox" name="overwrite[<?= e($k) ?>]" value="1" class="size-3.5 accent-signal-600" <?= S::overwrite($k) ? 'checked' : '' ?>> <?= e(__('Overwrite')) ?></label></span><?php endforeach ?>
                     <?php if (! $ents): ?><span class="text-xs text-steel"><?= e($key === 'tokenUrl' ? __('login') : __('not copied yet')) ?></span><?php endif ?>
                 </td>
                 <td class="px-3 py-2.5">

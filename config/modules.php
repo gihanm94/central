@@ -66,6 +66,7 @@ return [
             ['label' => 'Orders',    'url' => '/accounting/orders',    'icon' => 'cart',  'permission' => 'accounting_orders.view'],
             ['label' => 'Invoices',  'url' => '/accounting/invoices',  'icon' => 'doc',   'permission' => 'accounting_invoices.view'],
             ['label' => 'Products',  'url' => '/accounting/products',  'icon' => 'box',   'permission' => 'accounting_products.view'],
+            ['label' => 'Sellers',   'url' => '/accounting/sellers',   'icon' => 'users', 'permission' => 'accounting_sellers.view'],
             ['heading' => 'E-Tax'],
             ['label' => 'Inets',     'url' => '/accounting/inet',      'icon' => 'doc',   'permission' => 'accounting_inet.view'],
             ['heading' => 'Setup'],

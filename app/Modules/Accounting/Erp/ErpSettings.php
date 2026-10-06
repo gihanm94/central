@@ -51,6 +51,9 @@ final class ErpSettings
         return (string) self::get('schedule.'.$key, (string) config('erp.schedule.'.$key, ''));
     }
 
+    /** Per ERP table: update rows that already exist (on) or only add new ones (off, the default). */
+    public static function overwrite(string $entityKey): bool { return self::get('overwrite.'.$entityKey, '0') === '1'; }
+
     public static function password(): string { return (string) self::get('conn.password', ''); }
 
     public static function baseUrl(): string

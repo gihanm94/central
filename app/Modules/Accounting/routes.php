@@ -10,6 +10,7 @@ use App\Modules\Accounting\Controllers\InvoiceController;
 use App\Modules\Accounting\Controllers\LogController;
 use App\Modules\Accounting\Controllers\OrderController;
 use App\Modules\Accounting\Controllers\ProductController;
+use App\Modules\Accounting\Controllers\SellerController;
 
 /** @var App\Core\Support\Router $r  (inside the 'auth' group of routes/web.php) */
 
@@ -25,15 +26,24 @@ $r->post('/accounting/erp/run', [ErpController::class, 'run']);
 $r->get('/accounting/erp/status', [ErpController::class, 'status']);
 
 // Copies of ERP data (read only) and the e-tax page
-foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'inet' => InetController::class] as $path => $controller) {
+foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class, 'inet' => InetController::class] as $path => $controller) {
     $r->get("/accounting/{$path}", [$controller, 'index']);
     $r->get("/accounting/{$path}/export", [$controller, 'export']);
     $r->get("/accounting/{$path}/{id}", [$controller, 'show']);
     $r->get("/accounting/{$path}/{id}/download", [$controller, 'download']);
 }
+// one record from the ERP again (admins) and the hand-filled seller fields
+foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class] as $path => $controller) {
+    $r->post("/accounting/{$path}/{id}/sync", [$controller, 'syncRow']);
+}
+$r->get('/accounting/sellers/{id}/edit', [SellerController::class, 'edit']);
+$r->post('/accounting/sellers/{id}', [SellerController::class, 'update']);
 $r->get('/accounting/inet/candidates', [InetController::class, 'candidates']);
 $r->post('/accounting/inet/generate', [InetController::class, 'generate']);
 $r->post('/accounting/inet/{id}/sync', [InetController::class, 'sync']);
+$r->post('/accounting/inet/{id}/regenerate', [InetController::class, 'regenerate']);
+$r->post('/accounting/inet/{id}/delete', [InetController::class, 'destroy']);
+$r->post('/accounting/inet/bulk-delete', [InetController::class, 'bulkDestroy']);
 $r->post('/accounting/inet/{id}/{doc}/send', [InetController::class, 'send']);
 $r->post('/accounting/inet/{id}/{doc}/fetch', [InetController::class, 'fetch']);
 $r->get('/accounting/inet/{id}/{doc}/file/{kind}', [InetController::class, 'file']);

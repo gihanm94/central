@@ -50,6 +50,27 @@
             dlg.showModal();
             input.focus();
         };
+        // Ticked rows of a list: one dialog, the word DELETE typed once.
+        var bulkIds = function () { return $$('[data-sel]:checked').map(function (c) { return c.dataset.sel; }); };
+        var bulkRefresh = function () {
+            var n = bulkIds().length, bar = $('[data-bulk-bar]');
+            if (bar) { bar.hidden = n === 0; var c = $('[data-bulk-n]', bar); if (c) c.textContent = n; }
+            var all = $('[data-sel-all]'), boxes = $$('[data-sel]');
+            if (all) { all.checked = boxes.length > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+        };
+        document.addEventListener('change', function (e) {
+            if (e.target.matches('[data-sel-all]')) { $$('[data-sel]').forEach(function (c) { c.checked = e.target.checked; }); }
+            if (e.target.matches('[data-sel], [data-sel-all]')) bulkRefresh();
+        });
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('[data-bulk-clear]')) { $$('[data-sel], [data-sel-all]').forEach(function (c) { c.checked = false; }); bulkRefresh(); return; }
+            var b = e.target.closest('[data-bulk-delete]');
+            if (!b) return;
+            var ids = bulkIds(); if (!ids.length) return;
+            openDelete(b.dataset.url, '', '');
+            idsBox.innerHTML = ids.map(function (id) { return '<input type="hidden" name="ids[]" value="' + id + '">'; }).join('');
+            $('[data-delete-text]', dlg).textContent = fill(dlg.dataset.msgMany, { n: ids.length, kind: b.dataset.kind || '' });
+        });
         document.addEventListener('click', function (e) {
             var one = e.target.closest('[data-delete-url]');
             if (one) { e.preventDefault(); openDelete(one.dataset.deleteUrl, one.dataset.deleteKind || '', one.dataset.deleteName || ''); }
