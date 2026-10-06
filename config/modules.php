@@ -61,6 +61,13 @@ return [
         'menu' => [
             ['heading' => 'Overview'],
             ['label' => 'Accounting overview', 'url' => '/accounting', 'icon' => 'chart'],
+            ['heading' => 'ERP data'],
+            ['label' => 'Customers', 'url' => '/accounting/customers', 'icon' => 'users', 'permission' => 'accounting_customers.view'],
+            ['label' => 'Orders',    'url' => '/accounting/orders',    'icon' => 'cart',  'permission' => 'accounting_orders.view'],
+            ['label' => 'Invoices',  'url' => '/accounting/invoices',  'icon' => 'doc',   'permission' => 'accounting_invoices.view'],
+            ['label' => 'Products',  'url' => '/accounting/products',  'icon' => 'box',   'permission' => 'accounting_products.view'],
+            ['heading' => 'E-Tax'],
+            ['label' => 'Inets',     'url' => '/accounting/inet',      'icon' => 'doc',   'permission' => 'accounting_inet.view'],
             ['heading' => 'Setup'],
             ['label' => 'ERP connection', 'url' => '/accounting/erp', 'icon' => 'cog', 'admin_only' => true],
         ],

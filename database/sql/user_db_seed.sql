@@ -104,7 +104,12 @@ INSERT INTO permissions (id, module, key, label, sort) VALUES
   (19, 'crm', 'crm_projects', 'CRM projects', 190),
   (20, 'crm', 'crm_tasks', 'CRM project tasks', 200),
   (21, 'crm', 'crm_stats', 'CRM statistics cards', 210),
-  (22, 'crm', 'crm_reassign', 'CRM team: reassign and bulk change', 220)
+  (22, 'crm', 'crm_reassign', 'CRM team: reassign and bulk change', 220),
+  (23, 'accounting', 'accounting_customers', 'Accounting customers', 300),
+  (24, 'accounting', 'accounting_orders', 'Accounting orders', 310),
+  (25, 'accounting', 'accounting_invoices', 'Accounting invoices', 320),
+  (26, 'accounting', 'accounting_products', 'Accounting products', 330),
+  (27, 'accounting', 'accounting_inet', 'Accounting e-tax (INET)', 340)
 ON CONFLICT (key) DO NOTHING;
 
 -- Letters: v=view c=create e=edit d=delete i=import x=export w=download
@@ -122,7 +127,12 @@ FROM (VALUES
   ('admin','crm_projects','vcedixw'),('management','crm_projects','vxw'),('bu_manager','crm_projects','vcedixw'),('manager','crm_projects','vcexw'),('member','crm_projects','vce'),
   ('admin','crm_tasks','vcedixw'),('management','crm_tasks','vxw'),('bu_manager','crm_tasks','vcedixw'),('manager','crm_tasks','vcedxw'),('member','crm_tasks','vce'),
   ('admin','crm_stats','v'),('management','crm_stats',''),('bu_manager','crm_stats','v'),('manager','crm_stats',''),('member','crm_stats',''),
-  ('admin','crm_reassign','ve'),('management','crm_reassign',''),('bu_manager','crm_reassign','ve'),('manager','crm_reassign',''),('member','crm_reassign','')
+  ('admin','crm_reassign','ve'),('management','crm_reassign',''),('bu_manager','crm_reassign','ve'),('manager','crm_reassign',''),('member','crm_reassign',''),
+  ('admin','accounting_customers','vx'),('admin','accounting_orders','vx'),('admin','accounting_invoices','vx'),('admin','accounting_products','vx'),('admin','accounting_inet','vcexw'),
+  ('management','accounting_customers','vx'),('management','accounting_orders','vx'),('management','accounting_invoices','vx'),('management','accounting_products','vx'),('management','accounting_inet','vx'),
+  ('bu_manager','accounting_customers','vx'),('bu_manager','accounting_orders','vx'),('bu_manager','accounting_invoices','vx'),('bu_manager','accounting_products','vx'),('bu_manager','accounting_inet',''),
+  ('manager','accounting_customers','v'),('manager','accounting_orders','v'),('manager','accounting_invoices','v'),('manager','accounting_products','v'),('manager','accounting_inet',''),
+  ('member','accounting_customers',''),('member','accounting_orders',''),('member','accounting_invoices',''),('member','accounting_products',''),('member','accounting_inet','')
 ) AS d(role, perm, l)
 JOIN roles r ON r.slug = d.role
 JOIN permissions p ON p.key = d.perm

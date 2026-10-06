@@ -14,6 +14,7 @@ $sortUrl  = function (string $key) use ($sort, $dir) {
     return url(Request::path(), array_merge($_GET, ['sort' => $key, 'dir' => $next, 'page' => null]));
 };
 $canEditAny = can($res, 'edit');
+$ro = ! empty($c['readonly']);          // read-only screens (ERP copies): no add / import
 $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_start(); ?>
     <div id="<?= e($id) ?>" data-menu-panel hidden role="menu" class="fixed z-[70] w-48 rounded-lg bg-white p-1.5 text-sm shadow-xl ring-1 ring-graphite-900/10">
         <a role="menuitem" href="<?= url($c['base'].'/'.$row['id']) ?>" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist"><?= icon('eye', 'size-4 text-steel') ?> <?= e(__('View')) ?></a>
@@ -38,6 +39,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
 <?= partial('crm/stats', ['cards' => $stats]) ?>
 <?php endif ?>
 
+<?= $topExtra ?? '' ?>
 <section class="panel mt-4" data-table="<?= e($res) ?>" data-prefs-url="<?= e(url('/table-prefs')) ?>">
     <!-- Toolbar: search + filter on the left; add, import, export, columns on the right -->
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-graphite-900/8 p-3">
@@ -71,8 +73,9 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
         </form>
 
         <div class="flex flex-wrap items-center gap-2">
-            <?php if (can($res, 'create')): ?><a href="<?= url($c['base'].'/create') ?>" class="btn-primary"><?= icon('plus', 'size-4') ?> <?= e(__('Add')) ?></a><?php endif ?>
-            <?php if (can($res, 'import')): ?><button type="button" class="btn-secondary" data-toggle="#import-panel" aria-expanded="false" title="<?= e(__('Import')) ?>"><?= icon('upload', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('Import')) ?></span></button><?php endif ?>
+            <?= $headerActions ?? '' ?>
+            <?php if (! $ro && can($res, 'create')): ?><a href="<?= url($c['base'].'/create') ?>" class="btn-primary"><?= icon('plus', 'size-4') ?> <?= e(__('Add')) ?></a><?php endif ?>
+            <?php if (! $ro && can($res, 'import')): ?><button type="button" class="btn-secondary" data-toggle="#import-panel" aria-expanded="false" title="<?= e(__('Import')) ?>"><?= icon('upload', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('Import')) ?></span></button><?php endif ?>
             <?php if (can($res, 'export')): ?><a href="<?= e(url($c['base'].'/export', $_GET)) ?>" class="btn-secondary" title="<?= e(__('Export')) ?>"><?= icon('download', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('Export')) ?></span></a><?php endif ?>
             <div class="relative">
                 <button type="button" class="btn-secondary" data-menu="#columns-menu" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" title="<?= e(__('Choose columns')) ?>"><?= icon('columns', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('View')) ?></span></button>
@@ -90,7 +93,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
         </div>
     </div>
 
-    <?php if (can($res, 'import')): ?>
+    <?php if (! $ro && can($res, 'import')): ?>
     <form id="import-panel" hidden method="POST" action="<?= url($c['base'].'/import') ?>" enctype="multipart/form-data" class="flex flex-wrap items-end gap-4 border-b border-graphite-900/8 bg-mist/40 p-4">
         <?= csrf_field() ?>
         <div class="min-w-0 flex-1 basis-64">
@@ -159,7 +162,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
     <?php if (! $rows): ?>
         <p class="px-5 py-14 text-center text-sm text-steel">
             <?= e($searching ? __('Nothing matches these filters.') : __('No :items yet.', ['items' => mb_strtolower($plural)])) ?>
-            <?php if (! $searching && can($res, 'create')): ?><a href="<?= url($c['base'].'/create') ?>" class="ml-1 font-medium text-signal-700 hover:underline"><?= e(__('Add the first one')) ?></a><?php endif ?>
+            <?php if (! $ro && ! $searching && can($res, 'create')): ?><a href="<?= url($c['base'].'/create') ?>" class="ml-1 font-medium text-signal-700 hover:underline"><?= e(__('Add the first one')) ?></a><?php endif ?>
         </p>
     <?php endif ?>
     <?= partial('partials/pagination', compact('total', 'perPage', 'page')) ?>

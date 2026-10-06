@@ -20,7 +20,7 @@ final class Syncer
     public static function entities(): array { return config('erp.entities'); }
 
     /** @return array{fetched: int, saved: int} */
-    public function run(string $key, string $mode = 'latest', ?string $id = null, ?int $size = null): array
+    public function run(string $key, string $mode = 'latest', ?string $id = null, ?int $size = null, ?string $filter = null): array
     {
         $def = self::entities()[$key] ?? throw new \InvalidArgumentException("Unknown ERP entity {$key}");
         $start = microtime(true);
@@ -36,6 +36,7 @@ final class Syncer
                 $q = ['top' => $top, 'skip' => $skip, 'orderby' => $mode === 'latest' ? 'Id desc' : 'Id'];
                 if (! empty($def['expand'])) { $q['expand'] = $def['expand']; }
                 elseif (! empty($def['columns'])) { $q['select'] = $def['columns']; }      // nested columns are only safe with a plain select
+                if ($filter !== null) { $q['filter'] = $filter; }
                 if ($mode === 'one') { $q['filter'] = "Id eq '".preg_replace('/[^0-9A-Za-z_-]/', '', (string) $id)."'"; }
                 $page = $this->client->page($def['api'], $q);
                 if ($page['error'] !== null) { throw new \RuntimeException($page['error']); }

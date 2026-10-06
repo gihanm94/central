@@ -59,6 +59,9 @@ abstract class ResourceController extends Controller
     protected function intro(): string { return ''; }
     /** Summary cards above the list: [['label', 'value', 'sub', 'tone', 'icon', 'href']] — empty for most screens. */
     protected function stats(): array { return []; }
+    /** HTML put in the list toolbar (before Add) and above the table — used by screens with their own buttons / tabs. */
+    protected function headerActions(): string { return ''; }
+    protected function topExtra(): string { return ''; }
     /** Add values that live in another database (owner names …) to rows read from $table. */
     protected function hydrate(array $rows): array { return $rows; }
 
@@ -177,7 +180,7 @@ abstract class ResourceController extends Controller
             'hidden' => TablePrefController::load($this->user()->id, $this->resource)['hidden'],
             'sort' => $this->sorting()[0], 'dir' => strtolower($this->sorting()[1]),
             'canDelete' => can($this->resource, 'delete'),
-            'canSearch' => (bool) $this->searchable(), 'intro' => $this->intro(), 'stats' => $this->stats(),
+            'canSearch' => (bool) $this->searchable(), 'intro' => $this->intro(), 'stats' => $this->stats(), 'headerActions' => $this->headerActions(), 'topExtra' => $this->topExtra(),
         ]);
     }
 
