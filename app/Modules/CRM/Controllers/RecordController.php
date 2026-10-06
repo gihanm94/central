@@ -6,6 +6,7 @@ namespace App\Modules\CRM\Controllers;
 use App\Core\Http\Controllers\Controller;
 use App\Core\Support\Activity;
 use App\Core\Support\DB;
+use App\Core\Support\Notifier;
 use App\Core\Support\Request;
 use App\Core\Support\Session;
 use App\Core\Support\ValidationException;
@@ -62,6 +63,13 @@ final class RecordController extends Controller
 
         Activity::log('commented', $ctl->entityType(), $id, $ctl->recordLabel($row), ['Commented on :type ":label"', ['type' => $ctl->entityType(), 'label' => $ctl->recordLabel($row)]],
             ['comment' => str_limit($data['body'], 200)], $row['owner_id'] ? (int) $row['owner_id'] : null, null, false, 'crm');
+        // The owner hears about it (bell, e-mail — whatever is switched on), unless they wrote it themselves.
+        if (! empty($row['owner_id']) && (int) $row['owner_id'] !== $this->user()->id) {
+            Notifier::deliver('crm', 'commented', (int) $row['owner_id'],
+                ['key' => ':name commented on :type ":label"', 'params' => ['name' => $this->user()->name, 'type' => $ctl->entityType(), 'label' => $ctl->recordLabel($row)]],
+                ['key' => ':comment', 'params' => ['comment' => str_limit($data['body'], 300)]],
+                url('/crm/'.Access::ENTITIES[$ctl->entityType()]['path'].'/'.$id.'#comments'), $this->user()->id);
+        }
         Session::flash('success', __('Comment added.'));
         $this->back($ctl, $id, '#comments');
     }
@@ -161,6 +169,16 @@ final class RecordController extends Controller
         Activity::log('shared', $ctl->entityType(), $id, $ctl->recordLabel($row),
             ['Shared :type ":label" with :who (:access)', ['type' => $ctl->entityType(), 'label' => $ctl->recordLabel($row), 'who' => $name, 'access' => $access === 'edit' ? 'can edit' : 'view only']],
             ['target' => $type, 'target_id' => $target, 'access' => $access], $row['owner_id'] ? (int) $row['owner_id'] : null, null, false, 'crm');
+        // tell the person (or everyone in the department) that something was shared with them
+        $recipients = $type === 'user' ? [$target] : array_map('intval', array_column(DB::select('SELECT id FROM users WHERE department_id = ? AND is_active AND deleted_at IS NULL AND id <> ? LIMIT 60', [$target, $u->id]), 'id'));
+        foreach ($recipients as $to) {
+            if ($to !== $u->id) {
+                Notifier::deliver('crm', 'shared', $to,
+                    ['key' => ':name shared :type ":label" with you', 'params' => ['name' => $u->name, 'type' => $ctl->entityType(), 'label' => $ctl->recordLabel($row)]],
+                    ['key' => $access === 'edit' ? 'You can edit it.' : 'You can view it.', 'params' => []],
+                    url('/crm/'.Access::ENTITIES[$ctl->entityType()]['path'].'/'.$id), $u->id);
+            }
+        }
         Session::flash('success', __('Shared with :who.', ['who' => $name]));
         $this->back($ctl, $id, '#sharing');
     }

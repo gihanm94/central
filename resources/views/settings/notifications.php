@@ -3,6 +3,7 @@ include __DIR__.'/_tabs.php'; $crumbs = [];
 $canEdit  = can('settings', 'edit');
 $actions  = config('core.notify_actions');
 $channels = config('core.notify_channels');
+$secChannels = array_diff_key($channels, ['app' => 1]);   // the bell is not used for security alerts
 $modes    = ['off' => __('Off'), 'webhook' => __('Group chat (bot webhook)'), 'app' => __('Direct message to each person (Lark app)')];
 ?>
 <form method="POST" action="<?= url('/settings/notifications') ?>" class="mt-6 space-y-6">
@@ -74,11 +75,11 @@ $modes    = ['off' => __('Off'), 'webhook' => __('Group chat (bot webhook)'), 'a
             <div class="panel-head"><h2 class="panel-title"><?= e(__('Security alerts')) ?></h2></div>
             <div class="overflow-x-auto">
                 <table class="table">
-                    <thead class="bg-mist/60"><tr><th><?= e(__('Event')) ?></th><?php foreach ($channels as $cl): ?><th class="text-center"><?= e(__($cl)) ?></th><?php endforeach ?></tr></thead>
+                    <thead class="bg-mist/60"><tr><th><?= e(__('Event')) ?></th><?php foreach ($secChannels as $cl): ?><th class="text-center"><?= e(__($cl)) ?></th><?php endforeach ?></tr></thead>
                     <tbody>
                     <?php foreach (config('core.security_events') as $ev => $el): ?>
                         <tr><td class="font-medium"><?= e(__($el)) ?></td>
-                            <?php foreach (array_keys($channels) as $c): ?><td class="text-center"><input type="checkbox" name="security[<?= $ev ?>][<?= $c ?>]" value="1" class="size-4 accent-signal-600" <?= $security[$ev][$c] ? 'checked' : '' ?> aria-label="<?= e($el.' '.$c) ?>"></td><?php endforeach ?>
+                            <?php foreach (array_keys($secChannels) as $c): ?><td class="text-center"><input type="checkbox" name="security[<?= $ev ?>][<?= $c ?>]" value="1" class="size-4 accent-signal-600" <?= $security[$ev][$c] ? 'checked' : '' ?> aria-label="<?= e($el.' '.$c) ?>"></td><?php endforeach ?>
                         </tr>
                     <?php endforeach ?>
                     </tbody>

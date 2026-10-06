@@ -10,6 +10,7 @@ use App\Core\Support\Session;
 use App\Core\Support\ValidationException;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Catalog;
+use App\Modules\CRM\Support\Stages;
 use App\Modules\CRM\Support\Ui;
 
 /**
@@ -18,6 +19,8 @@ use App\Modules\CRM\Support\Ui;
  */
 class OpportunityController extends CrmController
 {
+    protected array $remote = ['lead_id' => 'leads', 'contact_id' => 'contacts'];
+
     protected string $resource = 'crm_opportunities';
     protected string $table = 'opportunities';
     protected string $type = 'opportunity';
@@ -56,11 +59,11 @@ class OpportunityController extends CrmController
         return [
             '_deal'       => ['section' => __('Opportunity')],
             'name'        => ['label' => __('Name'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Packaging line upgrade'],
-            'lead_id'     => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rich' => true, 'rules' => 'required', 'default' => $this->prefill('lead_id'),
-                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null],
-            'contact_id'  => ['label' => __('Contact'), 'type' => 'select', 'options' => $this->contactOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('contact_id'),
-                              'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null],
-            'opportunity_stage' => ['label' => __('Stage'), 'type' => 'select', 'options' => Catalog::stages(), 'rules' => 'required', 'default' => 'QUALIFICATION',
+            'lead_id'     => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2,
+                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
+            'contact_id'  => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2,
+                              'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null]),
+            'opportunity_stage' => ['label' => __('Stage'), 'type' => 'select', 'options' => Stages::options($this->user(), $row['opportunity_stage'] ?? null), 'rules' => 'required', 'default' => 'QUALIFICATION',
                               'help' => __('After saving, use the stage tracker on the detail page to move it and keep a history.')],
             'priority'    => ['label' => __('Priority'), 'type' => 'select', 'options' => Catalog::tr(Catalog::PRIORITIES), 'rules' => 'required', 'default' => 'MEDIUM'],
             'cancel_reason' => ['label' => __('Reason'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:2000', 'show_when' => 'opportunity_stage=CLOSED_LOST,CANCEL,ON_HOLD',
@@ -186,28 +189,44 @@ class OpportunityController extends CrmController
     {
         $row   = $this->findForChange($id, 'edit');
         $stage = (string) Request::input('stage');
+        $note  = trim((string) Request::input('note'));
+        if (isset(Catalog::STAGES[$stage]) && $stage === $row['opportunity_stage']) {
+            back('error', __('It is already in this stage.'));
+        }
+        $this->checkMove($stage, $note);
+        $this->changeStage($row, $stage, $note);
+
+        Session::flash('success', __('Moved to :stage.', ['stage' => Catalog::stageLabel($stage)]));
+        redirect('/crm/opportunities/'.$id.'#progress');
+    }
+
+    /** Is this a stage the person can move to, and is the reason there when one is needed? (rights on the record are checked by the caller) */
+    public function checkMove(string $stage, string $note): void
+    {
         if (! isset(Catalog::STAGES[$stage])) {
             throw new ValidationException(['stage' => __('Pick a stage.')]);
         }
-        if ($stage === $row['opportunity_stage']) {
-            back('error', __('It is already in this stage.'));
+        if (! Stages::allowed($this->user(), $stage)) {
+            throw new ValidationException(['stage' => __('This stage is not available to your department.')]);
         }
-        $note = trim((string) Request::input('note'));
         if (in_array($stage, Catalog::NEEDS_REASON, true) && $note === '') {
             throw new ValidationException(['note' => __('Write the reason for this stage.')]);
         }
+    }
 
-        $set    = ['opportunity_stage' => $stage, 'updated_by' => $this->user()->id, 'updated_at' => now(), 'cancel_reason' => in_array($stage, Catalog::NEEDS_REASON, true) ? $note : null];
-        $prob   = Catalog::STAGES[$stage][1];
+    /** Moves an opportunity to a stage and writes the history. Used by the stage tracker and the pipeline board. */
+    public function changeStage(array $row, string $stage, string $note): void
+    {
+        $id   = (int) $row['id'];
+        $set  = ['opportunity_stage' => $stage, 'updated_by' => $this->user()->id, 'updated_at' => now(), 'cancel_reason' => in_array($stage, Catalog::NEEDS_REASON, true) ? $note : null];
+        $prob = Catalog::STAGES[$stage][1];
         if ($prob !== null) { $set['probability'] = $prob; }
         if (in_array($stage, ['CLOSED_WON', 'CLOSED_LOST'], true)) { $set['close_at'] = now(); }
         DB::update('opportunities', $set, ['id' => $id], 'crm');
         $this->recordStage($id, $stage, $row['opportunity_stage'], $note !== '' ? $note : null);
 
         Activity::log('updated', 'opportunity', $id, $row['name'], ['Moved opportunity ":label" to :stage', ['label' => $row['name'], 'stage' => Catalog::STAGES[$stage][0]]],
-            ['changes' => ['opportunity_stage' => ['from' => Catalog::stageLabel($row['opportunity_stage']), 'to' => Catalog::stageLabel($stage)]]], $this->owner($row), module: 'crm');
-        Session::flash('success', __('Moved to :stage.', ['stage' => Catalog::stageLabel($stage)]));
-        redirect('/crm/opportunities/'.$id.'#progress');
+            ['changes' => ['opportunity_stage' => ['from' => Catalog::stageLabel($row['opportunity_stage']), 'to' => Catalog::stageLabel($stage)]], '_url' => url('/crm/opportunities/'.$id)], $this->owner($row), module: 'crm');
     }
 
     /* ------------------------------------------------------------- next steps */

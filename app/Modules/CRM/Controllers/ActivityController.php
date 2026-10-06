@@ -14,6 +14,8 @@ use App\Modules\CRM\Support\Ui;
 /** Calls, meetings, e-mails and tasks — linked to a company, a contact and/or an opportunity. Has files and comments. */
 class ActivityController extends CrmController
 {
+    protected array $remote = ['lead_id' => 'leads', 'contact_id' => 'contacts', 'opportunity_id' => 'opportunities'];
+
     protected string $resource = 'crm_activities';
     protected string $table = 'activities';
     protected string $type = 'activity';
@@ -69,12 +71,12 @@ class ActivityController extends CrmController
             'meeting_location' => ['label' => __('Location or link'), 'rules' => 'nullable|max:255', 'span' => 2, 'show_when' => 'activity_type=MEETING'],
 
             '_related'   => ['section' => __('Related to')],
-            'lead_id'    => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rich' => true, 'rules' => 'required', 'default' => $this->prefill('lead_id'),
-                             'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null],
-            'contact_id' => ['label' => __('Contact'), 'type' => 'select', 'options' => $this->contactOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('contact_id'),
-                             'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null],
-            'opportunity_id' => ['label' => __('Opportunity'), 'type' => 'select', 'options' => $this->opportunityOptions($row), 'rules' => 'nullable', 'span' => 2, 'default' => $this->prefill('opportunity_id'),
-                             'display' => fn ($r) => $r['opportunity_name'] ?? null, 'href' => fn ($r) => $r['opportunity_id'] ? '/crm/opportunities/'.$r['opportunity_id'] : null],
+            'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2,
+                             'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
+            'contact_id' => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id',
+                             'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null]),
+            'opportunity_id' => $this->remoteField('opportunity_id', $row, ['label' => __('Opportunity'), 'rules' => 'nullable', 'depends' => 'lead_id',
+                             'display' => fn ($r) => $r['opportunity_name'] ?? null, 'href' => fn ($r) => $r['opportunity_id'] ? '/crm/opportunities/'.$r['opportunity_id'] : null]),
 
             '_reminder'  => ['section' => __('Reminder')],
             'notify_me'  => ['label' => __('Remind me'), 'type' => 'checkbox', 'help' => __('The reminder shows on your CRM dashboard.')],
@@ -116,6 +118,13 @@ class ActivityController extends CrmController
             $data['meeting_type'] = $data['meeting_duration'] = $data['meeting_location'] = null;
         }
         $data['notify_before'] = (int) ($data['notify_before'] ?? 0);
+        // a changed time or reminder setting means the reminder has not been sent yet
+        $same = $existing
+            && ($existing['start_at'] ? strtotime((string) $existing['start_at']) : null) === (! empty($data['start_at']) ? strtotime((string) $data['start_at']) : null)
+            && (int) $existing['notify_before'] === $data['notify_before'] && filter_var($existing['notify_me'], FILTER_VALIDATE_BOOL) === ! empty($data['notify_me']);
+        if (! $same) {
+            $data['reminder_sent_at'] = null;
+        }
 
         // Fill in the chain: opportunity → its company and contact; contact → its company
         if (! empty($data['opportunity_id'])) {

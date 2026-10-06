@@ -13,6 +13,8 @@ use App\Modules\CRM\Support\Ui;
 /** A person at a lead (company). Can have several mobile numbers. */
 class ContactController extends CrmController
 {
+    protected array $remote = ['lead_id' => 'leads'];
+
     protected string $resource = 'crm_contacts';
     protected string $table = 'contacts';
     protected string $type = 'contact';
@@ -51,8 +53,8 @@ class ContactController extends CrmController
 
         return [
             '_person'    => ['section' => __('Person')],
-            'lead_id'    => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rich' => true, 'rules' => 'required', 'default' => $this->prefill('lead_id'),
-                             'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null],
+            'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2,
+                             'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
             'salutation' => ['label' => __('Salutation'), 'type' => 'select', 'options' => Catalog::salutations(), 'rules' => 'nullable', 'search' => false],
             'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:160', 'example' => 'Somsak Rattanakul'],
             'name_th'    => ['label' => __('Name (Thai)'), 'rules' => 'nullable|max:160'],

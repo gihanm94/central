@@ -35,6 +35,8 @@
 
     function open(panel, trigger, placement) {
         close();
+        // Open from <body>: a menu inside a scrolling or transformed container would be clipped, mis-placed or closed by its scroll.
+        if (panel.parentNode !== document.body) { panel._home = panel._home || panel.parentNode; document.body.appendChild(panel); }
         place(panel, trigger, placement);
         trigger.setAttribute('aria-expanded', 'true');
         openPanel = panel; openTrigger = trigger;
@@ -82,6 +84,7 @@
     }
 
     function filter(panel, q) {
+        if (panel.hasAttribute('data-remote')) return;   // the server does the searching (ui.js)
         q = q.toLowerCase(); var any = false;
         $$('[role=option]', panel).forEach(function (o) { var hit = (o.dataset.search || o.dataset.label).toLowerCase().indexOf(q) > -1; o.hidden = !hit; any = any || hit; });
         var empty = $('[data-select-empty]', panel); if (empty) empty.hidden = any;

@@ -17,13 +17,17 @@ abstract class LookupController extends ResourceController
 
     protected function scopeSql(): array { return ['sql' => 'TRUE', 'params' => []]; }
 
-    /** Tabs shown above every settings list. */
+    /** Tabs shown above every settings screen — only the ones this person may open. */
     public static function tabs(): array
     {
         $tabs = [];
-        foreach ([['industries', 'Industries', 'building'], ['lead-sources', 'Lead sources', 'target'], ['products', 'Products', 'box'], ['currencies', 'Currencies', 'calc']] as [$p, $l, $i]) {
-            $tabs[] = ['/crm/settings/'.$p, __($l), $i];
+        if (can('crm_settings', 'view')) {
+            foreach ([['industries', 'Industries', 'building'], ['lead-sources', 'Lead sources', 'target'], ['products', 'Products', 'box'], ['currencies', 'Currencies', 'calc']] as [$p, $l, $i]) {
+                $tabs[] = ['/crm/settings/'.$p, __($l), $i];
+            }
         }
+        if (can('crm_stages', 'view')) { $tabs[] = ['/crm/settings/stages', __('Stages'), 'columns']; }
+        if (can('crm_targets', 'view')) { $tabs[] = ['/crm/settings/targets', __('Sales targets'), 'chart']; }
 
         return $tabs;
     }

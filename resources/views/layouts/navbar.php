@@ -2,7 +2,7 @@
 $crumbs ??= [];
 $locales = App\Core\Support\I18n::available();
 ?>
-<header class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-graphite-900/8 bg-white/90 px-3 backdrop-blur sm:h-16 sm:gap-3 sm:px-6 lg:px-8">
+<header class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-graphite-900/8 bg-white px-3 sm:h-16 sm:gap-3 sm:px-6 lg:px-8">
     <button type="button" data-sidebar-toggle class="btn-ghost -ml-1 shrink-0 px-2" aria-label="<?= e(__('Toggle sidebar')) ?>" title="<?= e(__('Toggle sidebar')) ?>">
         <?= icon('panel') ?>
     </button>
@@ -19,6 +19,23 @@ $locales = App\Core\Support\I18n::available();
             <span class="truncate font-medium text-graphite-900" aria-current="page"><?= e($title) ?></span>
         <?php endif ?>
     </nav>
+
+    <!-- Notifications -->
+    <?php $bellUnread = App\Core\Http\Controllers\NotificationController::unread(auth()->id); ?>
+    <div class="relative shrink-0">
+        <button type="button" data-menu="#notif-menu" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" class="btn-ghost relative px-2" title="<?= e(__('Notifications')) ?>" aria-label="<?= e(__('Notifications')) ?>">
+            <?= icon('bell', 'size-[19px]') ?>
+            <span data-bell-badge class="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-brand px-1 text-center text-[10px] font-semibold leading-4 text-white" <?= $bellUnread ? '' : 'hidden' ?>><?= $bellUnread > 99 ? '99+' : $bellUnread ?></span>
+        </button>
+        <div id="notif-menu" data-feed-url="<?= e(url('/notifications/feed')) ?>" data-read-url="<?= e(url('/notifications/read-all')) ?>" data-menu-panel hidden role="menu" class="fixed z-[70] w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-lg bg-white shadow-xl ring-1 ring-graphite-900/10">
+            <div class="flex items-center justify-between border-b border-graphite-900/8 px-4 py-2.5">
+                <p class="text-sm font-semibold"><?= e(__('Notifications')) ?></p>
+                <button type="button" class="text-xs text-steel hover:text-graphite-900" data-bell-read><?= e(__('Mark all as read')) ?></button>
+            </div>
+            <div class="max-h-[min(26rem,70vh)] overflow-y-auto" data-bell-list><?= partial('partials/notification-list', ['items' => App\Core\Http\Controllers\NotificationController::latest(auth()->id)]) ?></div>
+            <a href="<?= url('/notifications') ?>" class="block border-t border-graphite-900/8 px-4 py-2.5 text-center text-sm font-medium hover:bg-mist/60"><?= e(__('See all notifications')) ?></a>
+        </div>
+    </div>
 
     <!-- Display size -->
     <div class="relative hidden shrink-0 sm:block">

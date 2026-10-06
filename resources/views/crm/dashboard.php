@@ -9,7 +9,6 @@ $crumbs = [];
 $money  = fn ($n) => e($cur).' '.Ui::compact((float) $n);
 $pl     = fn ($n, $one, $many) => __((int) $n === 1 ? $one : $many, ['n' => $n]);
 $link   = fn (array $over) => url('/crm/dashboard', array_filter(array_merge(['department' => $pick ?: null, 'mine' => $mine ? 1 : null], $over), fn ($v) => $v !== null));
-$ramp   = ['#a9cdf3', '#6aa6ea', '#2a78d6', '#1b4f93'];   // one blue, light → dark by stage
 $maxStage = max(1.0, ...array_column($stages, 'v'));
 $maxMonth = max(1.0, ...array_map(fn ($m) => (float) $m['v'], $months));
 $maxInd   = max(1, ...array_map(fn ($i) => (int) $i['n'], $industries ?: [['n' => 1]]));
@@ -63,6 +62,35 @@ $tiles = [
     <?php endforeach ?>
 </div>
 
+<?php if ($target):
+    $tt = $target['total'] > 0 ? $target['total'] : array_sum($target['target']);
+    $pt = $tt > 0 ? round($target['actual_total'] / $tt * 100) : 0;
+    $curQ = (int) ceil(date('n') / 3);
+?>
+<section class="panel mt-6">
+    <div class="panel-head">
+        <h2 class="panel-title"><?= e(__('Sales target :year', ['year' => $targetYear])) ?></h2>
+        <?php if (can('crm_targets', 'view')): ?><a href="<?= url('/crm/settings/targets', array_filter(['year' => $targetYear, 'department' => $pick ?: null])) ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('Details')) ?></a><?php endif ?>
+    </div>
+    <div class="grid gap-px bg-graphite-900/6 sm:grid-cols-5">
+        <?php foreach ([1, 2, 3, 4] as $q): $t = $target['target'][$q]; $a = $target['actual'][$q]; $p = $t > 0 ? round($a / $t * 100) : null; ?>
+        <div class="bg-white px-5 py-4 <?= $q === $curQ ? 'bg-signal-50/40' : '' ?>">
+            <p class="flex items-center justify-between text-xs font-medium text-steel"><span>Q<?= $q ?><?= $q === $curQ ? ' · '.e(__('now')) : '' ?></span><span class="tabular-nums"><?= $p === null ? '—' : $p.'%' ?></span></p>
+            <p class="figure mt-2 text-2xl"><?= $money($a) ?></p>
+            <p class="mt-1 text-xs text-steel"><?= e(__('of :t', ['t' => $money($t)])) ?></p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full" style="width: <?= min(100, (int) $p) ?>%; background: <?= $p !== null && $p >= 100 ? '#16a34a' : '#2a78d6' ?>"></div></div>
+        </div>
+        <?php endforeach ?>
+        <div class="bg-white px-5 py-4">
+            <p class="flex items-center justify-between text-xs font-medium text-steel"><span><?= e(__('Year')) ?></span><span class="tabular-nums"><?= $pt ?>%</span></p>
+            <p class="figure mt-2 text-2xl"><?= $money($target['actual_total']) ?></p>
+            <p class="mt-1 text-xs text-steel"><?= e(__('of :t', ['t' => $money($tt)])) ?></p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full" style="width: <?= min(100, $pt) ?>%; background: <?= $pt >= 100 ? '#16a34a' : '#2a78d6' ?>"></div></div>
+        </div>
+    </div>
+</section>
+<?php endif ?>
+
 <div class="mt-6 grid gap-6 lg:grid-cols-5">
     <section class="panel lg:col-span-3">
         <div class="panel-head"><h2 class="panel-title"><?= e(__('Open pipeline by stage')) ?></h2><span class="text-xs text-steel"><?= e(__('Value in :cur', ['cur' => $cur])) ?></span></div>
@@ -70,10 +98,10 @@ $tiles = [
             <?php foreach (array_values($stages) as $i => $s): $w = $s['v'] > 0 ? max(2, $s['v'] / $maxStage * 100) : 0; ?>
             <li>
                 <div class="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
-                    <a href="<?= e(url('/crm/opportunities', array_filter(['stage' => array_keys($stages)[$i], 'department' => $pick ?: null, 'scope' => $mine ? 'mine' : null]))) ?>" class="font-medium hover:text-signal-700"><?= e($s['label']) ?></a>
+                    <a href="<?= e(url('/crm/opportunities', array_filter(['stage' => array_keys($stages)[$i], 'department' => $pick ?: null, 'scope' => $mine ? 'mine' : null]))) ?>" class="flex items-center gap-2 font-medium hover:text-signal-700"><span class="size-2.5 rounded-full" style="background: <?= e(App\Modules\CRM\Support\Stages::color(array_keys($stages)[$i])) ?>"></span><?= e($s['label']) ?></a>
                     <span class="tabular-nums text-steel"><?= e($pl($s['n'], ':n deal', ':n deals')) ?> · <span class="font-medium text-graphite-900"><?= $money($s['v']) ?></span></span>
                 </div>
-                <div class="h-5 rounded bg-graphite-900/5" title="<?= e($s['label'].': '.number_format($s['v'], 0).' '.$cur) ?>"><div class="h-full rounded-r" style="width: <?= round($w, 1) ?>%; background: <?= $ramp[$i] ?>"></div></div>
+                <div class="h-5 rounded bg-graphite-900/5" title="<?= e($s['label'].': '.number_format($s['v'], 0).' '.$cur) ?>"><div class="h-full rounded-r" style="width: <?= round($w, 1) ?>%; background: <?= e(App\Modules\CRM\Support\Stages::color(array_keys($stages)[$i])) ?>"></div></div>
             </li>
             <?php endforeach ?>
         </ul>

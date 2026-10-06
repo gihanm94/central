@@ -55,13 +55,13 @@ final class Notifier
      * A record event (create / edit / delete / import / export / download).
      * $text: ['key' => 'Created :type ":label"', 'params' => [...]] rendered per recipient language.
      */
-    public static function event(string $module, string $action, array $text, array $changes, ?int $actorId, ?int $ownerId): void
+    public static function event(string $module, string $action, array $text, array $changes, ?int $actorId, ?int $ownerId, ?string $url = null): void
     {
         if (! in_array($action, self::actions(), true)) {
             return;
         }
-        $rule = self::matrix()[$module][$action] ?? ['email' => false, 'lark' => false];
-        if (! $rule['email'] && ! $rule['lark']) {
+        $rule = self::matrix()[$module][$action] ?? ['app' => false, 'email' => false, 'lark' => false];
+        if (! $rule['app'] && ! $rule['email'] && ! $rule['lark']) {
             return;
         }
 
@@ -92,6 +92,10 @@ final class Notifier
                 if ($rule['lark'] && Lark::mode() === 'app' && ($prefs['lark'] ?? true)) {
                     Lark::direct($u['email'], $subject, array_slice($lines, 1), url('/dashboard'));
                 }
+                // the bell: only for people other than the one who did it
+                if ($rule['app'] && ($prefs['app'] ?? true) && ! $isActor) {
+                    self::bell((int) $u['id'], $module, $action, $subject, strip_tags((string) ($lines[1] ?? '')), $url, $actorId);
+                }
             });
         }
 
@@ -101,6 +105,49 @@ final class Notifier
                 Lark::webhook($subject, array_slice($lines, 1), url('/activity'));
             });
         }
+    }
+
+    /**
+     * One message to one person (a comment on their record, a reminder, something shared with them),
+     * through the channels the company and that person left switched on: bell, e-mail, Lark.
+     * $text is ['key' => 'Text with :params', 'params' => [...]] and is written in the recipient's language.
+     */
+    public static function deliver(string $module, string $action, int $userId, array $title, array $body, ?string $url = null, ?int $actorId = null): void
+    {
+        $rule = self::matrix()[$module][$action] ?? ['app' => false, 'email' => false, 'lark' => false];
+        if (! $rule['app'] && ! $rule['email'] && ! $rule['lark']) {
+            return;
+        }
+        $u = DB::first('SELECT id, name, email, locale, notify_prefs FROM users WHERE id = ? AND is_active AND deleted_at IS NULL', [$userId]);
+        if (! $u) {
+            return;
+        }
+        $prefs = self::prefs($u['notify_prefs'])[$module][$action] ?? [];
+
+        I18n::with($u['locale'], function () use ($u, $rule, $prefs, $title, $body, $url, $actorId, $module, $action) {
+            $subject = activity_render($title);
+            $line    = activity_render($body);
+            if ($rule['app'] && ($prefs['app'] ?? true)) {
+                self::bell((int) $u['id'], $module, $action, $subject, $line, $url, $actorId);
+            }
+            if ($rule['email'] && ($prefs['email'] ?? true)) {
+                Mailer::notify($u['email'], $u['name'], $subject, [e($line)], ['label' => __('Open'), 'url' => $url ?: url('/dashboard')], __('You can switch these e-mails off under Profile → Notifications.'));
+            }
+            if ($rule['lark'] && Lark::mode() === 'app' && ($prefs['lark'] ?? true)) {
+                Lark::direct($u['email'], $subject, [$line], $url ?: url('/dashboard'));
+            }
+        });
+    }
+
+    /** Put a message in somebody's bell. */
+    public static function bell(int $userId, string $module, string $type, string $title, ?string $body, ?string $url, ?int $actorId = null): void
+    {
+        DB::insert('notifications', [
+            'user_id' => $userId, 'module' => $module, 'type' => $type, 'title' => mb_substr($title, 0, 200),
+            'body' => $body !== null ? mb_substr($body, 0, 500) : null,
+            'url' => $url ? mb_substr(str_starts_with($url, base_url()) ? substr($url, strlen(base_url())) : $url, 0, 255) : null,
+            'actor_id' => $actorId,
+        ], 'core', '');
     }
 
     /** Security alerts (sign-in, password) — always about the person themselves. */

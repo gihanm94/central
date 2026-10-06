@@ -11,13 +11,27 @@ use App\Modules\CRM\Controllers\IndustryController;
 use App\Modules\CRM\Controllers\LeadController;
 use App\Modules\CRM\Controllers\LeadSourceController;
 use App\Modules\CRM\Controllers\OpportunityController;
+use App\Modules\CRM\Controllers\PipelineController;
 use App\Modules\CRM\Controllers\ProductController;
 use App\Modules\CRM\Controllers\RecordController;
+use App\Modules\CRM\Controllers\SearchController;
+use App\Modules\CRM\Controllers\StageController;
+use App\Modules\CRM\Controllers\TargetController;
 
 /** @var Router $r  (inside the 'auth' group of routes/web.php) */
 
 $r->get('/crm', [DashboardController::class, 'index']);
 $r->get('/crm/dashboard', [DashboardController::class, 'index']);
+
+// Pipeline board, dropdown search, stage and target settings
+$r->get('/crm/pipeline', [PipelineController::class, 'index']);
+$r->get('/crm/pipeline/cards', [PipelineController::class, 'cards']);
+$r->post('/crm/pipeline/move', [PipelineController::class, 'move']);
+$r->get('/crm/search/{kind}', [SearchController::class, 'find']);
+$r->get('/crm/settings/stages', [StageController::class, 'index']);
+$r->post('/crm/settings/stages', [StageController::class, 'save']);
+$r->get('/crm/settings/targets', [TargetController::class, 'index']);
+$r->post('/crm/settings/targets', [TargetController::class, 'save']);
 
 // Standard screens: list, new, detail, edit, delete, export, import, template, download
 $crm = [

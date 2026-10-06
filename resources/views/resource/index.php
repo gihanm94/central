@@ -30,7 +30,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
         <h1 class="page-title"><?= e($plural) ?></h1>
-        <p class="mt-1 text-sm text-steel"><?= e(__(':count total', ['count' => $total])) ?><?= $searching ? ' · '.e(__('filtered')) : '' ?><?= $intro ? '. '.e($intro) : '' ?></p>
+        <p class="mt-1 text-sm text-steel"><span data-total><?= e(__(':count total', ['count' => $total])) ?><?= $searching ? ' · '.e(__('filtered')) : '' ?></span><?= $intro ? '. '.e($intro) : '' ?></p>
     </div>
 </div>
 
@@ -43,7 +43,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
             <label class="relative w-full sm:w-72">
                 <span class="sr-only"><?= e(__('Search')) ?></span>
                 <span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-graphite-400"><?= icon('search', 'size-4') ?></span>
-                <input name="q" value="<?= e($q) ?>" type="search" placeholder="<?= e(__('Search…')) ?>" class="input pl-8">
+                <input name="q" value="<?= e($q) ?>" type="search" placeholder="<?= e(__('Search (3+ letters)…')) ?>" class="input pl-8" autocomplete="off">
             </label>
             <?php endif ?>
             <?php if ($filters): ?>
@@ -63,7 +63,6 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
                 </div>
             </div>
             <?php endif ?>
-            <?php if ($canSearch): ?><button class="btn-secondary"><?= e(__('Search')) ?></button><?php endif ?>
             <?php if ($searching): ?><a href="<?= url($c['base']) ?>" class="btn-ghost"><?= e(__('Clear')) ?></a><?php endif ?>
         </form>
 
@@ -99,12 +98,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
     </form>
     <?php endif ?>
 
-    <!-- Bar that appears when rows are ticked -->
-    <div data-bulk hidden class="flex items-center justify-between gap-3 border-b border-graphite-900/8 bg-graphite-900 px-4 py-2 text-sm text-white">
-        <span><span data-bulk-count class="font-semibold">0</span> <?= e(__('selected')) ?> <button type="button" class="ml-2 text-graphite-300 underline-offset-2 hover:text-white hover:underline" data-bulk-clear><?= e(__('Clear selection')) ?></button></span>
-        <?php if ($canDelete): ?><button type="button" class="btn bg-signal-600 text-white hover:bg-signal-700" data-delete-bulk="<?= e(url($c['base'].'/bulk-delete')) ?>" data-delete-kind="<?= e(__($c['plural'])) ?>"><?= icon('trash', 'size-4') ?> <?= e(__('Delete selected')) ?></button><?php endif ?>
-    </div>
-
+    <div data-list-region>
     <!-- Phones: cards -->
     <ul class="divide-y divide-graphite-900/6 md:hidden">
         <?php foreach ($rows as $row): $a = $rowActions[$row['id']]; ?>
@@ -127,12 +121,10 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
 
     <!-- Tablets and up: table -->
     <div class="hidden overflow-x-auto md:block">
-        <table class="table" data-table-el>
+        <table class="table w-max min-w-full" data-table-el>
             <thead class="bg-white">
                 <tr>
-                    <th class="w-[4.5rem] !pr-0">
-                        <div class="flex items-center gap-2.5"><input type="checkbox" data-select-all class="size-4 accent-signal-600" aria-label="<?= e(__('Select all rows on this page')) ?>"><span class="sr-only"><?= e(__('Actions')) ?></span></div>
-                    </th>
+                    <th class="sticky left-0 z-[2] w-12 bg-white !px-2 shadow-[1px_0_0_rgba(23,24,27,.06)]"><span class="sr-only"><?= e(__('Actions')) ?></span></th>
                     <?php foreach ($columns as $key => $col): ?>
                     <th data-col="<?= e($key) ?>" <?= in_array($key, $hidden, true) && $key !== $primary ? 'hidden' : '' ?> aria-sort="<?= $sort === $key ? ($dir === 'desc' ? 'descending' : 'ascending') : 'none' ?>">
                         <?php if (! empty($col['sort'])): ?>
@@ -145,14 +137,11 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
             </thead>
             <tbody>
             <?php foreach ($rows as $row): $a = $rowActions[$row['id']]; ?>
-                <tr class="hover:bg-mist/40" data-row="<?= (int) $row['id'] ?>">
-                    <td class="!pr-0">
-                        <div class="flex items-center gap-1.5">
-                            <input type="checkbox" data-select-row value="<?= (int) $row['id'] ?>" data-name="<?= e($row['_label'] ?? '') ?>" class="size-4 accent-signal-600" aria-label="<?= e(__('Select')) ?>">
-                            <div class="relative">
-                                <button type="button" class="btn-ghost size-8 px-0" data-menu="#row-<?= (int) $row['id'] ?>" data-placement="bottom-start" aria-haspopup="menu" aria-expanded="false" aria-label="<?= e(__('Actions')) ?>"><?= icon('dots', 'size-5') ?></button>
-                                <?= $rowMenu($row, $a, 'row-'.(int) $row['id']) ?>
-                            </div>
+                <tr class="group hover:bg-mist/40" data-row="<?= (int) $row['id'] ?>">
+                    <td class="sticky left-0 z-[1] bg-white !px-2 shadow-[1px_0_0_rgba(23,24,27,.06)] group-hover:bg-[#f5f6f7]">
+                        <div class="relative">
+                            <button type="button" class="btn-ghost size-8 px-0" data-menu="#row-<?= (int) $row['id'] ?>" data-placement="bottom-start" aria-haspopup="menu" aria-expanded="false" aria-label="<?= e(__('Actions')) ?>"><?= icon('dots', 'size-5') ?></button>
+                            <?= $rowMenu($row, $a, 'row-'.(int) $row['id']) ?>
                         </div>
                     </td>
                     <?php foreach ($columns as $key => $col): ?>
@@ -170,4 +159,5 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
         </p>
     <?php endif ?>
     <?= partial('partials/pagination', compact('total', 'perPage', 'page')) ?>
+    </div>
 </section>

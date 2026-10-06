@@ -12,19 +12,20 @@ $closed   = in_array($stage, ['CLOSED_LOST', 'CANCEL', 'ON_HOLD'], true);
 $since    = $moves ? $moves[0]['created_at'] : $row['created_at'];
 $days     = max(0, (int) floor((time() - strtotime($since)) / 86400));
 $nodes    = [...array_map(fn ($s) => [$s, Catalog::stageLabel($s)], $pipeline), ['CLOSED_WON', Catalog::stageLabel('CLOSED_WON')]];
-$banner   = ['CLOSED_WON' => ['bg-emerald-50 text-emerald-900 ring-emerald-600/20', 'tick'], 'CLOSED_LOST' => ['bg-signal-50 text-signal-800 ring-signal-600/20', 'alert'],
-             'CANCEL' => ['bg-graphite-900/5 text-graphite-800 ring-graphite-900/10', 'x'], 'ON_HOLD' => ['bg-amber-50 text-amber-900 ring-amber-600/20', 'clock']][$stage] ?? null;
-$options  = array_diff_key(Catalog::stages(), [$stage => 1]);
+$stageColor = fn ($k) => App\Modules\CRM\Support\Stages::color($k);
+$banner   = ['CLOSED_WON' => 'tick', 'CLOSED_LOST' => 'alert', 'CANCEL' => 'x', 'ON_HOLD' => 'clock'][$stage] ?? null;
+$options  = array_diff_key(App\Modules\CRM\Support\Stages::options(auth(), $stage), [$stage => 1]);
 ?>
 <section id="stage" class="panel mt-6 p-5">
     <ol class="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="<?= e(__('Opportunity stages')) ?>">
         <?php foreach ($nodes as $i => [$key, $label]):
             $state = $won ? 'done' : ($closed ? ($i <= $reached ? 'past' : 'todo') : ($cur !== false ? ($i < $cur ? 'done' : ($i === $cur ? 'current' : 'todo')) : 'todo'));
-            $bar = ['done' => $key === 'CLOSED_WON' ? 'bg-emerald-600' : 'bg-graphite-800', 'past' => 'bg-graphite-400', 'current' => 'bg-signal-600', 'todo' => 'bg-graphite-900/10'][$state]; ?>
+            $col = $stageColor($key);
+            $barStyle = ['done' => "background:$col", 'current' => "background:$col; box-shadow:0 0 0 3px {$col}33", 'past' => "background:{$col}66", 'todo' => ''][$state]; ?>
             <li <?= $state === 'current' ? 'aria-current="step"' : '' ?>>
-                <span class="block h-2 rounded-full <?= $bar ?>"></span>
+                <span class="block h-2 rounded-full <?= $state === 'todo' ? 'bg-graphite-900/10' : '' ?>" style="<?= e($barStyle) ?>"></span>
                 <span class="mt-2 flex items-start gap-1 text-[11px] leading-tight sm:text-xs <?= $state === 'current' ? 'font-semibold text-graphite-900' : ($state === 'todo' ? 'text-graphite-400' : 'text-steel') ?>">
-                    <?php if ($state === 'done'): ?><?= icon('tick', 'mt-px size-3.5 shrink-0 '.($key === 'CLOSED_WON' ? 'text-emerald-600' : 'text-graphite-800')) ?><?php endif ?>
+                    <?php if ($state === 'done'): ?><?= icon('tick', 'mt-px size-3.5 shrink-0') ?><?php endif ?>
                     <span class="min-w-0 break-words"><?= e($label) ?></span>
                 </span>
             </li>
@@ -32,8 +33,8 @@ $options  = array_diff_key(Catalog::stages(), [$stage => 1]);
     </ol>
 
     <?php if ($banner): ?>
-    <div class="mt-4 flex items-start gap-3 rounded-md px-4 py-3 text-sm ring-1 <?= $banner[0] ?>">
-        <?= icon($banner[1], 'mt-0.5 size-4 shrink-0') ?>
+    <div class="mt-4 flex items-start gap-3 rounded-md px-4 py-3 text-sm text-graphite-900" style="background:<?= e($stageColor($stage)) ?>1a; box-shadow: inset 3px 0 0 <?= e($stageColor($stage)) ?>">
+        <?= icon($banner, 'mt-0.5 size-4 shrink-0') ?>
         <div class="min-w-0"><p class="font-medium"><?= e(Catalog::stageLabel($stage)) ?><?= $row['close_at'] && $stage !== 'ON_HOLD' ? ' · '.e(format_date($row['close_at'], 'd M Y')) : '' ?></p>
             <?php if (! empty($row['cancel_reason'])): ?><p class="mt-0.5 whitespace-pre-line break-words"><?= e($row['cancel_reason']) ?></p><?php endif ?></div>
     </div>

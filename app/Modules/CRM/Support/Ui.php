@@ -55,9 +55,12 @@ final class Ui
         return number_format($n, 0);
     }
 
+    /** Stage name with the colour set for it in CRM settings. */
     public static function stageBadge(?string $stage): string
     {
-        return self::badge(Catalog::stageLabel($stage), Catalog::stageTone($stage));
+        $c = Stages::color($stage);
+
+        return '<span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium text-graphite-900" style="background:'.e($c).'22"><span class="size-2 shrink-0 rounded-full" style="background:'.e($c).'"></span>'.e(Catalog::stageLabel($stage)).'</span>';
     }
 
     /** Avatar (picture or initial) with a name and a small second line — the first cell of most lists. */

@@ -3,6 +3,11 @@ $here = App\Core\Support\Request::path();
 $menu = array_values(array_filter($modules[$current]['menu'], function ($item) {
     if (isset($item['heading'])) { return true; }
     if (! empty($item['admin_only']) && ! auth()->isAdmin()) { return false; }
+    foreach ((array) ($item['permission_any'] ?? []) as $any) {          // visible when the person holds any of these
+        [$r, $a] = array_pad(explode('.', $any, 2), 2, 'view');
+        if (can($r, $a)) { return true; }
+    }
+    if (isset($item['permission_any'])) { return false; }
     if (empty($item['permission'])) { return true; }
     [$res, $act] = array_pad(explode('.', $item['permission'], 2), 2, 'view');
     return can($res, $act);

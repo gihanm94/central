@@ -47,7 +47,7 @@ final class Activity
         ]);
 
         if ($notify) {
-            Notifier::event($module, $action, $text, $properties['changes'] ?? [], $actorId, $ownerId);
+            Notifier::event($module, $action, $text, $properties['changes'] ?? [], $actorId, $ownerId, $properties['_url'] ?? null);
         }
 
         return $logId;

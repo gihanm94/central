@@ -2,6 +2,7 @@
 include __DIR__.'/_header.php';
 $actions  = config('core.notify_actions');
 $channels = config('core.notify_channels');
+$secChannels = array_diff_key($channels, ['app' => 1]);   // the bell is not used for security alerts
 $enabled  = array_filter(config('modules'), fn ($m) => $m['enabled']);
 $cell = function (string $m, string $a, string $c) use ($company, $prefs, $larkOn) {
     $allowed = $company[$m][$a][$c] && ($c === 'email' || $larkOn);
@@ -35,11 +36,11 @@ $cell = function (string $m, string $a, string $c) use ($company, $prefs, $larkO
         <div class="panel-head"><div><h2 class="panel-title flex items-center gap-2"><?= icon('lock', 'size-4 text-signal-600') ?><?= e(__('Security alerts')) ?></h2><p class="text-xs text-steel"><?= e(__('Password e-mails are always sent, to protect your account.')) ?></p></div></div>
         <div class="overflow-x-auto">
             <table class="table">
-                <thead class="bg-mist/60"><tr><th><?= e(__('Event')) ?></th><?php foreach ($channels as $c => $cl): ?><th class="text-center"><?= e(__($cl)) ?></th><?php endforeach ?></tr></thead>
+                <thead class="bg-mist/60"><tr><th><?= e(__('Event')) ?></th><?php foreach ($secChannels as $c => $cl): ?><th class="text-center"><?= e(__($cl)) ?></th><?php endforeach ?></tr></thead>
                 <tbody>
                 <?php foreach (config('core.security_events') as $ev => $el): ?>
                     <tr><td class="font-medium"><?= e(__($el)) ?></td>
-                        <?php foreach ($channels as $c => $_):
+                        <?php foreach ($secChannels as $c => $_):
                             $allowed = $security[$ev][$c] && ($c === 'email' || $larkOn) && ! ($ev === 'password' && $c === 'email');
                             $on = ($ev === 'password' && $c === 'email') ? true : ($prefs['_security'][$ev][$c] ?? true); ?>
                             <td class="text-center"><input type="checkbox" name="notify[_security][<?= $ev ?>][<?= $c ?>]" value="1" class="size-4 accent-signal-600" <?= $on ? 'checked' : '' ?> <?= $allowed ? '' : 'disabled' ?> aria-label="<?= e($el.' '.$c) ?>"></td>

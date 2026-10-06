@@ -127,6 +127,16 @@ A **lead** is the company; contacts, opportunities and activities hang off it. C
 * **Notes / descriptions** use a rich-text editor (Quill, served from `public/assets/vendor/quill`): images are uploaded to `public/uploads/editor` and can be resized by dragging or with 25/50/100 % buttons. Saved HTML is cleaned on the server.
 * **Owner and department** are never typed: a new CRM record belongs to the person who creates it and to their department. Access for others is added in the form's last step or from *Who can see this* on the record.
 
+
+### Notifications, pipeline, stages and targets
+* **Bell** (top bar): unread count and the latest messages; *Notifications* page keeps the full list. Comment on a record → its owner gets a bell message and an e-mail; sharing a record notifies the people it is shared with; a planned activity with *Remind me* sends its reminder at the chosen time.
+  Company switches: **Company settings → Notifications** (new *Comment*, *Share*, *Reminder* columns and an *In-app* row, per module). Each person can switch them off under **Profile → Notifications**.
+* **Reminders** are sent while anyone has the app open. To send them when nobody is signed in, add a cron job: `* * * * * php /path/to/app/bin/reminders.php`.
+* **Pipeline** (`/crm/pipeline`): one column per stage the person's department uses, coloured top edge, cards load as a column is scrolled. Everyone sees the cards they may see; **only the creator can drag a card** (or use its ⋮ *Move to* menu). Your own cards are highlighted.
+* **Stages** (CRM settings → Stages): names are fixed. Colours (shown everywhere a stage appears, including the dashboard) are set by whole-company roles; each department's *available stages* are set by Admin or that department's BU Manager. A department that does not use a stage cannot pick it or see it in the pipeline.
+* **Sales targets** (CRM settings → Sales targets): per department and year, a target for each quarter and for the year; actuals come from won deals and can be saved per year (or typed). The dashboard shows target vs actual.
+* **Who sees CRM settings**: Admin, BU Manager and Manager (Manager/BU Manager can add industries, lead sources, products, currencies). Management can read targets only; Members have no settings. Adjust under *Roles & access*, or give one person an exception under *Members → Access*.
+
 ### Files
 Attachments are stored in `storage/attachments` (not reachable from the web) and downloaded through a permission check. Up to 10 MB each; pdf, images, office files, txt/csv, zip.
 

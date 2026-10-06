@@ -8,6 +8,7 @@ use App\Core\Support\DB;
 use App\Core\Support\Request;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Catalog;
+use App\Modules\CRM\Support\Targets;
 
 /**
  * CRM dashboard.
@@ -113,19 +114,26 @@ class DashboardController extends Controller
             $compare = $this->compare($deps, $val, $mine ? $u->id : null);
         }
 
+        // yearly target of the department being looked at (all departments added up for whole-company roles)
+        $year    = (int) date('Y');
+        $depFor  = $all ? ($pick ?: null) : ($u->department_id ?: 0);
+        $summary = $depFor === 0 ? null : Targets::summary($depFor, $year);
+        $target  = $summary && ($summary['total'] > 0 || array_sum($summary['target']) > 0) ? $summary : null;
+
         $pipeline = array_sum(array_column($stages, 'v'));
 
         return view('crm/dashboard', [
             'title' => __('CRM overview'), 'all' => $all, 'deps' => $deps, 'pick' => $pick, 'mine' => $mine, 'scopeName' => $scopeName, 'cur' => $cur,
             'stages' => $stages, 'hold' => $hold, 'pipeline' => $pipeline, 'forecast' => array_sum(array_column($stages, 'w')), 'openCount' => array_sum(array_column($stages, 'n')),
             'won' => $won, 'winRate' => $winRate, 'months' => $months, 'counts' => $counts, 'industries' => $industries, 'sources' => $sources,
-            'actCount' => $actCount, 'upcoming' => $upcoming, 'reminders' => $reminders, 'top' => $top, 'campaigns' => $campaigns, 'owners' => $owners, 'compare' => $compare,
+            'target' => $target, 'targetYear' => $year, 'actCount' => $actCount, 'upcoming' => $upcoming, 'reminders' => $reminders, 'top' => $top, 'campaigns' => $campaigns, 'owners' => $owners, 'compare' => $compare,
         ]);
     }
 
     public function settings(): never
     {
-        redirect('/crm/settings/industries');
+        $first = LookupController::tabs()[0][0] ?? null;
+        $first ? redirect($first) : abort(403, __('You do not have access to CRM settings.'));
     }
 
     /** One row per department for the whole-company view. */

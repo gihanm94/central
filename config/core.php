@@ -34,7 +34,7 @@ return [
     ],
 
     // Record events that can notify people, per module, by e-mail and/or Lark.
-    'notify_actions' => ['created' => 'Create', 'updated' => 'Edit', 'deleted' => 'Delete', 'import' => 'Import', 'export' => 'Export', 'download' => 'Download'],
-    'notify_channels' => ['email' => 'E-mail', 'lark' => 'Lark'],
+    'notify_actions' => ['created' => 'Create', 'updated' => 'Edit', 'deleted' => 'Delete', 'import' => 'Import', 'export' => 'Export', 'download' => 'Download', 'commented' => 'Comment', 'shared' => 'Share', 'reminder' => 'Reminder'],
+    'notify_channels' => ['app' => 'In-app (bell)', 'email' => 'E-mail', 'lark' => 'Lark'],
     'security_events' => ['login' => 'New sign-in', 'password' => 'Password changed or reset'],
 ];

@@ -196,7 +196,7 @@ abstract class ResourceController extends Controller
 
         $row = $this->find($id);
         Activity::log('created', $this->type, $id, $this->label($row), ['Created :type ":label"', ['type' => $this->singular, 'label' => $this->label($row)]],
-            ['attributes' => $this->displayValues($fields, $row)], $this->owner($row), module: $this->module);
+            ['attributes' => $this->displayValues($fields, $row), '_url' => url($this->base.'/'.$id)], $this->owner($row), module: $this->module);
 
         Session::flash('success', __(':Item created.', ['Item' => __(ucfirst($this->singular))]));
         redirect($this->base.'/'.$id);
@@ -243,7 +243,7 @@ abstract class ResourceController extends Controller
         }
         if ($changes) {
             Activity::log('updated', $this->type, $id, $this->label($after), ['Updated :type ":label"', ['type' => $this->singular, 'label' => $this->label($after)]],
-                ['changes' => $changes], $this->owner($after), module: $this->module);
+                ['changes' => $changes, '_url' => url($this->base.'/'.$id)], $this->owner($after), module: $this->module);
         }
 
         Session::flash('success', $changes ? __(':Item saved.', ['Item' => __(ucfirst($this->singular))]) : __('Nothing changed.'));
@@ -457,7 +457,9 @@ abstract class ResourceController extends Controller
         $out    = [];
         foreach ($fields as $name => $f) {
             $v = $row[$name] ?? null;
-            if (($f['type'] ?? '') === 'checkbox') {
+            if (isset($f['display'])) {
+                $v = ($f['display'])($row);
+            } elseif (($f['type'] ?? '') === 'checkbox') {
                 $v = filter_var($v, FILTER_VALIDATE_BOOL) ? __('Yes') : __('No');
             } elseif (isset($f['options']) && $v !== null && $v !== '') {
                 $v = $f['options'][$v] ?? $f['all_options'][$v] ?? $v;

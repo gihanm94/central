@@ -8,6 +8,7 @@ use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
 use App\Core\Http\Controllers\KpiController;
 use App\Core\Http\Controllers\MemberController;
+use App\Core\Http\Controllers\NotificationController;
 use App\Core\Http\Controllers\PasskeyController;
 use App\Core\Http\Controllers\ProfileController;
 use App\Core\Http\Controllers\RoleController;
@@ -51,6 +52,10 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/profile/scale', [ProfileController::class, 'scale']);
     $r->post('/table-prefs', [TablePrefController::class, 'save']);
     $r->post('/editor/image', [EditorController::class, 'image']);
+    $r->get('/notifications', [NotificationController::class, 'index']);
+    $r->get('/notifications/feed', [NotificationController::class, 'feed']);
+    $r->post('/notifications/read-all', [NotificationController::class, 'readAll']);
+    $r->get('/notifications/{id}/open', [NotificationController::class, 'open']);
     $r->get('/profile/notifications', [ProfileController::class, 'notifications']);
     $r->post('/profile/notifications', [ProfileController::class, 'saveNotifications']);
     $r->post('/profile/devices/{id}/forget', [ProfileController::class, 'forgetDevice']);

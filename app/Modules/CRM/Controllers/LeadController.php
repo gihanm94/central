@@ -12,6 +12,8 @@ use App\Modules\CRM\Support\Ui;
 /** A lead is the company / account. Contacts, opportunities and activities hang off it. */
 class LeadController extends CrmController
 {
+    protected array $remote = ['company_id' => 'leads'];
+
     protected string $resource = 'crm_leads';
     protected string $table = 'leads';
     protected string $type = 'lead';
@@ -40,10 +42,6 @@ class LeadController extends CrmController
 
     protected function fields(?array $row): array
     {
-        $parents = $this->leadOptions($row, 'company_id');
-        if ($row) {
-            unset($parents[$row['id']]);
-        }
         $industries = array_column(DB::select('SELECT id, name FROM industries ORDER BY name', [], 'crm'), 'name', 'id');
         $sources    = array_column(DB::select('SELECT id, name FROM lead_sources ORDER BY name', [], 'crm'), 'name', 'id');
 
@@ -54,8 +52,8 @@ class LeadController extends CrmController
             'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
             'tax_id'     => ['label' => __('Tax ID'), 'rules' => 'nullable|max:30'],
             'revenue'    => ['label' => __('Annual revenue'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'company_id' => ['label' => __('Parent company'), 'type' => 'select', 'options' => $parents, 'rich' => true, 'rules' => 'nullable',
-                             'display' => fn ($r) => $r['company_name'] ?? null, 'href' => fn ($r) => $r['company_id'] ? '/crm/leads/'.$r['company_id'] : null],
+            'company_id' => $this->remoteField('company_id', $row, ['label' => __('Parent company'), 'rules' => 'nullable',
+                             'display' => fn ($r) => $r['company_name'] ?? null, 'href' => fn ($r) => $r['company_id'] ? '/crm/leads/'.$r['company_id'] : null]),
             'is_register'   => ['label' => __('Registered company'), 'type' => 'checkbox', 'help' => __('Registered with the Department of Business Development.')],
             'is_government' => ['label' => __('Government organization'), 'type' => 'checkbox'],
 

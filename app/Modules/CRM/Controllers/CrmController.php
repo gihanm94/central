@@ -87,50 +87,45 @@ abstract class CrmController extends ResourceController
         ];
     }
 
-    /** Leads this person may see, as rich options (logo, English name, Thai name) for the searchable dropdown. */
-    protected function leadOptions(?array $row = null, string $col = 'lead_id'): array
+    /** Fields that point at another CRM record and are picked with a searchable, endless dropdown: column => kind. */
+    protected array $remote = [];
+
+    /** One row for the dropdown's button (logo, name, second line). */
+    protected function remoteItem(string $kind, int $id): ?array
     {
-        $s    = Access::visible($this->user(), 't', 'lead');
-        $rows = DB::select("SELECT t.id, t.name_en, t.name_th, t.image FROM leads t WHERE t.deleted_at IS NULL AND {$s['sql']} ORDER BY t.name_en", $s['params'], 'crm');
-        $opts = [];
-        foreach ($rows as $r) {
-            $opts[$r['id']] = ['label' => $r['name_en'], 'sub' => $r['name_th'], 'img' => upload_url($r['image'])];
-        }
-        if ($row && ! empty($row[$col]) && ! isset($opts[$row[$col]])) {
-            $r = DB::first('SELECT id, name_en, name_th, image FROM leads WHERE id = ?', [$row[$col]], 'crm');
-            if ($r) {
-                $opts[$r['id']] = ['label' => $r['name_en'], 'sub' => $r['name_th'], 'img' => upload_url($r['image'])];
+        $r = match ($kind) {
+            'leads'         => DB::first('SELECT name_en AS label, name_th AS sub, image AS img FROM leads WHERE id = ?', [$id], 'crm'),
+            'contacts'      => DB::first("SELECT trim(coalesce(c.salutation || ' ', '') || c.name_en) AS label, concat_ws(' · ', l.name_en, c.job_title) AS sub, c.avatar AS img FROM contacts c LEFT JOIN leads l ON l.id = c.lead_id WHERE c.id = ?", [$id], 'crm'),
+            default         => DB::first("SELECT o.name AS label, concat_ws(' · ', o.code, l.name_en) AS sub, NULL AS img FROM opportunities o LEFT JOIN leads l ON l.id = o.lead_id WHERE o.id = ?", [$id], 'crm'),
+        };
+
+        return $r ? ['label' => $r['label'], 'sub' => $r['sub'], 'img' => upload_url($r['img'])] : null;
+    }
+
+    /** Definition of a "pick a lead / contact / opportunity" field; $def adds label, rules, span … */
+    protected function remoteField(string $col, ?array $row, array $def): array
+    {
+        $kind = $this->remote[$col];
+        $id   = (int) (old($col) ?: ($row[$col] ?? $this->prefill($col)) ?: 0);
+
+        return $def + ['type' => 'select', 'remote' => $kind, 'current' => $id ? $this->remoteItem($kind, $id) : null, 'default' => $this->prefill($col)];
+    }
+
+    /** A picked record must be one this person may see (an unchanged existing value is left alone). */
+    protected function checkRemote(array $data, ?array $existing): void
+    {
+        $tables = ['leads' => ['leads', 'lead'], 'contacts' => ['contacts', 'contact'], 'opportunities' => ['opportunities', 'opportunity']];
+        foreach ($this->remote as $col => $kind) {
+            $v = $data[$col] ?? null;
+            if ($v === null || $v === '' || ($existing && (string) ($existing[$col] ?? '') === (string) $v)) {
+                continue;
+            }
+            [$table, $type] = $tables[$kind];
+            $s = Access::visible($this->user(), 't', $type);
+            if (! ctype_digit((string) $v) || ! DB::scalar("SELECT 1 FROM {$table} t WHERE t.id = ? AND t.deleted_at IS NULL AND {$s['sql']}", [(int) $v, ...$s['params']], 'crm')) {
+                throw new ValidationException([$col => __('Pick one from the list.')]);
             }
         }
-
-        return $opts;
-    }
-
-    protected function contactOptions(?array $row = null): array
-    {
-        $s    = Access::visible($this->user(), 't', 'contact');
-        $rows = DB::select("SELECT t.id, t.name_en, l.name_en AS lead FROM contacts t LEFT JOIN leads l ON l.id = t.lead_id WHERE t.deleted_at IS NULL AND {$s['sql']} ORDER BY t.name_en", $s['params'], 'crm');
-        $opts = [];
-        foreach ($rows as $r) {
-            $opts[$r['id']] = $r['name_en'].($r['lead'] ? ' — '.$r['lead'] : '');
-        }
-        if ($row && ! empty($row['contact_id']) && ! isset($opts[$row['contact_id']])) {
-            $opts[$row['contact_id']] = (string) DB::scalar('SELECT name_en FROM contacts WHERE id = ?', [$row['contact_id']], 'crm');
-        }
-
-        return $opts;
-    }
-
-    protected function opportunityOptions(?array $row = null): array
-    {
-        $s    = Access::visible($this->user(), 't', 'opportunity');
-        $rows = DB::select("SELECT t.id, t.name FROM opportunities t WHERE t.deleted_at IS NULL AND {$s['sql']} ORDER BY t.id DESC", $s['params'], 'crm');
-        $opts = array_column($rows, 'name', 'id');
-        if ($row && ! empty($row['opportunity_id']) && ! isset($opts[$row['opportunity_id']])) {
-            $opts[$row['opportunity_id']] = (string) DB::scalar('SELECT name FROM opportunities WHERE id = ?', [$row['opportunity_id']], 'crm');
-        }
-
-        return $opts;
     }
 
     /** Active currencies for dropdowns: [code => code · name] */
@@ -223,6 +218,8 @@ abstract class CrmController extends ResourceController
             }
         }
 
+        $this->checkRemote($data, $existing);
+
         return $this->prepareMore($data, $existing);
     }
 
@@ -232,6 +229,18 @@ abstract class CrmController extends ResourceController
     protected function importDefaults(array $raw): array
     {
         $raw['owner_id'] = $raw['owner_id'] ?? $this->user()->id;
+        // a lead / contact / opportunity may be given by name in the CSV
+        $names = ['leads' => ['leads', 'name_en', 'lead'], 'contacts' => ['contacts', 'name_en', 'contact'], 'opportunities' => ['opportunities', 'name', 'opportunity']];
+        foreach ($this->remote as $col => $kind) {
+            $v = trim((string) ($raw[$col] ?? ''));
+            if ($v === '' || ctype_digit($v)) {
+                continue;
+            }
+            [$table, $nameCol, $type] = $names[$kind];
+            $s  = Access::visible($this->user(), 't', $type);
+            $id = DB::scalar("SELECT t.id FROM {$table} t WHERE t.deleted_at IS NULL AND lower(t.{$nameCol}) = lower(?) AND {$s['sql']} ORDER BY t.id LIMIT 1", [$v, ...$s['params']], 'crm');
+            $raw[$col] = $id !== null ? (string) $id : '';
+        }
 
         return $raw;
     }

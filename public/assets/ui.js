@@ -1,8 +1,10 @@
 /*
  | Shared screens behaviour (no framework):
  |   display size       [data-scale] buttons in the top bar
- |   delete dialog      [data-delete-url] / [data-delete-bulk] — the person must type DELETE
- |   lists              [data-table]: tick rows, bulk bar, choose columns (saved per person)
+ |   delete dialog      [data-delete-url] — the person must type DELETE
+ |   lists              [data-table]: live search (3+ letters), choose columns (saved per person)
+ |   remote dropdowns   [data-remote-select]: search + endless scroll against the server
+ |   bell               notifications polled once a minute
  |   forms              [data-form]: required-field counter + dialog, wizard steps, full screen
  |   rich text          [data-richtext]: Quill, loaded on demand, images uploaded to the server and resizable
  */
@@ -39,23 +41,18 @@
     if (dlg) {
         var form = $('form', dlg), input = $('[data-delete-input]', dlg), go = $('[data-delete-go]', dlg), idsBox = $('[data-delete-ids]', dlg);
         var fill = function (tpl, vars) { return tpl.replace(/:(\w+)/g, function (m, k) { return vars[k] !== undefined ? vars[k] : m; }); };
-        var openDelete = function (url, kind, name, ids) {
+        var openDelete = function (url, kind, name) {
             closeMenus();
             form.action = url;
             idsBox.innerHTML = '';
-            (ids || []).forEach(function (id) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids[]'; i.value = id; idsBox.appendChild(i); });
-            $('[data-delete-text]', dlg).textContent = ids && ids.length ? fill(dlg.dataset.msgMany, { n: ids.length, kind: kind }) : fill(dlg.dataset.msgOne, { kind: kind, name: name });
+            $('[data-delete-text]', dlg).textContent = fill(dlg.dataset.msgOne, { kind: kind, name: name });
             input.value = ''; go.disabled = true;
             dlg.showModal();
             input.focus();
         };
         document.addEventListener('click', function (e) {
-            var one = e.target.closest('[data-delete-url]'), many = e.target.closest('[data-delete-bulk]');
-            if (one) { e.preventDefault(); openDelete(one.dataset.deleteUrl, one.dataset.deleteKind || '', one.dataset.deleteName || '', null); }
-            if (many) {
-                var ids = $$('[data-select-row]:checked').map(function (c) { return c.value; });
-                if (ids.length) openDelete(many.dataset.deleteBulk, many.dataset.deleteKind || '', '', ids);
-            }
+            var one = e.target.closest('[data-delete-url]');
+            if (one) { e.preventDefault(); openDelete(one.dataset.deleteUrl, one.dataset.deleteKind || '', one.dataset.deleteName || ''); }
             if (e.target === dlg || e.target.closest('[data-delete-cancel]')) dlg.close();
         });
         input.addEventListener('input', function () { go.disabled = input.value !== 'DELETE'; });
@@ -65,32 +62,143 @@
     /* ------------------------------------------------------------ lists */
 
     $$('[data-table]').forEach(function (box) {
-        var all = $('[data-select-all]', box), bulk = $('[data-bulk]', box);
-        var rows = function () { return $$('[data-select-row]', box); };
-        function sync() {
-            var sel = rows().filter(function (c) { return c.checked; });
-            if (bulk) { bulk.hidden = !sel.length; $('[data-bulk-count]', bulk).textContent = sel.length; }
-            if (all) { all.checked = sel.length > 0 && sel.length === rows().length; all.indeterminate = sel.length > 0 && sel.length < rows().length; }
-            rows().forEach(function (c) { var tr = c.closest('tr'); if (tr) tr.classList.toggle('bg-signal-50/50', c.checked); });
-        }
-        box.addEventListener('change', function (e) {
-            if (e.target === all) rows().forEach(function (c) { c.checked = all.checked; });
-            if (e.target === all || e.target.matches('[data-select-row]')) sync();
+        // The column menu opens from <body>, so its controls are found on the document, not inside the table box.
+        document.addEventListener('change', function (e) {
             if (e.target.matches('[data-col-toggle]')) { applyColumns(); saveColumns(); }
         });
-        box.addEventListener('click', function (e) {
-            if (e.target.closest('[data-bulk-clear]')) { rows().forEach(function (c) { c.checked = false; }); sync(); }
-            if (e.target.closest('[data-col-reset]')) { $$('[data-col-toggle]', box).forEach(function (c) { c.checked = true; }); applyColumns(); saveColumns(); }
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('[data-col-reset]')) { $$('[data-col-toggle]').forEach(function (c) { c.checked = true; }); applyColumns(); saveColumns(); }
         });
         function applyColumns() {
-            $$('[data-col-toggle]', box).forEach(function (c) { $$('[data-col="' + c.dataset.colToggle + '"]', box).forEach(function (el) { el.hidden = !c.checked; }); });
+            $$('[data-col-toggle]').forEach(function (c) { $$('[data-col="' + c.dataset.colToggle + '"]', box).forEach(function (el) { el.hidden = !c.checked; }); });
         }
         function saveColumns() {
-            var hidden = $$('[data-col-toggle]', box).filter(function (c) { return !c.checked; }).map(function (c) { return c.dataset.colToggle; });
+            var hidden = $$('[data-col-toggle]').filter(function (c) { return !c.checked; }).map(function (c) { return c.dataset.colToggle; });
             postJson(box.dataset.prefsUrl, { resource: box.dataset.table, hidden: hidden });
         }
-        sync();
+
+        // Search as you type: starts at 3 letters, and an emptied box brings the normal list back.
+        var form = $('#list-form', box), q = form && $('input[name=q]', form), region = $('[data-list-region]', box), timer, last = q ? q.value.trim() : '', seq = 0;
+        if (q && region) {
+            q.addEventListener('input', function () {
+                var v = q.value.trim();
+                clearTimeout(timer);
+                if (v === last || (v.length > 0 && v.length < 3)) return;
+                timer = setTimeout(function () { run(v); }, 350);
+            });
+            q.addEventListener('keydown', function (e) { if (e.key === 'Escape' && q.value) { q.value = ''; q.dispatchEvent(new Event('input')); } });
+        }
+        function run(v) {
+            last = v; var mine = ++seq;
+            var params = new URLSearchParams(new FormData(form));
+            params.delete('page');
+            Array.from(params.keys()).forEach(function (k) { if (params.get(k) === '') params.delete(k); });
+            var url = location.pathname + (params.toString() ? '?' + params.toString() : '');
+            region.setAttribute('aria-busy', 'true'); region.classList.add('opacity-60');
+            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+                .then(function (r) { return r.text(); })
+                .then(function (html) {
+                    if (mine !== seq) return;
+                    var doc = new DOMParser().parseFromString(html, 'text/html'), fresh = $('[data-list-region]', doc), total = $('[data-total]', doc), here = $('[data-total]');
+                    if (fresh) region.innerHTML = fresh.innerHTML;
+                    if (total && here) here.innerHTML = total.innerHTML;
+                    history.replaceState(null, '', url);
+                })
+                .finally(function () { if (mine === seq) { region.removeAttribute('aria-busy'); region.classList.remove('opacity-60'); } });
+        }
     });
+
+    /* -------------------------------------------- remote (endless) dropdowns */
+
+    function initials(name) { var p = String(name).trim().split(/\s+/); return ((p[0] || '').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase(); }
+    function richNode(it) {
+        var wrap = document.createElement('span'); wrap.className = 'flex min-w-0 items-center gap-2.5';
+        var pic;
+        if (it.img) { pic = document.createElement('img'); pic.src = it.img; pic.alt = ''; pic.className = 'size-8 shrink-0 rounded bg-white object-contain ring-1 ring-graphite-900/10'; }
+        else { pic = document.createElement('span'); pic.className = 'inline-flex size-8 shrink-0 items-center justify-center rounded bg-graphite-900/6 text-[11px] font-semibold text-graphite-700'; pic.textContent = initials(it.label); }
+        var txt = document.createElement('span'); txt.className = 'min-w-0 text-left';
+        var a = document.createElement('span'); a.className = 'block truncate leading-tight'; a.textContent = it.label; txt.appendChild(a);
+        if (it.sub) { var b = document.createElement('span'); b.className = 'block truncate text-xs leading-tight text-steel'; b.textContent = it.sub; txt.appendChild(b); }
+        wrap.appendChild(pic); wrap.appendChild(txt);
+        return wrap;
+    }
+    function depValue(sel) { var d = sel.dataset.depends; if (!d) return ''; var el = document.querySelector('[name="' + d + '"]'); return el ? el.value : ''; }
+    function panelOf(sel) { return $$('[data-select-panel][data-remote]').filter(function (p) { return p._select === sel && !p.hidden; })[0]; }
+
+    function remoteLoad(sel, panel, reset) {
+        var st = sel._rs || (sel._rs = { q: '', page: 0, more: true, loading: false, seq: 0, dep: null, loaded: false });
+        var items = $('[data-remote-items]', panel), status = $('[data-remote-status]', panel), hidden = $('[data-select-input]', sel);
+        if (reset) { st.page = 0; st.more = true; st.loading = false; st.seq++; items.innerHTML = ''; st.loaded = false; }
+        if (st.loading || !st.more) return;
+        st.loading = true; var my = st.seq; status.textContent = sel.dataset.msgLoading || 'Loading…';
+        var params = new URLSearchParams({ q: st.q, page: st.page + 1 }); var dep = depValue(sel); if (dep) params.set('lead', dep);
+        fetch(sel.dataset.url + '?' + params.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (my !== st.seq) return;
+                d.items.forEach(function (it) {
+                    var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'option');
+                    b.dataset.value = it.id; b.dataset.label = it.label; b.setAttribute('aria-selected', String(String(hidden.value) === String(it.id)));
+                    b.className = 'group flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-mist focus:bg-mist focus:outline-none aria-selected:font-medium';
+                    var r = document.createElement('span'); r.className = 'min-w-0'; r.setAttribute('data-rich', ''); r.appendChild(richNode(it)); b.appendChild(r);
+                    items.appendChild(b);
+                });
+                st.page++; st.more = d.more; st.loaded = true;
+                status.textContent = items.children.length ? (d.more ? '' : '') : (sel.dataset.msgNone || 'No matches');
+            })
+            .catch(function () { status.textContent = sel.dataset.msgError || 'Could not load. Try again.'; })
+            .finally(function () { if (my === st.seq) st.loading = false; });
+    }
+
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-remote-select] [data-select-button]');
+        if (!b) return;
+        var sel = b.closest('[data-remote-select]');
+        setTimeout(function () {
+            var panel = panelOf(sel); if (!panel) return;
+            var st = sel._rs, dep = depValue(sel);
+            if (!st || !st.loaded || st.q !== '' || st.dep !== dep) { sel._rs = null; remoteLoad(sel, panel, true); sel._rs.dep = dep; }
+        }, 0);
+    });
+    var searchTimer;
+    document.addEventListener('input', function (e) {
+        var inp = e.target.closest('[data-remote] [data-select-search]'); if (!inp) return;
+        var panel = inp.closest('[data-select-panel]'), sel = panel._select; if (!sel) return;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () { sel._rs = sel._rs || {}; var dep = sel._rs.dep; sel._rs = null; sel._rs = { q: inp.value.trim(), page: 0, more: true, loading: false, seq: Math.random(), dep: dep, loaded: false }; remoteLoad(sel, panel, true); sel._rs.q = inp.value.trim(); }, 250);
+    });
+    document.addEventListener('scroll', function (e) {
+        var list = e.target; if (!list.matches || !list.matches('[data-remote] [data-select-list]')) return;
+        var panel = list.closest('[data-select-panel]'), sel = panel._select;
+        if (sel && list.scrollTop + list.clientHeight >= list.scrollHeight - 48) remoteLoad(sel, panel, false);
+    }, true);
+    // changing the lead empties the contact / opportunity picked for the old one
+    document.addEventListener('change', function (e) {
+        var t = e.target; if (!t.matches || !t.matches('[data-select-input]') || !t.name) return;
+        $$('[data-remote-select][data-depends="' + t.name + '"]').forEach(function (sel) {
+            var inp = $('[data-select-input]', sel); if (!inp.value) return;
+            inp.value = ''; var lbl = $('[data-select-label]', sel); lbl.textContent = sel.dataset.placeholder || ''; lbl.classList.add('text-graphite-400'); sel._rs = null;
+            inp.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+
+    /* ------------------------------------------------------------- the bell */
+
+    var bell = $('#notif-menu');
+    if (bell) {
+        var apply = function (d) {
+            var badge = $('[data-bell-badge]'); if (!badge) return;
+            badge.hidden = !d.unread; badge.textContent = d.unread > 99 ? '99+' : d.unread;
+            var list = $('[data-bell-list]', bell); if (list && d.html != null) list.innerHTML = d.html;
+        };
+        var poll = function () { if (document.hidden) return; fetch(bell.dataset.feedUrl, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d) apply(d); }).catch(function () {}); };
+        setInterval(poll, 60000);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+        setTimeout(poll, 1500);   // also fires reminders that came due
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('[data-bell-read]')) { e.preventDefault(); e.stopPropagation(); postJson(bell.dataset.readUrl, {}).then(function () { poll(); }); }
+        });
+    }
 
     /* ------------------------------------------------------------ forms */
 
@@ -123,20 +231,20 @@
             if (summary) summary.hidden = total === 0;
             if (save) save.disabled = missing.length > 0;
 
-            var perStep = steps.map(function (s, i) { return missing.filter(function (f) { return stepOf(f) === i; }).length; });
-            var reach = true;
+            var perStep = steps.map(function (st, i) { return missing.filter(function (f) { return stepOf(f) === i; }).length; });
             dots.forEach(function (b, i) {
                 var n = perStep[i], isCur = i === cur, dot = $('[data-dot]', b), note = $('[data-step-note]', b);
-                b.disabled = !reach && i !== cur;
-                if (n > 0) reach = false;
-                b.classList.toggle('ring-2', isCur); b.classList.toggle('!ring-signal-600', isCur);
-                var done = n === 0 && i !== cur && (visited[i] || stepHasReq(i));
+                var done = n === 0 && !isCur && (visited[i] || stepHasReq(i));
+                b.className = 'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ' + (isCur ? 'bg-graphite-900 text-white' : 'hover:bg-graphite-900/5');
+                b.setAttribute('aria-current', isCur ? 'step' : 'false');
                 dot.textContent = done ? '✓' : (i + 1);
-                dot.className = 'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ' + (done ? 'bg-emerald-600 text-white' : (isCur ? 'bg-signal-600 text-white' : 'bg-graphite-900/8'));
+                dot.className = 'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ' +
+                    (isCur ? 'bg-white/15 text-white' : (done ? 'bg-emerald-600 text-white' : (n > 0 ? 'bg-signal-50 text-signal-700' : 'bg-graphite-900/8 text-graphite-800')));
                 note.textContent = n > 0 ? n + ' ' + (form.dataset.msgMissing || 'required missing') : (stepHasReq(i) ? (form.dataset.msgDone || 'Complete') : (form.dataset.msgOptional || 'Optional'));
+                note.className = 'block text-xs ' + (isCur ? 'text-white/70' : (n > 0 ? 'text-signal-700' : (stepHasReq(i) ? 'text-emerald-700' : 'text-steel')));
             });
-            if (next) { next.disabled = perStep[cur] > 0; next.hidden = cur >= steps.length - 1; }
-            if (prev) prev.disabled = cur === 0;
+            if (next) { next.hidden = cur >= steps.length - 1; }
+            if (prev) { prev.disabled = cur === 0; }
             if (reqDlg && reqDlg.open) buildList(live);
         }
         function stepHasReq(i) { return req.some(function (f) { return stepOf(f) === i; }); }
@@ -157,7 +265,7 @@
                 b.innerHTML = '<span class="flex size-5 shrink-0 items-center justify-center rounded-full ' + (ok ? 'bg-emerald-600 text-white' : 'ring-2 ring-graphite-900/25') + '">' + (ok ? '✓' : '') + '</span>' +
                     '<span class="min-w-0 flex-1 truncate ' + (ok ? 'text-steel' : 'font-medium') + '"></span>' + (wizard ? '<span class="text-xs text-steel"></span>' : '');
                 $('span:nth-child(2)', b).textContent = f.dataset.label;
-                if (wizard) $('span:nth-child(3)', b).textContent = $('.panel-title', steps[stepOf(f)]).textContent;
+                if (wizard) $('span:nth-child(3)', b).textContent = $('[data-step-title]', steps[stepOf(f)]).textContent;
                 li.appendChild(b); list.appendChild(li);
             });
         }
@@ -171,7 +279,7 @@
         form.addEventListener('change', recompute);
         form.addEventListener('click', function (e) {
             var t;
-            if ((t = e.target.closest('[data-go]')) && !t.disabled) show(parseInt(t.dataset.go, 10));
+            if ((t = e.target.closest('[data-go]'))) show(parseInt(t.dataset.go, 10));
             else if (e.target.closest('[data-next]')) show(cur + 1);
             else if (e.target.closest('[data-prev]')) show(cur - 1);
             else if (e.target.closest('[data-req-open]')) { buildList(req.filter(active)); reqDlg.showModal(); }

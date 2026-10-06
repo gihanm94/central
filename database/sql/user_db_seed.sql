@@ -98,7 +98,9 @@ INSERT INTO permissions (id, module, key, label, sort) VALUES
   (13, 'crm', 'crm_opportunities', 'CRM opportunities', 130),
   (14, 'crm', 'crm_campaigns', 'CRM campaigns', 140),
   (15, 'crm', 'crm_activities', 'CRM activities', 150),
-  (16, 'crm', 'crm_settings', 'CRM settings', 160)
+  (16, 'crm', 'crm_settings', 'CRM settings', 160),
+  (17, 'crm', 'crm_stages', 'CRM opportunity stages', 170),
+  (18, 'crm', 'crm_targets', 'CRM sales targets', 180)
 ON CONFLICT (key) DO NOTHING;
 
 -- Letters: v=view c=create e=edit d=delete i=import x=export w=download
@@ -108,10 +110,11 @@ SELECT r.id, p.id,
        position('i' IN d.l) > 0, position('x' IN d.l) > 0, position('w' IN d.l) > 0
 FROM (VALUES
   ('admin','crm_dashboard','vcedixw'),('admin','crm_leads','vcedixw'),('admin','crm_contacts','vcedixw'),('admin','crm_opportunities','vcedixw'),('admin','crm_campaigns','vcedixw'),('admin','crm_activities','vcedixw'),('admin','crm_settings','vcedixw'),
-  ('management','crm_dashboard','v'),('management','crm_leads','vxw'),('management','crm_contacts','vxw'),('management','crm_opportunities','vxw'),('management','crm_campaigns','vxw'),('management','crm_activities','vxw'),('management','crm_settings','v'),
+  ('management','crm_dashboard','v'),('management','crm_leads','vxw'),('management','crm_contacts','vxw'),('management','crm_opportunities','vxw'),('management','crm_campaigns','vxw'),('management','crm_activities','vxw'),('management','crm_settings',''),
   ('bu_manager','crm_dashboard','v'),('bu_manager','crm_leads','vcedixw'),('bu_manager','crm_contacts','vcedixw'),('bu_manager','crm_opportunities','vcedixw'),('bu_manager','crm_campaigns','vcedixw'),('bu_manager','crm_activities','vcedixw'),('bu_manager','crm_settings','vcedx'),
-  ('manager','crm_dashboard','v'),('manager','crm_leads','vcexw'),('manager','crm_contacts','vcexw'),('manager','crm_opportunities','vcexw'),('manager','crm_campaigns','vcex'),('manager','crm_activities','vcedxw'),('manager','crm_settings','v'),
-  ('member','crm_dashboard','v'),('member','crm_leads','vce'),('member','crm_contacts','vce'),('member','crm_opportunities','vce'),('member','crm_campaigns','v'),('member','crm_activities','vce'),('member','crm_settings','')
+  ('manager','crm_dashboard','v'),('manager','crm_leads','vcexw'),('manager','crm_contacts','vcexw'),('manager','crm_opportunities','vcexw'),('manager','crm_campaigns','vcex'),('manager','crm_activities','vcedxw'),('manager','crm_settings','vcedx'),
+  ('member','crm_dashboard','v'),('member','crm_leads','vce'),('member','crm_contacts','vce'),('member','crm_opportunities','vce'),('member','crm_campaigns','v'),('member','crm_activities','vce'),('member','crm_settings',''),
+  ('admin','crm_stages','vcedixw'),('admin','crm_targets','vcedixw'),('management','crm_stages',''),('management','crm_targets','v'),('bu_manager','crm_stages','ve'),('bu_manager','crm_targets','vce'),('manager','crm_stages',''),('manager','crm_targets','v'),('member','crm_stages',''),('member','crm_targets','')
 ) AS d(role, perm, l)
 JOIN roles r ON r.slug = d.role
 JOIN permissions p ON p.key = d.perm
