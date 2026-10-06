@@ -30,9 +30,7 @@ $singular = __($c['singular']);
         <?php foreach ($links as $l): ?><a href="<?= url($l['url']) ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon($l['icon'] ?? 'eye', 'size-4') ?> <?= e($l['label']) ?></a><?php endforeach ?>
         <?php if ($canDownload): ?><a href="<?= url($c['base'].'/'.$row['id'].'/download') ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon('download', 'size-4') ?> <?= e(__('Download')) ?></a><?php endif ?>
         <?php if ($canDelete): ?>
-            <form method="POST" action="<?= url($c['base'].'/'.$row['id'].'/delete') ?>" data-confirm="<?= e(__('Delete this :item?', ['item' => $singular])) ?>" class="flex-1 sm:flex-none">
-                <?= csrf_field() ?><button class="btn-danger w-full"><?= icon('trash', 'size-4') ?> <?= e(__('Delete')) ?></button>
-            </form>
+            <button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="<?= e(url($c['base'].'/'.$row['id'].'/delete')) ?>" data-delete-name="<?= e($title) ?>" data-delete-kind="<?= e($singular) ?>"><?= icon('trash', 'size-4') ?> <?= e(__('Delete')) ?></button>
         <?php endif ?>
         <?php if ($canEdit): ?><a href="<?= url($c['base'].'/'.$row['id'].'/edit') ?>" class="btn-primary w-full sm:w-auto"><?= icon('pencil', 'size-4') ?> <?= e(__('Edit')) ?></a><?php endif ?>
     </div>

@@ -10,3 +10,5 @@
 /storage/attachments/*
 /public/uploads/crm/*
 !.gitkeep
+/public/uploads/editor/*
+!.gitkeep

@@ -5,7 +5,7 @@ $segment   = explode('/', trim(App\Core\Support\Request::path(), '/'))[0];
 $current   = isset($modules[$segment]) && $modules[$segment]['enabled'] ? $segment : 'core';
 ?>
 <!DOCTYPE html>
-<html lang="<?= e(locale()) ?>" class="h-full" data-sidebar="<?= $collapsed ? 'collapsed' : 'open' ?>">
+<html lang="<?= e(locale()) ?>" class="h-full" data-sidebar="<?= $collapsed ? 'collapsed' : 'open' ?>" style="font-size: <?= (int) auth()->ui_scale ?>%">
 <head><?php include __DIR__.'/head.php' ?></head>
 <body class="h-full">
 <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2"><?= e(__('Skip to content')) ?></a>
@@ -26,5 +26,6 @@ $current   = isset($modules[$segment]) && $modules[$segment]['enabled'] ? $segme
     </main>
     <?php include __DIR__.'/footer.php' ?>
 </div>
+<?= partial('partials/delete-dialog') ?>
 </body>
 </html>

@@ -5,6 +5,7 @@ namespace App\Core\Http\Controllers;
 
 use App\Core\Support\Activity;
 use App\Core\Support\Csv;
+use App\Core\Support\Html;
 use App\Core\Support\DB;
 use App\Core\Support\Permission;
 use App\Core\Support\Request;
@@ -34,7 +35,8 @@ abstract class ResourceController extends Controller
     protected array $scopeCols = ['owner' => 'user_id', 'department' => 'department_id', 'team' => 'team_id'];
     protected bool $softDelete = true;
     protected string $orderBy = 't.id DESC';
-    protected int $perPage = 20;
+    protected int $perPage = 10;
+    protected bool $wizard = false;            // sections of the form become steps
     protected string $icon = 'grid';
     protected string $module = 'core';
     protected string $conn = 'core';          // database connection (see config db.databases)
@@ -85,14 +87,41 @@ abstract class ResourceController extends Controller
 
         $sql   = $this->select().' WHERE '.implode(' AND ', $where);
         $total = (int) DB::scalar("SELECT COUNT(*) FROM ({$sql}) x", $params, $this->conn);
-        $sql  .= ' ORDER BY '.$this->orderBy;
+        [$sortKey, $sortDir] = $this->sorting();
+        $sql  .= ' ORDER BY '.($sortKey ? $this->columns()[$sortKey]['sort'].' '.$sortDir.' NULLS LAST, t.id DESC' : $this->orderBy);
 
         if ($paginate) {
             $page = max(1, (int) Request::query('page', 1));
-            $sql .= ' LIMIT '.$this->perPage.' OFFSET '.(($page - 1) * $this->perPage);
+            $size = $this->pageSize();
+            $sql .= ' LIMIT '.$size.' OFFSET '.(($page - 1) * $size);
         }
 
         return ['rows' => $this->hydrate(DB::select($sql, $params, $this->conn)), 'total' => $total];
+    }
+
+    /** Column the list is sorted by (only columns that define 'sort' => SQL expression can be). */
+    protected function sorting(): array
+    {
+        $key = (string) Request::query('sort', '');
+        $col = $this->columns()[$key] ?? null;
+        if (! $col || empty($col['sort'])) {
+            return [null, 'ASC'];
+        }
+
+        return [$key, strtolower((string) Request::query('dir', 'asc')) === 'desc' ? 'DESC' : 'ASC'];
+    }
+
+    /** Rows per page: ?per_page=…, else what this person chose before, else 10. */
+    protected function pageSize(): int
+    {
+        $ok = [10, 20, 50, 100];
+        $q  = (int) Request::query('per_page', 0);
+        if (in_array($q, $ok, true)) {
+            return $q;
+        }
+        $saved = (int) (TablePrefController::load($this->user()->id, $this->resource)['per_page'] ?? 0);
+
+        return in_array($saved, $ok, true) ? $saved : $this->perPage;
     }
 
     protected function find(int $id): array
@@ -121,6 +150,13 @@ abstract class ResourceController extends Controller
     {
         $this->authorize($this->resource, 'view');
         ['rows' => $rows, 'total' => $total] = $this->query();
+        foreach ($rows as $i => $r) {
+            $rows[$i]['_label'] = $this->label($r);       // used by the delete dialog
+        }
+        $asked = (int) Request::query('per_page', 0);
+        if (in_array($asked, [10, 20, 50, 100], true)) {
+            TablePrefController::rememberPageSize($this->user()->id, $this->resource, $asked);
+        }
 
         $rowActions = [];
         foreach ($rows as $row) {
@@ -135,7 +171,10 @@ abstract class ResourceController extends Controller
         return view('resource/index', [
             'title' => __(ucfirst($this->plural)), 'c' => $this->meta(), 'rows' => $rows, 'total' => $total,
             'columns' => $this->columns(), 'filters' => $this->filters(), 'rowActions' => $rowActions,
-            'perPage' => $this->perPage, 'page' => max(1, (int) Request::query('page', 1)),
+            'perPage' => $this->pageSize(), 'page' => max(1, (int) Request::query('page', 1)),
+            'hidden' => TablePrefController::load($this->user()->id, $this->resource)['hidden'],
+            'sort' => $this->sorting()[0], 'dir' => strtolower($this->sorting()[1]),
+            'canDelete' => can($this->resource, 'delete'),
             'canSearch' => (bool) $this->searchable(), 'intro' => $this->intro(),
         ]);
     }
@@ -214,6 +253,7 @@ abstract class ResourceController extends Controller
     public function destroy(int $id): never
     {
         $row = $this->findForChange($id, 'delete');
+        $this->requireTypedConfirmation();
         $this->beforeDelete($row);
 
         $this->softDelete
@@ -226,6 +266,44 @@ abstract class ResourceController extends Controller
     }
 
     protected function beforeDelete(array $row): void {}
+
+    /** Deleting always needs the word DELETE typed in the dialog. */
+    protected function requireTypedConfirmation(): void
+    {
+        if (Request::input('confirm') !== 'DELETE') {
+            back('error', __('Type DELETE to confirm.'));
+        }
+    }
+
+    /** Delete the ticked rows of a list (each one still checked against the person's rights). */
+    public function bulkDestroy(): never
+    {
+        $this->authorize($this->resource, 'delete');
+        $this->requireTypedConfirmation();
+        $ids  = array_values(array_unique(array_filter(array_map('intval', (array) Request::input('ids', [])))));
+        $done = 0;
+        $skipped = 0;
+        foreach ($ids as $id) {
+            try {
+                $row = $this->find($id);
+            } catch (\App\Core\Support\HttpException) {
+                $skipped++;
+                continue;
+            }
+            if (! $this->canModify($row, 'delete')) {
+                $skipped++;
+                continue;
+            }
+            $this->beforeDelete($row);
+            $this->softDelete
+                ? DB::exec("UPDATE {$this->table} SET deleted_at = now() WHERE id = ?", [$id], $this->conn)
+                : DB::exec("DELETE FROM {$this->table} WHERE id = ?", [$id], $this->conn);
+            Activity::log('deleted', $this->type, $id, $this->label($row), ['Deleted :type ":label"', ['type' => $this->singular, 'label' => $this->label($row)]], [], $this->owner($row), module: $this->module);
+            $done++;
+        }
+        Session::flash($done ? 'success' : 'error', __(':n deleted.', ['n' => $done]).($skipped ? ' '.__(':n skipped (not yours to delete).', ['n' => $skipped]) : ''));
+        redirect($this->base);
+    }
 
     /* ---------------------------------------------- import / export / download */
 
@@ -249,7 +327,7 @@ abstract class ResourceController extends Controller
         Activity::log('download', $this->type, null, 'Import template', ['Downloaded the :type import template', ['type' => $this->plural]], [], null, null, false, $this->module);
 
         Csv::download($this->plural.'-import-template.csv', array_keys($fields), [
-            array_map(fn ($f) => isset($f['options']) ? (string) reset($f['options']) : ($f['example'] ?? ''), $fields),
+            array_map(fn ($f) => isset($f['options']) ? (string) (is_array($x = reset($f['options'])) ? $x['label'] : $x) : ($f['example'] ?? ''), $fields),
         ]);
     }
 
@@ -269,7 +347,7 @@ abstract class ResourceController extends Controller
                 // selects accept either the stored value or the visible label
                 foreach ($fields as $name => $f) {
                     if (isset($f['options'], $raw[$name]) && $raw[$name] !== '' && ! array_key_exists($raw[$name], $f['options'])) {
-                        $match = array_search(mb_strtolower(trim($raw[$name])), array_map('mb_strtolower', array_map('strval', $f['options'])), true);
+                        $match = array_search(mb_strtolower(trim($raw[$name])), array_map('mb_strtolower', array_map(fn ($o) => (string) (is_array($o) ? $o['label'] : $o), $f['options'])), true);
                         if ($match !== false) {
                             $raw[$name] = (string) $match;
                         }
@@ -321,7 +399,7 @@ abstract class ResourceController extends Controller
     {
         return [
             'resource' => $this->resource, 'base' => $this->base, 'singular' => $this->singular,
-            'plural' => $this->plural, 'icon' => $this->icon,
+            'plural' => $this->plural, 'icon' => $this->icon, 'wizard' => $this->wizard,
         ];
     }
 
@@ -350,7 +428,14 @@ abstract class ResourceController extends Controller
             $labels[$name] = locale() === 'en' ? mb_strtolower($f['label']) : $f['label'];
         }
 
-        return Validator::validate($input, $rules, $labels);
+        $clean = Validator::validate($input, $rules, $labels);
+        foreach ($fields as $name => $f) {
+            if (($f['type'] ?? '') === 'richtext' && array_key_exists($name, $clean)) {
+                $clean[$name] = Html::clean($clean[$name]);
+            }
+        }
+
+        return $clean;
     }
 
     protected function tableData(array $fields, array $data): array
@@ -376,6 +461,9 @@ abstract class ResourceController extends Controller
                 $v = filter_var($v, FILTER_VALIDATE_BOOL) ? __('Yes') : __('No');
             } elseif (isset($f['options']) && $v !== null && $v !== '') {
                 $v = $f['options'][$v] ?? $f['all_options'][$v] ?? $v;
+                $v = is_array($v) ? $v['label'] : $v;
+            } elseif (($f['type'] ?? '') === 'richtext') {
+                $v = Html::text((string) $v);
             } elseif (($f['type'] ?? '') === 'password') {
                 continue;
             }

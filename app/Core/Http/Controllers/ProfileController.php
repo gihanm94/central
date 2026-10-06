@@ -146,6 +146,15 @@ class ProfileController extends Controller
         back('success', __('Preferences saved.'));
     }
 
+    /** Display size (zoom) — saved per person, applied as the page's base text size. */
+    public function scale(): never
+    {
+        $pct = (int) Request::input('scale', 100);
+        $pct = max(70, min(150, $pct));
+        DB::exec('UPDATE users SET ui_scale = ? WHERE id = ?', [$pct, $this->user()->id]);
+        json_response(['scale' => $pct]);
+    }
+
     /** Dashboards per enabled module that this person may open: [module => [key => label]] */
     public static function dashboardsFor(\App\Core\Auth\CurrentUser $u): array
     {

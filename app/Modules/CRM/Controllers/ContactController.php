@@ -26,7 +26,7 @@ class ContactController extends CrmController
 
     protected function select(): string
     {
-        return 'SELECT t.*, l.name_en AS lead_name, s.name AS source_name FROM contacts t
+        return 'SELECT t.*, l.name_en AS lead_name, l.name_th AS lead_name_th, l.image AS lead_image, s.name AS source_name FROM contacts t
                 LEFT JOIN leads l ON l.id = t.lead_id
                 LEFT JOIN lead_sources s ON s.id = t.lead_source_id';
     }
@@ -51,7 +51,7 @@ class ContactController extends CrmController
 
         return [
             '_person'    => ['section' => __('Person')],
-            'lead_id'    => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('lead_id'),
+            'lead_id'    => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rich' => true, 'rules' => 'required', 'default' => $this->prefill('lead_id'),
                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null],
             'salutation' => ['label' => __('Salutation'), 'type' => 'select', 'options' => Catalog::salutations(), 'rules' => 'nullable', 'search' => false],
             'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:160', 'example' => 'Somsak Rattanakul'],
@@ -79,7 +79,7 @@ class ContactController extends CrmController
             'zipcode'    => ['label' => __('Postal code'), 'rules' => 'nullable|max:20'],
 
             '_more'      => ['section' => __('More')],
-            'description' => ['label' => __('Notes'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:5000'],
+            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
             'avatar'     => ['label' => __('Photo'), 'type' => 'file', 'import' => false, 'span' => 2, 'rules' => 'nullable', 'help' => __('PNG, JPG or WebP, up to 2 MB.')],
         ] + $this->ownershipFields($row);
     }
@@ -87,19 +87,19 @@ class ContactController extends CrmController
     protected function columns(): array
     {
         return [
-            'name_en' => ['label' => __('Contact'), 'primary' => true, 'render' => fn ($r) => '<div class="flex items-center gap-3">'.$this->photo($r, 'size-9').'<div class="min-w-0">'
-                .'<a href="'.e(url('/crm/contacts/'.$r['id'])).'" class="block truncate font-medium hover:text-signal-700">'.e(trim(($r['salutation'] ? $r['salutation'].' ' : '').$r['name_en'])).'</a>'
-                .'<span class="block truncate text-xs text-steel">'.e($r['job_title'] ?: ($r['name_th'] ?: '')).'</span></div></div>'],
-            'lead'   => ['label' => __('Company'), 'render' => fn ($r) => $r['lead_id'] ? Ui::link('/crm/leads/'.$r['lead_id'], (string) $r['lead_name'], 'hover:text-signal-700') : Ui::dash()],
-            'email'  => ['label' => __('E-mail'), 'render' => fn ($r) => $r['email'] ? '<a href="mailto:'.e($r['email']).'" class="hover:text-signal-700">'.e($r['email']).'</a>' : Ui::dash()],
-            'mobile' => ['label' => __('Mobile'), 'render' => function ($r) {
+            'name_en'   => ['label' => __('Name'), 'primary' => true, 'sort' => 't.name_en', 'render' => fn ($r) => Ui::person(trim(($r['salutation'] ? $r['salutation'].' ' : '').$r['name_en']), $r['name_th'] ?: $r['job_title'], $r['avatar'], '/crm/contacts/'.$r['id'], 'rounded-full')],
+            'lead'      => ['label' => __('Lead'), 'sort' => 'l.name_en', 'tone' => 'amber', 'render' => fn ($r) => $r['lead_id'] ? Ui::person((string) $r['lead_name'], $r['lead_name_th'], $r['lead_image'], '/crm/leads/'.$r['lead_id']) : Ui::dash()],
+            'job_title' => ['label' => __('Position'), 'sort' => 't.job_title', 'render' => fn ($r) => e($r['job_title'] ?: '—')],
+            'email'     => ['label' => __('E-mail'), 'sort' => 't.email', 'render' => fn ($r) => $r['email'] ? '<a href="mailto:'.e($r['email']).'" class="hover:text-signal-700">'.e($r['email']).'</a>' : Ui::dash()],
+            'mobile'    => ['label' => __('Contact'), 'tone' => 'sky', 'render' => function ($r) {
                 $list = $r['mobile_list'] ?? [];
-                if (! $list) { return e($r['phone'] ?: '—'); }
+                $main = $list ? $list[0]['number'] : ($r['phone'] ?: null);
+                if (! $main) { return Ui::dash(); }
                 $more = count($list) - 1;
 
-                return '<span class="tabular-nums">'.e($list[0]['number']).'</span>'.($more > 0 ? ' <span class="badge bg-graphite-900/6 text-graphite-800">+'.$more.'</span>' : '');
+                return '<span class="tabular-nums">'.e($main).'</span>'.($more > 0 ? ' <span class="badge bg-white/80 text-graphite-800">+'.$more.'</span>' : '').($r['phone'] && $list ? '<span class="block text-xs tabular-nums text-steel">'.e($r['phone']).'</span>' : '');
             }],
-            'owner'  => ['label' => __('Owner'), 'render' => fn ($r) => e($r['owner_name'] ?? '—')],
+            'created'   => $this->createdColumn(),
         ];
     }
 

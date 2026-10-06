@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="<?= e(locale()) ?>" class="h-full bg-graphite-950">
 <head><?php include __DIR__.'/head.php' ?></head>
-<body class="h-full bg-graphite-950 text-white">
+<body class="auth h-full bg-graphite-950 text-white">
 <div class="grid min-h-full lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
     <section class="relative hidden overflow-hidden lg:block" aria-hidden="true">
         <?php if ($branding['login_image']): ?>

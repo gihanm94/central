@@ -29,7 +29,7 @@ class ActivityController extends CrmController
 
     protected function select(): string
     {
-        return 'SELECT t.*, l.name_en AS lead_name, c.name_en AS contact_name, o.name AS opportunity_name FROM activities t
+        return 'SELECT t.*, l.name_en AS lead_name, l.name_th AS lead_name_th, l.image AS lead_image, c.name_en AS contact_name, o.name AS opportunity_name FROM activities t
                 LEFT JOIN leads l ON l.id = t.lead_id
                 LEFT JOIN contacts c ON c.id = t.contact_id
                 LEFT JOIN opportunities o ON o.id = t.opportunity_id';
@@ -69,7 +69,7 @@ class ActivityController extends CrmController
             'meeting_location' => ['label' => __('Location or link'), 'rules' => 'nullable|max:255', 'span' => 2, 'show_when' => 'activity_type=MEETING'],
 
             '_related'   => ['section' => __('Related to')],
-            'lead_id'    => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('lead_id'),
+            'lead_id'    => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rich' => true, 'rules' => 'required', 'default' => $this->prefill('lead_id'),
                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null],
             'contact_id' => ['label' => __('Contact'), 'type' => 'select', 'options' => $this->contactOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('contact_id'),
                              'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null],
@@ -83,7 +83,7 @@ class ActivityController extends CrmController
                              'display' => fn ($r) => $r['notify_me'] ? ($r['notify_before'] ? $r['notify_before'].' min' : __('At the start')) : null],
 
             '_more'      => ['section' => __('Notes and files')],
-            'description' => ['label' => __('Notes'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:5000'],
+            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
             'files'      => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/files', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable'],
         ] + $this->ownershipFields($row);
     }
@@ -93,17 +93,16 @@ class ActivityController extends CrmController
         $tones = ['PLANNED' => 'info', 'DONE' => 'success', 'CANCELLED' => 'neutral'];
 
         return [
-            'topic'  => ['label' => __('Activity'), 'primary' => true, 'render' => fn ($r) => '<a href="'.e(url('/crm/activities/'.$r['id'])).'" class="block font-medium hover:text-signal-700">'.e($r['topic']).'</a>'
-                .'<span class="block text-xs text-steel">'.e(__(Catalog::ACTIVITY_TYPES[$r['activity_type']] ?? $r['activity_type'])).' · '.e($r['code'] ?? '').'</span>'],
-            'when'   => ['label' => __('When'), 'render' => function ($r) {
+            'topic'  => ['label' => __('Activity'), 'primary' => true, 'sort' => 't.topic', 'render' => fn ($r) => Ui::person($r['topic'], __(Catalog::ACTIVITY_TYPES[$r['activity_type']] ?? $r['activity_type']).' · '.($r['code'] ?? ''), null, '/crm/activities/'.$r['id'])],
+            'when'   => ['label' => __('When'), 'sort' => 't.start_at', 'render' => function ($r) {
                 if (! $r['start_at']) { return Ui::dash(); }
                 $late = $r['status'] === 'PLANNED' && strtotime($r['start_at']) < time();
 
                 return '<span class="tabular-nums '.($late ? 'font-medium text-signal-700' : 'text-steel').'">'.e(format_date($r['start_at'], 'd M Y H:i')).'</span>'.($late ? ' <span class="badge bg-signal-50 text-signal-800">'.e(__('Overdue')).'</span>' : '');
             }],
-            'related' => ['label' => __('Related to'), 'render' => fn ($r) => e($r['opportunity_name'] ?: ($r['contact_name'] ?: ($r['lead_name'] ?: '—'))).($r['lead_name'] && ($r['opportunity_name'] || $r['contact_name']) ? '<span class="block text-xs text-steel">'.e($r['lead_name']).'</span>' : '')],
-            'status' => ['label' => __('Status'), 'render' => fn ($r) => Ui::badge(__(Catalog::ACTIVITY_STATUSES[$r['status']] ?? $r['status']), $tones[$r['status']] ?? 'neutral')],
-            'owner'  => ['label' => __('Owner'), 'render' => fn ($r) => e($r['owner_name'] ?? '—')],
+            'lead'   => ['label' => __('Lead'), 'sort' => 'l.name_en', 'tone' => 'amber', 'render' => fn ($r) => $r['lead_id'] ? Ui::person((string) $r['lead_name'], $r['opportunity_name'] ?: $r['contact_name'], $r['lead_image'], '/crm/leads/'.$r['lead_id']) : Ui::dash()],
+            'status' => ['label' => __('Status'), 'sort' => 't.status', 'render' => fn ($r) => Ui::badge(__(Catalog::ACTIVITY_STATUSES[$r['status']] ?? $r['status']), $tones[$r['status']] ?? 'neutral')],
+            'created' => $this->createdColumn(),
         ];
     }
 

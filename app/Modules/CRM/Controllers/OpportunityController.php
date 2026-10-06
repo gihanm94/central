@@ -32,7 +32,7 @@ class OpportunityController extends CrmController
 
     protected function select(): string
     {
-        return 'SELECT t.*, l.name_en AS lead_name, c.name_en AS contact_name FROM opportunities t
+        return 'SELECT t.*, l.name_en AS lead_name, l.name_th AS lead_name_th, l.image AS lead_image, c.name_en AS contact_name FROM opportunities t
                 LEFT JOIN leads l ON l.id = t.lead_id
                 LEFT JOIN contacts c ON c.id = t.contact_id';
     }
@@ -56,7 +56,7 @@ class OpportunityController extends CrmController
         return [
             '_deal'       => ['section' => __('Opportunity')],
             'name'        => ['label' => __('Name'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Packaging line upgrade'],
-            'lead_id'     => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('lead_id'),
+            'lead_id'     => ['label' => __('Company (lead)'), 'type' => 'select', 'options' => $this->leadOptions($row), 'rich' => true, 'rules' => 'required', 'default' => $this->prefill('lead_id'),
                               'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null],
             'contact_id'  => ['label' => __('Contact'), 'type' => 'select', 'options' => $this->contactOptions($row), 'rules' => 'nullable', 'default' => $this->prefill('contact_id'),
                               'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null],
@@ -79,21 +79,21 @@ class OpportunityController extends CrmController
                               'catalog' => $products],
 
             '_more'       => ['section' => __('More')],
-            'description' => ['label' => __('Notes'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:5000'],
+            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
         ] + $this->ownershipFields($row);
     }
 
     protected function columns(): array
     {
         return [
-            'name'  => ['label' => __('Opportunity'), 'primary' => true, 'render' => fn ($r) => '<a href="'.e(url('/crm/opportunities/'.$r['id'])).'" class="block font-medium hover:text-signal-700">'.e($r['name']).'</a>'
-                .'<span class="block text-xs text-steel">'.e($r['code'] ?? '').($r['priority'] === 'HIGH' ? ' · <span class="font-medium text-signal-700">'.e(__('High priority')).'</span>' : '').'</span>'],
-            'lead'  => ['label' => __('Company'), 'render' => fn ($r) => e($r['lead_name'] ?? '—').($r['contact_name'] ? '<span class="block text-xs text-steel">'.e($r['contact_name']).'</span>' : '')],
-            'stage' => ['label' => __('Stage'), 'render' => fn ($r) => Ui::stageBadge($r['opportunity_stage'])],
-            'amount' => ['label' => __('Amount'), 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['amount'], $r['currency']).'</span>'],
-            'probability' => ['label' => __('Chance'), 'render' => fn ($r) => $r['probability'] === null ? Ui::dash() : partial('crm/meter', ['value' => (float) $r['probability'], 'label' => number_clean($r['probability']).'%'])],
-            'close' => ['label' => __('Close'), 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.format_date($r['close_at'], 'd M Y').'</span>'],
-            'owner' => ['label' => __('Owner'), 'render' => fn ($r) => e($r['owner_name'] ?? '—')],
+            'name'  => ['label' => __('Opportunity'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::person($r['name'], trim($r['code'].($r['priority'] === 'HIGH' ? ' · '.__('High priority') : ''), ' ·'), null, '/crm/opportunities/'.$r['id'])],
+            'lead'  => ['label' => __('Lead'), 'sort' => 'l.name_en', 'tone' => 'amber', 'render' => fn ($r) => $r['lead_id'] ? Ui::person((string) $r['lead_name'], $r['lead_name_th'], $r['lead_image'], '/crm/leads/'.$r['lead_id']) : Ui::dash()],
+            'contact' => ['label' => __('Contact'), 'sort' => 'c.name_en', 'render' => fn ($r) => e($r['contact_name'] ?: '—')],
+            'stage' => ['label' => __('Stage'), 'sort' => 't.opportunity_stage', 'render' => fn ($r) => Ui::stageBadge($r['opportunity_stage'])],
+            'amount' => ['label' => __('Amount'), 'sort' => 't.amount', 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['amount'], $r['currency']).'</span>'],
+            'probability' => ['label' => __('Chance'), 'sort' => 't.probability', 'render' => fn ($r) => $r['probability'] === null ? Ui::dash() : partial('crm/meter', ['value' => (float) $r['probability'], 'label' => number_clean($r['probability']).'%'])],
+            'close' => ['label' => __('Close'), 'sort' => 't.close_at', 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.format_date($r['close_at'], 'd M Y').'</span>'],
+            'created' => $this->createdColumn(),
         ];
     }
 

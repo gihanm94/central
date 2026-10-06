@@ -72,7 +72,7 @@ class CurrencyController extends LookupController
     protected function columns(): array
     {
         return [
-            'code' => ['label' => __('Currency'), 'primary' => true, 'render' => fn ($r) => '<span class="font-medium">'.e($r['code']).'</span> <span class="text-steel">'.e($r['name']).'</span>'.(filter_var($r['is_base'], FILTER_VALIDATE_BOOL) ? ' '.Ui::badge(__('Base'), 'success') : '')],
+            'code' => ['label' => __('Currency'), 'primary' => true, 'sort' => 't.code', 'render' => fn ($r) => '<span class="font-medium">'.e($r['code']).'</span> <span class="text-steel">'.e($r['name']).'</span>'.(filter_var($r['is_base'], FILTER_VALIDATE_BOOL) ? ' '.Ui::badge(__('Base'), 'success') : '')],
             'rate' => ['label' => __('Rate to base'), 'render' => fn ($r) => '<span class="tabular-nums">'.e(rtrim(rtrim(number_format((float) $r['rate_to_base'], 6), '0'), '.')).'</span>'],
         ];
     }

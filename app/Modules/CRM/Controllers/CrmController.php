@@ -9,6 +9,7 @@ use App\Core\Support\Request;
 use App\Core\Support\ValidationException;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Attachments;
+use App\Modules\CRM\Support\Ui;
 
 /**
  * Base of the CRM screens. Same list / form / import / export / download as the core screens,
@@ -23,6 +24,7 @@ abstract class CrmController extends ResourceController
     protected string $codePrefix = 'CRM';
     protected bool $comments = false;
     protected bool $files = false;
+    protected bool $wizard = true;
 
     protected function scopeSql(): array { return Access::visible($this->user(), 't', $this->entity); }
 
@@ -57,31 +59,48 @@ abstract class CrmController extends ResourceController
 
     /* ---------------------------------------------------------- shared form parts */
 
-    /** Owner (and, for whole-company roles, department) fields appended to every form. */
+    /**
+     * Owner and department are never typed in: a new record belongs to the person who creates it and to their department.
+     * The only thing a person can add is access for other people / departments (a last "Access" step when creating;
+     * on an existing record it is managed from the detail page).
+     */
     protected function ownershipFields(?array $row): array
     {
+        if ($row) {
+            return [];
+        }
         $u       = $this->user();
-        $manager = ! $row || Access::isManager($u, $row);
-        $people  = Access::assignable($u);
-        $f = ['_ownership' => ['section' => __('Ownership')]];
-        $f['owner_id'] = ['label' => __('Owner'), 'type' => 'select', 'options' => $people, 'rules' => 'required', 'default' => $u->id, 'readonly' => ! $manager, 'import' => false,
-            'all_options' => $row && $row['owner_id'] ? [$row['owner_id'] => $row['owner_name'] ?? '#'.$row['owner_id']] : [],
-            'help' => __('The owner and everyone in the record\'s department can see it. You can share it with others after saving.')];
-        if (Access::seesAll($u)) {
-            $f['department_id'] = ['label' => __('Department'), 'type' => 'select', 'options' => Access::departments(), 'rules' => 'nullable', 'import' => false,
-                'help' => __('Leave empty to use the owner\'s department.')];
+        $targets = [];
+        foreach (Access::people() as $id => $p) {
+            if ($id !== $u->id) {
+                $targets['user:'.$id] = $p['name'].($p['department'] ? ' · '.$p['department'] : '');
+            }
+        }
+        foreach (Access::departments() as $id => $name) {
+            $targets['department:'.$id] = __('Department').': '.$name;
         }
 
-        return $f;
+        return [
+            '_access' => ['section' => __('Access')],
+            'access'  => ['label' => __('Share with'), 'type' => 'custom', 'partial' => 'crm/fields/access', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true,
+                          'rules' => 'nullable', 'targets' => $targets, 'dept' => $u->department_name],
+        ];
     }
 
+    /** Leads this person may see, as rich options (logo, English name, Thai name) for the searchable dropdown. */
     protected function leadOptions(?array $row = null, string $col = 'lead_id'): array
     {
         $s    = Access::visible($this->user(), 't', 'lead');
-        $rows = DB::select("SELECT t.id, t.name_en FROM leads t WHERE t.deleted_at IS NULL AND {$s['sql']} ORDER BY t.name_en", $s['params'], 'crm');
-        $opts = array_column($rows, 'name_en', 'id');
+        $rows = DB::select("SELECT t.id, t.name_en, t.name_th, t.image FROM leads t WHERE t.deleted_at IS NULL AND {$s['sql']} ORDER BY t.name_en", $s['params'], 'crm');
+        $opts = [];
+        foreach ($rows as $r) {
+            $opts[$r['id']] = ['label' => $r['name_en'], 'sub' => $r['name_th'], 'img' => upload_url($r['image'])];
+        }
         if ($row && ! empty($row[$col]) && ! isset($opts[$row[$col]])) {
-            $opts[$row[$col]] = (string) DB::scalar('SELECT name_en FROM leads WHERE id = ?', [$row[$col]], 'crm');
+            $r = DB::first('SELECT id, name_en, name_th, image FROM leads WHERE id = ?', [$row[$col]], 'crm');
+            if ($r) {
+                $opts[$r['id']] = ['label' => $r['name_en'], 'sub' => $r['name_th'], 'img' => upload_url($r['image'])];
+            }
         }
 
         return $opts;
@@ -128,6 +147,12 @@ abstract class CrmController extends ResourceController
         return ctype_digit((string) $v) ? (int) $v : '';
     }
 
+    /** Last column of every list: who created the record and when. */
+    protected function createdColumn(): array
+    {
+        return ['label' => __('Created by'), 'sort' => 't.created_at', 'render' => fn ($r) => Ui::person((string) ($r['creator_name'] ?? '—'), format_date($r['created_at'], 'M j, Y'), null, null, 'rounded-full')];
+    }
+
     /** "My records" for everyone, plus a department filter for whole-company roles. */
     protected function commonFilters(): array
     {
@@ -168,23 +193,28 @@ abstract class CrmController extends ResourceController
             }
         }
 
+        // A record belongs to whoever creates it, and to their department. Forms never change that.
+        unset($data['owner_id'], $data['department_id']);
         if (! $existing) {
-            $data['created_by'] = $u->id;
-            $data['owner_id']   = ! empty($data['owner_id']) ? (int) $data['owner_id'] : $u->id;
+            $data['created_by']    = $u->id;
+            $data['owner_id']      = $u->id;
+            $data['department_id'] = $u->department_id;
         }
         $data['updated_by'] = $u->id;
 
-        $ownerId = (int) ($data['owner_id'] ?? $existing['owner_id'] ?? $u->id);
-        if (Access::seesAll($u)) {
-            if (empty($data['department_id'])) {
-                $data['department_id'] = ($existing['department_id'] ?? null)
-                    ?: (Access::people()[$ownerId]['department_id'] ?? null);
+        // Extra access chosen while creating
+        if (! $existing) {
+            $people = Access::people();
+            $deps   = Access::departments();
+            $shares = [];
+            foreach ((array) ($data['access'] ?? []) as $row) {
+                [$type, $id] = array_pad(explode(':', (string) ($row['target'] ?? ''), 2), 2, '');
+                $id = (int) $id;
+                if (($type === 'user' && isset($people[$id]) && $id !== $u->id) || ($type === 'department' && isset($deps[$id]))) {
+                    $shares[$type.':'.$id] = ['type' => $type, 'id' => $id, 'access' => ($row['level'] ?? '') === 'edit' ? 'edit' : 'view'];
+                }
             }
-        } else {
-            unset($data['department_id']);
-            if (! $existing) {
-                $data['department_id'] = $u->department_id;
-            }
+            $data['access'] = array_values($shares);
         }
 
         if ($this->files) {
@@ -214,6 +244,11 @@ abstract class CrmController extends ResourceController
         if ($this->files) {
             foreach (Attachments::incoming('files') as $file) {
                 Attachments::store($file, $this->entity, $id, $this->user()->id);
+            }
+        }
+        foreach ((array) ($data['access'] ?? []) as $share) {
+            if (! $existing) {
+                Access::addShare($this->entity, $id, $share['type'], $share['id'], $share['access'], $this->user()->id);
             }
         }
         $this->afterSave($id, $data, $existing);

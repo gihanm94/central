@@ -37,7 +37,7 @@ class ProductController extends LookupController
     protected function columns(): array
     {
         return [
-            'name'   => ['label' => __('Product'), 'primary' => true, 'render' => fn ($r) => '<span class="font-medium">'.e($r['name']).'</span><span class="block text-xs text-steel">'.e($r['code'] ?? '').'</span>'],
+            'name'   => ['label' => __('Product'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => '<span class="font-medium">'.e($r['name']).'</span><span class="block text-xs text-steel">'.e($r['code'] ?? '').'</span>'],
             'price'  => ['label' => __('Unit price'), 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['unit_price'], $r['currency']).'</span>'.($r['unit'] ? '<span class="text-xs text-steel"> / '.e($r['unit']).'</span>' : '')],
             'active' => ['label' => __('Status'), 'render' => fn ($r) => filter_var($r['is_active'], FILTER_VALIDATE_BOOL) ? Ui::badge(__('Active'), 'success') : Ui::badge(__('Inactive'))],
         ];

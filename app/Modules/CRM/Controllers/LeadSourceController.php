@@ -27,7 +27,7 @@ class LeadSourceController extends LookupController
     protected function columns(): array
     {
         return [
-            'name'  => ['label' => __('Lead source'), 'primary' => true, 'render' => fn ($r) => Ui::chip($r['name'], $r['color'])],
+            'name'  => ['label' => __('Lead source'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::chip($r['name'], $r['color'])],
             'leads' => ['label' => __('Leads'), 'render' => fn ($r) => (string) \App\Core\Support\DB::scalar('SELECT count(*) FROM lead_lead_sources WHERE lead_source_id = ?', [$r['id']], 'crm')],
         ];
     }

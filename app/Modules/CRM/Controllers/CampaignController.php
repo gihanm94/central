@@ -52,7 +52,7 @@ class CampaignController extends CrmController
             'actual_response_rate'   => ['label' => __('Actual response rate (%)'), 'type' => 'number', 'rules' => 'nullable|numeric'],
 
             '_more'      => ['section' => __('Notes and files')],
-            'description' => ['label' => __('Description'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:5000'],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
             'files'      => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/files', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable'],
         ] + $this->ownershipFields($row);
     }
@@ -65,14 +65,13 @@ class CampaignController extends CrmController
     protected function columns(): array
     {
         return [
-            'name'   => ['label' => __('Campaign'), 'primary' => true, 'render' => fn ($r) => '<a href="'.e(url('/crm/campaigns/'.$r['id'])).'" class="block font-medium hover:text-signal-700">'.e($r['name']).'</a>'
-                .'<span class="block text-xs text-steel">'.e(__(Catalog::CAMPAIGN_TYPES[$r['type']] ?? ($r['type'] ?? ''))).' · '.e($r['code'] ?? '').'</span>'],
-            'status' => ['label' => __('Status'), 'render' => fn ($r) => Ui::badge(__(Catalog::CAMPAIGN_STATUSES[$r['status']] ?? $r['status']), $this->tone($r['status']))],
-            'period' => ['label' => __('Period'), 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.e(format_date($r['start_date'], 'd M').' → '.format_date($r['end_date'], 'd M Y')).'</span>'],
-            'budget' => ['label' => __('Budget'), 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['budget']).'</span>'],
-            'cost'   => ['label' => __('Spent'), 'render' => fn ($r) => $r['actual_cost'] === null ? Ui::dash()
+            'name'   => ['label' => __('Campaign'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::person($r['name'], __(Catalog::CAMPAIGN_TYPES[$r['type']] ?? ($r['type'] ?? '')).' · '.($r['code'] ?? ''), null, '/crm/campaigns/'.$r['id'])],
+            'status' => ['label' => __('Status'), 'sort' => 't.status', 'render' => fn ($r) => Ui::badge(__(Catalog::CAMPAIGN_STATUSES[$r['status']] ?? $r['status']), $this->tone($r['status']))],
+            'period' => ['label' => __('Period'), 'sort' => 't.start_date', 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.e(format_date($r['start_date'], 'd M').' → '.format_date($r['end_date'], 'd M Y')).'</span>'],
+            'budget' => ['label' => __('Budget'), 'sort' => 't.budget', 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['budget']).'</span>'],
+            'cost'   => ['label' => __('Spent'), 'sort' => 't.actual_cost', 'render' => fn ($r) => $r['actual_cost'] === null ? Ui::dash()
                 : ($r['budget'] > 0 ? partial('crm/meter', ['value' => min(100, (float) $r['actual_cost'] / (float) $r['budget'] * 100), 'label' => number_clean($r['actual_cost'])]) : '<span class="tabular-nums">'.Ui::money($r['actual_cost']).'</span>')],
-            'owner'  => ['label' => __('Owner'), 'render' => fn ($r) => e($r['owner_name'] ?? '—')],
+            'created' => $this->createdColumn(),
         ];
     }
 

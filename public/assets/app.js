@@ -59,7 +59,8 @@
         var input = $('[data-select-input]', sel), button = $('[data-select-button]', sel), label = $('[data-select-label]', sel);
         var changed = input.value !== opt.dataset.value;
         input.value = opt.dataset.value;
-        label.textContent = opt.dataset.label;
+        var rich = $('[data-rich]', opt);
+        if (rich) label.innerHTML = rich.innerHTML; else label.textContent = opt.dataset.label;
         label.classList.toggle('text-graphite-400', opt.dataset.value === '');
         $$('[role=option]', sel).forEach(function (o) { o.setAttribute('aria-selected', o === opt ? 'true' : 'false'); });
         button.className = button.dataset.base + ' ' + (opt.dataset.tone || '') + ' flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-70';
@@ -82,7 +83,7 @@
 
     function filter(panel, q) {
         q = q.toLowerCase(); var any = false;
-        $$('[role=option]', panel).forEach(function (o) { var hit = o.dataset.label.toLowerCase().indexOf(q) > -1; o.hidden = !hit; any = any || hit; });
+        $$('[role=option]', panel).forEach(function (o) { var hit = (o.dataset.search || o.dataset.label).toLowerCase().indexOf(q) > -1; o.hidden = !hit; any = any || hit; });
         var empty = $('[data-select-empty]', panel); if (empty) empty.hidden = any;
     }
 
@@ -181,12 +182,13 @@
         var input = e.target.closest('[data-preview]');
         if (input && input.files && input.files[0]) {
             var img = $(input.dataset.preview);
-            if (img) { img.src = URL.createObjectURL(input.files[0]); img.hidden = false; }
+            if (img) { img.src = URL.createObjectURL(input.files[0]); img.hidden = false; var ph = input.closest('div').parentNode.querySelector('[data-preview-ph]'); if (ph) ph.hidden = true; }
         }
     });
 
     document.addEventListener('submit', function (e) {
         var form = e.target;
+        if (e.defaultPrevented) return;
         if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) { e.preventDefault(); return; }
         if (form.hasAttribute('data-passkey-register')) { e.preventDefault(); passkeyRegister(form); return; }
         var btn = form.querySelector('button:not([type=button])');

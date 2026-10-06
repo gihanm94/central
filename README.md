@@ -117,6 +117,16 @@ A **lead** is the company; contacts, opportunities and activities hang off it. C
 * Owner, creator, the department head (a department-scope role) and whole-company roles can share a record, as *view only* or *can edit*, from the **Who can see this** card.
 * Changing a record also needs the role's own create / edit / delete permission (Roles & access → "CRM …" rows). Defaults: Management view/export, BU Manager full, Manager and Member create/edit.
 
+
+### Lists, forms and editor (all screens)
+* **Lists**: search and filter on the left; add, import, export and *View* (choose which columns to show — remembered per person per list) on the right.
+  First column = tick box + actions (view, edit, delete). Click a header to sort. Footer: first / previous / next / last, rows per page (default 10), go to page.
+* **Delete** always asks to type `DELETE`; tick several rows to delete them together.
+* **Forms** are full width. Required fields carry a red `*`, a counter under the title shows how many are filled with a *View required fields* dialog, and **Save stays disabled until every required field is filled**. CRM forms are wizards (one step per section).
+* **Display size**: the zoom button in the top bar (80–125 %) is saved per person. All inputs, buttons and dropdowns are 32 px high (sign-in pages excluded).
+* **Notes / descriptions** use a rich-text editor (Quill, served from `public/assets/vendor/quill`): images are uploaded to `public/uploads/editor` and can be resized by dragging or with 25/50/100 % buttons. Saved HTML is cleaned on the server.
+* **Owner and department** are never typed: a new CRM record belongs to the person who creates it and to their department. Access for others is added in the form's last step or from *Who can see this* on the record.
+
 ### Files
 Attachments are stored in `storage/attachments` (not reachable from the web) and downloaded through a permission check. Up to 10 MB each; pdf, images, office files, txt/csv, zip.
 

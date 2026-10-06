@@ -13,13 +13,13 @@ $mobile = $sid === 'mobile';
 <div class="flex h-full flex-col bg-graphite-900 text-graphite-300">
     <!-- Company + active module switcher -->
     <div class="relative shrink-0 border-b border-white/5 p-3">
-        <button type="button" data-menu="#module-menu-<?= $sid ?>" data-placement="<?= $mobile ? 'bottom-start' : 'right-start' ?>" aria-haspopup="menu" aria-expanded="false"
+        <button type="button" data-menu="#module-menu-<?= $sid ?>" data-placement="bottom-start" aria-haspopup="menu" aria-expanded="false"
                 title="<?= e(__('Switch module')) ?>"
-                class="flex w-full items-center gap-3 rounded-lg p-1.5 text-left transition-colors hover:bg-graphite-800 focus-visible:bg-graphite-800 lg:collapsed:justify-center">
+                class="flex w-full items-center gap-3 rounded-lg bg-brand p-2 text-left transition-colors hover:bg-brand-600 focus-visible:bg-brand-600 lg:collapsed:justify-center">
             <?php if ($branding['logo']): ?>
                 <span class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5 p-1"><img src="<?= e($branding['logo']) ?>" alt="" class="max-h-full max-w-full object-contain"></span>
             <?php else: ?>
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-signal-600 text-white"><?= icon($modules[$current]['icon'], 'size-5') ?></span>
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-graphite-950 text-white"><?= icon($modules[$current]['icon'], 'size-5') ?></span>
             <?php endif ?>
             <span class="min-w-0 flex-1 <?= $mobile ? '' : 'lg:collapsed:hidden' ?>">
                 <span class="block truncate font-display text-lg font-semibold leading-tight text-white"><?= e($branding['name']) ?></span>
@@ -32,9 +32,9 @@ $mobile = $sid === 'mobile';
             <?php foreach ($modules as $key => $m): ?>
                 <?php if ($m['enabled']): ?>
                     <a role="menuitem" href="<?= url($m['home']) ?>" class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-graphite-700 hover:text-white <?= $key === $current ? 'text-white' : '' ?>">
-                        <span class="flex size-7 items-center justify-center rounded-md <?= $key === $current ? 'bg-signal-600 text-white' : 'bg-white/5' ?>"><?= icon($m['icon'], 'size-4') ?></span>
+                        <span class="flex size-7 items-center justify-center rounded-md <?= $key === $current ? 'bg-brand text-white' : 'bg-white/5' ?>"><?= icon($m['icon'], 'size-4') ?></span>
                         <span class="flex-1"><?= e(__($m['name'])) ?></span>
-                        <?php if ($key === $current): ?><?= icon('tick', 'size-4 text-signal-500') ?><?php endif ?>
+                        <?php if ($key === $current): ?><?= icon('tick', 'size-4 text-white') ?><?php endif ?>
                     </a>
                 <?php else: ?>
                     <span class="flex cursor-default items-center gap-3 rounded-md px-2 py-1.5 text-sm text-graphite-400" aria-disabled="true">
@@ -50,12 +50,12 @@ $mobile = $sid === 'mobile';
     <nav class="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3" aria-label="<?= e(__($modules[$current]['name'])) ?>">
         <?php foreach ($menu as $i => $item): ?>
             <?php if (isset($item['heading'])): ?>
-                <p class="px-3 pb-1.5 <?= $i ? 'pt-5' : 'pt-1' ?> text-xs font-medium text-graphite-400 <?= $mobile ? '' : 'lg:collapsed:hidden' ?>"><?= e(__($item['heading'])) ?></p>
+                <p class="px-3 pb-1.5 <?= $i ? 'pt-5' : 'pt-1' ?> text-[11px] font-semibold uppercase tracking-wider text-graphite-400 <?= $mobile ? '' : 'lg:collapsed:hidden' ?>"><?= e(__($item['heading'])) ?></p>
                 <?php if (! $mobile && $i): ?><hr class="mx-2 my-3 hidden border-white/10 lg:collapsed:block"><?php endif ?>
             <?php else:
                 $active = $here === $item['url'] || str_starts_with($here, $item['url'].'/'); ?>
                 <a href="<?= url($item['url']) ?>" title="<?= e(__($item['label'])) ?>" class="nav-link <?= $active ? 'nav-link-active' : '' ?> <?= $mobile ? '' : 'lg:collapsed:justify-center lg:collapsed:px-0' ?>" <?= $active ? 'aria-current="page"' : '' ?>>
-                    <?= icon($item['icon'] ?? 'grid', 'size-[18px] shrink-0 '.($active ? 'text-signal-500' : '')) ?>
+                    <?= icon($item['icon'] ?? 'grid', 'size-[18px] shrink-0') ?>
                     <span class="truncate <?= $mobile ? '' : 'lg:collapsed:sr-only' ?>"><?= e(__($item['label'])) ?></span>
                 </a>
             <?php endif ?>

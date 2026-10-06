@@ -54,7 +54,7 @@ class LeadController extends CrmController
             'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
             'tax_id'     => ['label' => __('Tax ID'), 'rules' => 'nullable|max:30'],
             'revenue'    => ['label' => __('Annual revenue'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'company_id' => ['label' => __('Parent company'), 'type' => 'select', 'options' => $parents, 'rules' => 'nullable',
+            'company_id' => ['label' => __('Parent company'), 'type' => 'select', 'options' => $parents, 'rich' => true, 'rules' => 'nullable',
                              'display' => fn ($r) => $r['company_name'] ?? null, 'href' => fn ($r) => $r['company_id'] ? '/crm/leads/'.$r['company_id'] : null],
             'is_register'   => ['label' => __('Registered company'), 'type' => 'checkbox', 'help' => __('Registered with the Department of Business Development.')],
             'is_government' => ['label' => __('Government organization'), 'type' => 'checkbox'],
@@ -78,7 +78,7 @@ class LeadController extends CrmController
             'zipcode'    => ['label' => __('Postal code'), 'rules' => 'nullable|max:20'],
 
             '_more'      => ['section' => __('More')],
-            'description' => ['label' => __('Notes'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:5000'],
+            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
             'image'      => ['label' => __('Logo'), 'type' => 'file', 'import' => false, 'span' => 2, 'rules' => 'nullable', 'help' => __('PNG, JPG or WebP, up to 2 MB.')],
         ] + $this->ownershipFields($row);
     }
@@ -86,13 +86,12 @@ class LeadController extends CrmController
     protected function columns(): array
     {
         return [
-            'name_en' => ['label' => __('Company'), 'primary' => true, 'render' => fn ($r) => '<div class="flex items-center gap-3">'.$this->logo($r, 'size-9').'<div class="min-w-0">'
-                .'<a href="'.e(url('/crm/leads/'.$r['id'])).'" class="block truncate font-medium hover:text-signal-700">'.e($r['name_en']).'</a>'
-                .'<span class="block truncate text-xs text-steel">'.e($r['code'] ?? '').($r['name_th'] ? ' · '.e($r['name_th']) : '').'</span></div></div>'],
+            'name_en'    => ['label' => __('Name'), 'primary' => true, 'sort' => 't.name_en', 'render' => fn ($r) => Ui::person($r['name_en'], $r['name_th'] ?: $r['code'], $r['image'], '/crm/leads/'.$r['id'])],
+            'code'       => ['label' => __('Code'), 'sort' => 't.code', 'render' => fn ($r) => e($r['code'] ?? '—')],
             'industries' => ['label' => __('Industries'), 'render' => fn ($r) => Ui::chips($r['industry_list'] ?? [])],
-            'phone'   => ['label' => __('Phone'), 'render' => fn ($r) => e($r['phone'] ?: ($r['mobile'] ?: '—'))],
-            'place'   => ['label' => __('Location'), 'render' => fn ($r) => e(implode(', ', array_filter([$r['city'], $r['country']])) ?: '—')],
-            'owner'   => ['label' => __('Owner'), 'render' => fn ($r) => e($r['owner_name'] ?? '—').($r['department_name'] ? '<span class="block text-xs text-steel">'.e($r['department_name']).'</span>' : '')],
+            'phone'      => ['label' => __('Phone'), 'sort' => 't.phone', 'render' => fn ($r) => e($r['phone'] ?: ($r['mobile'] ?: '—'))],
+            'place'      => ['label' => __('Location'), 'sort' => 't.city', 'render' => fn ($r) => e(implode(', ', array_filter([$r['city'], $r['country']])) ?: '—')],
+            'created'    => $this->createdColumn(),
         ];
     }
 

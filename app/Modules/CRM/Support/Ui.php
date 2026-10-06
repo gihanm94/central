@@ -60,6 +60,17 @@ final class Ui
         return self::badge(Catalog::stageLabel($stage), Catalog::stageTone($stage));
     }
 
+    /** Avatar (picture or initial) with a name and a small second line — the first cell of most lists. */
+    public static function person(string $name, ?string $sub = null, ?string $img = null, ?string $href = null, string $shape = 'rounded-md'): string
+    {
+        $pic = $img
+            ? '<img src="'.e(upload_url($img)).'" alt="" class="size-9 shrink-0 '.$shape.' bg-white object-contain ring-1 ring-graphite-900/10">'
+            : '<span class="inline-flex size-9 shrink-0 items-center justify-center '.$shape.' bg-graphite-900/6 text-xs font-semibold text-graphite-700">'.e(initials($name)).'</span>';
+        $title = $href ? '<a href="'.e(url($href)).'" class="block truncate font-medium hover:text-signal-700">'.e($name).'</a>' : '<span class="block truncate font-medium">'.e($name).'</span>';
+
+        return '<div class="flex min-w-0 max-w-[15rem] items-center gap-3">'.$pic.'<div class="min-w-0">'.$title.($sub ? '<span class="block truncate text-xs text-steel">'.e($sub).'</span>' : '').'</div></div>';
+    }
+
     public static function link(string $href, string $text, string $class = 'font-medium hover:text-signal-700'): string
     {
         return '<a href="'.e(url($href)).'" class="'.$class.'">'.e($text).'</a>';

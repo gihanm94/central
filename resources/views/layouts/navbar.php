@@ -20,6 +20,23 @@ $locales = App\Core\Support\I18n::available();
         <?php endif ?>
     </nav>
 
+    <!-- Display size -->
+    <div class="relative hidden shrink-0 sm:block">
+        <button type="button" data-menu="#scale-menu" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" class="btn-ghost gap-1.5 px-2 text-xs font-semibold" title="<?= e(__('Display size')) ?>">
+            <?= icon('zoom', 'size-[18px]') ?><span class="hidden md:inline tabular-nums" data-scale-label><?= (int) auth()->ui_scale ?>%</span>
+        </button>
+        <div id="scale-menu" data-url="<?= e(url('/profile/scale')) ?>" data-menu-panel hidden role="menu" class="fixed z-[70] w-60 rounded-lg bg-white p-3 shadow-xl ring-1 ring-graphite-900/10">
+            <p class="text-sm font-medium"><?= e(__('Display size')) ?></p>
+            <p class="mt-0.5 text-xs text-steel"><?= e(__('Make everything smaller or larger. Saved for you.')) ?></p>
+            <div class="mt-3 grid grid-cols-5 gap-1" role="group" aria-label="<?= e(__('Display size')) ?>">
+                <?php foreach ([80, 90, 100, 110, 125] as $pct): ?>
+                    <button type="button" data-scale="<?= $pct ?>" class="h-8 rounded-md text-xs font-medium ring-1 ring-graphite-900/15 hover:bg-mist <?= (int) auth()->ui_scale === $pct ? 'bg-graphite-900 text-white ring-graphite-900 hover:bg-graphite-900' : '' ?>"><?= $pct ?>%</button>
+                <?php endforeach ?>
+            </div>
+            <p class="mt-2 text-xs text-steel"><kbd class="rounded bg-mist px-1">Ctrl</kbd> + <kbd class="rounded bg-mist px-1">+</kbd> / <kbd class="rounded bg-mist px-1">−</kbd> <?= e(__('also works in your browser.')) ?></p>
+        </div>
+    </div>
+
     <!-- Language -->
     <div class="relative shrink-0">
         <button type="button" data-menu="#lang-menu" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" class="btn-ghost gap-1.5 px-2 text-xs font-semibold uppercase" title="<?= e(__('Language')) ?>">

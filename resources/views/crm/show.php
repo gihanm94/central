@@ -10,7 +10,8 @@ $value = function (string $name, array $f) use ($row) {
     $v = $row[$name] ?? null;
     if ($type === 'checkbox') { return filter_var($v, FILTER_VALIDATE_BOOL) ? __('Yes') : null; }
     if ($v === null || $v === '' || $v === []) { return null; }
-    if (isset($f['options'])) { return (string) ($f['options'][$v] ?? $f['all_options'][$v] ?? $v); }
+    if (isset($f['options'])) { $o = $f['options'][$v] ?? $f['all_options'][$v] ?? $v; return (string) (is_array($o) ? $o['label'] : $o); }
+    if (($f['type'] ?? '') === 'richtext') { return App\Core\Support\Html::clean((string) $v); }
     return match ($type) {
         'date' => format_date((string) $v),
         'datetime' => format_date((string) $v, 'd M Y H:i'),
@@ -42,9 +43,7 @@ $sectionsShown = [];
         <?php foreach ($links as $l): ?><a href="<?= url($l['url']) ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon($l['icon'] ?? 'eye', 'size-4') ?> <?= e($l['label']) ?></a><?php endforeach ?>
         <?php if ($canDownload): ?><a href="<?= url($c['base'].'/'.$row['id'].'/download') ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon('download', 'size-4') ?> <?= e(__('Download')) ?></a><?php endif ?>
         <?php if ($canDelete): ?>
-            <form method="POST" action="<?= url($c['base'].'/'.$row['id'].'/delete') ?>" data-confirm="<?= e(__('Delete this :item?', ['item' => $singular])) ?>" class="flex-1 sm:flex-none">
-                <?= csrf_field() ?><button class="btn-danger w-full"><?= icon('trash', 'size-4') ?> <?= e(__('Delete')) ?></button>
-            </form>
+            <button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="<?= e(url($c['base'].'/'.$row['id'].'/delete')) ?>" data-delete-name="<?= e($title) ?>" data-delete-kind="<?= e($singular) ?>"><?= icon('trash', 'size-4') ?> <?= e(__('Delete')) ?></button>
         <?php endif ?>
         <?php if ($canEdit): ?><a href="<?= url($c['base'].'/'.$row['id'].'/edit') ?>" class="btn-primary w-full sm:w-auto"><?= icon('pencil', 'size-4') ?> <?= e(__('Edit')) ?></a><?php endif ?>
     </div>
@@ -65,8 +64,9 @@ $sectionsShown = [];
                     <?php $href = isset($f['href']) ? ($f['href'])($row) : null; ?>
                     <div class="min-w-0 border-b border-graphite-900/6 px-5 py-3.5 <?= ($f['span'] ?? 1) === 2 ? 'sm:col-span-2' : '' ?>">
                         <dt class="text-xs text-steel"><?= e($f['label']) ?></dt>
-                        <dd class="mt-1 whitespace-pre-line break-words text-sm font-medium">
-                            <?php if ($href): ?><a href="<?= e(url($href)) ?>" class="hover:text-signal-700"><?= e($r['v']) ?></a>
+                        <dd class="mt-1 break-words text-sm <?= ($f['type'] ?? '') === 'richtext' ? '' : 'whitespace-pre-line font-medium' ?>">
+                            <?php if (($f['type'] ?? '') === 'richtext'): ?><div class="rt-content"><?= App\Core\Support\Html::render($r['v']) ?></div>
+                            <?php elseif ($href): ?><a href="<?= e(url($href)) ?>" class="hover:text-signal-700"><?= e($r['v']) ?></a>
                             <?php elseif (($f['type'] ?? '') === 'email'): ?><a href="mailto:<?= e($r['v']) ?>" class="hover:text-signal-700"><?= e($r['v']) ?></a>
                             <?php else: ?><?= e($r['v']) ?><?php endif ?>
                         </dd>

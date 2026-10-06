@@ -29,6 +29,7 @@ final class CurrentUser
     public ?string $default_module;
     public ?string $default_dashboard;
     public array $notify_prefs;
+    public int $ui_scale = 100;
 
     public function __construct(array $row)
     {
@@ -53,6 +54,7 @@ final class CurrentUser
         $this->default_module  = $row['default_module'] ?? null;
         $this->default_dashboard = $row['default_dashboard'] ?? null;
         $this->notify_prefs    = json_decode((string) ($row['notify_prefs'] ?? ''), true) ?: [];
+        $this->ui_scale        = max(70, min(150, (int) ($row['ui_scale'] ?? 100) ?: 100));
     }
 
     public function isAdmin(): bool { return $this->role_slug === 'admin'; }

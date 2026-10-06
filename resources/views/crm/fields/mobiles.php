@@ -17,7 +17,7 @@ $rowHtml = function ($i, array $m, bool $checked) { ob_start(); ?>
 <?php return ob_get_clean(); };
 $next = 0;
 ?>
-<span class="label"><?= e($f['label']) ?> <span class="font-normal text-steel">(<?= e(__('optional')) ?>)</span></span>
+<span class="label"><?= e($f["label"]) ?></span>
 <div data-repeat data-min="1" class="space-y-2">
     <div data-repeat-rows class="space-y-2">
         <?php foreach (array_values($rows) as $i => $m): $isMain = $hasPrimary ? (string) $primary === (string) $i : (! empty($m['primary']) || ($i === 0 && ! array_filter(array_column($rows, 'primary')))); echo $rowHtml($i, $m, $isMain); $next = $i + 1; endforeach ?>

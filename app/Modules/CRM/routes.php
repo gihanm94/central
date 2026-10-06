@@ -33,6 +33,7 @@ foreach ($crm as $path => $controller) {
     $r->get("/crm/{$path}/export", [$controller, 'export']);
     $r->get("/crm/{$path}/template", [$controller, 'template']);
     $r->post("/crm/{$path}/import", [$controller, 'import']);
+    $r->post("/crm/{$path}/bulk-delete", [$controller, 'bulkDestroy']);
     $r->get("/crm/{$path}/{id}", [$controller, 'show']);
     $r->get("/crm/{$path}/{id}/edit", [$controller, 'edit']);
     $r->post("/crm/{$path}/{id}", [$controller, 'update']);
