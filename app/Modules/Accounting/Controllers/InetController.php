@@ -9,6 +9,8 @@ use App\Core\Support\Request;
 use App\Core\Support\Session;
 use App\Modules\Accounting\Erp\ErpSettings;
 use App\Modules\Accounting\Erp\Syncer;
+use App\Modules\Accounting\Inet\Generator;
+use App\Modules\Accounting\Inet\InetClient;
 use App\Modules\Accounting\Support\InetBuilder;
 use App\Modules\CRM\Support\Ui;
 
@@ -51,19 +53,48 @@ class InetController extends ErpListController
             'tax_amount' => ['VAT', 'number'], 'total_amount' => ['Total', 'number'], 'product_count' => ['Lines', 'number'], 'is_international' => ['International', 'checkbox'], 'is_credit' => ['Credit note', 'checkbox']];
     }
 
-    /** Sync / Send / Inet buttons of one document type. Send and Inet need the e-tax step that follows, so they stay off. */
-    private function docButtons(array $r, string $code, string $gen): string
+    /** Sync / Send / Inet buttons of one document type (388, T01 or 81). */
+    private function docButtons(array $r, string $type): string
     {
-        $on   = filter_var($r['is_'.$gen.'_generate'], FILTER_VALIDATE_BOOL);
+        $c    = Generator::col($type);
+        $flag = fn (string $k) => filter_var($r[$k] ?? false, FILTER_VALIDATE_BOOL);
+        $gen  = $flag("is_{$c}_generate");
+        $sent = $flag("is_{$c}_send");
+        $hasPdf  = ! empty($r["pdf_{$c}"]);
+        $signed  = ! empty($r["inet_pdf_{$c}"]);
+        $msg     = (string) ($r["message_{$c}"] ?? '');
+        $canEdit = can($this->resource, 'edit');
+        $base    = '/accounting/inet/'.$r['id'].'/'.strtolower($type);
         $btn  = 'inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs ring-1 ';
         $off  = $btn.'cursor-not-allowed text-graphite-400 ring-graphite-900/10';
-        $sync = can($this->resource, 'edit')
-            ? '<form method="POST" action="'.e(url('/accounting/inet/'.$r['id'].'/sync')).'" class="inline">'.csrf_field().'<button class="'.$btn.'text-graphite-800 ring-graphite-900/20 hover:bg-mist" title="'.e(__('Read this invoice from the ERP again')).'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</button></form>'
-            : '<span class="'.$off.'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</span>';
+        $on   = $btn.'text-graphite-800 ring-graphite-900/20 hover:bg-mist';
+        $form = fn (string $path, string $inner, string $extra = '') => '<form method="POST" action="'.e(url($base.$path)).'" class="inline" '.$extra.'>'.csrf_field().$inner.'</form>';
 
-        return '<span class="inline-flex items-center gap-1.5" data-doc="'.e($code).'">'.$sync
-            .'<span class="'.$off.'" title="'.e(__('Sending to INET comes with the e-tax step')).'">'.icon('send', 'size-3.5').' '.e(__('Send')).'</span>'
-            .'<span class="'.($on ? $btn.'bg-emerald-50 text-emerald-800 ring-emerald-200' : $off).'">'.icon('download', 'size-3.5').' Inet</span></span>';
+        $sync = $canEdit ? $form('/sync', '<button class="'.$on.'" title="'.e(__('Read this invoice from the ERP again')).'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</button>') : '<span class="'.$off.'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</span>';
+        $sync = str_replace('/'.strtolower($type).'/sync', '/sync', $sync);                                  // sync works on the whole invoice
+
+        if (! $canEdit || ! $gen) {
+            $send = '<span class="'.$off.'" title="'.e($gen ? '' : __('Generate first')).'">'.icon('send', 'size-3.5').' '.e(__('Send')).'</span>';
+        } elseif ($hasPdf) {
+            $send = $form('/send', '<button class="'.($sent ? $on : $btn.'bg-signal-600 text-white ring-signal-600 hover:bg-signal-700').'" data-confirm="'.e($sent ? __('Send it to INET again?') : __('Send this document to INET?')).'">'.icon('send', 'size-3.5').' '.e($sent ? __('Resend') : __('Send')).'</button>');
+        } else {            // no PDF was made: choose one when sending
+            $send = $form('/send', '<label class="'.$btn.'cursor-pointer bg-signal-600 text-white ring-signal-600 hover:bg-signal-700" title="'.e(__('Choose the PDF to send')).'">'.icon('send', 'size-3.5').' '.e(__('Send')).'<input type="file" name="pdf" accept="application/pdf" required class="sr-only" onchange="if (this.files.length && confirm(\''.e(__('Send this document to INET?')).'\')) this.form.submit(); else this.value = \'\'"></label>', 'enctype="multipart/form-data"');
+        }
+        if ($signed) {
+            $inet = '<a href="'.e(url($base.'/file/signed')).'" target="_blank" class="'.$btn.'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100" title="'.e(__('Open the signed PDF from INET')).'">'.icon('download', 'size-3.5').' Inet</a>';
+        } elseif ($sent && $canEdit) {
+            $inet = $form('/fetch', '<button class="'.$on.'" title="'.e(__('Get the signed PDF from INET')).'">'.icon('download', 'size-3.5').' Inet</button>');
+        } else {
+            $inet = '<span class="'.$off.'">'.icon('download', 'size-3.5').' Inet</span>';
+        }
+        $links = '';
+        if ($gen) {
+            $links = '<a href="'.e(url($base.'/file/json')).'" target="_blank" class="text-[11px] text-steel hover:text-signal-700" title="'.e(__('The text file sent to INET')).'">JSON</a>'
+                .($hasPdf ? ' <a href="'.e(url($base.'/file/pdf')).'" target="_blank" class="text-[11px] text-steel hover:text-signal-700">PDF</a>' : '');
+        }
+        $warn = $msg !== '' && ! str_starts_with($msg, 'OK') ? '<span class="block max-w-[14rem] truncate text-[11px] text-signal-700" title="'.e($msg).'">'.e($msg).'</span>' : '';
+
+        return '<span class="block"><span class="inline-flex items-center gap-1.5">'.$sync.$send.$inet.'<span class="ml-1 inline-flex gap-1.5">'.$links.'</span></span>'.$warn.'</span>';
     }
 
     protected function columns(): array
@@ -75,10 +106,10 @@ class InetController extends ErpListController
             'amount'   => ['label' => __('Amount'), 'sort' => 't.total_amount', 'render' => fn ($r) => self::money($r['total_amount'], $r['currency_code'] !== 'THB' ? $r['currency_code'] : '฿')],
         ];
         if ($this->credit()) {
-            $cols['credit'] = ['label' => __('Credit note'), 'render' => fn ($r) => $this->docButtons($r, '81', '81')];
+            $cols['credit'] = ['label' => __('Credit note'), 'render' => fn ($r) => $this->docButtons($r, '81')];
         } else {
-            $cols['invoice'] = ['label' => __('Invoice'), 'render' => fn ($r) => $this->docButtons($r, '388', '388')];
-            $cols['receipt'] = ['label' => __('Receipt'), 'render' => fn ($r) => $this->docButtons($r, 'T01', 't01')];
+            $cols['invoice'] = ['label' => __('Invoice'), 'render' => fn ($r) => $this->docButtons($r, '388')];
+            $cols['receipt'] = ['label' => __('Receipt'), 'render' => fn ($r) => $this->docButtons($r, 'T01')];
         }
         $cols['seller'] = ['label' => __('Seller'), 'render' => fn ($r) => e($r['seller_name'] ?: '—')];
 
@@ -127,24 +158,33 @@ class InetController extends ErpListController
         json_response(['rows' => $rows, 'total' => $total, 'pages' => max(1, (int) ceil($total / self::PER))]);
     }
 
-    /** Create the e-tax rows of the chosen invoices. Body (JSON): {items: [{invoice: 123, auto_pdf: true}]} */
+    /** Generate the chosen invoices. Body (JSON): {items: [{invoice: 123, auto_pdf: true}]} */
     public function generate(): never
     {
         $this->authorize($this->resource, 'create');
         $items = (array) Request::input('items', []);
-        if (! $items || count($items) > 500) {
-            json_response(['message' => __('Choose between 1 and 500 invoices.')], 422);
+        if (! $items || count($items) > 200) {
+            json_response(['message' => __('Choose between 1 and 200 invoices.')], 422);
         }
-        $made = $missing = 0;
+        @set_time_limit(600);
+        $made = 0;
+        $errors = [];
         foreach ($items as $it) {
             $no = (int) ($it['invoice'] ?? 0);
-            if ($no > 0 && InetBuilder::save($no, ! empty($it['auto_pdf']), $this->user()->id)) { $made++; } else { $missing++; }
+            if ($no <= 0) { continue; }
+            try {
+                $r = Generator::generate($no, ! empty($it['auto_pdf']), $this->user()->id);
+                if ($r['docs']) { $made++; }
+                foreach ($r['errors'] as $type => $m) { $errors[] = $no.' ('.$type.'): '.$m; }
+            } catch (\Throwable $e) {
+                $errors[] = $no.': '.$e->getMessage();
+            }
         }
         if ($made) {
-            Activity::log('created', 'inet', null, (string) $made, ['Prepared :n e-tax invoice(s)', ['n' => $made]], [], null, null, false, 'accounting');
+            Activity::log('created', 'inet', null, (string) $made, ['Generated :n e-tax invoice(s)', ['n' => $made]], [], null, null, false, 'accounting');
         }
-        Session::flash($made ? 'success' : 'error', $made ? __(':n invoice(s) generated.', ['n' => $made]).($missing ? ' '.__(':n not found in the ERP copy.', ['n' => $missing]) : '') : __('None of them is in the ERP copy.'));
-        json_response(['ok' => true, 'made' => $made, 'missing' => $missing]);
+        Session::flash($errors ? 'error' : 'success', __(':n invoice(s) generated.', ['n' => $made]).($errors ? ' '.__(':n had problems — see the message on each row.', ['n' => count($errors)]) : ''));
+        json_response(['ok' => true, 'made' => $made, 'errors' => array_slice($errors, 0, 20)], 200);
     }
 
     /** Read the invoice (and its order rows) from the ERP again and refresh the figures. */
@@ -165,5 +205,78 @@ class InetController extends ErpListController
             Session::flash('error', $e->getMessage());
         }
         redirect('/accounting/inet'.($row['is_credit'] === true || $row['is_credit'] === 't' ? '?credit=1' : ''));
+    }
+
+    private function docRow(int $id, string|int $doc): array
+    {
+        $doc = (string) $doc;
+        $row = DB::first('SELECT * FROM inets WHERE id = ?', [$id], ErpSettings::CONN) ?? abort(404);
+        in_array(strtolower($doc), ['388', 't01', '81'], true) || abort(404);
+
+        return $row;
+    }
+
+    private function backTo(array $row): never
+    {
+        redirect('/accounting/inet'.(filter_var($row['is_credit'], FILTER_VALIDATE_BOOL) ? '?credit=1' : ''));
+    }
+
+    /** Send the text and PDF of one document to INET (a PDF can be chosen when none was generated). */
+    public function send(int $id, string|int $doc): never
+    {
+        $doc = (string) $doc;
+        $this->authorize($this->resource, 'edit');
+        $row  = $this->docRow($id, $doc);
+        $pdf  = null;
+        if ($f = Request::file('pdf')) {
+            $bytes = ($f['error'] ?? 1) === UPLOAD_ERR_OK ? (string) file_get_contents($f['tmp_name']) : '';
+            if (! str_starts_with($bytes, '%PDF') || strlen($bytes) > 15 * 1024 * 1024) {
+                Session::flash('error', __('Choose a PDF file (up to 15 MB).'));
+                $this->backTo($row);
+            }
+            $pdf = $bytes;
+        }
+        try {
+            Session::flash('success', InetClient::send($row, strtoupper($doc), $pdf));
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        $this->backTo($row);
+    }
+
+    /** Fetch the signed PDF from INET. */
+    public function fetch(int $id, string|int $doc): never
+    {
+        $doc = (string) $doc;
+        $this->authorize($this->resource, 'edit');
+        $row = $this->docRow($id, $doc);
+        try {
+            Session::flash('success', InetClient::fetch($row, strtoupper($doc)));
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        $this->backTo($row);
+    }
+
+    /** Show the text file (json), the generated PDF (pdf) or the signed PDF from INET (signed). */
+    public function file(int $id, string|int $doc, string $kind): never
+    {
+        $doc = (string) $doc;
+        $this->authorize($this->resource, 'view');
+        $row = $this->docRow($id, $doc);
+        $c   = Generator::col($doc);
+        if ($kind === 'json') {
+            $t = (string) ($row["text_{$c}"] ?? '');
+            $t !== '' || abort(404);
+            header('Content-Type: application/json; charset=UTF-8');
+            header('Content-Disposition: inline; filename="'.$row['no_invoice'].'_'.strtoupper($doc).'.json"');
+            echo $t;
+            exit;
+        }
+        $bytes = Generator::read($row[$kind === 'signed' ? "inet_pdf_{$c}" : "pdf_{$c}"] ?? null) ?? abort(404);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="'.$row['no_invoice'].'_'.strtoupper($doc).($kind === 'signed' ? '_signed' : '').'.pdf"');
+        echo $bytes;
+        exit;
     }
 }

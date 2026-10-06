@@ -54,9 +54,9 @@ final class InetBuilder
             return false;
         }
         unset($v['_vat_no']);
-        $v['is_manual'] = ! $autoPdf;
+        $v["auto_pdf"] = $autoPdf;
         $cols = array_keys($v);
-        $set  = implode(', ', array_map(fn ($c) => "{$c} = EXCLUDED.{$c}", array_diff($cols, ['no_invoice', 'is_credit', 'is_manual']))).', updated_by = EXCLUDED.updated_by, updated_at = now()';
+        $set  = implode(', ', array_map(fn ($c) => "{$c} = EXCLUDED.{$c}", array_diff($cols, ['no_invoice', 'is_credit']))).', updated_by = EXCLUDED.updated_by, updated_at = now()';
         DB::exec('INSERT INTO inets ('.implode(',', $cols).', created_by, updated_by) VALUES ('.implode(',', array_fill(0, count($cols), '?')).', ?, ?)
                   ON CONFLICT (no_invoice, is_credit) DO UPDATE SET '.$set, [...array_map(fn ($x) => is_bool($x) ? ($x ? 'true' : 'false') : $x, array_values($v)), $by, $by], self::C);
 

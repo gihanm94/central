@@ -69,6 +69,7 @@ return [
             ['heading' => 'E-Tax'],
             ['label' => 'Inets',     'url' => '/accounting/inet',      'icon' => 'doc',   'permission' => 'accounting_inet.view'],
             ['heading' => 'Setup'],
+            ['label' => 'Company',        'url' => '/accounting/company', 'icon' => 'building', 'admin_only' => true],
             ['label' => 'ERP connection', 'url' => '/accounting/erp', 'icon' => 'cog', 'admin_only' => true],
         ],
     ],

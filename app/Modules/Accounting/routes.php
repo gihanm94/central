@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Modules\Accounting\Controllers\AccountingController;
+use App\Modules\Accounting\Controllers\CompanyController;
 use App\Modules\Accounting\Controllers\CustomerController;
 use App\Modules\Accounting\Controllers\ErpController;
 use App\Modules\Accounting\Controllers\InetController;
@@ -31,3 +32,10 @@ foreach (['customers' => CustomerController::class, 'orders' => OrderController:
 $r->get('/accounting/inet/candidates', [InetController::class, 'candidates']);
 $r->post('/accounting/inet/generate', [InetController::class, 'generate']);
 $r->post('/accounting/inet/{id}/sync', [InetController::class, 'sync']);
+$r->post('/accounting/inet/{id}/{doc}/send', [InetController::class, 'send']);
+$r->post('/accounting/inet/{id}/{doc}/fetch', [InetController::class, 'fetch']);
+$r->get('/accounting/inet/{id}/{doc}/file/{kind}', [InetController::class, 'file']);
+
+// Our company (seller on the e-tax documents) — administrators
+$r->get('/accounting/company', [CompanyController::class, 'edit']);
+$r->post('/accounting/company', [CompanyController::class, 'save']);

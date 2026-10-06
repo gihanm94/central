@@ -163,6 +163,14 @@ The ERP (Monitor) is read through its API and copied into `erp_*` tables of the 
 
 The e-Tax (INET) addresses and authorization key are stored on the same page for the e-tax invoice step. Passwords and keys are saved in the database, never in the repository.
 
+## Accounting: e-tax documents (`/accounting/inet`)
+
+- **Company** (`/accounting/company`, administrators): the seller printed on every document and written into the INET text file, plus the path of Chrome/Chromium used for PDFs and the Authorization scheme (`Bearer` or `Basic`).
+- **Generate** opens the invoice picker. For each chosen invoice the system reads the ERP copy, builds the INET text JSON (tax invoice `388`, receipt `T01`, or credit note `81`), validates it and saves it in `inets` (`text_388`, `text_t01`, `text_81`). With **Auto PDF** ticked it also renders the PDF (`storage/inet/<invoice>/`) from the same data.
+- **Send** posts the JSON and PDF to the INET send API (if no PDF was generated you pick one to upload). **Inet** reads the status/params API and opens or downloads the signed PDF. **JSON / PDF** links show what was built. Sending needs the *edit* permission, generating needs *create*.
+- The INET URLs and key are entered on the ERP connection page, never in the repo.
+- Credit notes read the referenced invoice and amounts from the order comments (Thai or English wording).
+
 ## E-mail
 
 The installer defaults to **log** mode: every e-mail is saved as an HTML file in `storage/mail/`

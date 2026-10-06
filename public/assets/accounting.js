@@ -76,7 +76,10 @@
         var items = Object.keys(picked).map(function (no) { return { invoice: parseInt(no, 10), auto_pdf: picked[no].auto }; });
         fetch(url.replace(/candidates$/, 'generate'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf() }, body: JSON.stringify({ items: items }) })
             .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Failed'); return d; }); })
-            .then(function () { location.reload(); })
+            .then(function (d) {
+                if (d.errors && d.errors.length) { err.hidden = false; err.textContent = d.errors.join(' · '); dlg.addEventListener('close', function () { location.reload(); }, { once: true }); go.disabled = true; return; }
+                location.reload();
+            })
             .catch(function (x) { err.hidden = false; err.textContent = x.message; go.disabled = false; });
     });
     tabs();
