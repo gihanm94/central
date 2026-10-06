@@ -1,7 +1,7 @@
 <?php
 use App\Modules\Accounting\Inet\Company;
 /* $c company row, $chromium found program, $chromiumSet saved path, $scheme */
-$wide = ['address_th', 'address_en', 'tax_info', 'footer_text_th', 'footer_text_en'];
+$wide = ['address_th', 'address_en', 'tax_info', 'footer_text_th', 'footer_text_en', 'payment_note_th', 'payment_note_en', 'receipt_note_th', 'receipt_note_en', 'credit_note_th', 'credit_note_en'];
 $secret = ['access_key', 'api_key'];
 ?>
 <div class="min-w-0">

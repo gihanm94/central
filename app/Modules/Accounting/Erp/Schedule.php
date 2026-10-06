@@ -65,7 +65,8 @@ final class Schedule
     {
         $b = self::heartbeat();
         if ($b && time() - $b['at'] < 55) { return; }
-        if (ErpSettings::schedule('enabled') !== '1' || ! ErpSettings::configured() || ! self::inWindow()) { return; }
+        $erp = ErpSettings::schedule('enabled') === '1' && ErpSettings::configured() && self::inWindow();
+        if (! $erp && ! \App\Modules\Accounting\Billing\BillingNotify::enabled()) { return; }
         self::beat('website');                                   // claim it first so parallel page loads do not all start one
         self::spawn(['tick', 'website']);
     }
@@ -74,6 +75,7 @@ final class Schedule
     public static function tick(string $by = 'cron'): array
     {
         self::beat($by);
+        \App\Modules\Accounting\Billing\BillingNotify::tick();                    // the day's billing list on Lark (independent of the ERP working hours)
         if (ErpSettings::schedule('enabled') !== '1' || ! ErpSettings::configured() || ! self::inWindow()) {
             return [];
         }
@@ -108,7 +110,7 @@ final class Schedule
             if ($failed && str_contains((string) end($failed), 'Login failed')) { break; }        // no point asking the rest
         }
         DB::exec('UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ?, fetched = ?, saved = ? WHERE id = ?',
-            [$failed ? 'failed' : 'ok', $failed ? mb_substr(implode(' | ', $failed), 0, 1500) : count($keys).' entities, '.$mode, $fetched, $saved, $id], ErpSettings::CONN);
+            [! $failed ? 'ok' : (count($failed) < count($keys) ? 'warning' : 'failed'), $failed ? mb_substr(implode(' | ', $failed), 0, 1500) : count($keys).' entities, '.$mode, $fetched, $saved, $id], ErpSettings::CONN);
         ($failed ? [Log::class, 'error'] : [Log::class, 'info'])('sync', "group {$group}: run #{$id} ".($failed ? 'FAILED' : 'finished'), ['fetched' => $fetched, 'saved' => $saved, 'failed' => $failed]);
         flock($lock, LOCK_UN);
 

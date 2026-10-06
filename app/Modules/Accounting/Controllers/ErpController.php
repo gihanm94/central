@@ -153,6 +153,25 @@ class ErpController extends Controller
         ]);
     }
 
+    /** Run history, a page at a time (status: ok | warning | failed | running). */
+    public function runs(): never
+    {
+        $this->gate();
+        session_write_close();
+        $st = (string) Request::query('status', '');
+        $per = in_array((int) Request::query('per', 10), [10, 20, 50], true) ? (int) Request::query('per', 10) : 10;
+        $where = in_array($st, ['ok', 'warning', 'failed', 'running'], true) ? 'WHERE status = ?' : '';
+        $par = $where ? [$st] : [];
+        $total = (int) DB::scalar("SELECT count(*) FROM erp_sync_runs {$where}", $par, ErpSettings::CONN);
+        $pages = max(1, (int) ceil($total / $per));
+        $page = min($pages, max(1, (int) Request::query('page', 1)));
+        $rows = DB::select("SELECT id, kind, source, status, message, fetched, saved, started_at, finished_at,
+                                   CASE WHEN finished_at IS NOT NULL THEN round(extract(epoch FROM finished_at - started_at)::numeric, 1) END AS seconds
+                              FROM erp_sync_runs {$where} ORDER BY id DESC LIMIT {$per} OFFSET ".(($page - 1) * $per), $par, ErpSettings::CONN);
+        foreach ($rows as &$r) { $r['ago'] = time_ago($r['started_at']); $r['at'] = date('d M H:i:s', strtotime((string) $r['started_at'])); }
+        json_response(['rows' => $rows, 'total' => $total, 'pages' => $pages, 'page' => $page]);
+    }
+
     /** Start a sync in the background (cron-less servers fall back to running it here). */
     public function run(): never
     {

@@ -2,12 +2,14 @@
 declare(strict_types=1);
 
 use App\Modules\Accounting\Controllers\AccountingController;
+use App\Modules\Accounting\Controllers\BillingController;
 use App\Modules\Accounting\Controllers\CompanyController;
 use App\Modules\Accounting\Controllers\CustomerController;
 use App\Modules\Accounting\Controllers\ErpController;
 use App\Modules\Accounting\Controllers\InetController;
 use App\Modules\Accounting\Controllers\InvoiceController;
 use App\Modules\Accounting\Controllers\LogController;
+use App\Modules\Accounting\Controllers\NotifyController;
 use App\Modules\Accounting\Controllers\OrderController;
 use App\Modules\Accounting\Controllers\ProductController;
 use App\Modules\Accounting\Controllers\SellerController;
@@ -24,6 +26,7 @@ $r->post('/accounting/erp/login', [ErpController::class, 'login']);
 $r->post('/accounting/erp/test', [ErpController::class, 'test']);
 $r->post('/accounting/erp/run', [ErpController::class, 'run']);
 $r->get('/accounting/erp/status', [ErpController::class, 'status']);
+$r->get('/accounting/erp/runs', [ErpController::class, 'runs']);
 
 // Copies of ERP data (read only) and the e-tax page
 foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class, 'inet' => InetController::class] as $path => $controller) {
@@ -58,3 +61,22 @@ $r->get('/accounting/logs', [LogController::class, 'index']);
 $r->get('/accounting/logs/tail', [LogController::class, 'tail']);
 $r->get('/accounting/logs/download', [LogController::class, 'download']);
 $r->post('/accounting/logs/clear', [LogController::class, 'clear']);
+
+// Billing notes
+$r->get('/accounting/billing', [BillingController::class, 'index']);
+$r->get('/accounting/billing/export', [BillingController::class, 'export']);
+$r->get('/accounting/billing/create', [BillingController::class, 'create']);
+$r->get('/accounting/billing/customers', [BillingController::class, 'customers']);
+$r->get('/accounting/billing/invoices', [BillingController::class, 'invoices']);
+$r->post('/accounting/billing', [BillingController::class, 'store']);
+$r->post('/accounting/billing/bulk-delete', [BillingController::class, 'bulkDestroy']);
+$r->get('/accounting/billing/{id}', [BillingController::class, 'show']);
+$r->get('/accounting/billing/{id}/pdf', [BillingController::class, 'pdf']);
+$r->post('/accounting/billing/{id}/regenerate', [BillingController::class, 'regenerate']);
+$r->post('/accounting/billing/{id}/state/{to}', [BillingController::class, 'state']);
+$r->post('/accounting/billing/{id}/delete', [BillingController::class, 'destroy']);
+
+// Daily Lark list of billing notes (administrators)
+$r->get('/accounting/notify', [NotifyController::class, 'edit']);
+$r->post('/accounting/notify', [NotifyController::class, 'save']);
+$r->post('/accounting/notify/send', [NotifyController::class, 'send']);

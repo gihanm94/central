@@ -15,6 +15,8 @@ final class Company
         'phone' => 'Phone', 'fax' => 'Fax', 'email' => 'E-mail', 'website' => 'Website', 'service_code' => 'INET service code',
         'user_code' => 'INET user code', 'access_key' => 'INET access key', 'api_key' => 'INET API key', 'field_type' => 'Field type',
         'footer_text_th' => 'PDF footer (Thai)', 'footer_text_en' => 'PDF footer (English)',
+        'payment_note_th' => 'Billing note: interest note (Thai)', 'payment_note_en' => 'Billing note: interest note (English)',
+        'receipt_note_th' => 'Receipt note (Thai)', 'receipt_note_en' => 'Receipt note (English)', 'credit_note_th' => 'Credit note text (Thai)', 'credit_note_en' => 'Credit note text (English)',
     ];
 
     public static function primary(): ?array

@@ -13,4 +13,5 @@
 <script src="<?= asset('assets/crm.js') ?>" defer></script>
 <script src="<?= asset('assets/logview.js') ?>" defer></script>
 <script src="<?= asset('assets/accounting.js') ?>" defer></script>
+<script src="<?= asset('assets/billing.js') ?>" defer></script>
 <script src="<?= asset('assets/ui.js') ?>" defer></script>

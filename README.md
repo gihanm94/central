@@ -193,6 +193,13 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 - **Send** opens a window: upload a PDF (drag or click, preview, then Send) or switch on *Show Generated* to send the generated PDF. Send shows the same animation and closes on success.
 - Success / error messages are toasts (`public/assets/toast.js`, `toast(msg, type)`), including the server's flash messages.
 
+## Accounting: overview, billing notes, notifications
+
+- **Overview** (`/accounting`): KPI cards and Chart.js charts (vendored in `public/assets/vendor/chartjs`): revenue by year / month, top customers, sellers, products, receivable ageing, orders per month, e-tax status, billing notes. Each block shows only if you may open its own screen. Numbers come from `Support\Dashboard` (kept 5 min; admins can Refresh).
+- **Billing notes** (`/accounting/billing`): Generate = pick customer → tick its unbilled invoices → address → dates. Number is `BI` + yy + mm + 001, 002 … per month (admins can override by hand). The PDF is built like the old template, kept in `storage/billing/`, and opens in a window (zoom, print, download) from the list.
+- **Notifications** (`/accounting/notify`, admins): once a day after the chosen time the scheduler sends the notes whose remind date is today on Lark — to the chosen users (app mode, by work e-mail) or the group (webhook mode). Lark itself is configured under Settings.
+- **ERP connection** now has tabs (Status, Connection, Schedule, e-Tax portal, APIs); *Recent runs* is a table with pages and a Success / Warning / Failed filter (a run is *warning* when only some entities failed).
+
 ## Accounting logs (`/accounting/logs`, administrators)
 
 Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, one JSON line per event, kept 30 days. The page follows the file live (about every 1.5 s) with filters for level, channel (`erp` API calls, `sync`, `inet` generate/send/fetch, `pdf`, `app` uncaught errors) and text search; each line opens to show URL, HTTP status, time, exception and where it happened. Secrets (keys, passwords, session ids) are masked. The **Generate** dialog shows its own run's lines live while it works. In code: `App\Modules\Accounting\Support\Log::info('inet', 'message', [...])`.

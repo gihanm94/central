@@ -23,6 +23,13 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
     </div>
 </div>
 
+<nav class="mt-4 flex flex-wrap gap-1 border-b border-graphite-900/10" role="tablist" id="erp-tabs">
+    <?php foreach (['status' => __('Status'), 'connection' => __('Connection'), 'schedule' => __('Schedule'), 'inet' => __('e-Tax portal'), 'apis' => __('APIs')] as $k => $l): ?>
+    <button type="button" role="tab" data-tab="<?= $k ?>" class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-steel hover:text-graphite-900 aria-selected:border-signal-600 aria-selected:text-signal-700"><?= e($l) ?></button>
+    <?php endforeach ?>
+</nav>
+
+<div data-pane="status">
 <?php $sumRows = array_sum($count); $beat = \App\Modules\Accounting\Erp\Schedule::heartbeat(); ?>
 <div id="erp-live" data-url="<?= url('/accounting/erp/status') ?>" data-l-saved="<?= e(__('saved')) ?>" data-l-read="<?= e(__('read')) ?>" data-l-syncing="<?= e(__('Syncing now')) ?>" data-l-idle="<?= e(__('Idle')) ?>" data-l-on="<?= e(__('Schedule on')) ?>" data-l-off="<?= e(__('Schedule off')) ?>" data-l-looked="<?= e(__('looked')) ?>" data-l-ago="<?= e(__('ago')) ?>" data-l-never="<?= e(__('has not run yet')) ?>" data-l-stale="<?= e(__('The scheduler is not running: set up the cron line below, or keep an accounting page open.')) ?>" data-l-outside="<?= e(__('outside the working window')) ?>" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-graphite-900/8">
     <span class="inline-flex items-center gap-1.5 font-medium"><span data-live-dot class="size-2 rounded-full bg-emerald-500"></span><span data-live-running><?= $running ? e(__('Syncing now')) : e(__('Idle')) ?></span></span>
@@ -41,11 +48,30 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
     <div class="panel-head"><h2 class="panel-title"><?= e(__('Live sync log')) ?></h2><a href="<?= url('/accounting/logs') ?>" class="text-xs text-steel hover:text-signal-700"><?= e(__('Open all logs')) ?> →</a></div>
     <div id="erp-log" data-empty="<?= e(__('No sync lines yet today.')) ?>" class="h-56 overflow-auto rounded-b-xl bg-graphite-900 p-3 font-mono text-xs leading-5 text-white"></div>
 </section>
+<section class="panel mt-3" id="erp-runs" data-url="<?= url('/accounting/erp/runs') ?>">
+    <div class="panel-head">
+        <h2 class="panel-title"><?= e(__('Recent runs')) ?></h2>
+        <div class="flex items-center gap-2">
+            <label class="sr-only" for="runs-status"><?= e(__('Status')) ?></label>
+            <select id="runs-status" data-runs-status class="input !h-8 !w-auto !py-0 text-sm"><option value=""><?= e(__('All')) ?></option><option value="ok"><?= e(__('Success')) ?></option><option value="warning"><?= e(__('Warning')) ?></option><option value="failed"><?= e(__('Failed')) ?></option><option value="running"><?= e(__('Running')) ?></option></select>
+        </div>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+        <th class="px-4 py-2 font-medium">#</th><th class="px-3 py-2 font-medium"><?= e(__('Run')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Status')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Started')) ?></th><th class="px-3 py-2 text-right font-medium"><?= e(__('Time')) ?></th>
+        <th class="px-3 py-2 text-right font-medium"><?= e(__('Read')) ?></th><th class="px-3 py-2 text-right font-medium"><?= e(__('Saved')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Message')) ?></th></tr></thead>
+        <tbody data-runs-body class="divide-y divide-graphite-900/6"><tr><td colspan="8" class="px-4 py-8 text-center text-steel"><?= e(__('Loading…')) ?></td></tr></tbody></table></div>
+    <div class="flex items-center justify-between gap-3 border-t border-graphite-900/8 px-4 py-2.5 text-sm text-steel">
+        <span data-runs-info></span>
+        <div class="flex items-center gap-1"><button type="button" class="btn-secondary !h-8 !px-3" data-runs-prev aria-label="<?= e(__('Previous')) ?>">‹</button><span class="min-w-16 text-center tabular-nums" data-runs-page>1 / 1</span><button type="button" class="btn-secondary !h-8 !px-3" data-runs-next aria-label="<?= e(__('Next')) ?>">›</button></div>
+    </div>
+</section>
+</div>
 
-<div class="mt-4 grid gap-4 lg:grid-cols-3">
+<div class="mt-4 grid gap-4 lg:grid-cols-3" data-pane="connection schedule inet" hidden>
     <!-- connection -->
     <form method="POST" action="<?= url('/accounting/erp/connection') ?>" class="panel lg:col-span-2">
         <?= csrf_field() ?>
+        <div data-pane="connection">
         <div class="panel-head"><h2 class="panel-title"><?= e(__('Connection')) ?></h2><span class="text-xs text-steel"><?= e(S::baseUrl() ?: __('not set')) ?></span></div>
         <div class="grid gap-4 p-5 sm:grid-cols-2">
             <div><label class="label" for="erp-ip"><?= e(__('Server address')) ?></label><input id="erp-ip" name="ip" value="<?= e(S::conn('ip')) ?>" class="input" placeholder="5.223.76.93"><?= field_error('ip') ?></div>
@@ -56,7 +82,9 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
             <label class="flex items-start gap-2 text-sm sm:pt-6"><input type="checkbox" name="verify_tls" value="1" class="mt-0.5 size-4 accent-signal-600" <?= S::conn('verify_tls') === '1' ? 'checked' : '' ?>> <span><?= e(__('Check the server certificate')) ?><span class="block text-xs text-steel"><?= e(__('Leave off for an ERP with a self-signed certificate (as the old system did).')) ?></span></span></label>
         </div>
 
-        <div class="panel-head border-t border-graphite-900/8"><h2 class="panel-title"><?= e(__('Schedule')) ?></h2><span class="text-xs <?= $inWindow ? 'text-emerald-700' : 'text-steel' ?>"><?= e($inWindow ? __('inside the working window now') : __('outside the working window now')) ?></span></div>
+        </div>
+        <div data-pane="schedule" hidden>
+        <div class="panel-head"><h2 class="panel-title"><?= e(__('Schedule')) ?></h2><span class="text-xs <?= $inWindow ? 'text-emerald-700' : 'text-steel' ?>"><?= e($inWindow ? __('inside the working window now') : __('outside the working window now')) ?></span></div>
         <div class="grid gap-4 p-5 sm:grid-cols-2">
             <label class="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" name="enabled" value="1" class="mt-0.5 size-4 accent-signal-600" <?= S::schedule('enabled') === '1' ? 'checked' : '' ?>> <span class="font-medium"><?= e(__('Run the schedule')) ?><span class="block text-xs font-normal text-steel"><?= e(__('Needs the cron line below. Hot = newest rows of orders, invoices, customers …; cold = reference data.')) ?></span></span></label>
             <div><label class="label" for="s-hot"><?= e(__('Hot sync every (minutes)')) ?></label><input id="s-hot" name="hot_minutes" value="<?= e(S::schedule('hot_minutes')) ?>" class="input" inputmode="numeric"></div>
@@ -70,18 +98,21 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
             <div class="sm:col-span-2"><p class="label"><?= e(__('Cron line (run every minute)')) ?> <span class="font-normal text-steel">— <?= e(__('optional: without it the website starts the schedule while someone has an accounting page open')) ?></span></p><code class="block overflow-x-auto rounded-lg bg-graphite-900 px-3 py-2 text-xs text-white"><?= e($cron) ?></code></div>
         </div>
 
-        <div class="panel-head border-t border-graphite-900/8"><h2 class="panel-title"><?= e(__('e-Tax portal (INET)')) ?></h2><span class="text-xs text-steel"><?= e(__('used by the e-tax invoice step that follows')) ?></span></div>
+        </div>
+        <div data-pane="inet" hidden>
+        <div class="panel-head"><h2 class="panel-title"><?= e(__('e-Tax portal (INET)')) ?></h2><span class="text-xs text-steel"><?= e(__('used by the e-tax invoice step that follows')) ?></span></div>
         <div class="grid gap-4 p-5">
             <?php foreach (['sendApi' => __('Send document'), 'statusApi' => __('Document status'), 'paramsApi' => __('Document parameters')] as $k => $l): ?>
             <div><label class="label" for="inet-<?= $k ?>"><?= e($l) ?></label><input id="inet-<?= $k ?>" name="inet_<?= $k ?>" value="<?= e(S::inet($k)) ?>" class="input"><?= field_error('inet_'.$k) ?></div>
             <?php endforeach ?>
             <div><label class="label" for="inet-auth"><?= e(__('Authorization key')) ?></label><input id="inet-auth" name="inet_authorization" type="password" class="input" autocomplete="new-password" placeholder="<?= $hasInet ? '•••••••• ('.e(__('saved — leave empty to keep')).')' : '' ?>"></div>
         </div>
-        <div class="flex justify-end border-t border-graphite-900/8 bg-mist/50 px-5 py-3"><button class="btn-primary"><?= e(__('Save connection')) ?></button></div>
+        </div>
+        <div class="flex justify-end border-t border-graphite-900/8 bg-mist/50 px-5 py-3"><button class="btn-primary"><?= e(__('Save')) ?></button></div>
     </form>
 
-    <!-- token + runs -->
-    <div class="space-y-4">
+    <!-- token -->
+    <div class="space-y-4" data-pane="connection">
         <section class="panel">
             <div class="panel-head"><h2 class="panel-title"><?= e(__('Token (session)')) ?></h2></div>
             <dl class="divide-y divide-graphite-900/6 text-sm">
@@ -96,23 +127,11 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
                 <div class="px-5 py-3 text-xs text-steel"><?= e(__('The session is saved in the database and reused for an hour, like the old system. A 401 answer gets a new login automatically.')) ?></div>
             </dl>
         </section>
-        <section class="panel">
-            <div class="panel-head"><h2 class="panel-title"><?= e(__('Recent runs')) ?></h2></div>
-            <div data-runs>
-            <?php if (! $runs): ?><p class="px-5 py-6 text-center text-sm text-steel"><?= e(__('Nothing has run yet.')) ?></p><?php else: ?>
-            <ul class="divide-y divide-graphite-900/6 text-sm">
-                <?php foreach ($runs as $r): ?>
-                <li class="px-5 py-2.5"><div class="flex items-center justify-between gap-2"><span class="font-medium"><?= e($r['kind']) ?> <span class="text-xs font-normal text-steel">· <?= e($r['source']) ?></span></span><span class="badge <?= $stateTone[$r['status']] ?? $stateTone['never'] ?>"><?= e($r['status']) ?></span></div>
-                    <p class="text-xs text-steel"><?= e(time_ago($r['started_at'])) ?> · <span class="font-medium text-graphite-800"><?= number_format((int) $r['saved']) ?></span> <?= e(__('saved')) ?> / <?= number_format((int) $r['fetched']) ?> <?= e(__('read')) ?><?= $r['message'] ? ' · '.e(str_limit($r['message'], 80)) : '' ?></p></li>
-                <?php endforeach ?>
-            </ul><?php endif ?>
-            </div>
-        </section>
     </div>
 </div>
 
 <!-- all APIs -->
-<form method="POST" action="<?= url('/accounting/erp/endpoints') ?>" class="panel mt-4 overflow-hidden" id="apis">
+<form method="POST" action="<?= url('/accounting/erp/endpoints') ?>" class="panel mt-4 overflow-hidden" id="apis" data-pane="apis" hidden>
     <?= csrf_field() ?><input type="hidden" name="mode" value="latest" data-mode><input type="hidden" name="overwrite_form" value="1">
     <div class="panel-head">
         <h2 class="panel-title"><?= e(__('APIs')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count(config('erp.endpoints')) ?></span></h2>

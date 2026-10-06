@@ -42,6 +42,21 @@ final class PdfRenderer
         return $r;
     }
 
+    /** The billing note page (grey theme, invoices table, bank cards, total, signature row). */
+    public static function billingHtml(array $note, array $rows, array $company, array $banks): string
+    {
+        $thai = filter_var($note['is_thai'], FILTER_VALIDATE_BOOL);
+        $total = 0.0;
+        foreach ($rows as $r) { $total += filter_var($r['is_credit'], FILTER_VALIDATE_BOOL) ? -(float) $r['amount'] : (float) $r['amount']; }
+        $d = fn (?string $v) => $v ? ($thai ? date('d/m/', strtotime($v)).((int) date('Y', strtotime($v)) + 543) : date('d/m/Y', strtotime($v))) : '';
+
+        return View::render('accounting/pdf/billing', [
+            'n' => $note, 'rows' => $rows, 'company' => $company, 'thai' => $thai, 'banks' => $banks, 'total' => $total, 'dfmt' => $d,
+            'symbol' => \App\Modules\Accounting\Billing\BillingService::symbol($note['currency_code']), 'fonts' => self::fonts(), 'logo' => self::data('logo.jpg', 'image/jpeg'),
+            'payNote' => (string) ($thai ? $company['payment_note_th'] : $company['payment_note_en']),
+        ]);
+    }
+
     /** The page that is printed (HTML). */
     public static function html(array $doc, array $lines, array $company, string $docType, bool $thai, array $totals, ?array $credit = null): string
     {

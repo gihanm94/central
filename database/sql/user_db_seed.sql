@@ -110,7 +110,8 @@ INSERT INTO permissions (id, module, key, label, sort) VALUES
   (25, 'accounting', 'accounting_invoices', 'Accounting invoices', 320),
   (26, 'accounting', 'accounting_products', 'Accounting products', 330),
   (27, 'accounting', 'accounting_inet', 'Accounting e-tax (INET)', 340),
-  (28, 'accounting', 'accounting_sellers', 'Accounting sellers', 350)
+  (28, 'accounting', 'accounting_sellers', 'Accounting sellers', 350),
+  (29, 'accounting', 'accounting_billing', 'Accounting billing notes', 360)
 ON CONFLICT (key) DO NOTHING;
 
 -- Letters: v=view c=create e=edit d=delete i=import x=export w=download
@@ -129,11 +130,11 @@ FROM (VALUES
   ('admin','crm_tasks','vcedixw'),('management','crm_tasks','vxw'),('bu_manager','crm_tasks','vcedixw'),('manager','crm_tasks','vcedxw'),('member','crm_tasks','vce'),
   ('admin','crm_stats','v'),('management','crm_stats',''),('bu_manager','crm_stats','v'),('manager','crm_stats',''),('member','crm_stats',''),
   ('admin','crm_reassign','ve'),('management','crm_reassign',''),('bu_manager','crm_reassign','ve'),('manager','crm_reassign',''),('member','crm_reassign',''),
-  ('admin','accounting_customers','vx'),('admin','accounting_orders','vx'),('admin','accounting_invoices','vx'),('admin','accounting_products','vx'),('admin','accounting_inet','vcedxw'),('admin','accounting_sellers','vex'),
-  ('management','accounting_customers','vx'),('management','accounting_orders','vx'),('management','accounting_invoices','vx'),('management','accounting_products','vx'),('management','accounting_inet','vx'),('management','accounting_sellers','vx'),
-  ('bu_manager','accounting_customers','vx'),('bu_manager','accounting_orders','vx'),('bu_manager','accounting_invoices','vx'),('bu_manager','accounting_products','vx'),('bu_manager','accounting_inet',''),('bu_manager','accounting_sellers','v'),
-  ('manager','accounting_customers','v'),('manager','accounting_orders','v'),('manager','accounting_invoices','v'),('manager','accounting_products','v'),('manager','accounting_inet',''),('manager','accounting_sellers',''),
-  ('member','accounting_customers',''),('member','accounting_orders',''),('member','accounting_invoices',''),('member','accounting_products',''),('member','accounting_inet',''),('member','accounting_sellers','')
+  ('admin','accounting_customers','vx'),('admin','accounting_orders','vx'),('admin','accounting_invoices','vx'),('admin','accounting_products','vx'),('admin','accounting_inet','vcedxw'),('admin','accounting_sellers','vex'),('admin','accounting_billing','vcedxw'),
+  ('management','accounting_customers','vx'),('management','accounting_orders','vx'),('management','accounting_invoices','vx'),('management','accounting_products','vx'),('management','accounting_inet','vx'),('management','accounting_sellers','vx'),('management','accounting_billing','vxw'),
+  ('bu_manager','accounting_customers','vx'),('bu_manager','accounting_orders','vx'),('bu_manager','accounting_invoices','vx'),('bu_manager','accounting_products','vx'),('bu_manager','accounting_inet',''),('bu_manager','accounting_sellers','v'),('bu_manager','accounting_billing','vcexw'),
+  ('manager','accounting_customers','v'),('manager','accounting_orders','v'),('manager','accounting_invoices','v'),('manager','accounting_products','v'),('manager','accounting_inet',''),('manager','accounting_sellers',''),('manager','accounting_billing',''),
+  ('member','accounting_customers',''),('member','accounting_orders',''),('member','accounting_invoices',''),('member','accounting_products',''),('member','accounting_inet',''),('member','accounting_sellers',''),('member','accounting_billing','')
 ) AS d(role, perm, l)
 JOIN roles r ON r.slug = d.role
 JOIN permissions p ON p.key = d.perm

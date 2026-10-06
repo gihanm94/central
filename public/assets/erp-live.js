@@ -4,10 +4,11 @@
     var box = document.getElementById('erp-live');
     if (!box) return;
     var L = function (k) { return box.dataset['l' + k.charAt(0).toUpperCase() + k.slice(1)] || ''; };
-    var TONE = { ok: 'bg-emerald-50 text-emerald-800', failed: 'bg-signal-50 text-signal-800', running: 'bg-amber-50 text-amber-800', never: 'bg-graphite-900/6 text-graphite-700' };
+    var TONE = { ok: 'bg-emerald-50 text-emerald-800', warning: 'bg-amber-50 text-amber-800', failed: 'bg-signal-50 text-signal-800', running: 'bg-amber-50 text-amber-800', never: 'bg-graphite-900/6 text-graphite-700' };
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function num(n) { return Number(n || 0).toLocaleString(); }
     function $(s, r) { return (r || document).querySelector(s); }
+    function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
 
     function stateHtml(st) {
         var h = '<span class="badge ' + (TONE[st.status] || TONE.never) + '">' + esc(st.status) + '</span>';
@@ -31,7 +32,6 @@
         else if (s.enabled && !s.inWindow) t += ' · ' + L('outside');
         var el = $('[data-live-sched]', box); el.textContent = t; el.className = warn ? 'text-signal-700' : 'text-steel';
         d.state.forEach(function (st) { document.querySelectorAll('[data-state="' + st.entity + '"]').forEach(function (n) { n.innerHTML = stateHtml(st); }); });
-        var runs = $('[data-runs]'); if (runs && d.runs.length) runs.innerHTML = runsHtml(d.runs);
         var T = d.totals, set = function (k, v, bad) { var n = $('[data-stat="' + k + '"]'); if (n) { n.textContent = v; if (k === 'failed') n.classList.toggle('text-signal-700', bad); } };
         set('today', num(T.today)); set('all', num(T.all_time)); set('failed', num(T.failed_day), +T.failed_day > 0);
         var lo = $('[data-stat="last_ok"]'); if (lo && d.runs.length) { var ok = d.runs.filter(function (r) { return r.status === 'ok'; })[0]; lo.textContent = ok ? ok.ago : '—'; }
@@ -47,4 +47,42 @@
 
     var log = document.getElementById('erp-log');
     if (log && window.AcctLog) AcctLog.stream(log, { url: box.dataset.url.replace(/erp\/status$/, 'logs/tail'), ch: 'sync,erp', level: 'info', tail: 120, every: 2000 });
+
+    /* ---- tabs ---- */
+    var tabs = $$('[data-tab]'), panes = $$('[data-pane]');
+    function open(name) {
+        if (!document.querySelector('[data-tab="' + name + '"]')) name = 'status';
+        tabs.forEach(function (t) { t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'); });
+        panes.forEach(function (p) { p.hidden = (' ' + p.dataset.pane + ' ').indexOf(' ' + name + ' ') < 0; });
+        try { history.replaceState(null, '', '#' + name); } catch (e) { /* ignore */ }
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { open(t.dataset.tab); }); });
+    open((location.hash || '#status').slice(1));
+
+    /* ---- recent runs: filter + pages, refreshed while the page is open ---- */
+    var rb = document.getElementById('erp-runs');
+    if (rb) {
+        var body = $('[data-runs-body]', rb), sel = $('[data-runs-status]', rb), info = $('[data-runs-info]', rb), pg = $('[data-runs-page]', rb), page = 1, pages = 1, per = 10, loading = false;
+        var LAB = { ok: 'Success', warning: 'Warning', failed: 'Failed', running: 'Running' };
+        function loadRuns() {
+            if (loading) return; loading = true;
+            fetch(rb.dataset.url + '?' + new URLSearchParams({ status: sel.value, page: page, per: per }), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    loading = false; page = d.page; pages = d.pages;
+                    body.innerHTML = d.rows.length ? d.rows.map(function (r) {
+                        return '<tr class="align-top"><td class="px-4 py-2 tabular-nums text-steel">' + r.id + '</td><td class="px-3 py-2 font-medium">' + esc(r.kind) + ' <span class="text-xs font-normal text-steel">· ' + esc(r.source) + '</span></td>' +
+                            '<td class="px-3 py-2"><span class="badge ' + (TONE[r.status] || TONE.never) + '">' + esc(LAB[r.status] || r.status) + '</span></td><td class="px-3 py-2 whitespace-nowrap text-steel" title="' + esc(r.at) + '">' + esc(r.ago) + '</td>' +
+                            '<td class="px-3 py-2 text-right tabular-nums text-steel">' + (r.seconds != null ? r.seconds + 's' : '…') + '</td><td class="px-3 py-2 text-right tabular-nums">' + num(r.fetched) + '</td><td class="px-3 py-2 text-right tabular-nums font-medium">' + num(r.saved) + '</td>' +
+                            '<td class="px-3 py-2"><span class="block max-w-md truncate text-xs ' + (r.status === 'ok' ? 'text-steel' : 'text-signal-700') + '" title="' + esc(r.message || '') + '">' + esc(r.message || '') + '</span></td></tr>';
+                    }).join('') : '<tr><td colspan="8" class="px-4 py-8 text-center text-steel">—</td></tr>';
+                    info.textContent = d.total + ' ' + (rb.dataset.lRuns || 'runs'); pg.textContent = page + ' / ' + pages;
+                    $('[data-runs-prev]', rb).disabled = page <= 1; $('[data-runs-next]', rb).disabled = page >= pages;
+                }).catch(function () { loading = false; });
+        }
+        sel.addEventListener('change', function () { page = 1; loadRuns(); });
+        $('[data-runs-prev]', rb).addEventListener('click', function () { if (page > 1) { page--; loadRuns(); } });
+        $('[data-runs-next]', rb).addEventListener('click', function () { if (page < pages) { page++; loadRuns(); } });
+        loadRuns(); setInterval(function () { if (!document.hidden) loadRuns(); }, 5000);
+    }
 })();
