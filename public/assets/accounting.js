@@ -28,7 +28,7 @@ function AcctBusy(root) {
 /* Ask a Generate job how far it is once a second until it is done. */
 function followJob(jobUrl, total, L) {
     return new Promise(function (resolve, reject) {
-        var misses = 0;
+        var misses = 0, n = 0;
         (function tick() {
             fetch(jobUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
                 .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
@@ -38,7 +38,7 @@ function followJob(jobUrl, total, L) {
                     if (box) box.textContent = j.status === 'done' || j.status === 'failed' ? '' : (j.saved ? L.lStepSave : (j.printed || (j.built >= j.total && j.total)) ? L.lStepPdf : L.lStepBuild) + '  ' + Math.max(j.built, j.saved) + ' / ' + total;
                     if (j.status === 'done') return resolve(j);
                     if (j.status === 'failed') return reject(new Error(j.message || 'Failed'));
-                    setTimeout(tick, 900);
+                    n++; setTimeout(tick, n < 6 ? 1000 : n < 20 ? 2000 : 4000);                  // gentle: a long job must not flood the server (or its console)
                 })
                 .catch(function (e) { if (++misses > 5) reject(e); else setTimeout(tick, 1500); });
         })();

@@ -38,7 +38,7 @@ final class Jobs
     public static function read(string $id): ?array
     {
         $j = self::valid($id) && is_file(self::file($id)) ? json_decode((string) @file_get_contents(self::file($id)), true) : null;
-        if (is_array($j) && in_array($j['status'], ['queued', 'running'], true) && time() - (int) $j['updated'] > 300) {      // the process died
+        if (is_array($j) && in_array($j['status'], ['queued', 'running'], true) && time() - (int) $j['updated'] > 150) {      // the process died
             $j['status'] = 'failed'; $j['message'] = 'The background process stopped. See Accounting → Logs.';
         }
 

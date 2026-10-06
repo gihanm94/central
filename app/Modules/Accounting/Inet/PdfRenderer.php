@@ -101,6 +101,8 @@ final class PdfRenderer
         $bin = self::chromium() ?? throw new \RuntimeException(__('PDF needs Chrome or Chromium on the server. Set its path under Accounting → Company.'));
         $dir = BASE_PATH.'/storage/cache/pdf';
         is_dir($dir) || @mkdir($dir, 0775, true);
+        $home = $dir.'/home';
+        is_dir($home) || @mkdir($home, 0775, true);
         $queue = array_keys($pages);
         $run = [];                                                    // key => [proc, id, t0]
         $out = [];
@@ -111,16 +113,26 @@ final class PdfRenderer
                 $k = array_shift($queue);
                 $id = bin2hex(random_bytes(6));
                 file_put_contents("{$dir}/{$id}.html", $pages[$k]);
-                $cmd = [$bin, '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-pdf-header-footer', '--user-data-dir='."{$dir}/profile-{$id}", '--print-to-pdf='."{$dir}/{$id}.pdf", 'file://'."{$dir}/{$id}.html"];
-                $proc = @proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['file', "{$dir}/{$id}.log", 'w'], 2 => ['file', "{$dir}/{$id}.log", 'w']], $pipes);
+                $cmd = [$bin, '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-pdf-header-footer', '--disable-crash-reporter', '--disable-breakpad', '--no-first-run', '--disable-extensions', '--disable-background-networking', '--disable-sync', '--mute-audio', '--hide-scrollbars', '--user-data-dir='."{$dir}/profile-{$id}", '--print-to-pdf='."{$dir}/{$id}.pdf", 'file://'."{$dir}/{$id}.html"];
+                $proc = @proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['file', "{$dir}/{$id}.log", 'w'], 2 => ['file', "{$dir}/{$id}.log", 'w']], $pipes, null,
+                    ['HOME' => $home, 'XDG_CONFIG_HOME' => $home.'/.config', 'XDG_CACHE_HOME' => $home.'/.cache', 'PATH' => '/usr/local/bin:/usr/bin:/bin', 'LANG' => 'C.UTF-8']);          // the web user often has no writable home
                 if (! is_resource($proc)) { $out[$k] = new \RuntimeException(__('The PDF could not be made.').' (cannot start Chromium)'); self::clean($dir, $id); continue; }
                 $run[$k] = [$proc, $id, microtime(true)];
             }
             foreach ($run as $k => [$proc, $id, $t0]) {
                 $st = proc_get_status($proc);
-                $timeout = microtime(true) - $t0 > 120;
-                if ($st['running'] && ! $timeout) { continue; }
-                if ($timeout) { proc_terminate($proc, 9); }
+                $file = "{$dir}/{$id}.pdf";
+                // Chromium sometimes writes the PDF and then does not exit (crash reporter, a profile it cannot lock …): the finished file is enough
+                $size = is_file($file) ? (int) filesize($file) : 0;
+                $ready = $size > 500 && $size === ($run[$k][3] ?? -1) && str_contains((string) substr((string) file_get_contents($file, false, null, max(0, $size - 64)), 0), '%%EOF');
+                $run[$k][3] = $size;
+                $timeout = microtime(true) - $t0 > 60;
+                if ($st['running'] && ! $timeout && ! $ready) { continue; }
+                if ($st['running']) {
+                    proc_terminate($proc, 9);
+                    @exec('pkill -9 -f '.escapeshellarg("profile-{$id}").' >/dev/null 2>&1');          // its helper processes too
+                    $timeout = $timeout && ! $ready;
+                }
                 proc_close($proc);
                 $pdf = is_file("{$dir}/{$id}.pdf") ? (string) file_get_contents("{$dir}/{$id}.pdf") : '';
                 $ms = (int) round((microtime(true) - $t0) * 1000);
