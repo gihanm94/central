@@ -37,6 +37,8 @@ class ErpController extends Controller
         return view('accounting/erp', [
             'title' => __('ERP connection'), 'state' => $state, 'count' => $count, 'token' => $token,
             'runs' => DB::select('SELECT * FROM erp_sync_runs ORDER BY id DESC LIMIT 12', [], ErpSettings::CONN),
+            'totals' => DB::first("SELECT coalesce(sum(saved) FILTER (WHERE started_at::date = CURRENT_DATE), 0) AS today, coalesce(sum(saved), 0) AS all_time, max(finished_at) FILTER (WHERE status = 'ok') AS last_ok, count(*) FILTER (WHERE status = 'failed' AND started_at > now() - interval '1 day') AS failed_day FROM erp_sync_runs", [], ErpSettings::CONN),
+            'running' => (int) DB::scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'", [], ErpSettings::CONN),
             'hasPassword' => ErpSettings::password() !== '', 'hasInet' => (string) ErpSettings::get('inet.authorization', '') !== '',
             'configured' => ErpSettings::configured(), 'inWindow' => Schedule::inWindow(),
             'cron' => '* * * * * '.(is_executable(PHP_BINDIR.'/php') ? PHP_BINDIR.'/php' : 'php').' '.BASE_PATH.'/bin/erp-sync.php tick',
@@ -140,7 +142,7 @@ class ErpController extends Controller
             $args = ['entity', $entity, $mode];
             $label = $entity;
         } elseif (in_array($group, ['hot', 'cold', 'full', 'all'], true)) {
-            $args = [$group, (string) $this->user()->id];
+            $args = [$group, (string) $this->user()->id, $mode === 'all' ? 'all' : 'default'];
             $label = $group;
         } else {
             abort(404);
@@ -151,7 +153,7 @@ class ErpController extends Controller
             Session::flash('success', __('Started :what. Reload this page to see how far it got.', ['what' => $label]));
         } else {
             @set_time_limit(600);
-            $entity !== '' ? Schedule::runEntity($entity, $mode, null, $this->user()->id) : Schedule::runGroup($group, 'manual', $this->user()->id);
+            $entity !== '' ? Schedule::runEntity($entity, $mode, null, $this->user()->id) : Schedule::runGroup($group, 'manual', $this->user()->id, $mode === 'all' ? 'all' : null);
             Session::flash('success', __('Finished :what.', ['what' => $label]));
         }
         redirect('/accounting/erp');

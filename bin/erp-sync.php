@@ -6,7 +6,7 @@ declare(strict_types=1);
  | working window and when the last run of a group is older than its interval:
  |   * * * * * php /path/to/app/bin/erp-sync.php tick
  | Other uses:
- |   php bin/erp-sync.php hot | cold | full | all          run a whole group now
+ |   php bin/erp-sync.php hot | cold | full | all [userId] [latest|all]   run a whole group now (all = every row, a forced full copy)
  |   php bin/erp-sync.php entity <key> [latest|all|one] [id]  run one entity (keys: see config/erp.php)
  |   php bin/erp-sync.php login                              test the login and show the session
  */
@@ -27,7 +27,7 @@ try {
             echo date('c').' '.($ran ? 'ran: '.implode(', ', $ran) : 'nothing due')."\n";
             break;
         case 'hot': case 'cold': case 'full': case 'all':
-            $id = Schedule::runGroup($cmd, 'manual', isset($argv[2]) ? (int) $argv[2] : null);
+            $id = Schedule::runGroup($cmd, 'manual', isset($argv[2]) ? (int) $argv[2] : null, in_array($argv[3] ?? '', ['latest', 'all'], true) ? $argv[3] : null);
             echo date('c').' '.($id ? "run #{$id} finished" : 'already running')."\n";
             break;
         case 'entity':

@@ -1,6 +1,6 @@
 <?php
 use App\Modules\Accounting\Erp\ErpSettings as S;
-/* $state, $count, $token, $runs, $hasPassword, $hasInet, $configured, $inWindow, $cron */
+/* $totals, $running, $state, $count, $token, $runs, $hasPassword, $hasInet, $configured, $inWindow, $cron */
 $entities  = config('erp.entities');
 $byApi     = [];
 foreach ($entities as $k => $d) { $byApi[$d['api']][] = $k; }
@@ -18,9 +18,19 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
     </div>
     <div class="flex flex-wrap gap-2">
         <form method="POST" action="<?= url('/accounting/erp/login') ?>"><?= csrf_field() ?><button class="btn-secondary"><?= icon('shield', 'size-4') ?> <?= e(__('Test login / get a new token')) ?></button></form>
-        <form method="POST" action="<?= url('/accounting/erp/run') ?>"><?= csrf_field() ?><input type="hidden" name="group" value="all"><button class="btn-primary" <?= $configured ? '' : 'disabled' ?>><?= icon('upload', 'size-4') ?> <?= e(__('Sync everything now')) ?></button></form>
+        <form method="POST" action="<?= url('/accounting/erp/run') ?>"><?= csrf_field() ?><input type="hidden" name="group" value="all"><input type="hidden" name="mode" value="latest"><button class="btn-secondary" <?= $configured ? '' : 'disabled' ?> title="<?= e(__('The newest rows of everything, now, even outside the working hours')) ?>"><?= icon('upload', 'size-4') ?> <?= e(__('Force sync now')) ?></button></form>
+        <form method="POST" action="<?= url('/accounting/erp/run') ?>" onsubmit="return confirm('<?= e(__('Copy EVERY row of every API? This can take a long time.')) ?>')"><?= csrf_field() ?><input type="hidden" name="group" value="all"><input type="hidden" name="mode" value="all"><button class="btn-primary" <?= $configured ? '' : 'disabled' ?>><?= icon('upload', 'size-4') ?> <?= e(__('Force full copy (all rows)')) ?></button></form>
     </div>
 </div>
+
+<?php $sumRows = array_sum($count); ?>
+<section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <?php foreach ([[__('Rows saved today'), number_format((int) $totals['today']), 'text-graphite-900'], [__('Rows saved in all runs'), number_format((int) $totals['all_time']), 'text-graphite-900'],
+        [__('Rows in the tables now'), number_format($sumRows), 'text-graphite-900'], [__('Last good run'), $totals['last_ok'] ? time_ago($totals['last_ok']) : '—', 'text-graphite-900'],
+        [$running ? __('Running now') : __('Failed runs (24 h)'), (string) ($running ?: (int) $totals['failed_day']), $running ? 'text-amber-700' : ((int) $totals['failed_day'] ? 'text-signal-700' : 'text-graphite-900')]] as [$l, $v, $c]): ?>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel"><?= e($l) ?></p><p class="truncate text-xl font-semibold tabular-nums <?= $c ?>"><?= e($v) ?></p></div>
+    <?php endforeach ?>
+</section>
 
 <div class="mt-4 grid gap-4 lg:grid-cols-3">
     <!-- connection -->
@@ -82,7 +92,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
             <ul class="divide-y divide-graphite-900/6 text-sm">
                 <?php foreach ($runs as $r): ?>
                 <li class="px-5 py-2.5"><div class="flex items-center justify-between gap-2"><span class="font-medium"><?= e($r['kind']) ?> <span class="text-xs font-normal text-steel">· <?= e($r['source']) ?></span></span><span class="badge <?= $stateTone[$r['status']] ?? $stateTone['never'] ?>"><?= e($r['status']) ?></span></div>
-                    <p class="text-xs text-steel"><?= e(time_ago($r['started_at'])) ?><?= $r['message'] ? ' · '.e(str_limit($r['message'], 90)) : '' ?></p></li>
+                    <p class="text-xs text-steel"><?= e(time_ago($r['started_at'])) ?> · <span class="font-medium text-graphite-800"><?= number_format((int) $r['saved']) ?></span> <?= e(__('saved')) ?> / <?= number_format((int) $r['fetched']) ?> <?= e(__('read')) ?><?= $r['message'] ? ' · '.e(str_limit($r['message'], 80)) : '' ?></p></li>
                 <?php endforeach ?>
             </ul><?php endif ?>
         </section>
@@ -91,7 +101,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
 
 <!-- all APIs -->
 <form method="POST" action="<?= url('/accounting/erp/endpoints') ?>" class="panel mt-4 overflow-hidden" id="apis">
-    <?= csrf_field() ?>
+    <?= csrf_field() ?><input type="hidden" name="mode" value="latest" data-mode>
     <div class="panel-head">
         <h2 class="panel-title"><?= e(__('APIs')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count(config('erp.endpoints')) ?></span></h2>
         <div class="flex flex-wrap items-center gap-2">
@@ -128,6 +138,7 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
                     <button type="submit" formaction="<?= url('/accounting/erp/test') ?>" name="key" value="<?= e($key) ?>" class="btn-ghost !h-7 px-2 text-xs" <?= $configured ? '' : 'disabled' ?> title="<?= e(__('Ask this API for one row')) ?>"><?= e(__('Test')) ?></button>
                     <?php foreach ($ents as $k): ?>
                     <button type="submit" formaction="<?= url('/accounting/erp/run') ?>" name="entity" value="<?= e($k) ?>" class="btn-secondary !h-7 px-2 text-xs" <?= $configured ? '' : 'disabled' ?> title="<?= e(__('Newest :n rows', ['n' => number_format($entities[$k]['size'])])) ?>"><?= e(__('Sync')) ?></button>
+                    <button type="submit" formaction="<?= url('/accounting/erp/run') ?>" name="entity" value="<?= e($k) ?>" formnovalidate onclick="this.form.querySelector('[data-mode]').value='all'" class="btn-ghost !h-7 px-2 text-xs" <?= $configured ? '' : 'disabled' ?> title="<?= e(__('Copy every row of this API')) ?>"><?= e(__('Full')) ?></button>
                     <?php endforeach ?>
                     <?php endif ?>
                 </td>
@@ -135,5 +146,5 @@ $age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) 
         <?php endforeach ?>
         </tbody>
     </table></div>
-    <p class="border-t border-graphite-900/8 bg-mist/50 px-5 py-2 text-xs text-steel"><?= e(__('"Sync" copies the newest rows (the number is in config/erp.php); use the command line for a full copy: php bin/erp-sync.php entity <key> all')) ?></p>
+    <p class="border-t border-graphite-900/8 bg-mist/50 px-5 py-2 text-xs text-steel"><?= e(__('"Sync" copies the newest rows (the number is in config/erp.php); "Full" copies every row. The numbers show how many rows each run read and saved.')) ?></p>
 </form>
