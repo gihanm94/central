@@ -1,0 +1,139 @@
+<?php
+use App\Modules\Accounting\Erp\ErpSettings as S;
+/* $state, $count, $token, $runs, $hasPassword, $hasInet, $configured, $inWindow, $cron */
+$entities  = config('erp.entities');
+$byApi     = [];
+foreach ($entities as $k => $d) { $byApi[$d['api']][] = $k; }
+$groupTone = ['hot' => 'bg-signal-50 text-signal-800', 'cold' => 'bg-sky-50 text-sky-800', 'full' => 'bg-graphite-900/6 text-graphite-800'];
+$stateTone = ['ok' => 'bg-emerald-50 text-emerald-800', 'failed' => 'bg-signal-50 text-signal-800', 'running' => 'bg-amber-50 text-amber-800', 'never' => 'bg-graphite-900/6 text-graphite-700'];
+$days = ['1' => __('Mon'), '2' => __('Tue'), '3' => __('Wed'), '4' => __('Thu'), '5' => __('Fri'), '6' => __('Sat'), '7' => __('Sun')];
+$onDays = array_filter(explode(',', S::schedule('days')));
+$age = $token ? (int) round((time() - strtotime((string) $token['updated_at'])) / 60) : null;
+?>
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <p class="text-sm text-steel"><a href="<?= url('/accounting') ?>" class="hover:text-signal-700"><?= e(__('Accounting')) ?></a> › <?= e(__('Setup')) ?></p>
+        <h1 class="page-title"><?= e(__('ERP connection')) ?></h1>
+        <p class="mt-1 text-sm text-steel"><?= e(__('Administrators only. The ERP is read through its API and copied into this system on a schedule.')) ?></p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <form method="POST" action="<?= url('/accounting/erp/login') ?>"><?= csrf_field() ?><button class="btn-secondary"><?= icon('shield', 'size-4') ?> <?= e(__('Test login / get a new token')) ?></button></form>
+        <form method="POST" action="<?= url('/accounting/erp/run') ?>"><?= csrf_field() ?><input type="hidden" name="group" value="all"><button class="btn-primary" <?= $configured ? '' : 'disabled' ?>><?= icon('upload', 'size-4') ?> <?= e(__('Sync everything now')) ?></button></form>
+    </div>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+    <!-- connection -->
+    <form method="POST" action="<?= url('/accounting/erp/connection') ?>" class="panel lg:col-span-2">
+        <?= csrf_field() ?>
+        <div class="panel-head"><h2 class="panel-title"><?= e(__('Connection')) ?></h2><span class="text-xs text-steel"><?= e(S::baseUrl() ?: __('not set')) ?></span></div>
+        <div class="grid gap-4 p-5 sm:grid-cols-2">
+            <div><label class="label" for="erp-ip"><?= e(__('Server address')) ?></label><input id="erp-ip" name="ip" value="<?= e(S::conn('ip')) ?>" class="input" placeholder="5.223.76.93"><?= field_error('ip') ?></div>
+            <div><label class="label" for="erp-port"><?= e(__('Port')) ?></label><input id="erp-port" name="port" value="<?= e(S::conn('port')) ?>" class="input" inputmode="numeric" placeholder="8001"></div>
+            <div><label class="label" for="erp-user"><?= e(__('User name')) ?></label><input id="erp-user" name="username" value="<?= e(S::conn('username')) ?>" class="input" autocomplete="off"></div>
+            <div><label class="label" for="erp-pass"><?= e(__('Password')) ?></label><input id="erp-pass" name="password" type="password" class="input" autocomplete="new-password" placeholder="<?= $hasPassword ? '•••••••• ('.e(__('saved — leave empty to keep')).')' : '' ?>"></div>
+            <div><label class="label" for="erp-timeout"><?= e(__('Wait for an answer (seconds)')) ?></label><input id="erp-timeout" name="timeout" value="<?= e(S::conn('timeout')) ?>" class="input" inputmode="numeric"></div>
+            <label class="flex items-start gap-2 text-sm sm:pt-6"><input type="checkbox" name="verify_tls" value="1" class="mt-0.5 size-4 accent-signal-600" <?= S::conn('verify_tls') === '1' ? 'checked' : '' ?>> <span><?= e(__('Check the server certificate')) ?><span class="block text-xs text-steel"><?= e(__('Leave off for an ERP with a self-signed certificate (as the old system did).')) ?></span></span></label>
+        </div>
+
+        <div class="panel-head border-t border-graphite-900/8"><h2 class="panel-title"><?= e(__('Schedule')) ?></h2><span class="text-xs <?= $inWindow ? 'text-emerald-700' : 'text-steel' ?>"><?= e($inWindow ? __('inside the working window now') : __('outside the working window now')) ?></span></div>
+        <div class="grid gap-4 p-5 sm:grid-cols-2">
+            <label class="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" name="enabled" value="1" class="mt-0.5 size-4 accent-signal-600" <?= S::schedule('enabled') === '1' ? 'checked' : '' ?>> <span class="font-medium"><?= e(__('Run the schedule')) ?><span class="block text-xs font-normal text-steel"><?= e(__('Needs the cron line below. Hot = newest rows of orders, invoices, customers …; cold = reference data.')) ?></span></span></label>
+            <div><label class="label" for="s-hot"><?= e(__('Hot sync every (minutes)')) ?></label><input id="s-hot" name="hot_minutes" value="<?= e(S::schedule('hot_minutes')) ?>" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-cold"><?= e(__('Cold sync every (minutes)')) ?></label><input id="s-cold" name="cold_minutes" value="<?= e(S::schedule('cold_minutes')) ?>" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-from"><?= e(__('From hour')) ?></label><input id="s-from" name="hour_start" value="<?= e(S::schedule('hour_start')) ?>" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-to"><?= e(__('Until hour (not included)')) ?></label><input id="s-to" name="hour_end" value="<?= e(S::schedule('hour_end')) ?>" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-tz"><?= e(__('Time zone')) ?></label><input id="s-tz" name="tz" value="<?= e(S::schedule('tz')) ?>" class="input"></div>
+            <div><p class="label"><?= e(__('Days')) ?></p><div class="flex flex-wrap gap-1.5">
+                <?php foreach ($days as $n => $l): ?><label class="cursor-pointer"><input type="checkbox" name="days[]" value="<?= $n ?>" class="peer sr-only" <?= in_array((string) $n, $onDays, true) ? 'checked' : '' ?>><span class="inline-flex h-8 items-center rounded-full px-3 text-sm ring-1 ring-graphite-900/15 peer-checked:bg-graphite-900 peer-checked:text-white peer-checked:ring-graphite-900"><?= e($l) ?></span></label><?php endforeach ?>
+            </div></div>
+            <div class="sm:col-span-2"><p class="label"><?= e(__('Cron line (run every minute)')) ?></p><code class="block overflow-x-auto rounded-lg bg-graphite-900 px-3 py-2 text-xs text-white"><?= e($cron) ?></code></div>
+        </div>
+
+        <div class="panel-head border-t border-graphite-900/8"><h2 class="panel-title"><?= e(__('e-Tax portal (INET)')) ?></h2><span class="text-xs text-steel"><?= e(__('used by the e-tax invoice step that follows')) ?></span></div>
+        <div class="grid gap-4 p-5">
+            <?php foreach (['sendApi' => __('Send document'), 'statusApi' => __('Document status'), 'paramsApi' => __('Document parameters')] as $k => $l): ?>
+            <div><label class="label" for="inet-<?= $k ?>"><?= e($l) ?></label><input id="inet-<?= $k ?>" name="inet_<?= $k ?>" value="<?= e(S::inet($k)) ?>" class="input"><?= field_error('inet_'.$k) ?></div>
+            <?php endforeach ?>
+            <div><label class="label" for="inet-auth"><?= e(__('Authorization key')) ?></label><input id="inet-auth" name="inet_authorization" type="password" class="input" autocomplete="new-password" placeholder="<?= $hasInet ? '•••••••• ('.e(__('saved — leave empty to keep')).')' : '' ?>"></div>
+        </div>
+        <div class="flex justify-end border-t border-graphite-900/8 bg-mist/50 px-5 py-3"><button class="btn-primary"><?= e(__('Save connection')) ?></button></div>
+    </form>
+
+    <!-- token + runs -->
+    <div class="space-y-4">
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title"><?= e(__('Token (session)')) ?></h2></div>
+            <dl class="divide-y divide-graphite-900/6 text-sm">
+                <div class="flex justify-between gap-3 px-5 py-3"><dt class="text-steel"><?= e(__('Status')) ?></dt><dd class="font-medium">
+                    <?php if (! $token): ?><?= e(__('No token yet')) ?>
+                    <?php elseif ($age > 60 || in_array($token['session_suspended'], [true, 't', 'true'], true)): ?><span class="text-signal-700"><?= e(__('Expired — a new one is requested when needed')) ?></span>
+                    <?php else: ?><span class="text-emerald-700"><?= e(__('Valid')) ?></span><?php endif ?></dd></div>
+                <?php if ($token): ?>
+                <div class="flex justify-between gap-3 px-5 py-3"><dt class="text-steel"><?= e(__('Session')) ?></dt><dd class="font-mono text-xs"><?= e(substr((string) $token['session_id'], 0, 6)) ?>…</dd></div>
+                <div class="flex justify-between gap-3 px-5 py-3"><dt class="text-steel"><?= e(__('Got')) ?></dt><dd><?= e(time_ago($token['updated_at'])) ?></dd></div>
+                <?php endif ?>
+                <div class="px-5 py-3 text-xs text-steel"><?= e(__('The session is saved in the database and reused for an hour, like the old system. A 401 answer gets a new login automatically.')) ?></div>
+            </dl>
+        </section>
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title"><?= e(__('Recent runs')) ?></h2></div>
+            <?php if (! $runs): ?><p class="px-5 py-6 text-center text-sm text-steel"><?= e(__('Nothing has run yet.')) ?></p><?php else: ?>
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                <?php foreach ($runs as $r): ?>
+                <li class="px-5 py-2.5"><div class="flex items-center justify-between gap-2"><span class="font-medium"><?= e($r['kind']) ?> <span class="text-xs font-normal text-steel">· <?= e($r['source']) ?></span></span><span class="badge <?= $stateTone[$r['status']] ?? $stateTone['never'] ?>"><?= e($r['status']) ?></span></div>
+                    <p class="text-xs text-steel"><?= e(time_ago($r['started_at'])) ?><?= $r['message'] ? ' · '.e(str_limit($r['message'], 90)) : '' ?></p></li>
+                <?php endforeach ?>
+            </ul><?php endif ?>
+        </section>
+    </div>
+</div>
+
+<!-- all APIs -->
+<form method="POST" action="<?= url('/accounting/erp/endpoints') ?>" class="panel mt-4 overflow-hidden" id="apis">
+    <?= csrf_field() ?>
+    <div class="panel-head">
+        <h2 class="panel-title"><?= e(__('APIs')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count(config('erp.endpoints')) ?></span></h2>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="submit" formaction="<?= url('/accounting/erp/run') ?>" name="group" value="hot" class="btn-secondary py-1" <?= $configured ? '' : 'disabled' ?>><?= e(__('Run hot now')) ?></button>
+            <button type="submit" formaction="<?= url('/accounting/erp/run') ?>" name="group" value="cold" class="btn-secondary py-1" <?= $configured ? '' : 'disabled' ?>><?= e(__('Run cold now')) ?></button>
+            <button type="submit" formaction="<?= url('/accounting/erp/run') ?>" name="group" value="full" class="btn-secondary py-1" <?= $configured ? '' : 'disabled' ?>><?= e(__('Run the rest (full)')) ?></button>
+            <button class="btn-primary py-1"><?= e(__('Save addresses')) ?></button>
+        </div>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="px-4 py-2 font-medium"><?= e(__('API')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Address (added to the server address)')) ?></th>
+            <th class="px-3 py-2 font-medium"><?= e(__('Copied into')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Last sync')) ?></th><th class="px-3 py-2 text-right font-medium"><?= e(__('Rows')) ?></th><th class="px-3 py-2"></th>
+        </tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        <?php foreach (config('erp.endpoints') as $key => [$default, $label]): $ents = $byApi[$key] ?? []; ?>
+            <tr class="align-top">
+                <td class="px-4 py-2.5"><span class="font-medium"><?= e($label) ?></span><span class="block font-mono text-[11px] text-steel"><?= e($key) ?></span></td>
+                <td class="px-3 py-2.5"><input name="api[<?= e($key) ?>]" value="<?= e(S::endpoint($key)) ?>" class="input font-mono text-xs" aria-label="<?= e($label) ?>"></td>
+                <td class="px-3 py-2.5">
+                    <?php foreach ($ents as $k): ?><span class="mb-1 flex items-center gap-1.5"><span class="badge <?= $groupTone[$entities[$k]['group']] ?>"><?= e($entities[$k]['group']) ?></span><span class="text-xs"><?= e($entities[$k]['label']) ?></span></span><?php endforeach ?>
+                    <?php if (! $ents): ?><span class="text-xs text-steel"><?= e($key === 'tokenUrl' ? __('login') : __('not copied yet')) ?></span><?php endif ?>
+                </td>
+                <td class="px-3 py-2.5">
+                    <?php foreach ($ents as $k): $st = $state[$k] ?? null; ?>
+                    <span class="mb-1 block text-xs"><span class="badge <?= $stateTone[$st['status'] ?? 'never'] ?>"><?= e($st['status'] ?? 'never') ?></span>
+                        <?php if ($st && $st['last_run_at']): ?> <?= e(time_ago($st['last_run_at'])) ?> · <?= number_format((int) $st['saved']) ?> <?= e(__('saved')) ?><?= $st['duration_ms'] ? ' · '.round($st['duration_ms'] / 1000, 1).'s' : '' ?><?php endif ?>
+                        <?php if ($st && $st['error']): ?><span class="block max-w-xs truncate text-signal-700" title="<?= e($st['error']) ?>"><?= e($st['error']) ?></span><?php endif ?></span>
+                    <?php endforeach ?>
+                </td>
+                <td class="px-3 py-2.5 text-right tabular-nums"><?php foreach ($ents as $k): ?><span class="mb-1 block text-xs"><?= number_format($count[$k]) ?></span><?php endforeach ?></td>
+                <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                    <?php if ($key !== 'tokenUrl'): ?>
+                    <button type="submit" formaction="<?= url('/accounting/erp/test') ?>" name="key" value="<?= e($key) ?>" class="btn-ghost !h-7 px-2 text-xs" <?= $configured ? '' : 'disabled' ?> title="<?= e(__('Ask this API for one row')) ?>"><?= e(__('Test')) ?></button>
+                    <?php foreach ($ents as $k): ?>
+                    <button type="submit" formaction="<?= url('/accounting/erp/run') ?>" name="entity" value="<?= e($k) ?>" class="btn-secondary !h-7 px-2 text-xs" <?= $configured ? '' : 'disabled' ?> title="<?= e(__('Newest :n rows', ['n' => number_format($entities[$k]['size'])])) ?>"><?= e(__('Sync')) ?></button>
+                    <?php endforeach ?>
+                    <?php endif ?>
+                </td>
+            </tr>
+        <?php endforeach ?>
+        </tbody>
+    </table></div>
+    <p class="border-t border-graphite-900/8 bg-mist/50 px-5 py-2 text-xs text-steel"><?= e(__('"Sync" copies the newest rows (the number is in config/erp.php); use the command line for a full copy: php bin/erp-sync.php entity <key> all')) ?></p>
+</form>

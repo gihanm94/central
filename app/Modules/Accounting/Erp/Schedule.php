@@ -1,0 +1,79 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Modules\Accounting\Erp;
+
+use App\Core\Support\DB;
+
+/**
+ * The scheduler: bin/erp-sync.php tick (cron, every minute) decides what is due.
+ *   hot   newest rows of the busy entities, every few minutes   (like the old SyncScheduler.runHot)
+ *   cold  reference data, every half hour                       (runCold)
+ * Only inside the working window (Mon–Fri 08:00–19:00 Bangkok by default). A group never runs twice at once.
+ */
+final class Schedule
+{
+    public static function inWindow(?int $now = null): bool
+    {
+        $tz   = new \DateTimeZone(preg_match('#^[A-Za-z0-9_+\-/]+$#', ErpSettings::schedule('tz')) ? ErpSettings::schedule('tz') : 'Asia/Bangkok');
+        $d    = (new \DateTimeImmutable('@'.($now ?? time())))->setTimezone($tz);
+        $days = array_map('intval', array_filter(explode(',', ErpSettings::schedule('days')), 'strlen'));
+
+        return in_array((int) $d->format('N'), $days, true)
+            && (int) $d->format('G') >= (int) ErpSettings::schedule('hour_start')
+            && (int) $d->format('G') < (int) ErpSettings::schedule('hour_end');
+    }
+
+    /** Called every minute. @return string[] groups that ran */
+    public static function tick(): array
+    {
+        if (ErpSettings::schedule('enabled') !== '1' || ! ErpSettings::configured() || ! self::inWindow()) {
+            return [];
+        }
+        $ran = [];
+        foreach (['hot' => (int) ErpSettings::schedule('hot_minutes'), 'cold' => (int) ErpSettings::schedule('cold_minutes')] as $group => $minutes) {
+            $last = DB::scalar("SELECT max(finished_at) FROM erp_sync_runs WHERE kind = ? AND finished_at IS NOT NULL", [$group], ErpSettings::CONN);
+            if ($last && time() - strtotime((string) $last) < max(1, $minutes) * 60) { continue; }
+            if (self::runGroup($group, 'schedule') !== null) { $ran[] = $group; }
+        }
+
+        return $ran;
+    }
+
+    /** Run every entity of a group (hot | cold | full | all) one after the other. Returns the run id, or null when it is already running. */
+    public static function runGroup(string $group, string $trigger = 'manual', ?int $by = null): ?int
+    {
+        $lock = fopen(BASE_PATH.'/storage/cache/erp-'.$group.'.lock', 'c');
+        if (! $lock || ! flock($lock, LOCK_EX | LOCK_NB)) {
+            return null;
+        }
+        $keys = array_keys(array_filter(Syncer::entities(), fn ($d) => $group === 'all' || $d['group'] === $group));
+        $mode = in_array($group, ['hot', 'cold'], true) ? 'latest' : 'all';
+        $id   = (int) DB::insert('erp_sync_runs', ['kind' => $group, 'source' => $trigger, 'started_by' => $by], ErpSettings::CONN);
+        $failed = [];
+        $syncer = new Syncer();
+        foreach ($keys as $k) {
+            try { $syncer->run($k, $mode); } catch (\Throwable $e) { $failed[] = $k.': '.$e->getMessage(); }
+            if ($failed && str_contains((string) end($failed), 'Login failed')) { break; }        // no point asking the rest
+        }
+        DB::exec('UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ? WHERE id = ?',
+            [$failed ? 'failed' : 'ok', $failed ? mb_substr(implode(' | ', $failed), 0, 1500) : count($keys).' entities', $id], ErpSettings::CONN);
+        flock($lock, LOCK_UN);
+
+        return $id;
+    }
+
+    /** Run one entity in its own run record. */
+    public static function runEntity(string $key, string $mode = 'latest', ?string $one = null, ?int $by = null): int
+    {
+        $id = (int) DB::insert('erp_sync_runs', ['kind' => 'entity:'.$key, 'source' => 'manual', 'started_by' => $by], ErpSettings::CONN);
+        try {
+            $r = (new Syncer())->run($key, $mode, $one);
+            DB::exec('UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ? WHERE id = ?', ['ok', $r['fetched'].' read, '.$r['saved'].' saved', $id], ErpSettings::CONN);
+        } catch (\Throwable $e) {
+            DB::exec('UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ? WHERE id = ?', ['failed', mb_substr($e->getMessage(), 0, 1500), $id], ErpSettings::CONN);
+        }
+
+        return $id;
+    }
+}

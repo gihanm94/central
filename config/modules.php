@@ -55,7 +55,16 @@ return [
             ['label' => 'CRM settings',  'url' => '/crm/settings',      'icon' => 'sliders',   'permission_any' => ['crm_settings.view', 'crm_stages.view', 'crm_targets.view']],
         ],
     ],
-    'accounting' => ['name' => 'Accounting', 'icon' => 'calc',      'home' => '/accounting', 'enabled' => false, 'db' => 'accounting', 'dashboards' => [], 'menu' => []],
+    'accounting' => [
+        'name' => 'Accounting', 'icon' => 'calc', 'home' => '/accounting', 'enabled' => true, 'db' => 'accounting',
+        'dashboards' => ['overview' => ['label' => 'Accounting overview', 'url' => '/accounting']],
+        'menu' => [
+            ['heading' => 'Overview'],
+            ['label' => 'Accounting overview', 'url' => '/accounting', 'icon' => 'chart'],
+            ['heading' => 'Setup'],
+            ['label' => 'ERP connection', 'url' => '/accounting/erp', 'icon' => 'cog', 'admin_only' => true],
+        ],
+    ],
     'inventory'  => ['name' => 'Inventory',  'icon' => 'box',       'home' => '/inventory',  'enabled' => false, 'db' => 'inventory',  'dashboards' => [], 'menu' => []],
     'machines'   => ['name' => 'Machines',   'icon' => 'gear',      'home' => '/machines',   'enabled' => false, 'db' => 'machines',   'dashboards' => [], 'menu' => []],
     'hr'         => ['name' => 'HR',         'icon' => 'id',        'home' => '/hr',         'enabled' => false, 'db' => 'hr',         'dashboards' => [], 'menu' => []],

@@ -115,4 +115,7 @@ $router->group(['auth'], function (Router $r) {
     if (config('modules.crm.enabled')) {
         require $crmRoutes;
     }
+    if (config('modules.accounting.enabled')) {
+        require BASE_PATH.'/app/Modules/Accounting/routes.php';
+    }
 });

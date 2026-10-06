@@ -58,7 +58,10 @@ $mobile = $sid === 'mobile';
                 <p class="px-3 pb-1.5 <?= $i ? 'pt-5' : 'pt-1' ?> text-[11px] font-semibold uppercase tracking-wider text-graphite-400 <?= $mobile ? '' : 'lg:collapsed:hidden' ?>"><?= e(__($item['heading'])) ?></p>
                 <?php if (! $mobile && $i): ?><hr class="mx-2 my-3 hidden border-white/10 lg:collapsed:block"><?php endif ?>
             <?php else:
-                $active = $here === $item['url'] || str_starts_with($here, $item['url'].'/'); ?>
+                $active = $here === $item['url'] || str_starts_with($here, $item['url'].'/');
+                foreach ($menu as $other) {                       // a longer menu address that also matches wins (/accounting vs /accounting/erp)
+                    if ($active && isset($other['url']) && strlen($other['url']) > strlen($item['url']) && ($here === $other['url'] || str_starts_with($here, $other['url'].'/'))) { $active = false; }
+                } ?>
                 <a href="<?= url($item['url']) ?>" title="<?= e(__($item['label'])) ?>" class="nav-link <?= $active ? 'nav-link-active' : '' ?> <?= $mobile ? '' : 'lg:collapsed:justify-center lg:collapsed:px-0' ?>" <?= $active ? 'aria-current="page"' : '' ?>>
                     <?= icon($item['icon'] ?? 'grid', 'size-[18px] shrink-0') ?>
                     <span class="truncate <?= $mobile ? '' : 'lg:collapsed:sr-only' ?>"><?= e(__($item['label'])) ?></span>

@@ -152,6 +152,17 @@ Attachments are stored in `storage/attachments` (not reachable from the web) and
 ### Upgrading an existing install
 Copy the files over; the next page load creates the CRM tables and permissions. If `crm_db` still has rows in the old CRM draft tables, the upgrade stops and asks you to empty them first.
 
+## Accounting: ERP connection (`/accounting/erp`, administrators)
+
+The ERP (Monitor) is read through its API and copied into `erp_*` tables of the accounting database (tables generated from your old Java entities: orders, order rows, invoices, customers, addresses, products, vouchers …).
+
+1. Open **Accounting → ERP connection**, enter the server address, port, user name and password, and press *Test login*. The session id and cookies are kept in `erp_tokens` for an hour and renewed automatically (also after a 401).
+2. All 39 API addresses are listed and editable (defaults in `config/erp.php`); *Test* asks an API for one row, *Sync* copies the newest rows of that entity.
+3. The schedule works like the old `SyncScheduler`: **hot** (orders, invoices, customers … newest rows) every 3 minutes and **cold** (reference data) every 30 minutes, Mon–Fri 08:00–19:00 Bangkok, never two runs of a group at once. Tick *Run the schedule* and add the cron line shown on the page: `* * * * * php /path/to/app/bin/erp-sync.php tick`.
+4. Command line: `php bin/erp-sync.php hot|cold|full|all`, `entity <key> [latest|all|one] [id]`, `login`.
+
+The e-Tax (INET) addresses and authorization key are stored on the same page for the e-tax invoice step. Passwords and keys are saved in the database, never in the repository.
+
 ## E-mail
 
 The installer defaults to **log** mode: every e-mail is saved as an HTML file in `storage/mail/`
