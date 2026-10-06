@@ -93,7 +93,9 @@ class BillingController extends ErpListController
     {
         $this->authorize($this->resource, 'create');
         session_write_close();
-        json_response(['rows' => BillingService::customers(trim((string) Request::query('q', '')))]);
+        try { $rows = BillingService::customers(trim((string) Request::query('q', ''))); }
+        catch (\Throwable $e) { error_log('[billing] customers: '.$e->getMessage()); json_response(['error' => $e->getMessage(), 'rows' => []], 500); }
+        json_response(['rows' => $rows]);
     }
 
     public function invoices(): never
@@ -101,8 +103,12 @@ class BillingController extends ErpListController
         $this->authorize($this->resource, 'create');
         session_write_close();
         $id = (int) Request::query('customer');
-        $c = BillingService::customer($id) ?? abort(404);
-        json_response(['customer' => ['id' => $c['id'], 'name' => $c['name'], 'code' => $c['code'], 'address' => $c['address']], 'rows' => BillingService::invoices($id)]);
+        try {
+            $c = BillingService::customer($id);
+            $rows = $c ? BillingService::invoices($id) : [];
+        } catch (\Throwable $e) { error_log('[billing] invoices: '.$e->getMessage()); json_response(['error' => $e->getMessage()], 500); }
+        $c || json_response(['error' => __('Customer not found.')], 404);
+        json_response(['customer' => ['id' => $c['id'], 'name' => (string) $c['name'], 'code' => (string) $c['code'], 'address' => (string) $c['address']], 'rows' => $rows]);
     }
 
     public function store(): never

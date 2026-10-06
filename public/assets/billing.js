@@ -42,7 +42,8 @@
         return fetch(u, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) {
             return r.text().then(function (t) {
                 var i = t.indexOf('{'); if (i > 0) t = t.slice(i);
-                try { return JSON.parse(t); } catch (e) { throw new Error('HTTP ' + r.status); }
+                var d; try { d = JSON.parse(t); } catch (e) { throw new Error('HTTP ' + r.status + ' — ' + t.replace(/<[^>]+>/g, ' ').trim().slice(0, 160)); }
+                if (!r.ok || d.error) throw new Error(d.error || 'HTTP ' + r.status); return d;
             });
         });
     }
