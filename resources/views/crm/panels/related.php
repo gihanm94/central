@@ -2,7 +2,7 @@
 <section class="panel">
     <div class="panel-head">
         <h2 class="panel-title"><?= e($title) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count($items) ?></span></h2>
-        <?php if ($createUrl): ?><a href="<?= url($createUrl) ?>" class="btn-secondary py-1"><?= icon('plus', 'size-4') ?> <?= e($createLabel ?: __('Add')) ?></a><?php endif ?>
+        <?php if ($createUrl): ?><a href="<?= url($createUrl) ?>" data-sheet data-sheet-title="<?= e($createLabel ?: __('Add')) ?>" class="btn-secondary py-1"><?= icon('plus', 'size-4') ?> <?= e($createLabel ?: __('Add')) ?></a><?php endif ?>
     </div>
     <?php if (! $items): ?>
         <p class="px-5 py-6 text-center text-sm text-steel"><?= e($empty) ?></p>

@@ -10,6 +10,7 @@
 @source '../../public/assets/ui.js';
 @source '../../public/assets/crm.js';
 @source '../../public/assets/pipeline.js';
+@source '../../public/assets/app.js';
 
 /* lg:collapsed:… applies when the desktop sidebar is collapsed (html[data-sidebar=collapsed]) */
 @custom-variant collapsed (&:where([data-sidebar="collapsed"] *));

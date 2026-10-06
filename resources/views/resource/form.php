@@ -1,5 +1,7 @@
 <?php
 use App\Core\Support\Html;
+$embed = ! empty($embed);      // shown inside the side sheet: just the form, no page around it
+if ($embed) { $layout = false; }
 $isEdit = $row !== null;
 $crumbs = [[__(ucfirst($c['plural'])), $c['base']]];
 if ($isEdit) { $crumbs[] = [str_limit((string) ($row['name'] ?? $row['name_en'] ?? $row['title'] ?? $row['topic'] ?? '#'.$row['id']), 30), $c['base'].'/'.$row['id']]; }
@@ -95,13 +97,13 @@ $renderField = function (string $name, array $f) use ($value, $row) {
 $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c['singular'])]);
 ?>
 <div id="form-shell" class="[&:fullscreen]:overflow-auto [&:fullscreen]:bg-mist [&:fullscreen]:p-6">
-<form method="POST" action="<?= url($isEdit ? $c['base'].'/'.$row['id'] : $c['base']) ?>" enctype="multipart/form-data" novalidate data-no-busy
-      data-form data-msg-missing="<?= e(__('required missing')) ?>" data-msg-done="<?= e(__('Complete')) ?>" data-msg-optional="<?= e(__('Optional')) ?>" <?= $wizard ? 'data-wizard data-start="'.(int) $errStep.'"' : '' ?>>
+<form method="POST" action="<?= url($isEdit ? $c['base'].'/'.$row['id'] : $c['base']) ?>" enctype="multipart/form-data" novalidate data-no-busy <?= $embed ? 'data-sheet-form' : '' ?>
+      data-form data-msg-discard="<?= e(__('Discard what you typed?')) ?>" data-msg-missing="<?= e(__('required missing')) ?>" data-msg-done="<?= e(__('Complete')) ?>" data-msg-optional="<?= e(__('Optional')) ?>" <?= $wizard ? 'data-wizard data-start="'.(int) $errStep.'"' : '' ?>>
     <?= csrf_field() ?>
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-            <h1 class="page-title"><?= e($title) ?></h1>
+            <?php if (! $embed): ?><h1 class="page-title"><?= e($title) ?></h1><?php endif ?>
             <!-- Required fields: how many are filled -->
             <div data-req-summary hidden class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <div class="flex items-center gap-2.5">
@@ -111,15 +113,15 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
                 <button type="button" class="btn-secondary !h-7 text-xs" data-req-open><?= icon('list', 'size-3.5') ?> <?= e(__('View required fields')) ?></button>
             </div>
         </div>
-        <button type="button" class="btn-secondary" data-fullscreen title="<?= e(__('Full screen')) ?>"><?= icon('expand', 'size-4') ?><span class="hidden sm:inline"> <?= e(__('Full screen')) ?></span></button>
+        <?php if (! $embed): ?><button type="button" class="btn-secondary" data-fullscreen title="<?= e(__('Full screen')) ?>"><?= icon('expand', 'size-4') ?><span class="hidden sm:inline"> <?= e(__('Full screen')) ?></span></button><?php endif ?>
     </div>
 
-    <div class="mt-6 grid items-start gap-5 <?= $wizard ? 'lg:grid-cols-[15.5rem_minmax(0,1fr)]' : '' ?>">
+    <div class="<?= $embed ? 'mt-4' : 'mt-6' ?> grid items-start gap-5 <?= $wizard && ! $embed ? 'lg:grid-cols-[15.5rem_minmax(0,1fr)]' : '' ?>">
         <?php if ($wizard): ?>
-        <nav class="lg:sticky lg:top-20" aria-label="<?= e(__('Steps')) ?>">
-            <ol class="flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-graphite-900/8 lg:flex-col lg:overflow-visible" data-stepper>
+        <nav class="<?= $embed ? '' : 'lg:sticky lg:top-20' ?>" aria-label="<?= e(__('Steps')) ?>">
+            <ol class="flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-graphite-900/8 <?= $embed ? '' : 'lg:flex-col lg:overflow-visible' ?>" data-stepper>
                 <?php foreach ($steps as $i => $st): ?>
-                <li class="min-w-fit lg:min-w-0">
+                <li class="min-w-fit <?= $embed ? '' : 'lg:min-w-0' ?>">
                     <button type="button" data-go="<?= $i ?>" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-graphite-900/5">
                         <span data-dot class="flex size-7 shrink-0 items-center justify-center rounded-full bg-graphite-900/8 text-xs font-semibold"><?= $i + 1 ?></span>
                         <span class="min-w-0"><span class="block truncate text-sm font-medium"><?= e($st['title']) ?></span><span class="block text-xs text-steel" data-step-note>&nbsp;</span></span>
@@ -137,10 +139,10 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
                     <?php if ($wizard): ?><p class="text-xs font-medium text-steel"><?= e(__('Step :n of :t', ['n' => $i + 1, 't' => count($steps)])) ?></p><?php endif ?>
                     <h2 class="text-lg font-semibold tracking-tight" data-step-title><?= e($st['title']) ?></h2>
                 </div>
-                <div class="grid gap-x-6 gap-y-5 px-6 py-6 md:grid-cols-2 2xl:grid-cols-3">
+                <div class="grid gap-x-6 gap-y-5 px-6 py-6 md:grid-cols-2 <?= $embed ? '' : '2xl:grid-cols-3' ?>">
                 <?php foreach ($st['fields'] as $name => $f):
                     $req  = str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox';
-                    $full = ($f['span'] ?? 1) === 2 ? 'md:col-span-2 2xl:col-span-3' : ''; ?>
+                    $full = ($f['span'] ?? 1) === 2 ? ($embed ? 'md:col-span-2' : 'md:col-span-2 2xl:col-span-3') : ''; ?>
                     <div class="min-w-0 <?= $full ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $req ? 'data-required' : '' ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
                         <?= $renderField($name, $f) ?>
                     </div>
@@ -152,7 +154,8 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
             <div class="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-graphite-900/8 bg-white px-6 py-3">
                 <div><?php if ($wizard): ?><button type="button" class="btn-secondary" data-prev><?= icon('arrowleft', 'size-4') ?> <?= e(__('Back')) ?></button><?php endif ?></div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <a href="<?= url($isEdit ? $c['base'].'/'.$row['id'] : $c['base']) ?>" class="btn-ghost"><?= e(__('Cancel')) ?></a>
+                    <?php if ($embed): ?><button type="button" class="btn-ghost" data-sheet-close><?= e(__('Cancel')) ?></button>
+                    <?php else: ?><a href="<?= url($isEdit ? $c['base'].'/'.$row['id'] : $c['base']) ?>" class="btn-ghost"><?= e(__('Cancel')) ?></a><?php endif ?>
                     <?php if ($wizard): ?><button type="button" class="btn-secondary" data-next><?= e(__('Next')) ?> <?= icon('right', 'size-4') ?></button><?php endif ?>
                     <button type="submit" class="btn-primary" data-save disabled title="<?= e(__('Fill in all required fields first')) ?>"><?= e($saveLabel) ?></button>
                 </div>

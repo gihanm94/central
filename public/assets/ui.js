@@ -203,6 +203,7 @@
     /* ------------------------------------------------------------ forms */
 
     function initForm(form) {
+        if (form._ready) return; form._ready = true;
         var fields = $$('[data-field]', form), req = fields.filter(function (f) { return f.hasAttribute('data-required'); });
         var visited = {};
         var steps = $$('[data-step]', form), wizard = form.hasAttribute('data-wizard') && steps.length > 1, cur = 0;
@@ -402,6 +403,93 @@
         });
     }
 
-    var boxes = $$('[data-richtext]');
-    if (boxes.length) loadQuill(boxes[0].dataset.assets, function () { boxes.forEach(initRichtext); });
+    function bootRich(root) {
+        var boxes = $$('[data-richtext]', root).filter(function (b) { return !b._sync; });
+        if (boxes.length) loadQuill(boxes[0].dataset.assets, function () { boxes.forEach(function (b) { if (!b._sync) initRichtext(b); }); });
+    }
+    bootRich(document);
+
+    /* ------------------------------------------------- side sheet
+       The very same form page, fetched with ?embed=1 and shown in a slide-over. Saving posts it back as JSON
+       and reloads the page behind it, so a related record can be added without leaving the page. */
+
+    var sheet = null, lastFocus = null;
+    function sheetBuild() {
+        sheet = document.createElement('div');
+        sheet.className = 'fixed inset-0 z-[60]'; sheet.hidden = true;
+        sheet.innerHTML = '<div class="absolute inset-0 bg-graphite-950/50" data-sheet-close></div>' +
+            '<aside role="dialog" aria-modal="true" aria-labelledby="sheet-title" class="absolute inset-y-0 right-0 flex w-[min(52rem,100vw)] flex-col bg-mist shadow-2xl">' +
+            '<header class="flex items-center justify-between gap-3 border-b border-graphite-900/10 bg-white px-5 py-3"><h2 id="sheet-title" class="truncate text-base font-semibold"></h2>' +
+            '<button type="button" class="btn-ghost !px-2" data-sheet-close aria-label="Close">&times;</button></header>' +
+            '<div class="min-h-0 flex-1 overflow-y-auto p-4" data-sheet-body></div></aside>';
+        document.body.appendChild(sheet);
+        sheet.addEventListener('click', function (e) { if (e.target.closest('[data-sheet-close]')) closeSheet(); });
+    }
+    function closeSheet(force) {
+        if (!sheet || sheet.hidden) return;
+        var f = $('form', sheet);
+        if (!force && f && f.dataset.dirty && !window.confirm(f.dataset.msgDiscard || 'Discard what you typed?')) return;
+        sheet.hidden = true; document.body.classList.remove('overflow-hidden');
+        $('[data-sheet-body]', sheet).innerHTML = '';
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+    function sheetErrors(form, d) {
+        $$('.sheet-err', form).forEach(function (n) { n.remove(); });
+        var first = null, errs = (d && d.errors) || {};
+        Object.keys(errs).forEach(function (k) {
+            var f = $('[data-field="' + k + '"]', form), p = document.createElement('p');
+            p.className = 'error sheet-err'; p.textContent = [].concat(errs[k])[0];
+            if (f) { f.appendChild(p); first = first || f; }
+        });
+        if (!first) {
+            var b = document.createElement('p'); b.className = 'error sheet-err mb-3 rounded-lg bg-red-50 px-3 py-2'; b.textContent = (d && d.message) || 'Could not save.';
+            form.insertBefore(b, form.firstChild);
+        } else {
+            var step = first.closest('[data-step]'), go = step && $('[data-go="' + step.dataset.step + '"]', form);
+            if (go) go.click();
+            first.scrollIntoView({ block: 'center' });
+        }
+    }
+    function sheetSubmit(form) {
+        form.addEventListener('input', function () { form.dataset.dirty = '1'; });
+        form.addEventListener('submit', function (e) {
+            if (e.defaultPrevented) return;          // required fields missing: the form already told the person
+            e.preventDefault();
+            var save = $('[data-save]', form); if (save) save.disabled = true;
+            fetch(form.action, { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() }, body: new FormData(form) })
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+                .then(function (x) {
+                    if (x.ok) { form.dataset.dirty = ''; closeSheet(true); location.reload(); return; }
+                    sheetErrors(form, x.d); if (save) save.disabled = false;
+                })
+                .catch(function () { sheetErrors(form, { message: 'Network error. Try again.' }); if (save) save.disabled = false; });
+        });
+    }
+    function openSheet(url, title, opener) {
+        if (!sheet) sheetBuild();
+        lastFocus = opener || document.activeElement;
+        var body = $('[data-sheet-body]', sheet);
+        $('#sheet-title', sheet).textContent = title || '';
+        body.innerHTML = '<p class="p-6 text-sm text-steel">…</p>';
+        sheet.hidden = false; document.body.classList.add('overflow-hidden');
+        closeMenus();
+        fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 'embed=1', { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+            .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, t: t }; }); })
+            .then(function (x) {
+                if (!x.ok) { body.innerHTML = '<p class="p-6 text-sm text-signal-700">' + ((/<p[^>]*>([^<]+)/.exec(x.t) || [])[1] || 'Not available') + '</p>'; return; }
+                body.innerHTML = x.t;
+                window.AcmeUI.boot(body);
+                var f = $('form[data-sheet-form]', body); if (f) sheetSubmit(f);
+                var first = $('input:not([type=hidden]):not([type=file]), textarea', body); if (first && !first.closest('[data-select]')) first.focus();
+            })
+            .catch(function () { body.innerHTML = '<p class="p-6 text-sm text-signal-700">Network error.</p>'; });
+    }
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a[data-sheet]');
+        if (!a || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+        e.preventDefault(); openSheet(a.getAttribute('href'), a.dataset.sheetTitle || a.textContent.trim(), a);
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && sheet && !sheet.hidden && !document.querySelector('dialog[open]') && !document.querySelector('[data-select-panel]:not([hidden])')) closeSheet(); });
+
+    window.AcmeUI = { boot: function (root) { $$('[data-form]', root).forEach(initForm); bootRich(root); if (window.AcmeCrmApply) window.AcmeCrmApply(); }, sheet: openSheet };
 })();

@@ -63,6 +63,7 @@
         }
     });
 
+    window.AcmeCrmApply = applyShow;
     document.addEventListener('DOMContentLoaded', applyShow);
     applyShow();
 })();

@@ -183,7 +183,7 @@ abstract class ResourceController extends Controller
     {
         $this->authorize($this->resource, 'create');
 
-        return view('resource/form', ['title' => __('New :item', ['item' => __($this->singular)]), 'c' => $this->meta(), 'row' => null, 'fields' => $this->fields(null)]);
+        return view('resource/form', ['title' => __('New :item', ['item' => __($this->singular)]), 'c' => $this->meta(), 'row' => null, 'fields' => $this->fields(null), 'embed' => $this->embedded()]);
     }
 
     public function store(): never
@@ -199,7 +199,7 @@ abstract class ResourceController extends Controller
             ['attributes' => $this->displayValues($fields, $row), '_url' => url($this->base.'/'.$id)], $this->owner($row), module: $this->module);
 
         Session::flash('success', __(':Item created.', ['Item' => __(ucfirst($this->singular))]));
-        redirect($this->base.'/'.$id);
+        $this->finish($id);
     }
 
     public function show(int $id): string
@@ -220,7 +220,7 @@ abstract class ResourceController extends Controller
     {
         $row = $this->findForChange($id, 'edit');
 
-        return view('resource/form', ['title' => __('Edit :name', ['name' => $this->label($row)]), 'c' => $this->meta(), 'row' => $row, 'fields' => $this->fields($row)]);
+        return view('resource/form', ['title' => __('Edit :name', ['name' => $this->label($row)]), 'c' => $this->meta(), 'row' => $row, 'fields' => $this->fields($row), 'embed' => $this->embedded()]);
     }
 
     public function update(int $id): never
@@ -247,6 +247,18 @@ abstract class ResourceController extends Controller
         }
 
         Session::flash('success', $changes ? __(':Item saved.', ['Item' => __(ucfirst($this->singular))]) : __('Nothing changed.'));
+        $this->finish($id);
+    }
+
+    /** The same form is also shown inside a side sheet (?embed=1): only the form, no page around it. */
+    protected function embedded(): bool { return ! empty($_GET['embed']); }
+
+    /** After saving: the sheet gets JSON (and reloads the page behind it), a normal form goes to the record. */
+    protected function finish(int $id): never
+    {
+        if (Request::isJson()) {
+            json_response(['ok' => true, 'id' => $id, 'url' => url($this->base.'/'.$id)]);
+        }
         redirect($this->base.'/'.$id);
     }
 

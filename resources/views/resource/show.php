@@ -27,7 +27,7 @@ $singular = __($c['singular']);
         </div>
     </div>
     <div class="flex w-full flex-wrap gap-2 sm:w-auto">
-        <?php foreach ($links as $l): ?><a href="<?= url($l['url']) ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon($l['icon'] ?? 'eye', 'size-4') ?> <?= e($l['label']) ?></a><?php endforeach ?>
+        <?php foreach ($links as $l): ?><a href="<?= url($l['url']) ?>" <?= str_contains($l['url'], '/create') ? 'data-sheet' : '' ?> data-sheet-title="<?= e($l['label']) ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon($l['icon'] ?? 'eye', 'size-4') ?> <?= e($l['label']) ?></a><?php endforeach ?>
         <?php if ($canDownload): ?><a href="<?= url($c['base'].'/'.$row['id'].'/download') ?>" class="btn-secondary flex-1 sm:flex-none"><?= icon('download', 'size-4') ?> <?= e(__('Download')) ?></a><?php endif ?>
         <?php if ($canDelete): ?>
             <button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="<?= e(url($c['base'].'/'.$row['id'].'/delete')) ?>" data-delete-name="<?= e($title) ?>" data-delete-kind="<?= e($singular) ?>"><?= icon('trash', 'size-4') ?> <?= e(__('Delete')) ?></button>
