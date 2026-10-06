@@ -1,0 +1,12 @@
+/storage/installed.lock
+/storage/logs/*
+/storage/mail/*
+/storage/cache/*
+/public/uploads/branding/*
+/public/uploads/avatars/*
+!.gitkeep
+/node_modules
+.DS_Store
+/storage/attachments/*
+/public/uploads/crm/*
+!.gitkeep

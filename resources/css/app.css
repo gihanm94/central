@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+/* Classes are read from the PHP views and controllers. Rebuild with:
+   npx @tailwindcss/cli -i resources/css/app.css -o public/assets/app.css --minify
+   (only needed if you add new Tailwind classes; the built file ships with the app) */
+@source '../views';
+@source '../../app';
+@source '../../public/install.php';
+@source '../../config';
+
+/* lg:collapsed:… applies when the desktop sidebar is collapsed (html[data-sidebar=collapsed]) */
+@custom-variant collapsed (&:where([data-sidebar="collapsed"] *));
+
+/*
+ | Palette: graphite chrome, signal red for action and alerts, cool mist canvas.
+ | Type: Barlow Condensed for titles and figures (plant-floor signage), IBM Plex Sans for reading.
+ */
+@theme {
+    --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Barlow Condensed', 'IBM Plex Sans Thai', 'Arial Narrow', ui-sans-serif, sans-serif;
+
+    --color-graphite-950: #101114;
+    --color-graphite-900: #17181b;
+    --color-graphite-800: #212328;
+    --color-graphite-700: #2d3036;
+    --color-graphite-600: #3d4149;
+    --color-graphite-400: #8a909a;
+    --color-graphite-300: #b4b9c1;
+
+    --color-signal-50: #fdf2f3;
+    --color-signal-100: #fbe2e4;
+    --color-signal-500: #e0313f;
+    --color-signal-600: #d11a2a;
+    --color-signal-700: #b01422;
+    --color-signal-800: #8e111d;
+
+    --color-mist: #eef0f2;
+    --color-steel: #5b616b;
+}
+
+@layer base {
+    html { -webkit-font-smoothing: antialiased; }
+    body { @apply bg-mist text-graphite-900 font-sans; }
+    :focus-visible { @apply outline-2 outline-offset-2 outline-signal-600; }
+    [hidden] { display: none !important; }
+    fieldset { min-width: 0; }
+    html:lang(th) .page-title { letter-spacing: 0; line-height: 1.25; }
+    input[type=search]::-webkit-search-cancel-button { cursor: pointer; }
+    @media (max-width: 639px) { .input, .input-dark { font-size: 16px; } } /* stops iOS zoom on focus */
+}
+
+@utility btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+@layer components {
+    .page-title { @apply font-display text-3xl font-semibold tracking-tight text-graphite-900; }
+    .figure     { @apply font-display font-semibold tabular-nums leading-none; }
+
+    .panel      { @apply rounded-lg bg-white ring-1 ring-graphite-900/8; }
+    .panel-head { @apply flex items-center justify-between gap-3 border-b border-graphite-900/8 px-5 py-3.5; }
+    .panel-title{ @apply text-[15px] font-semibold text-graphite-900; }
+
+    .btn-primary   { @apply btn bg-signal-600 text-white hover:bg-signal-700 active:bg-signal-800; }
+    .btn-dark      { @apply btn bg-graphite-900 text-white hover:bg-graphite-700; }
+    .btn-secondary { @apply btn bg-white text-graphite-900 ring-1 ring-graphite-900/15 hover:bg-mist; }
+    .btn-ghost     { @apply btn text-steel hover:bg-graphite-900/5 hover:text-graphite-900; }
+    .btn-danger    { @apply btn text-signal-700 ring-1 ring-signal-600/30 hover:bg-signal-50; }
+
+    .label { @apply mb-1.5 block text-sm font-medium text-graphite-800; }
+    .hint  { @apply mt-1 text-xs text-steel; }
+    .input { @apply block w-full rounded-md border-0 bg-white px-3 py-2 text-sm text-graphite-900 ring-1 ring-graphite-900/15 placeholder:text-graphite-400 focus:ring-2 focus:ring-signal-600 focus:outline-none; }
+    .input-error { @apply ring-signal-600; }
+    .error { @apply mt-1 text-xs font-medium text-signal-700; }
+
+    /* Login screen inputs sit on graphite */
+    .input-dark { @apply block w-full rounded-md border-0 bg-graphite-800 px-3.5 py-2.5 text-sm text-white ring-1 ring-white/10 placeholder:text-graphite-400 focus:ring-2 focus:ring-signal-500 focus:outline-none; }
+
+    .badge { @apply inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium; }
+
+    .nav-link        { @apply flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm text-graphite-300 transition-colors hover:bg-graphite-800 hover:text-white; }
+    .drawer-panel    { animation: drawer-in .18s ease-out; }
+    .nav-link-active { @apply bg-graphite-800 text-white shadow-[inset_3px_0_0_var(--color-signal-600)]; }
+
+    .table      { @apply w-full text-left text-sm; }
+    .table th   { @apply px-5 py-2.5 text-xs font-medium text-steel; }
+    .table td   { @apply border-t border-graphite-900/6 px-5 py-3 align-middle; }
+}
+
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}

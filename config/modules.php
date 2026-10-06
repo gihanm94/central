@@ -1,0 +1,56 @@
+<?php
+/*
+ | Each module has its own sidebar, dashboards and notification switches.
+ | The module comes from the first URL segment (/crm, /accounting …); anything else is "core".
+ | Menu items show only when the user holds the permission ("resource.action").
+ | Dashboards: people can pick one as their default in Preferences.
+ */
+return [
+    'core' => [
+        'name' => 'User Management', 'icon' => 'users', 'home' => '/dashboard', 'enabled' => true, 'db' => 'core',
+        'dashboards' => [
+            'personal' => ['label' => 'My workspace', 'url' => '/dashboard/personal'],
+            'admin'    => ['label' => 'Control room', 'url' => '/dashboard/admin', 'admin_only' => true],
+        ],
+        'menu' => [
+            ['heading' => 'Overview'],
+            ['label' => 'Control room',     'url' => '/dashboard/admin',    'icon' => 'chart', 'admin_only' => true],
+            ['label' => 'My workspace',     'url' => '/dashboard/personal', 'icon' => 'home'],
+            ['heading' => 'Work'],
+            ['label' => 'Tasks',            'url' => '/tasks',       'icon' => 'check',    'permission' => 'tasks.view'],
+            ['label' => 'KPIs',             'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
+            ['heading' => 'Organization'],
+            ['label' => 'Members',          'url' => '/members',     'icon' => 'users',    'permission' => 'members.view'],
+            ['label' => 'Departments',      'url' => '/departments', 'icon' => 'building', 'permission' => 'departments.view'],
+            ['label' => 'Teams',            'url' => '/teams',       'icon' => 'team',     'permission' => 'teams.view'],
+            ['heading' => 'Administration'],
+            ['label' => 'Roles & access',   'url' => '/roles',       'icon' => 'shield',   'permission' => 'roles.view'],
+            ['label' => 'Activity log',     'url' => '/activity',    'icon' => 'clock',    'permission' => 'activity_logs.view'],
+            ['label' => 'Company settings', 'url' => '/settings',    'icon' => 'cog',      'permission' => 'settings.view'],
+        ],
+    ],
+    // Switch "enabled" on when a module is built. Their databases already exist.
+    'crm' => [
+        'name' => 'CRM', 'icon' => 'handshake', 'home' => '/crm', 'enabled' => true, 'db' => 'crm',
+        'dashboards' => [
+            'overview' => ['label' => 'CRM overview', 'url' => '/crm/dashboard'],
+        ],
+        'menu' => [
+            ['heading' => 'Overview'],
+            ['label' => 'CRM overview',  'url' => '/crm/dashboard',     'icon' => 'chart',     'permission' => 'crm_dashboard.view'],
+            ['heading' => 'Sales'],
+            ['label' => 'Leads',         'url' => '/crm/leads',         'icon' => 'building',  'permission' => 'crm_leads.view'],
+            ['label' => 'Contacts',      'url' => '/crm/contacts',      'icon' => 'user',      'permission' => 'crm_contacts.view'],
+            ['label' => 'Opportunities', 'url' => '/crm/opportunities', 'icon' => 'target',    'permission' => 'crm_opportunities.view'],
+            ['label' => 'Activities',    'url' => '/crm/activities',    'icon' => 'clock',     'permission' => 'crm_activities.view'],
+            ['heading' => 'Marketing'],
+            ['label' => 'Campaigns',     'url' => '/crm/campaigns',     'icon' => 'chat',      'permission' => 'crm_campaigns.view'],
+            ['heading' => 'Setup'],
+            ['label' => 'CRM settings',  'url' => '/crm/settings',      'icon' => 'sliders',   'permission' => 'crm_settings.view'],
+        ],
+    ],
+    'accounting' => ['name' => 'Accounting', 'icon' => 'calc',      'home' => '/accounting', 'enabled' => false, 'db' => 'accounting', 'dashboards' => [], 'menu' => []],
+    'inventory'  => ['name' => 'Inventory',  'icon' => 'box',       'home' => '/inventory',  'enabled' => false, 'db' => 'inventory',  'dashboards' => [], 'menu' => []],
+    'machines'   => ['name' => 'Machines',   'icon' => 'gear',      'home' => '/machines',   'enabled' => false, 'db' => 'machines',   'dashboards' => [], 'menu' => []],
+    'hr'         => ['name' => 'HR',         'icon' => 'id',        'home' => '/hr',         'enabled' => false, 'db' => 'hr',         'dashboards' => [], 'menu' => []],
+];
