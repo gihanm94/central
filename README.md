@@ -137,6 +137,15 @@ A **lead** is the company; contacts, opportunities and activities hang off it. C
 * **Sales targets** (CRM settings → Sales targets): per department and year, a target for each quarter and for the year; actuals come from won deals and can be saved per year (or typed). The dashboard shows target vs actual.
 * **Who sees CRM settings**: Admin, BU Manager and Manager (Manager/BU Manager can add industries, lead sources, products, currencies). Management can read targets only; Members have no settings. Adjust under *Roles & access*, or give one person an exception under *Members → Access*.
 
+### Projects, tasks, team and data tools
+
+- **Projects / Tasks** (`/crm/projects`, `/crm/tasks`): dates, status, details, files, comments and *several* responsible people per project and per task. Responsible people always see the project / task; progress shows on the project page. "Add task" opens the same task form in a side sheet.
+- **Side sheet**: every "Add contact / opportunity / activity / task" button on a related page opens the normal create form in a slide-over (`?embed=1`) instead of leaving the page. There is only one form per record type.
+- **Statistics cards** on top of each list: only roles holding *CRM statistics cards* (Admin and BU Manager by default).
+- **Team** (`/crm/team`, permission *CRM team: reassign and bulk change*): pick a person (also people who left), see their records, hand ticked records or everything to someone else, or change the stage / status of many records at once (e.g. close stale opportunities). BU managers work inside their department; admins everywhere. The previous owner is kept in the record's history. A single record has *Change owner* in its Record card.
+- **Data tools** (`/crm/data`, admin only): export tables as Excel, CSV (zip for several) or SQL INSERTs; import Excel, CSV or SQL files by choosing the table and matching each file column to a table column (fixed values, saved mappings, check-only run, update by code / id). SQL files are only read for INSERT / COPY data and never executed.
+- **Mail log** (Company settings → Mail log): every e-mail and whether it was sent or why it failed.
+
 ### Files
 Attachments are stored in `storage/attachments` (not reachable from the web) and downloaded through a permission check. Up to 10 MB each; pdf, images, office files, txt/csv, zip.
 
