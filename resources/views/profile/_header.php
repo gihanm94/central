@@ -7,6 +7,6 @@
     </div>
 </div>
 <?= partial('partials/tabs', ['tabs' => [
-    ['/profile', __('Profile'), 'user'], ['/profile/security', __('Security'), 'lock'], ['/profile/sessions', __('Sessions'), 'clock'],
+    ['/profile', __('Profile'), 'user'], ['/profile/security', __('Security'), 'lock'], ['/profile/sessions', __('Sessions'), 'clock'], ['/profile/connectors', __('Connectors'), 'link'],
     ['/profile/preferences', __('Preferences'), 'sliders'], ['/profile/notifications', __('Notifications'), 'bell'],
 ]]) ?>

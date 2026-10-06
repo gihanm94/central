@@ -204,6 +204,13 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 
 Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, one JSON line per event, kept 30 days. The page follows the file live (about every 1.5 s) with filters for level, channel (`erp` API calls, `sync`, `inet` generate/send/fetch, `pdf`, `app` uncaught errors) and text search; each line opens to show URL, HTTP status, time, exception and where it happened. Secrets (keys, passwords, session ids) are masked. The **Generate** dialog shows its own run's lines live while it works. In code: `App\Modules\Accounting\Support\Log::info('inet', 'message', [...])`.
 
+## Sessions, file manager, Google connectors
+
+- **Session security:** the session id (access token) is replaced every 10 minutes (`security.session_rotate_minutes`); a sign-in can never last more than 12 hours (`security.session_max_hours`) — "remember me" included — then the person must sign in again. Every sign-in is a row in *Profile → Sessions* (device, browser, IP, last seen, sign-in/out log) and can be revoked; revoking your own current session signs you out. Administrators see everyone at *Administration → Sessions*.
+- **File manager** (`/files`, administrators): browse the storage and upload folders, search, sort, paginate, see sizes; upload, new folder, rename, move, download, delete. Paths are sandboxed, executable file types and dot-files are refused.
+- **Google connectors** (`/connectors` for the administrator, *Profile → Connectors* for everyone): create an OAuth client in Google Cloud Console (type *Web application*), enable the Gmail API and Google Calendar API, add the redirect URI shown on the Connectors page, paste the client id and secret. Each person then connects their own account; tokens are stored encrypted (AES-256-GCM, key derived from `app.key`). **Mail** (`/mail`) reads/searches/sends Gmail without copying it. **Calendar** (`/calendar`, and *CRM → Calendar*) shows CRM activities plus the Google Calendar; click a day to create an activity in the side sheet, click an activity to edit it. Every activity with a start time is also written to its owner's Google Calendar and kept in sync on edit, status change and delete.
+- Notification e-mails are sent by the `mail` driver in `config/config.php`: `log` only writes them to *Settings → Mail log*; set `smtp` to really send.
+
 ## E-mail
 
 The installer defaults to **log** mode: every e-mail is saved as an HTML file in `storage/mail/`

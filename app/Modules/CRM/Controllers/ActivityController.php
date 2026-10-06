@@ -39,6 +39,11 @@ class ActivityController extends CrmController
 
     protected function label(array $row): string { return (string) $row['topic']; }
 
+    /** Every saved activity is also put on its owner's Google Calendar (when connected); the local calendar reads the table itself. */
+    protected function saved(int $id, array $data, ?array $existing): void { \App\Core\Support\Google\GCalendar::syncActivity($id); }
+
+    protected function beforeDelete(array $row): void { \App\Core\Support\Google\GCalendar::removeActivity($row); }
+
     protected function searchable(): array { return ['t.topic', 't.code', 'l.name_en', 'c.name_en', 'o.name']; }
 
     protected function filters(): array
@@ -61,7 +66,7 @@ class ActivityController extends CrmController
             'activity_type' => ['label' => __('Type'), 'type' => 'select', 'options' => $types, 'rules' => 'required', 'default' => isset($types[$want]) ? $want : 'CALL', 'search' => false],
             'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED'],
             'topic'      => ['label' => __('Topic'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Follow-up call about the quotation'],
-            'start_at'   => ['label' => __('Starts'), 'type' => 'datetime', 'rules' => 'nullable|date'],
+            'start_at'   => ['label' => __('Starts'), 'type' => 'datetime', 'rules' => 'nullable|date', 'default' => preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?$/', (string) Request::query('start')) ? str_replace(' ', 'T', (string) Request::query('start')) : null],
             'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
 
             'call_direction'   => ['label' => __('Direction'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CALL_DIRECTIONS), 'rules' => 'nullable', 'show_when' => 'activity_type=CALL'],
@@ -148,6 +153,7 @@ class ActivityController extends CrmController
             throw new ValidationException(['status' => __('Unknown status.')]);
         }
         DB::exec('UPDATE activities SET status = ?, updated_by = ?, updated_at = now() WHERE id = ?', [$status, $this->user()->id, $id], 'crm');
+        \App\Core\Support\Google\GCalendar::syncActivity($id);
         Activity::log('updated', 'activity', $id, $row['topic'], ['Marked activity ":label" as :status', ['label' => $row['topic'], 'status' => Catalog::ACTIVITY_STATUSES[$status]]],
             ['changes' => ['status' => ['from' => __(Catalog::ACTIVITY_STATUSES[$row['status']]), 'to' => __(Catalog::ACTIVITY_STATUSES[$status])]]], $this->owner($row), module: 'crm');
         Session::flash('success', __('Marked as :status.', ['status' => mb_strtolower(__(Catalog::ACTIVITY_STATUSES[$status]))]));
