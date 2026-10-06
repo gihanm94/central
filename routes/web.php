@@ -11,6 +11,7 @@ use App\Core\Http\Controllers\MemberController;
 use App\Core\Http\Controllers\NotificationController;
 use App\Core\Http\Controllers\PasskeyController;
 use App\Core\Http\Controllers\ProfileController;
+use App\Core\Http\Controllers\FileController;
 use App\Core\Http\Controllers\SessionAdminController;
 use App\Core\Http\Controllers\RoleController;
 use App\Core\Http\Controllers\SettingsController;
@@ -44,6 +45,13 @@ $router->group(['auth'], function (Router $r) {
     $r->get('/dashboard/admin', [DashboardController::class, 'admin']);
     $r->post('/logout', [AuthController::class, 'logout']);
 
+    $r->get('/files', [FileController::class, 'index']);
+    $r->get('/files/download', [FileController::class, 'download']);
+    $r->post('/files/upload', [FileController::class, 'upload']);
+    $r->post('/files/mkdir', [FileController::class, 'mkdir']);
+    $r->post('/files/rename', [FileController::class, 'rename']);
+    $r->post('/files/move', [FileController::class, 'move']);
+    $r->post('/files/delete', [FileController::class, 'delete']);
     $r->get('/sessions', [SessionAdminController::class, 'index']);
     $r->post('/sessions/user/{id}/revoke', [SessionAdminController::class, 'revokeUser']);
     $r->post('/sessions/{id}/revoke', [SessionAdminController::class, 'revoke']);

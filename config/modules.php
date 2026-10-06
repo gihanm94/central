@@ -27,6 +27,7 @@ return [
             ['label' => 'Roles & access',   'url' => '/roles',       'icon' => 'shield',   'permission' => 'roles.view'],
             ['label' => 'Activity log',     'url' => '/activity',    'icon' => 'clock',    'permission' => 'activity_logs.view'],
             ['label' => 'Sessions',         'url' => '/sessions',    'icon' => 'lock',     'admin_only' => true],
+            ['label' => 'File manager',     'url' => '/files',       'icon' => 'folder',   'admin_only' => true],
             ['label' => 'Company settings', 'url' => '/settings',    'icon' => 'cog',      'permission' => 'settings.view'],
         ],
     ],
