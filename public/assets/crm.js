@@ -4,6 +4,7 @@
  |   [data-repeat]                 repeating rows (mobile numbers, products): [data-repeat-add], [data-repeat-remove],
  |                                 <template data-repeat-template> with __i__, [data-repeat-next] = next index, data-min = least rows
  |   [data-people]                 pick several people: [data-people-filter] hides rows that do not match, [data-people-count] counts the ticked ones
+ |   [data-team]                   Team screen: [data-tick-all] / [data-tick] checkboxes, [data-ticked] counters, [data-needs-ticked] buttons wait for a tick, [data-confirm] asks first
  |   [data-product-row]            picking a registered product hides the free-text name and fills the unit price
  */
 (function () {
@@ -73,7 +74,35 @@
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest && e.target.closest('[data-people-filter]')) e.preventDefault(); });
     document.addEventListener('change', function (e) { var box = e.target.closest && e.target.closest('[data-people]'); if (box) peopleCount(box); });
-    function boot() { $$('[data-people]').forEach(peopleCount); }
+    function teamSync(form) {
+        var ticks = $$('[data-tick]', form), n = ticks.filter(function (c) { return c.checked; }).length, all = $('[data-tick-all]', form);
+        $$('[data-ticked]', form).forEach(function (x) { x.textContent = n; });
+        $$('[data-needs-ticked]', form).forEach(function (b) { b.disabled = n === 0; });
+        if (all) { all.checked = n > 0 && n === ticks.length; all.indeterminate = n > 0 && n < ticks.length; }
+    }
+    document.addEventListener('change', function (e) {
+        var form = e.target.closest && e.target.closest('[data-team]'); if (!form) return;
+        if (e.target.matches('[data-tick-all]')) $$('[data-tick]', form).forEach(function (c) { c.checked = e.target.checked; });
+        teamSync(form);
+    });
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('[data-confirm]');
+        if (b && !window.confirm(b.dataset.confirm)) e.preventDefault();
+    });
+
+    /* Import mapping: show the first values of the chosen file column next to each table column */
+    function previews(form) {
+        var samples = {}; try { samples = JSON.parse(form.dataset.samples || '{}'); } catch (e) {}
+        $$('[data-map]', form).forEach(function (sel) {
+            var out = sel.closest('tr').querySelector('[data-preview]'); if (!out) return;
+            var v = samples[sel.value] || [];
+            out.textContent = sel.value === '' ? '' : v.slice(0, 3).join(' · ');
+            out.title = out.textContent;
+        });
+    }
+    document.addEventListener('change', function (e) { var f = e.target.closest && e.target.closest('[data-map-form]'); if (f && e.target.matches('[data-map]')) previews(f); });
+
+    function boot() { $$('[data-map-form]').forEach(previews); $$('[data-people]').forEach(peopleCount); $$('[data-team]').forEach(teamSync); }
 
     window.AcmeCrmApply = function () { applyShow(); boot(); };
     document.addEventListener('DOMContentLoaded', window.AcmeCrmApply);

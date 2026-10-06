@@ -57,6 +57,27 @@ abstract class CrmController extends ResourceController
 
     protected function hydrateMore(array $rows): array { return $rows; }
 
+    /* ---------------------------------------------------------------- statistics cards */
+
+    /** Admin, BU managers … (whoever holds "CRM statistics cards") see them; members never do. */
+    protected function stats(): array { return can('crm_stats', 'view') ? $this->statCards() : []; }
+
+    protected function statCards(): array { return []; }
+
+    /** One number about the records this person may see, e.g. $this->figure('count(*)', "t.status = 'ACTIVE'"). */
+    protected function figure(string $expr, string $where = 'TRUE', array $params = [], ?string $from = null): float
+    {
+        $s = Access::visible($this->user(), 't', $this->entity);
+
+        return (float) DB::scalar("SELECT COALESCE({$expr}, 0) FROM ".($from ?? "{$this->table} t")." WHERE t.deleted_at IS NULL AND ({$where}) AND {$s['sql']}", [...$params, ...$s['params']], 'crm');
+    }
+
+    protected function card(string $label, float|string $value, ?string $sub = null, string $tone = 'neutral', string $icon = 'chart', ?string $href = null): array
+    {
+        return ['label' => $label, 'value' => is_float($value) ? number_format($value) : $value, 'sub' => $sub, 'tone' => $tone, 'icon' => $icon, 'href' => $href];
+    }
+
+
     /* ---------------------------------------------------------- shared form parts */
 
     /**

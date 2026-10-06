@@ -89,4 +89,14 @@ class CampaignController extends CrmController
     {
         return partial('crm/panels/campaign-stats', ['row' => $row]);
     }
+
+    protected function statCards(): array
+    {
+        return [
+            $this->card(__('Active'), $this->figure('count(*)', "t.status = 'ACTIVE'"), null, 'success', 'chat'),
+            $this->card(__('Planned'), $this->figure('count(*)', "t.status IN ('PLANNED','DRAFT')"), null, 'info', 'chat'),
+            $this->card(__('Budget'), Ui::compact($this->figure('sum(t.budget)')), null, 'neutral', 'chart'),
+            $this->card(__('Spent'), Ui::compact($this->figure('sum(t.actual_cost)')), null, 'warn', 'chart'),
+        ];
+    }
 }

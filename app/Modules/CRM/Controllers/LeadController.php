@@ -198,4 +198,14 @@ class LeadController extends CrmController
             .$this->relatedPanel(__('Opportunities'), $opps, can('crm_opportunities', 'create') ? '/crm/opportunities/create?lead_id='.$id : null, __('No opportunities yet.'), __('Add opportunity'))
             .$this->relatedPanel(__('Activities'), $acts, can('crm_activities', 'create') ? '/crm/activities/create?lead_id='.$id : null, __('No activities yet.'), __('Log activity'));
     }
+
+    protected function statCards(): array
+    {
+        return [
+            $this->card(__('Leads'), $this->figure('count(*)'), null, 'neutral', 'building'),
+            $this->card(__('New in 30 days'), $this->figure('count(*)', "t.created_at >= now() - interval '30 days'"), null, 'info', 'plus'),
+            $this->card(__('No contact yet'), $this->figure('count(*)', 'NOT EXISTS (SELECT 1 FROM contacts c WHERE c.lead_id = t.id AND c.deleted_at IS NULL)'), __('Add a person to talk to'), 'warn', 'user'),
+            $this->card(__('With open opportunity'), $this->figure('count(*)', "EXISTS (SELECT 1 FROM opportunities o WHERE o.lead_id = t.id AND o.deleted_at IS NULL AND o.opportunity_stage IN ('QUALIFICATION','SURVEY_PROPOSAL','EVALUATION_TESTING','NEGOTIATION','ON_HOLD'))"), null, 'success', 'target'),
+        ];
+    }
 }

@@ -6,6 +6,7 @@ use App\Modules\CRM\Controllers\ActivityController;
 use App\Modules\CRM\Controllers\CampaignController;
 use App\Modules\CRM\Controllers\ContactController;
 use App\Modules\CRM\Controllers\CurrencyController;
+use App\Modules\CRM\Controllers\DataController;
 use App\Modules\CRM\Controllers\DashboardController;
 use App\Modules\CRM\Controllers\IndustryController;
 use App\Modules\CRM\Controllers\LeadController;
@@ -19,6 +20,7 @@ use App\Modules\CRM\Controllers\SearchController;
 use App\Modules\CRM\Controllers\StageController;
 use App\Modules\CRM\Controllers\TargetController;
 use App\Modules\CRM\Controllers\TaskController;
+use App\Modules\CRM\Controllers\TeamController;
 
 /** @var Router $r  (inside the 'auth' group of routes/web.php) */
 
@@ -34,6 +36,21 @@ $r->get('/crm/settings/stages', [StageController::class, 'index']);
 $r->post('/crm/settings/stages', [StageController::class, 'save']);
 $r->get('/crm/settings/targets', [TargetController::class, 'index']);
 $r->post('/crm/settings/targets', [TargetController::class, 'save']);
+
+// Admin data tools: import / export Excel, CSV, SQL with column mapping
+$r->get('/crm/data', [DataController::class, 'index']);
+$r->post('/crm/data/export', [DataController::class, 'export']);
+$r->post('/crm/data/upload', [DataController::class, 'upload']);
+$r->get('/crm/data/map', [DataController::class, 'map']);
+$r->post('/crm/data/run', [DataController::class, 'run']);
+$r->post('/crm/data/discard', [DataController::class, 'discard']);
+$r->post('/crm/data/mappings/{id}/delete', [DataController::class, 'deleteMapping']);
+
+// Team: see one person's records, hand them to somebody else, change many at once
+$r->get('/crm/team', [TeamController::class, 'index']);
+$r->post('/crm/team/reassign', [TeamController::class, 'reassign']);
+$r->post('/crm/team/handover', [TeamController::class, 'handover']);
+$r->post('/crm/team/status', [TeamController::class, 'status']);
 
 // Standard screens: list, new, detail, edit, delete, export, import, template, download
 $crm = [
@@ -65,6 +82,7 @@ $r->post('/crm/{kind}/{id}/comments/{cid}/delete', [RecordController::class, 'de
 $r->post('/crm/{kind}/{id}/files', [RecordController::class, 'upload']);
 $r->get('/crm/{kind}/{id}/files/{fid}', [RecordController::class, 'download']);
 $r->post('/crm/{kind}/{id}/files/{fid}/delete', [RecordController::class, 'deleteFile']);
+$r->post('/crm/{kind}/{id}/owner', [TeamController::class, 'owner']);
 $r->post('/crm/{kind}/{id}/shares', [RecordController::class, 'share']);
 $r->post('/crm/{kind}/{id}/shares/{sid}/delete', [RecordController::class, 'unshare']);
 

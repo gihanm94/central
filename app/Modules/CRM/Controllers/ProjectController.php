@@ -185,4 +185,16 @@ class ProjectController extends CrmController
             'history' => Responsible::history('project', (int) $row['id']),
         ]);
     }
+
+    protected function statCards(): array
+    {
+        $open = "t.status IN ('PLANNING','ACTIVE','ON_HOLD')";
+
+        return [
+            $this->card(__('Active projects'), $this->figure('count(*)', "t.status = 'ACTIVE'"), null, 'info', 'folder', '/crm/projects?status=ACTIVE'),
+            $this->card(__('Overdue'), $this->figure('count(*)', "{$open} AND t.end_date < CURRENT_DATE"), null, 'danger', 'clock'),
+            $this->card(__('Open tasks'), $this->figure("count(*)", "k.status NOT IN ('DONE','CANCELLED') AND k.deleted_at IS NULL", [], 'projects t JOIN tasks k ON k.project_id = t.id'), null, 'neutral', 'tasks'),
+            $this->card(__('Done'), $this->figure('count(*)', "t.status = 'DONE'"), null, 'success', 'check'),
+        ];
+    }
 }

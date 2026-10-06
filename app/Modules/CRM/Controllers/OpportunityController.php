@@ -215,7 +215,7 @@ class OpportunityController extends CrmController
     }
 
     /** Moves an opportunity to a stage and writes the history. Used by the stage tracker and the pipeline board. */
-    public function changeStage(array $row, string $stage, string $note): void
+    public function changeStage(array $row, string $stage, string $note, bool $notify = true): void
     {
         $id   = (int) $row['id'];
         $set  = ['opportunity_stage' => $stage, 'updated_by' => $this->user()->id, 'updated_at' => now(), 'cancel_reason' => in_array($stage, Catalog::NEEDS_REASON, true) ? $note : null];
@@ -226,7 +226,7 @@ class OpportunityController extends CrmController
         $this->recordStage($id, $stage, $row['opportunity_stage'], $note !== '' ? $note : null);
 
         Activity::log('updated', 'opportunity', $id, $row['name'], ['Moved opportunity ":label" to :stage', ['label' => $row['name'], 'stage' => Catalog::STAGES[$stage][0]]],
-            ['changes' => ['opportunity_stage' => ['from' => Catalog::stageLabel($row['opportunity_stage']), 'to' => Catalog::stageLabel($stage)]], '_url' => url('/crm/opportunities/'.$id)], $this->owner($row), module: 'crm');
+            ['changes' => ['opportunity_stage' => ['from' => Catalog::stageLabel($row['opportunity_stage']), 'to' => Catalog::stageLabel($stage)]], '_url' => url('/crm/opportunities/'.$id)], $this->owner($row), notify: $notify, module: 'crm');
     }
 
     /* ------------------------------------------------------------- next steps */
@@ -326,5 +326,22 @@ class OpportunityController extends CrmController
         $q = 'opportunity_id='.$id.($row['lead_id'] ? '&lead_id='.$row['lead_id'] : '').($row['contact_id'] ? '&contact_id='.$row['contact_id'] : '');
 
         return $out.$this->relatedPanel(__('Activities'), $acts, can('crm_activities', 'create') ? '/crm/activities/create?'.$q : null, __('No activities yet.'), __('Log activity'));
+    }
+
+    protected function statCards(): array
+    {
+        $open = "t.opportunity_stage IN ('QUALIFICATION','SURVEY_PROPOSAL','EVALUATION_TESTING','NEGOTIATION','ON_HOLD')";
+        $from = 'opportunities t LEFT JOIN currencies cu ON cu.code = t.currency';
+        $val  = 'sum(COALESCE(t.amount, 0) * COALESCE(cu.rate_to_base, 1))';
+        $base = (string) DB::scalar('SELECT code FROM currencies WHERE is_base LIMIT 1', [], 'crm');
+        $money = fn (string $where) => Ui::compact($this->figure($val, $where, [], $from)).($base ? ' '.$base : '');
+
+        return [
+            $this->card(__('Open'), $this->figure('count(*)', $open), $money($open), 'info', 'target'),
+            $this->card(__('Won this month'), $this->figure('count(*)', "t.opportunity_stage = 'CLOSED_WON' AND date_trunc('month', t.updated_at) = date_trunc('month', now())"), $money("t.opportunity_stage = 'CLOSED_WON' AND date_trunc('month', t.updated_at) = date_trunc('month', now())"), 'success', 'check'),
+            $this->card(__('Lost this month'), $this->figure('count(*)', "t.opportunity_stage = 'CLOSED_LOST' AND date_trunc('month', t.updated_at) = date_trunc('month', now())"), null, 'neutral', 'columns'),
+            $this->card(__('Follow-up overdue'), $this->figure('count(*)', "{$open} AND t.follow_at < now()"), __('Still open'), 'danger', 'clock'),
+            $this->card(__('Past the closing date'), $this->figure('count(*)', "{$open} AND t.close_at < now()"), __('Still open'), 'warn', 'clock'),
+        ];
     }
 }

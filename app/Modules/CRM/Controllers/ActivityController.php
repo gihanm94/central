@@ -174,4 +174,14 @@ class ActivityController extends CrmController
 
         return $edit && $row['status'] === 'PLANNED' ? partial('crm/panels/activity-actions', ['row' => $row]) : '';
     }
+
+    protected function statCards(): array
+    {
+        return [
+            $this->card(__('Planned'), $this->figure('count(*)', "t.status = 'PLANNED'"), null, 'info', 'clock'),
+            $this->card(__('Today'), $this->figure('count(*)', "t.status = 'PLANNED' AND t.start_at::date = CURRENT_DATE"), null, 'neutral', 'clock', '/crm/activities?when=today'),
+            $this->card(__('Overdue'), $this->figure('count(*)', "t.status = 'PLANNED' AND t.start_at < now()"), null, 'danger', 'clock', '/crm/activities?when=overdue'),
+            $this->card(__('Done this month'), $this->figure('count(*)', "t.status = 'DONE' AND date_trunc('month', t.updated_at) = date_trunc('month', now())"), null, 'success', 'check'),
+        ];
+    }
 }

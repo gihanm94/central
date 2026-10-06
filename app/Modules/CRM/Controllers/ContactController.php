@@ -217,4 +217,14 @@ class ContactController extends CrmController
         return $this->relatedPanel(__('Opportunities'), $opps, can('crm_opportunities', 'create') ? '/crm/opportunities/create?'.$q : null, __('No opportunities yet.'), __('Add opportunity'))
             .$this->relatedPanel(__('Activities'), $acts, can('crm_activities', 'create') ? '/crm/activities/create?'.$q : null, __('No activities yet.'), __('Log activity'));
     }
+
+    protected function statCards(): array
+    {
+        return [
+            $this->card(__('Contacts'), $this->figure('count(*)'), null, 'neutral', 'user'),
+            $this->card(__('New in 30 days'), $this->figure('count(*)', "t.created_at >= now() - interval '30 days'"), null, 'info', 'plus'),
+            $this->card(__('No mobile number'), $this->figure('count(*)', 'NOT EXISTS (SELECT 1 FROM contact_mobiles m WHERE m.contact_id = t.id)'), null, 'warn', 'user'),
+            $this->card(__('No e-mail'), $this->figure('count(*)', "coalesce(t.email, '') = ''"), null, 'warn', 'chat'),
+        ];
+    }
 }

@@ -34,6 +34,10 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
     </div>
 </div>
 
+<?php if (! empty($stats)): ?>
+<?= partial('crm/stats', ['cards' => $stats]) ?>
+<?php endif ?>
+
 <section class="panel mt-4" data-table="<?= e($res) ?>" data-prefs-url="<?= e(url('/table-prefs')) ?>">
     <!-- Toolbar: search + filter on the left; add, import, export, columns on the right -->
     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-graphite-900/8 p-3">

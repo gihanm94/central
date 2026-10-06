@@ -188,4 +188,17 @@ class TaskController extends CrmController
         Session::flash('success', __('Marked as :status.', ['status' => mb_strtolower(__(Catalog::TASK_STATUSES[$status]))]));
         back();
     }
+
+    protected function statCards(): array
+    {
+        $open = "t.status NOT IN ('DONE','CANCELLED')";
+
+        return [
+            $this->card(__('Open'), $this->figure('count(*)', $open), null, 'neutral', 'tasks'),
+            $this->card(__('In progress'), $this->figure('count(*)', "t.status = 'IN_PROGRESS'"), null, 'info', 'tasks', '/crm/tasks?status=IN_PROGRESS'),
+            $this->card(__('Overdue'), $this->figure('count(*)', "{$open} AND t.end_date < CURRENT_DATE"), null, 'danger', 'clock', '/crm/tasks?when=overdue'),
+            $this->card(__('Blocked'), $this->figure('count(*)', "t.status = 'BLOCKED'"), null, 'warn', 'tasks', '/crm/tasks?status=BLOCKED'),
+            $this->card(__('Done this week'), $this->figure('count(*)', "t.status = 'DONE' AND t.updated_at >= date_trunc('week', now())"), null, 'success', 'check'),
+        ];
+    }
 }

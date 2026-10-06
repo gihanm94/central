@@ -178,6 +178,15 @@ final class Access
         return array_column($rows, null, 'id');
     }
 
+    /** Everybody who still has a login record, also people switched off (they may have left): [id => [name, department_id, department, active]] */
+    public static function everyone(): array
+    {
+        $rows = DB::select('SELECT u.id, u.name, u.department_id, u.is_active AS active, d.name AS department FROM users u LEFT JOIN departments d ON d.id = u.department_id
+                             WHERE u.deleted_at IS NULL ORDER BY u.is_active DESC, u.name');
+
+        return array_column($rows, null, 'id');
+    }
+
     /** Who this user may hand a record to: everyone for whole-company roles, otherwise the own department. */
     public static function assignable(CurrentUser $u): array
     {
