@@ -2,7 +2,7 @@
 // Written by public/install.php — you can edit it by hand afterwards.
 return [
     'app' => [
-        'name'     => 'Acme Inter',
+        'name'     => 'Acme International',
         'url'      => 'http://localhost:8000',
         'env'      => 'local',            // local shows errors, production hides them
         'timezone' => 'Asia/Bangkok',
@@ -28,10 +28,10 @@ return [
         'host'         => 'smtp.gmail.com',
         'port'         => 587,
         'encryption'   => 'tls',          // tls (587) | ssl (465) | none
-        'username'     => '',
-        'password'     => '',
-        'from_address' => 'no-reply@acmeinter.com',
-        'from_name'    => 'Acme Inter',
+        'username'     => 'web-support@acme-inter.com',
+        'password'     => 'xzpqcgetujdzfqyb',
+        'from_address' => 'web-support@acme-inter.com',
+        'from_name'    => 'Acme International',
     ],
     'notifications' => [
         'enabled'          => true,
