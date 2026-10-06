@@ -96,7 +96,7 @@ final class PdfRenderer
      * @param array<string, string> $pages key => html
      * @return array<string, string|\RuntimeException> key => PDF bytes, or the problem
      */
-    public static function renderMany(array $pages, int $parallel = 5): array
+    public static function renderMany(array $pages, int $parallel = 5, ?callable $each = null): array
     {
         $bin = self::chromium() ?? throw new \RuntimeException(__('PDF needs Chrome or Chromium on the server. Set its path under Accounting → Company.'));
         $dir = BASE_PATH.'/storage/cache/pdf';
@@ -134,6 +134,7 @@ final class PdfRenderer
                 }
                 self::clean($dir, $id);
                 unset($run[$k]);
+                if ($each) { $each(count($out)); }
             }
             if ($run) { usleep(60000); }
         }
@@ -166,7 +167,7 @@ final class PdfRenderer
         static $css = null;
         if ($css !== null) { return $css; }
         $css = '';
-        foreach ([300 => 'Light', 400 => 'Regular', 500 => 'Medium', 600 => 'SemiBold', 700 => 'Bold', 800 => 'ExtraBold'] as $w => $n) {
+        foreach ([400 => 'Regular', 500 => 'Medium', 600 => 'SemiBold', 700 => 'Bold'] as $w => $n) {
             $p = BASE_PATH."/resources/pdf/sarabun/Sarabun-{$n}.ttf";
             if (is_file($p)) { $css .= "@font-face{font-family:'Sarabun';font-weight:{$w};src:url('data:font/truetype;base64,".base64_encode((string) file_get_contents($p))."') format('truetype');}\n"; }
         }

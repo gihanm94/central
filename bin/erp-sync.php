@@ -36,6 +36,9 @@ try {
             $id  = Schedule::runEntity($key, $argv[3] ?? 'latest', $argv[4] ?? null, null);
             echo date('c')." run #{$id} finished\n";
             break;
+        case 'generate':                                   // a Generate job started by the Inets page
+            \App\Modules\Accounting\Inet\Jobs::run((string) ($argv[2] ?? ''));
+            break;
         case 'login':
             $t = (new Client())->login();
             echo 'session '.substr((string) $t['session_id'], 0, 6)."… saved\n";

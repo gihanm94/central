@@ -187,6 +187,12 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 - **Overwrite** (ERP connection → each table): off (default) = a sync only adds new ids; on = existing rows are updated too. **Sync from ERP** in a row menu (administrators) reads that one record and always updates it. The Inets *Sync* button does the same for an invoice and its order.
 - Inets: tick rows to delete several (type DELETE); the `…` menu of each document has Raw Data, Get File, Regenerate and Remove.
 
+## Accounting: Generate and Send windows
+
+- **Generate** starts a background job (`bin/erp-sync.php generate <job>`, state in `storage/cache/jobs/`) and answers at once; the window shows a centre animation (spinner → tick) while the page asks `/accounting/inet/job/<id>` once a second, then closes and reloads. A web request is never held while Chromium prints. Without `exec()` the job runs inside the request instead.
+- **Send** opens a window: upload a PDF (drag or click, preview, then Send) or switch on *Show Generated* to send the generated PDF. Send shows the same animation and closes on success.
+- Success / error messages are toasts (`public/assets/toast.js`, `toast(msg, type)`), including the server's flash messages.
+
 ## Accounting logs (`/accounting/logs`, administrators)
 
 Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, one JSON line per event, kept 30 days. The page follows the file live (about every 1.5 s) with filters for level, channel (`erp` API calls, `sync`, `inet` generate/send/fetch, `pdf`, `app` uncaught errors) and text search; each line opens to show URL, HTTP status, time, exception and where it happened. Secrets (keys, passwords, session ids) are masked. The **Generate** dialog shows its own run's lines live while it works. In code: `App\Modules\Accounting\Support\Log::info('inet', 'message', [...])`.

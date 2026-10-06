@@ -14,6 +14,7 @@
 @source '../../public/assets/accounting.js';
 @source '../../public/assets/logview.js';
 @source '../../public/assets/erp-live.js';
+@source '../../public/assets/toast.js';
 
 /* lg:collapsed:… applies when the desktop sidebar is collapsed (html[data-sidebar=collapsed]) */
 @custom-variant collapsed (&:where([data-sidebar="collapsed"] *));

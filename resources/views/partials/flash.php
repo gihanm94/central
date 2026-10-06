@@ -1,12 +1,9 @@
 <?php
 use App\Core\Support\Session;
-$tones = ['success' => 'border-emerald-600 bg-emerald-50 text-emerald-900', 'status' => 'border-graphite-600 bg-white text-graphite-900', 'error' => 'border-signal-600 bg-signal-50 text-signal-800'];
-foreach ($tones as $key => $tone):
+// success / status / error messages are shown as toasts (public/assets/toast.js), not as a banner at the top of the page
+foreach (['success' => 'success', 'status' => 'info', 'error' => 'error'] as $key => $type):
     if ($msg = Session::get($key)): ?>
-    <div data-dismissible role="status" class="mb-5 flex items-start justify-between gap-4 rounded-md border-l-4 px-4 py-3 text-sm <?= $tone ?>">
-        <span><?= e($msg) ?></span>
-        <button type="button" data-dismiss class="opacity-60 hover:opacity-100" aria-label="<?= e(__('Dismiss')) ?>"><?= icon('x', 'size-4') ?></button>
-    </div>
+    <div data-toast data-type="<?= $type ?>" hidden><?= e($msg) ?></div>
 <?php endif; endforeach;
 $errors = Session::errors();
 if ($errors && ! ($hideErrorSummary ?? false)): ?>

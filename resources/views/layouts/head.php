@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
+<script src="<?= asset('assets/toast.js') ?>" defer></script>
 <script src="<?= asset('assets/app.js') ?>" defer></script>
 <script src="<?= asset('assets/crm.js') ?>" defer></script>
 <script src="<?= asset('assets/logview.js') ?>" defer></script>

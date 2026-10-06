@@ -35,12 +35,14 @@ final class Generator
      * Several invoices at once. Reading and building the JSON is quick and done one by one; the slow part, printing PDFs, runs
      * $parallel Chromium processes at the same time (5 by default). A problem with one invoice never stops the others.
      * @param array<int, array{invoice: int, auto_pdf: bool}> $items
+     * @param callable|null $progress fn(string $stage 'built'|'saved', int $count) after each invoice
      * @return array<int, array{docs: string[], errors: array<string, string>}>  by invoice number
      */
-    public static function many(array $items, int $by, int $parallel = 5): array
+    public static function many(array $items, int $by, int $parallel = 5, ?callable $progress = null): array
     {
         $company = Company::require();
         $res = $prep = $pages = [];
+        $nBuilt = $nSaved = 0;
         foreach ($items as $it) {                                                         // 1. read + build
             $no = (int) $it['invoice'];
             $auto = ! empty($it['auto_pdf']);
@@ -68,16 +70,18 @@ final class Generator
                 Log::exception('inet', $e, "{$no} generate failed");
                 $res[$no]['errors']['-'] = $e->getMessage();
             }
+            if ($progress) { $progress('built', ++$nBuilt); }
         }
 
         $pdfs = [];                                                                       // 2. print the PDFs, several at a time
         if ($pages) {
             Log::info('inet', 'Printing '.count($pages).' PDF(s), up to '.$parallel.' at a time');
-            try { $pdfs = PdfRenderer::renderMany($pages, $parallel); }
+            try { $pdfs = PdfRenderer::renderMany($pages, $parallel, $progress ? fn (int $n) => $progress('printed', $n) : null); }
             catch (\Throwable $e) { foreach ($pages as $k => $_) { $pdfs[$k] = $e instanceof \RuntimeException ? $e : new \RuntimeException($e->getMessage()); } }
         }
 
         foreach ($prep as $no => $types) {                                                // 3. save
+            if ($progress) { $progress('saved', ++$nSaved); }
             foreach ($types as $type => $p) {
                 $type = (string) $type;                                                   // numeric keys such as 388 come back as ints
                 $doc = $p['doc'];

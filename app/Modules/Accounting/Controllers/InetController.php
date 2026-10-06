@@ -13,6 +13,7 @@ use App\Modules\Accounting\Erp\Syncer;
 use App\Modules\Accounting\Inet\Documents;
 use App\Modules\Accounting\Inet\Generator;
 use App\Modules\Accounting\Inet\InetClient;
+use App\Modules\Accounting\Inet\Jobs;
 use App\Modules\Accounting\Support\InetBuilder;
 use App\Modules\CRM\Support\Ui;
 
@@ -92,37 +93,40 @@ class InetController extends ErpListController
         $msg     = (string) ($r["message_{$c}"] ?? '');
         $canEdit = can($this->resource, 'edit');
         $base    = '/accounting/inet/'.$r['id'].'/'.strtolower($type);
-        $btn  = 'inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs ring-1 ';
-        $off  = $btn.'cursor-not-allowed text-graphite-400 ring-graphite-900/10';
-        $on   = $btn.'text-graphite-800 ring-graphite-900/20 hover:bg-mist';
+        $btn  = 'inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium ring-1 ring-inset transition-colors ';
+        // soft colours: Sync = amber, Send = red, Inet = green; the same colour but faded when it cannot be used yet
+        $tone = ['sync' => ['amber', 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100', 'bg-amber-50/60 text-amber-400 ring-amber-100'],
+                 'send' => ['red', 'bg-signal-50 text-signal-700 ring-signal-200 hover:bg-signal-100', 'bg-signal-50/60 text-signal-300 ring-signal-100'],
+                 'inet' => ['green', 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100', 'bg-emerald-50/60 text-emerald-300 ring-emerald-100']];
+        $on   = fn (string $k) => $btn.$tone[$k][1];
+        $off  = fn (string $k) => $btn.'cursor-not-allowed '.$tone[$k][2];
         $form = fn (string $path, string $inner, string $extra = '') => '<form method="POST" action="'.e(url($base.$path)).'" class="inline" '.$extra.'>'.csrf_field().$inner.'</form>';
 
-        $sync = $canEdit ? $form('/sync', '<button class="'.$on.'" title="'.e(__('Read this invoice from the ERP again')).'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</button>') : '<span class="'.$off.'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</span>';
+        $sync = $canEdit ? $form('/sync', '<button class="'.$on('sync').'" title="'.e(__('Read this invoice from the ERP again')).'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</button>') : '<span class="'.$off('sync').'">'.icon('bolt', 'size-3.5').' '.e(__('Sync')).'</span>';
         $sync = str_replace('/'.strtolower($type).'/sync', '/sync', $sync);                                  // sync works on the whole invoice
 
         if (! $canEdit || ! $gen) {
-            $send = '<span class="'.$off.'" title="'.e($gen ? '' : __('Generate first')).'">'.icon('send', 'size-3.5').' '.e(__('Send')).'</span>';
-        } elseif ($hasPdf) {
-            $send = $form('/send', '<button class="'.($sent ? $on : $btn.'bg-signal-600 text-white ring-signal-600 hover:bg-signal-700').'" data-confirm="'.e($sent ? __('Send it to INET again?') : __('Send this document to INET?')).'">'.icon('send', 'size-3.5').' '.e($sent ? __('Resend') : __('Send')).'</button>');
-        } else {            // no PDF was made: choose one when sending
-            $send = $form('/send', '<label class="'.$btn.'cursor-pointer bg-signal-600 text-white ring-signal-600 hover:bg-signal-700" title="'.e(__('Choose the PDF to send')).'">'.icon('send', 'size-3.5').' '.e(__('Send')).'<input type="file" name="pdf" accept="application/pdf" required class="sr-only" onchange="if (this.files.length && confirm(\''.e(__('Send this document to INET?')).'\')) this.form.submit(); else this.value = \'\'"></label>', 'enctype="multipart/form-data"');
+            $send = '<span class="'.$off('send').'" title="'.e($gen ? '' : __('Generate first')).'">'.icon('send', 'size-3.5').' '.e(__('Send')).'</span>';
+        } else {            // opens the Send window: upload a PDF, or use the generated one
+            $send = '<button type="button" class="'.$on('send').'" data-inet-send data-url="'.e(url($base.'/send')).'" data-pdf="'.($hasPdf ? e(url($base.'/file/pdf')) : '').'" data-title="'.e(($type === '81' ? __('Credit note') : ($type === 'T01' ? __('Receipt') : __('Invoice'))).' #'.$r['no_invoice']).'">'.icon('send', 'size-3.5').' '.e($sent ? __('Resend') : __('Send')).'</button>';
         }
         if ($signed) {
-            $inet = '<a href="'.e(url($base.'/file/signed')).'" target="_blank" class="'.$btn.'bg-emerald-50 text-emerald-800 ring-emerald-200 hover:bg-emerald-100" title="'.e(__('Open the signed PDF from INET')).'">'.icon('download', 'size-3.5').' Inet</a>';
+            $inet = '<a href="'.e(url($base.'/file/signed')).'" target="_blank" class="'.$on('inet').'" title="'.e(__('Open the signed PDF from INET')).'">'.icon('download', 'size-3.5').' Inet</a>';
         } elseif ($sent && $canEdit) {
-            $inet = $form('/fetch', '<button class="'.$on.'" title="'.e(__('Get the signed PDF from INET')).'">'.icon('download', 'size-3.5').' Inet</button>');
+            $inet = $form('/fetch', '<button class="'.$on('inet').'" title="'.e(__('Get the signed PDF from INET')).'">'.icon('download', 'size-3.5').' Inet</button>');
         } else {
-            $inet = '<span class="'.$off.'">'.icon('download', 'size-3.5').' Inet</span>';
+            $inet = '<span class="'.$off('inet').'">'.icon('download', 'size-3.5').' Inet</span>';
         }
+        $more = $btn.'bg-white text-graphite-700 ring-graphite-900/15 hover:bg-mist !px-1.5';
         $menuId = 'dm-'.$r['id'].'-'.strtolower($type).'-'.(++self::$menuSeq);              // the phone list renders the same cells again: ids must differ
         $item   = 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist';
         $dead   = 'flex w-full cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-graphite-400';
         $fileUrl = $signed ? $base.'/file/signed' : ($hasPdf ? $base.'/file/pdf' : null);
-        $menu = '<button type="button" class="'.$btn.'text-graphite-800 ring-graphite-900/20 hover:bg-mist !px-1.5" data-menu="#'.e($menuId).'" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" aria-label="'.e(__('More')).'">…</button>'
+        $menu = '<button type="button" class="'.$more.'" data-menu="#'.e($menuId).'" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" aria-label="'.e(__('More')).'">…</button>'
             .'<div id="'.e($menuId).'" data-menu-panel hidden role="menu" class="fixed z-[70] w-44 rounded-lg bg-white p-1.5 text-sm shadow-xl ring-1 ring-graphite-900/10">'
             .($gen ? '<a role="menuitem" href="'.e(url($base.'/file/json')).'" target="_blank" class="'.$item.'"><span class="w-4 text-center font-mono text-emerald-600">{}</span> '.e(__('Raw Data')).'</a>' : '<span class="'.$dead.'"><span class="w-4 text-center font-mono">{}</span> '.e(__('Raw Data')).'</span>')
             .($fileUrl ? '<a role="menuitem" href="'.e(url($fileUrl)).'" target="_blank" class="'.$item.'">'.icon('download', 'size-4 text-sky-600').' '.e(__('Get File')).'</a>' : '<span class="'.$dead.'">'.icon('download', 'size-4').' '.e(__('Get File')).'</span>')
-            .(can($this->resource, 'create') ? '<form method="POST" action="'.e(url('/accounting/inet/'.$r['id'].'/regenerate')).'">'.csrf_field().'<button role="menuitem" class="'.$item.'" data-confirm="'.e(__('Generate this invoice again? The text file and PDF are rebuilt and anything sent is marked unsent.')).'">'.icon('bolt', 'size-4 text-amber-500').' '.e(__('Regenerate')).'</button></form>' : '')
+            .(can($this->resource, 'create') ? '<button type="button" role="menuitem" class="'.$item.'" data-inet-regen data-invoice="'.e($r['no_invoice']).'" data-auto="'.(filter_var($r['auto_pdf'] ?? false, FILTER_VALIDATE_BOOL) ? '1' : '0').'" data-confirm-text="'.e(__('Generate this invoice again? The text file and PDF are rebuilt and anything sent is marked unsent.')).'">'.icon('bolt', 'size-4 text-amber-500').' '.e(__('Regenerate')).'</button>' : '')
             .(can($this->resource, 'delete') ? '<hr class="my-1 border-graphite-900/8"><button type="button" role="menuitem" class="'.$item.' text-signal-700 hover:bg-signal-50" data-delete-url="'.e(url('/accounting/inet/'.$r['id'].'/delete')).'" data-delete-name="'.e($r['no_invoice']).'" data-delete-kind="'.e(__('e-tax invoice')).'">'.icon('trash', 'size-4').' '.e(__('Remove')).'</button>' : '')
             .'</div>';
         $links = $menu;
@@ -157,7 +161,7 @@ class InetController extends ErpListController
         $tab = fn (bool $credit, string $label) => '<a href="'.e(url('/accounting/inet', $credit ? ['credit' => 1] : [])).'" class="rounded-md px-3 py-1.5 text-sm '.($this->credit() === $credit ? 'bg-signal-600 font-medium text-white' : 'text-steel hover:bg-mist').'">'.e($label).'</a>';
 
         return '<nav class="mt-4 inline-flex gap-1 rounded-lg bg-white p-1 shadow-sm ring-1 ring-graphite-900/10" aria-label="'.e(__('Document type')).'">'.$tab(false, __('Invoice')).$tab(true, __('Credit note')).'</nav>'
-            .partial('accounting/inet-dialog', ['credit' => $this->credit()]);
+            .partial('accounting/inet-dialog', ['credit' => $this->credit()]).partial('accounting/inet-send-dialog');
     }
 
     protected function headerActions(): string
@@ -190,7 +194,7 @@ class InetController extends ErpListController
         json_response(['rows' => $rows, 'total' => $total, 'pages' => max(1, (int) ceil($total / self::PER)), 'credit' => $credit]);
     }
 
-    /** Generate the chosen invoices. Body (JSON): {items: [{invoice: 123, auto_pdf: true}]} */
+    /** Generate the chosen invoices: starts a background job and answers at once with its id (the page then asks /job/{id}). */
     public function generate(): never
     {
         $this->authorize($this->resource, 'create');
@@ -198,30 +202,23 @@ class InetController extends ErpListController
         if (! $items || count($items) > 200) {
             json_response(['message' => __('Choose between 1 and 200 invoices.')], 422);
         }
-        @set_time_limit(600);
-        Log::run((string) Request::input('run', ''));
-        $by = $this->user()->id;
-        session_write_close();                      // the live log is read by other requests meanwhile; do not hold the session lock
-        Log::info('inet', 'Generate: '.count($items).' invoice(s) chosen', ['by' => $by]);
-        $made = 0;
-        $errors = [];
         $items = array_values(array_filter(array_map(fn ($it) => ['invoice' => (int) ($it['invoice'] ?? 0), 'auto_pdf' => ! empty($it['auto_pdf'])], $items), fn ($it) => $it['invoice'] > 0));
-        try {
-            foreach (Generator::many($items, $by, 5) as $no => $r) {
-                if ($r['docs']) { $made++; }
-                foreach ($r['errors'] as $type => $m) { $errors[] = $no.($type === '-' ? '' : ' ('.$type.')').': '.$m; }
-            }
-        } catch (\Throwable $e) {
-            Log::exception('inet', $e, 'Generate failed');
-            $errors[] = $e->getMessage();
+        $id = Jobs::create($items, $this->user()->id);
+        Log::info('inet', 'Generate queued: '.count($items).' invoice(s)', ['job' => $id, 'by' => $this->user()->email]);
+        session_write_close();
+        if (! Jobs::start($id)) {                    // this server cannot start processes: do it here, the page still gets the finished job
+            Jobs::run($id);
         }
-        ($errors ? [Log::class, 'warn'] : [Log::class, 'info'])('inet', 'Generate finished: '.$made.' made, '.count($errors).' with problems', ['done' => true]);
-        if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
-        if ($made) {
-            Activity::log('created', 'inet', null, (string) $made, ['Generated :n e-tax invoice(s)', ['n' => $made]], [], null, null, false, 'accounting');
-        }
-        Session::flash($errors ? 'error' : 'success', __(':n invoice(s) generated.', ['n' => $made]).($errors ? ' '.__(':n had problems — see the message on each row.', ['n' => count($errors)]) : ''));
-        json_response(['ok' => true, 'made' => $made, 'errors' => array_slice($errors, 0, 20)], 200);
+        json_response(['job' => $id]);
+    }
+
+    /** How far a Generate job is (polled once a second). */
+    public function job(string $id): never
+    {
+        $this->authorize($this->resource, 'create');
+        session_write_close();
+        $j = Jobs::read($id) ?? abort(404);
+        json_response(array_intersect_key($j, array_flip(['id', 'status', 'total', 'built', 'printed', 'saved', 'made', 'errors', 'message'])) + ['printed' => 0]);
     }
 
     /** Read the invoice (and its order rows) from the ERP again and refresh the figures. */
@@ -268,17 +265,22 @@ class InetController extends ErpListController
         if ($f = Request::file('pdf')) {
             $bytes = ($f['error'] ?? 1) === UPLOAD_ERR_OK ? (string) file_get_contents($f['tmp_name']) : '';
             if (! str_starts_with($bytes, '%PDF') || strlen($bytes) > 15 * 1024 * 1024) {
+                if (Request::isJson()) { json_response(['ok' => false, 'message' => __('Choose a PDF file (up to 15 MB).')]); }
                 Session::flash('error', __('Choose a PDF file (up to 15 MB).'));
                 $this->backTo($row);
             }
             $pdf = $bytes;
         }
+        $ok = true;
         try {
-            Session::flash('success', InetClient::send($row, strtoupper($doc), $pdf));
+            $msg = InetClient::send($row, strtoupper($doc), $pdf);
         } catch (\Throwable $e) {
             Log::exception('inet', $e, $row['no_invoice'].' '.$doc.' send failed');
-            Session::flash('error', $e->getMessage());
+            $ok = false;
+            $msg = $e->getMessage();
         }
+        Session::flash($ok ? 'success' : 'error', $msg);
+        if (Request::isJson()) { json_response(['ok' => $ok, 'message' => $msg]); }
         $this->backTo($row);
     }
 

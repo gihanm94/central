@@ -40,6 +40,7 @@ $r->get('/accounting/sellers/{id}/edit', [SellerController::class, 'edit']);
 $r->post('/accounting/sellers/{id}', [SellerController::class, 'update']);
 $r->get('/accounting/inet/candidates', [InetController::class, 'candidates']);
 $r->post('/accounting/inet/generate', [InetController::class, 'generate']);
+$r->get('/accounting/inet/job/{job}', [InetController::class, 'job']);
 $r->post('/accounting/inet/{id}/sync', [InetController::class, 'sync']);
 $r->post('/accounting/inet/{id}/regenerate', [InetController::class, 'regenerate']);
 $r->post('/accounting/inet/{id}/delete', [InetController::class, 'destroy']);
