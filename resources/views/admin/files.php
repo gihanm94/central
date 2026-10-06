@@ -1,9 +1,9 @@
 <?php
 use App\Core\Support\Files;
 /* $roots, $root, $path, $rows, $total, $perPage, $page, $q, $folders, $sort, $dir */
-$crumbs = [];
+$trail = [];
 $acc = '';
-foreach (array_filter(explode('/', $path)) as $seg) { $acc .= ($acc === '' ? '' : '/').$seg; $crumbs[$seg.'|'.$acc] = $acc; }
+foreach (array_filter(explode('/', $path)) as $seg) { $acc .= ($acc === '' ? '' : '/').$seg; $trail[$seg.'|'.$acc] = $acc; }
 $u = fn (array $extra = []) => url('/files', array_filter(['root' => $root, 'path' => $path, 'q' => $q, 'sort' => $sort !== 'name' ? $sort : null, 'dir' => $dir === 'desc' ? 'desc' : null, 'per_page' => $perPage !== 20 ? $perPage : null] + $extra, fn ($v) => $v !== null && $v !== ''));
 $sortLink = function (string $col, string $label) use ($u, $sort, $dir) {
     $next = $sort === $col && $dir === 'asc' ? 'desc' : 'asc';
@@ -27,7 +27,7 @@ $icon = fn (array $r) => $r['dir'] ? 'folder' : (in_array($r['ext'], ['png', 'jp
 <section class="panel mt-3 overflow-hidden">
     <div class="flex flex-wrap items-center gap-3 border-b border-graphite-900/8 p-3">
         <nav class="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm" aria-label="<?= e(__('Path')) ?>"><a href="<?= url('/files', ['root' => $root]) ?>" class="font-medium hover:text-signal-700"><?= e($roots[$root]['label']) ?></a>
-            <?php foreach ($crumbs as $k => $rel): [$seg] = explode('|', $k, 2); ?><span class="text-graphite-400">/</span><a href="<?= url('/files', ['root' => $root, 'path' => $rel]) ?>" class="hover:text-signal-700"><?= e($seg) ?></a><?php endforeach ?></nav>
+            <?php foreach ($trail as $k => $rel): [$seg] = explode('|', $k, 2); ?><span class="text-graphite-400">/</span><a href="<?= url('/files', ['root' => $root, 'path' => $rel]) ?>" class="hover:text-signal-700"><?= e($seg) ?></a><?php endforeach ?></nav>
         <form method="GET" action="<?= url('/files') ?>" class="flex items-center gap-2"><input type="hidden" name="root" value="<?= e($root) ?>"><?php if ($path !== ''): ?><input type="hidden" name="path" value="<?= e($path) ?>"><?php endif ?>
             <input name="q" value="<?= e($q) ?>" class="input !h-9 w-56" placeholder="<?= e(__('Search by name…')) ?>"><button class="btn-secondary !h-9"><?= e(__('Search')) ?></button><?php if ($q !== ''): ?><a href="<?= e($u(['q' => null])) ?>" class="btn-ghost !h-9"><?= e(__('Clear')) ?></a><?php endif ?></form>
     </div>

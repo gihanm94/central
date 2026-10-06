@@ -170,6 +170,7 @@ function back(?string $type = null, ?string $message = null): never
 
 function json_response(array $data, int $status = 200): never
 {
+    while (ob_get_level() > 0) { ob_end_clean(); }      // drop stray notices so the JSON stays valid
     http_response_code($status);
     header('Content-Type: application/json');
     echo json_encode($data);

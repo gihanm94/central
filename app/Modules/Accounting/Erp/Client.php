@@ -140,7 +140,7 @@ final class Client
         $out = curl_exec($ch);
         $err = $out === false ? curl_error($ch) : null;
         $st  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+
         $ms = (int) round((microtime(true) - $t0) * 1000);
         $shown = preg_replace('/^(\/[^?]*).*/', '$1', $path).(str_contains($path, '?') ? '?'.rawurldecode(substr($path, strpos($path, '?') + 1)) : '');
         $ctx = ['status' => $st, 'ms' => $ms, 'bytes' => $out === false ? 0 : strlen((string) $out)];

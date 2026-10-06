@@ -104,7 +104,7 @@ final class Lark
                 curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $json, CURLOPT_HTTPHEADER => $headers,
                     CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4]);
                 $raw = curl_exec($ch);
-                curl_close($ch);
+
             } else {
                 $raw = @file_get_contents($url, false, stream_context_create(['http' => [
                     'method' => 'POST', 'header' => implode("\r\n", $headers), 'content' => $json, 'timeout' => 6, 'ignore_errors' => true,

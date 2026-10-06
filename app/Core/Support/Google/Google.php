@@ -114,7 +114,7 @@ final class Google
         $out = curl_exec($ch);
         $st = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err = $out === false ? curl_error($ch) : null;
-        curl_close($ch);
+
         if ($err !== null) { throw new \RuntimeException('Google: '.$err); }
 
         return ['status' => $st, 'body' => json_decode((string) $out, true) ?: []];
@@ -130,7 +130,7 @@ final class Google
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($form), CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8]);
         $out = curl_exec($ch);
-        curl_close($ch);
+
 
         return json_decode((string) $out, true) ?: [];
     }

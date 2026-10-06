@@ -35,7 +35,7 @@ final class InetClient
         $body = curl_exec($ch);
         $err  = $body === false ? curl_error($ch) : null;
         $st   = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+
         $ctx = ['status' => $st, 'ms' => (int) round((microtime(true) - $t0) * 1000), 'fields' => array_keys($payload), 'answer' => mb_substr(trim((string) $body), 0, 600)];
         if ($err !== null) { Log::error('inet', 'POST '.$url.' failed: '.$err, $ctx); throw new \RuntimeException('INET: '.$err); }
         if ($st < 200 || $st >= 300) { Log::error('inet', 'POST '.$url.' → HTTP '.$st, $ctx); }
@@ -59,7 +59,7 @@ final class InetClient
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30, CURLOPT_FOLLOWLOCATION => true]);
         $b = curl_exec($ch);
         $st = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+
         ($b === false || $st >= 400 ? [Log::class, 'error'] : [Log::class, 'info'])('inet', 'GET signed PDF → HTTP '.$st, ['bytes' => is_string($b) ? strlen($b) : 0, 'url' => preg_replace('/\?.*/', '?…', $url)]);
         if ($b === false || $st >= 400 || $b === '') { throw new \RuntimeException('The signed PDF could not be downloaded (HTTP '.$st.').'); }
 

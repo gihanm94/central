@@ -37,14 +37,22 @@
     var custBtn = $('[data-cust-btn]', page), pop = $('[data-cust-pop]', page), q = $('[data-cust-q]', page), list = $('[data-cust-list]', page), timer;
     var busy = typeof AcctBusy === 'function' ? AcctBusy(page) : null;
 
-    function fetchJson(u) { return fetch(u, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }); }
+    function fetchJson(u) {
+        // tolerate stray PHP notices before the JSON, and surface real failures instead of silently doing nothing
+        return fetch(u, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).then(function (r) {
+            return r.text().then(function (t) {
+                var i = t.indexOf('{'); if (i > 0) t = t.slice(i);
+                try { return JSON.parse(t); } catch (e) { throw new Error('HTTP ' + r.status); }
+            });
+        });
+    }
     function loadCustomers() {
         fetchJson(L.customers + '?q=' + encodeURIComponent(q.value.trim())).then(function (d) {
             list.innerHTML = d.rows.map(function (c) {
                 return '<li role="option" data-id="' + c.id + '" class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 hover:bg-mist"><span class="min-w-0"><span class="block truncate text-sm font-medium">' + esc(c.name) + '</span><span class="block text-xs text-steel">' + esc(c.code) + '</span></span>' +
                     '<span class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ' + (c.invoices > 0 ? 'bg-sky-50 text-sky-800' : 'bg-mist text-steel') + '">' + c.invoices + ' ' + esc(L.lInv) + '</span></li>';
-            }).join('');
-        });
+            }).join('') || '<li class="px-3 py-4 text-center text-sm text-steel">' + esc(L.lNoCust || 'No customers found. Sync Customers from the ERP first.') + '</li>';
+        }).catch(function (e) { list.innerHTML = '<li class="px-3 py-4 text-center text-sm text-signal-700">' + esc(e.message) + '</li>'; });
     }
     custBtn.addEventListener('click', function () { pop.hidden = !pop.hidden; if (!pop.hidden) { q.value = ''; loadCustomers(); q.focus(); } });
     q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(loadCustomers, 250); });
@@ -59,7 +67,7 @@
             $('[data-addr-text]', page).textContent = st.address || '—';
             var custom = $('input[name=addr][value=custom]', page); if (!st.address) { custom.checked = true; $('[data-addr-custom]', page).hidden = false; } else { $('input[name=addr][value=customer]', page).checked = true; $('[data-addr-custom]', page).hidden = true; }
             renderInvoices(); update();
-        });
+        }).catch(function (e) { window.toast ? window.toast(e.message, 'error') : alert(e.message); });
     });
 
     function renderInvoices() {
