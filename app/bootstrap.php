@@ -39,5 +39,6 @@ if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
         'samesite' => 'Lax',
     ]);
     ini_set('session.use_strict_mode', '1');
+    ini_set('session.gc_maxlifetime', (string) (((int) config('security.session_max_hours', 12) + 1) * 3600));       // keep the session files as long as a sign-in may live
     session_start();
 }

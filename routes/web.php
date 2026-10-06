@@ -11,6 +11,7 @@ use App\Core\Http\Controllers\MemberController;
 use App\Core\Http\Controllers\NotificationController;
 use App\Core\Http\Controllers\PasskeyController;
 use App\Core\Http\Controllers\ProfileController;
+use App\Core\Http\Controllers\SessionAdminController;
 use App\Core\Http\Controllers\RoleController;
 use App\Core\Http\Controllers\SettingsController;
 use App\Core\Http\Controllers\TablePrefController;
@@ -43,9 +44,15 @@ $router->group(['auth'], function (Router $r) {
     $r->get('/dashboard/admin', [DashboardController::class, 'admin']);
     $r->post('/logout', [AuthController::class, 'logout']);
 
+    $r->get('/sessions', [SessionAdminController::class, 'index']);
+    $r->post('/sessions/user/{id}/revoke', [SessionAdminController::class, 'revokeUser']);
+    $r->post('/sessions/{id}/revoke', [SessionAdminController::class, 'revoke']);
     $r->get('/profile', [ProfileController::class, 'edit']);
     $r->post('/profile', [ProfileController::class, 'update']);
     $r->get('/profile/security', [ProfileController::class, 'security']);
+    $r->get('/profile/sessions', [ProfileController::class, 'sessions']);
+    $r->post('/profile/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions']);
+    $r->post('/profile/sessions/{id}/revoke', [ProfileController::class, 'revokeSession']);
     $r->post('/profile/password', [ProfileController::class, 'password']);
     $r->get('/profile/preferences', [ProfileController::class, 'preferences']);
     $r->post('/profile/preferences', [ProfileController::class, 'savePreferences']);

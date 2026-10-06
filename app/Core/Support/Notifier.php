@@ -84,7 +84,7 @@ final class Notifier
             $isActor = (int) $u['id'] === $actorId;
             $prefs   = self::prefs($u['notify_prefs'])[$module][$action] ?? [];
 
-            I18n::with($u['locale'], function () use ($u, $rule, $prefs, $isActor, $build) {
+            try { I18n::with($u['locale'], function () use ($u, $rule, $prefs, $isActor, $build, $module, $action, $url, $actorId) {
                 [$subject, $lines] = $build($isActor);
                 if ($rule['email'] && ($prefs['email'] ?? true)) {
                     Mailer::notify($u['email'], $u['name'], $subject, $lines, ['label' => __('Open dashboard'), 'url' => url('/dashboard')], __('If you did not expect this, contact your administrator.'));
@@ -96,7 +96,7 @@ final class Notifier
                 if ($rule['app'] && ($prefs['app'] ?? true) && ! $isActor) {
                     self::bell((int) $u['id'], $module, $action, $subject, strip_tags((string) ($lines[1] ?? '')), $url, $actorId);
                 }
-            });
+            }); } catch (\Throwable $e) { error_log('[notify] '.$module.'/'.$action.' to user '.$u['id'].': '.$e->getMessage()); }     // one failing channel must not stop the others or the save
         }
 
         if ($rule['lark'] && Lark::mode() === 'webhook') {

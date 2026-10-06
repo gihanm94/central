@@ -29,15 +29,27 @@ final class Auth
         if (! empty($_SESSION['uid'])) {
             $user = self::load((int) $_SESSION['uid']);
             if ($user && ($user->session_version === (int) ($_SESSION['sv'] ?? 0))) {
-                return self::$user = $user;
+                $why = SessionGuard::check($user->id);                 // ended by the person / an administrator, or past the maximum age → sign in again
+                if ($why === null) {
+                    return self::$user = $user;
+                }
+                self::clearSession();
+                self::forgetCookie();
+                Session::flash('error', $why === 'expired'
+                    ? __('For your security you were signed out after :h hours. Please sign in again.', ['h' => SessionGuard::maxHours()])
+                    : __('This session was ended. Please sign in again.'));
+
+                return null;
             }
             self::clearSession();
         }
 
         if (! empty($_COOKIE[self::COOKIE])) {
-            $user = self::fromRememberCookie((string) $_COOKIE[self::COOKIE]);
+            $started = null;
+            $user = self::fromRememberCookie((string) $_COOKIE[self::COOKIE], $started);
             if ($user) {
-                self::startSession($user);
+                self::startSession($user, 'remember', $started);
+                self::issueRememberCookie($user->id, $started);          // a new one-time cookie, same hard end
                 Activity::log('login', 'user', $user->id, $user->name, 'Signed in automatically (remember me)', [], null, $user->id, false);
 
                 return self::$user = $user;
@@ -86,6 +98,7 @@ final class Auth
                       ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until',
                 [$key, $attempts >= $max ? 0 : $attempts, $attempts >= $max ? date('c', time() + 60 * (int) config('security.lockout_minutes', 1)) : null]);
             Activity::log('login_failed', null, null, null, ['Failed sign-in for :email', ['email' => $email]], ['email' => $email], null, $row['id'] ?? null, false);
+            SessionGuard::event($row['id'] ?? null, 'failed', 'password', null, $email);
 
             return $ok ? __('This account is deactivated. Contact your administrator.') : __('These details do not match an active account.');
         }
@@ -103,7 +116,7 @@ final class Auth
     /** Final step for every sign-in method. */
     public static function login(CurrentUser $user, bool $remember, string $method): void
     {
-        self::startSession($user);
+        self::startSession($user, $method);
         if ($remember) {
             self::issueRememberCookie($user->id);
         }
@@ -131,9 +144,12 @@ final class Auth
 
     public static function logout(): void
     {
-        if ($u = self::user()) {
+        $u = self::user();
+        if ($u) {
             Activity::log('logout', 'user', $u->id, $u->name, 'Signed out', [], null, $u->id, false);
         }
+        SessionGuard::end('logout');
+        if ($u) { SessionGuard::event($u->id, 'logout', null); }
         if (! empty($_COOKIE[self::COOKIE])) {
             [$selector] = explode(':', (string) $_COOKIE[self::COOKIE]) + [''];
             DB::exec('DELETE FROM remember_tokens WHERE selector = ?', [$selector]);
@@ -150,15 +166,17 @@ final class Auth
         $_SESSION['sv'] = (int) DB::scalar('SELECT session_version FROM users WHERE id = ?', [$userId]);
         $current = explode(':', (string) ($_COOKIE[self::COOKIE] ?? ''))[0];
         DB::exec('DELETE FROM remember_tokens WHERE user_id = ? AND selector <> ?', [$userId, $current]);
+        SessionGuard::revokeAll($userId, ! empty($_SESSION['sid']) ? (int) $_SESSION['sid'] : null, $userId);
     }
 
     /* ------------------------------------------------------------------ */
 
-    private static function startSession(CurrentUser $user): void
+    private static function startSession(CurrentUser $user, string $method = 'password', ?string $startedAt = null): void
     {
         Session::regenerate();
         $_SESSION['uid'] = $user->id;
         $_SESSION['sv']  = $user->session_version;
+        SessionGuard::start($user->id, $method, $startedAt);
     }
 
     private static function clearSession(): void
@@ -169,36 +187,39 @@ final class Auth
         }
     }
 
-    private static function issueRememberCookie(int $userId): void
+    /** "Remember me" never outlives the hard maximum of the sign-in it came from (security.session_max_hours). */
+    private static function issueRememberCookie(int $userId, ?string $startedAt = null): void
     {
         $selector  = bin2hex(random_bytes(12));
         $validator = bin2hex(random_bytes(32));
-        $days      = (int) config('security.remember_days', 30);
+        $started   = $startedAt ?: date('c');
+        $until     = min(strtotime($started) + SessionGuard::maxHours() * 3600, time() + 86400 * (int) config('security.remember_days', 30));
         DB::insert('remember_tokens', [
             'user_id'    => $userId,
             'selector'   => $selector,
             'token_hash' => hash('sha256', $validator),
             'user_agent' => Request::userAgent(),
-            'expires_at' => date('c', time() + 86400 * $days),
+            'expires_at' => date('c', $until),
+            'started_at' => $started,
         ]);
         setcookie(self::COOKIE, $selector.':'.$validator, [
-            'expires' => time() + 86400 * $days, 'path' => '/', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Lax',
+            'expires' => $until, 'path' => '/', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Lax',
         ]);
+        SessionGuard::attachRemember($selector);
     }
 
-    private static function fromRememberCookie(string $cookie): ?CurrentUser
+    private static function fromRememberCookie(string $cookie, ?string &$started = null): ?CurrentUser
     {
         [$selector, $validator] = array_pad(explode(':', $cookie, 2), 2, '');
         $row = DB::first('SELECT * FROM remember_tokens WHERE selector = ? AND expires_at > now()', [$selector]);
         if (! $row || ! hash_equals($row['token_hash'], hash('sha256', $validator))) {
             return null;
         }
-        // Rotate: one-time use protects against stolen cookies.
+        // Rotate: one-time use protects against stolen cookies. The original sign-in time is kept, so the hard maximum still counts from it.
         DB::exec('DELETE FROM remember_tokens WHERE id = ?', [$row['id']]);
+        $started = (string) ($row['started_at'] ?: $row['created_at']);
+        if (strtotime($started) + SessionGuard::maxHours() * 3600 <= time()) { return null; }
         $user = self::load((int) $row['user_id']);
-        if ($user) {
-            self::issueRememberCookie($user->id);
-        }
 
         return $user;
     }

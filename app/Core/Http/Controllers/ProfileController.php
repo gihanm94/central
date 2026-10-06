@@ -86,6 +86,46 @@ class ProfileController extends Controller
         ]);
     }
 
+    /** My signed-in browsers + the device log. */
+    public function sessions(): string
+    {
+        $u = $this->user();
+        $page = max(1, (int) Request::query('page', 1));
+        $per = 15;
+        $total = (int) DB::scalar('SELECT count(*) FROM login_events WHERE user_id = ?', [$u->id]);
+
+        return view('profile/sessions', [
+            'title' => __('Sessions'), 'me' => $u,
+            'sessions' => DB::select('SELECT * FROM user_sessions WHERE user_id = ? AND revoked_at IS NULL AND expires_at > now() ORDER BY last_seen_at DESC', [$u->id]),
+            'events' => DB::select('SELECT * FROM login_events WHERE user_id = ? ORDER BY id DESC LIMIT '.$per.' OFFSET '.(($page - 1) * $per), [$u->id]),
+            'page' => $page, 'pages' => max(1, (int) ceil($total / $per)), 'total' => $total, 'maxHours' => \App\Core\Auth\SessionGuard::maxHours(),
+        ]);
+    }
+
+    /** End one of my sessions; ending the one I am using signs me out. */
+    public function revokeSession(int $id): never
+    {
+        $u = $this->user();
+        $row = DB::first('SELECT * FROM user_sessions WHERE id = ? AND user_id = ?', [$id, $u->id]) ?? abort(404);
+        $mine = \App\Core\Auth\SessionGuard::isCurrent($row);
+        \App\Core\Auth\SessionGuard::revoke($id, $u->id);
+        if ($mine) {
+            Auth::logout();
+            Session::flash('success', __('You were signed out.'));
+            redirect('/login');
+        }
+        Session::flash('success', __('Session ended. That device is signed out.'));
+        redirect('/profile/sessions');
+    }
+
+    public function revokeOtherSessions(): never
+    {
+        $u = $this->user();
+        $n = \App\Core\Auth\SessionGuard::revokeAll($u->id, ! empty($_SESSION['sid']) ? (int) $_SESSION['sid'] : null, $u->id);
+        Session::flash('success', __(':n other session(s) ended.', ['n' => $n]));
+        redirect('/profile/sessions');
+    }
+
     public function password(): never
     {
         $u    = $this->user();

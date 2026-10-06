@@ -41,6 +41,8 @@ return [
     ],
     'security' => [
         'remember_days'      => 30,
+        'session_max_hours'  => 12,       // hard end of every sign-in (remember-me included): sign in again after this
+        'session_rotate_minutes' => 10,   // the session id (the browser's access token) is replaced this often
         'reset_minutes'      => 60,
         'max_login_attempts' => 5,
         'lockout_minutes'    => 1,
