@@ -24,6 +24,7 @@ class SearchController extends Controller
             'leads'         => ['crm_leads', 'lead'],
             'contacts'      => ['crm_contacts', 'contact'],
             'opportunities' => ['crm_opportunities', 'opportunity'],
+            'projects'      => ['crm_projects', 'project'],
             default         => abort(404),
         };
     }
@@ -62,6 +63,15 @@ class SearchController extends Controller
                 if ($q !== '') {
                     $where[] = '(t.name_en ILIKE ? OR t.name_th ILIKE ? OR t.email ILIKE ? OR l.name_en ILIKE ?)';
                     array_push($params, $like, $like, $like, $like);
+                }
+                break;
+            case 'projects':
+                $select = "t.id, t.name AS label, t.code AS sub, NULL AS img";
+                $from   = 'projects t';
+                $order  = "(t.status IN ('DONE','CANCELLED')), t.name, t.id";
+                if ($q !== '') {
+                    $where[] = '(t.name ILIKE ? OR t.code ILIKE ?)';
+                    array_push($params, $like, $like);
                 }
                 break;
             default:

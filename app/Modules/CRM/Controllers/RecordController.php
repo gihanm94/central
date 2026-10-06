@@ -23,6 +23,7 @@ final class RecordController extends Controller
     private const CONTROLLERS = [
         'lead' => LeadController::class, 'contact' => ContactController::class, 'opportunity' => OpportunityController::class,
         'campaign' => CampaignController::class, 'activity' => ActivityController::class,
+        'project' => ProjectController::class, 'task' => TaskController::class,
     ];
 
     /** @return array{0: CrmController, 1: array} controller and the record (404 if hidden from this person) */

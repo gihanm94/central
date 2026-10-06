@@ -13,10 +13,12 @@ use App\Modules\CRM\Controllers\LeadSourceController;
 use App\Modules\CRM\Controllers\OpportunityController;
 use App\Modules\CRM\Controllers\PipelineController;
 use App\Modules\CRM\Controllers\ProductController;
+use App\Modules\CRM\Controllers\ProjectController;
 use App\Modules\CRM\Controllers\RecordController;
 use App\Modules\CRM\Controllers\SearchController;
 use App\Modules\CRM\Controllers\StageController;
 use App\Modules\CRM\Controllers\TargetController;
+use App\Modules\CRM\Controllers\TaskController;
 
 /** @var Router $r  (inside the 'auth' group of routes/web.php) */
 
@@ -37,6 +39,7 @@ $r->post('/crm/settings/targets', [TargetController::class, 'save']);
 $crm = [
     'leads' => LeadController::class, 'contacts' => ContactController::class, 'opportunities' => OpportunityController::class,
     'campaigns' => CampaignController::class, 'activities' => ActivityController::class,
+    'projects' => ProjectController::class, 'tasks' => TaskController::class,
     'settings/industries' => IndustryController::class, 'settings/lead-sources' => LeadSourceController::class,
     'settings/products' => ProductController::class, 'settings/currencies' => CurrencyController::class,
 ];
@@ -70,6 +73,9 @@ $r->post('/crm/opportunities/{id}/stage', [OpportunityController::class, 'moveSt
 $r->post('/crm/opportunities/{id}/steps', [OpportunityController::class, 'addStep']);
 $r->post('/crm/opportunities/{id}/steps/{sid}/done', [OpportunityController::class, 'doneStep']);
 $r->post('/crm/opportunities/{id}/steps/{sid}/delete', [OpportunityController::class, 'deleteStep']);
+
+// Task quick status
+$r->post('/crm/tasks/{id}/status', [TaskController::class, 'setStatus']);
 
 // Activity quick status
 $r->post('/crm/activities/{id}/status', [ActivityController::class, 'setStatus']);

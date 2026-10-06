@@ -32,6 +32,11 @@ final class Catalog
     public const CAMPAIGN_TYPES    = ['EMAIL' => 'E-mail', 'EVENT' => 'Event', 'WEBINAR' => 'Webinar', 'TRADE_SHOW' => 'Trade show', 'SOCIAL' => 'Social media', 'ADVERTISING' => 'Advertising', 'REFERRAL' => 'Referral', 'OTHER' => 'Other'];
     public const CAMPAIGN_STATUSES = ['DRAFT' => 'Draft', 'PLANNED' => 'Planned', 'ACTIVE' => 'Active', 'COMPLETED' => 'Completed', 'CANCELLED' => 'Cancelled'];
 
+    public const PROJECT_STATUSES  = ['PLANNING' => 'Planning', 'ACTIVE' => 'Active', 'ON_HOLD' => 'On hold', 'DONE' => 'Done', 'CANCELLED' => 'Cancelled'];
+    public const TASK_STATUSES     = ['TODO' => 'To do', 'IN_PROGRESS' => 'In progress', 'BLOCKED' => 'Blocked', 'DONE' => 'Done', 'CANCELLED' => 'Cancelled'];
+    public const PROJECT_TONES     = ['PLANNING' => 'neutral', 'ACTIVE' => 'info', 'ON_HOLD' => 'warn', 'DONE' => 'success', 'CANCELLED' => 'danger'];
+    public const TASK_TONES        = ['TODO' => 'neutral', 'IN_PROGRESS' => 'info', 'BLOCKED' => 'warn', 'DONE' => 'success', 'CANCELLED' => 'danger'];
+
     public const SALUTATIONS = ['Mr.', 'Mrs.', 'Ms.', 'Miss', 'Dr.', 'Prof.', 'Khun'];
 
     public static function tr(array $map): array { return array_map(fn ($l) => __($l), $map); }

@@ -3,6 +3,7 @@
  |   [data-crm-show="field=a,b"]   show a block while the field (dropdown / radio / input) has one of these values
  |   [data-repeat]                 repeating rows (mobile numbers, products): [data-repeat-add], [data-repeat-remove],
  |                                 <template data-repeat-template> with __i__, [data-repeat-next] = next index, data-min = least rows
+ |   [data-people]                 pick several people: [data-people-filter] hides rows that do not match, [data-people-count] counts the ticked ones
  |   [data-product-row]            picking a registered product hides the free-text name and fills the unit price
  */
 (function () {
@@ -63,7 +64,18 @@
         }
     });
 
-    window.AcmeCrmApply = applyShow;
-    document.addEventListener('DOMContentLoaded', applyShow);
-    applyShow();
+    function peopleCount(box) { var c = $('[data-people-count]', box); if (c) c.textContent = $$('input:checked', box).length; }
+    document.addEventListener('input', function (e) {
+        var f = e.target.closest && e.target.closest('[data-people-filter]');
+        if (!f) return;
+        var q = f.value.trim().toLowerCase(), box = f.closest('[data-people]');
+        $$('[data-people-row]', box).forEach(function (r) { r.hidden = q !== '' && r.dataset.q.indexOf(q) === -1; });
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest && e.target.closest('[data-people-filter]')) e.preventDefault(); });
+    document.addEventListener('change', function (e) { var box = e.target.closest && e.target.closest('[data-people]'); if (box) peopleCount(box); });
+    function boot() { $$('[data-people]').forEach(peopleCount); }
+
+    window.AcmeCrmApply = function () { applyShow(); boot(); };
+    document.addEventListener('DOMContentLoaded', window.AcmeCrmApply);
+    window.AcmeCrmApply();
 })();

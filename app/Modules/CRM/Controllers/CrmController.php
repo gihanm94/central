@@ -95,6 +95,7 @@ abstract class CrmController extends ResourceController
     {
         $r = match ($kind) {
             'leads'         => DB::first('SELECT name_en AS label, name_th AS sub, image AS img FROM leads WHERE id = ?', [$id], 'crm'),
+            'projects'      => DB::first("SELECT name AS label, code AS sub, NULL AS img FROM projects WHERE id = ?", [$id], 'crm'),
             'contacts'      => DB::first("SELECT trim(coalesce(c.salutation || ' ', '') || c.name_en) AS label, concat_ws(' · ', l.name_en, c.job_title) AS sub, c.avatar AS img FROM contacts c LEFT JOIN leads l ON l.id = c.lead_id WHERE c.id = ?", [$id], 'crm'),
             default         => DB::first("SELECT o.name AS label, concat_ws(' · ', o.code, l.name_en) AS sub, NULL AS img FROM opportunities o LEFT JOIN leads l ON l.id = o.lead_id WHERE o.id = ?", [$id], 'crm'),
         };
@@ -114,7 +115,7 @@ abstract class CrmController extends ResourceController
     /** A picked record must be one this person may see (an unchanged existing value is left alone). */
     protected function checkRemote(array $data, ?array $existing): void
     {
-        $tables = ['leads' => ['leads', 'lead'], 'contacts' => ['contacts', 'contact'], 'opportunities' => ['opportunities', 'opportunity']];
+        $tables = ['leads' => ['leads', 'lead'], 'contacts' => ['contacts', 'contact'], 'opportunities' => ['opportunities', 'opportunity'], 'projects' => ['projects', 'project']];
         foreach ($this->remote as $col => $kind) {
             $v = $data[$col] ?? null;
             if ($v === null || $v === '' || ($existing && (string) ($existing[$col] ?? '') === (string) $v)) {
@@ -230,7 +231,7 @@ abstract class CrmController extends ResourceController
     {
         $raw['owner_id'] = $raw['owner_id'] ?? $this->user()->id;
         // a lead / contact / opportunity may be given by name in the CSV
-        $names = ['leads' => ['leads', 'name_en', 'lead'], 'contacts' => ['contacts', 'name_en', 'contact'], 'opportunities' => ['opportunities', 'name', 'opportunity']];
+        $names = ['leads' => ['leads', 'name_en', 'lead'], 'contacts' => ['contacts', 'name_en', 'contact'], 'opportunities' => ['opportunities', 'name', 'opportunity'], 'projects' => ['projects', 'name', 'project']];
         foreach ($this->remote as $col => $kind) {
             $v = trim((string) ($raw[$col] ?? ''));
             if ($v === '' || ctype_digit($v)) {

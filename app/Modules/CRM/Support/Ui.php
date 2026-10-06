@@ -79,5 +79,22 @@ final class Ui
         return '<a href="'.e(url($href)).'" class="'.$class.'">'.e($text).'</a>';
     }
 
+    /** A row of overlapping round initials, e.g. the people responsible. */
+    public static function avatars(array $names, int $max = 4): string
+    {
+        if (! $names) {
+            return self::dash();
+        }
+        $out = '';
+        foreach (array_slice($names, 0, $max) as $n) {
+            $out .= '<span title="'.e($n).'" class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-900/8 text-[10px] font-semibold text-graphite-700 ring-2 ring-white">'.e(initials($n)).'</span>';
+        }
+        if (count($names) > $max) {
+            $out .= '<span title="'.e(implode(', ', array_slice($names, $max))).'" class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-900 text-[10px] font-semibold text-white ring-2 ring-white">+'.(count($names) - $max).'</span>';
+        }
+
+        return '<span class="inline-flex -space-x-2">'.$out.'</span>';
+    }
+
     public static function dash(): string { return '<span class="text-graphite-400">—</span>'; }
 }

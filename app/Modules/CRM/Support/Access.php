@@ -26,6 +26,8 @@ final class Access
         'opportunity' => ['path' => 'opportunities', 'table' => 'opportunities', 'perm' => 'crm_opportunities', 'label' => 'Opportunity'],
         'campaign'    => ['path' => 'campaigns',     'table' => 'campaigns',     'perm' => 'crm_campaigns',     'label' => 'Campaign'],
         'activity'    => ['path' => 'activities',    'table' => 'activities',    'perm' => 'crm_activities',    'label' => 'Activity'],
+        'project'     => ['path' => 'projects',      'table' => 'projects',      'perm' => 'crm_projects',      'label' => 'Project'],
+        'task'        => ['path' => 'tasks',         'table' => 'tasks',         'perm' => 'crm_tasks',         'label' => 'Task'],
     ];
 
     public static function typeForPath(string $path): ?string
@@ -62,6 +64,24 @@ final class Access
         }
         $parts[] = $share.'))';
 
+        // People who are responsible for a project / task always see it; tasks follow the project they belong to.
+        if ($type === 'project') {
+            $parts[]  = "EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = {$alias}.id AND pm.user_id = ?)";
+            $parts[]  = "EXISTS (SELECT 1 FROM tasks k JOIN task_assignees ta ON ta.task_id = k.id WHERE k.project_id = {$alias}.id AND k.deleted_at IS NULL AND ta.user_id = ?)";
+            array_push($params, $u->id, $u->id);
+        } elseif ($type === 'task') {
+            $parts[]  = "EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = {$alias}.id AND ta.user_id = ?)";
+            $parts[]  = "EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = {$alias}.project_id AND pm.user_id = ?)";
+            array_push($params, $u->id, $u->id);
+            $pshare = "EXISTS (SELECT 1 FROM record_shares rs2 WHERE rs2.entity_type = 'project' AND rs2.entity_id = {$alias}.project_id AND ((rs2.target_type = 'user' AND rs2.target_id = ?)";
+            $params[] = $u->id;
+            if ($u->department_id) {
+                $pshare  .= " OR (rs2.target_type = 'department' AND rs2.target_id = ?)";
+                $params[] = $u->department_id;
+            }
+            $parts[] = $pshare.'))';
+        }
+
         return ['sql' => '('.implode(' OR ', $parts).')', 'params' => $params];
     }
 
@@ -79,8 +99,25 @@ final class Access
         if (self::isManager($u, $row)) {
             return true;
         }
+        if ($type === 'project' && self::isMember($u, (int) $row['id'])) {
+            return true;
+        }
+        if ($type === 'task') {
+            $project = DB::first('SELECT * FROM projects WHERE id = ?', [(int) $row['project_id']], 'crm');
+            if ($project && (self::isManager($u, $project) || self::isMember($u, (int) $project['id']) || self::shareLevel($u, 'project', (int) $project['id']) === 'edit')) {
+                return true;
+            }
+            if (DB::scalar('SELECT 1 FROM task_assignees WHERE task_id = ? AND user_id = ?', [(int) $row['id'], $u->id], 'crm')) {
+                return true;
+            }
+        }
 
         return self::shareLevel($u, $type, (int) $row['id']) === 'edit';
+    }
+
+    public static function isMember(CurrentUser $u, int $projectId): bool
+    {
+        return (bool) DB::scalar('SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?', [$projectId, $u->id], 'crm');
     }
 
     /** Best access the user got through shares: 'edit', 'view' or null. */
