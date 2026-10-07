@@ -40,6 +40,7 @@ class DepartmentController extends ResourceController
         return [
             'name'        => ['label' => __('Name'), 'rules' => 'required|max:120', 'example' => 'Operations'],
             'code'        => ['label' => __('Short code'), 'rules' => 'required|max:20|unique:departments,code'.($row ? ','.$row['id'] : ''), 'help' => __('e.g. OPS, FIN'), 'example' => 'OPS'],
+            'color'       => ['label' => __('Colour'), 'type' => 'color', 'rules' => 'nullable|max:9', 'default' => \App\Core\Support\DeptColor::of($row ? (int) $row['id'] : (int) DB::scalar('SELECT COALESCE(MAX(id), 0) + 1 FROM departments')), 'help' => __('Used in the control room charts.')],
             'head_id'     => ['label' => __('Head (BU manager)'), 'type' => 'select', 'options' => $heads, 'rules' => 'nullable'],
             'is_active'   => ['label' => __('Active'), 'type' => 'checkbox', 'default' => true],
             'description' => ['label' => __('Description'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:1000'],
@@ -49,7 +50,7 @@ class DepartmentController extends ResourceController
     protected function columns(): array
     {
         return [
-            'name'    => ['label' => __('Department'), 'primary' => true, 'render' => fn ($r) => '<a href="'.url('/departments/'.$r['id']).'" class="font-medium hover:text-signal-700">'.e($r['name']).'</a> <span class="ml-1 text-xs text-steel">'.e($r['code']).'</span>'],
+            'name'    => ['label' => __('Department'), 'primary' => true, 'render' => fn ($r) => '<span class="mr-2 inline-block size-2.5 rounded-full align-middle" style="background:'.e(\App\Core\Support\DeptColor::of((int) $r['id'], $r['color'])).'"></span><a href="'.url('/departments/'.$r['id']).'" class="font-medium hover:text-signal-700">'.e($r['name']).'</a> <span class="ml-1 text-xs text-steel">'.e($r['code']).'</span>'],
             'head'    => ['label' => __('Head'), 'render' => fn ($r) => e($r['head_name'] ?? '—')],
             'members' => ['label' => __('Members'), 'render' => fn ($r) => '<span class="tabular-nums">'.(int) $r['members_count'].'</span>'],
             'teams'   => ['label' => __('Teams'), 'render' => fn ($r) => '<span class="tabular-nums">'.(int) $r['teams_count'].'</span>'],
