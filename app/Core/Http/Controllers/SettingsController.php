@@ -42,6 +42,12 @@ class SettingsController extends Controller
             }
         }
 
+        $logoOn = Request::boolean('auth_logo') ? '1' : '0';
+        if ((Settings::get('auth_logo') ?? '1') !== $logoOn) {
+            $changed['auth_logo'] = ['from' => Settings::get('auth_logo') ?? '1', 'to' => $logoOn];
+            Settings::put('auth_logo', $logoOn);
+        }
+
         foreach (['company_logo' => ['branding', 2048, true, 'remove_logo'], 'login_image' => ['branding', 5120, false, 'remove_login_image']] as $key => [$folder, $kb, $svg, $remove]) {
             $old = Settings::get($key);
             if ($file = Request::file($key)) {

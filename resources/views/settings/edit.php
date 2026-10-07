@@ -21,12 +21,13 @@
                     </div>
                     <input name="company_logo" type="file" accept="image/*" data-preview="#logo-preview" class="mt-2 w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-graphite-900 file:px-2.5 file:py-1 file:text-white">
                     <p class="hint"><?= e(__('PNG or SVG with a transparent background suits the dark sidebar. Up to 2 MB.')) ?></p>
+                    <label class="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" name="auth_logo" value="1" <?= $brand['auth_logo'] ? 'checked' : '' ?> class="accent-signal-600"> <?= e(__('Show the logo on the sign-in page')) ?></label>
                     <?php if ($brand['logo']): ?><label class="mt-1 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="remove_logo" value="1" class="accent-signal-600"> <?= e(__('Remove logo')) ?></label><?php endif ?>
                 </div>
                 <div>
                     <span class="label"><?= e(__('Sign-in picture')) ?></span>
                     <div class="relative h-24 overflow-hidden rounded-md bg-graphite-800">
-                        <img id="login-preview" src="<?= e($brand['login_image'] ?? '') ?>" alt="" <?= $brand['login_image'] ? '' : 'hidden' ?> class="size-full object-cover">
+                        <img id="login-preview" src="<?= e($brand['login_image'] ?? '') ?>" alt="" <?= $brand['login_image'] ? '' : 'hidden' ?> class="size-full object-contain">
                         <?php if (! $brand['login_image']): ?><span class="absolute inset-0 flex items-center justify-center gap-1.5 text-xs text-graphite-400"><?= icon('photo', 'size-4') ?> <?= e(__('Default texture')) ?></span><?php endif ?>
                     </div>
                     <input name="login_image" type="file" accept="image/jpeg,image/png,image/webp" data-preview="#login-preview" class="mt-2 w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-graphite-900 file:px-2.5 file:py-1 file:text-white">
@@ -48,7 +49,7 @@
             <p class="label"><?= e(__('Sign-in page preview')) ?></p>
             <div class="grid aspect-[16/10] grid-cols-[1.15fr_0.85fr] overflow-hidden rounded-lg bg-graphite-950 ring-1 ring-graphite-900/10">
                 <div class="relative overflow-hidden bg-graphite-800">
-                    <?php if ($brand['login_image']): ?><img src="<?= e($brand['login_image']) ?>" alt="" class="absolute inset-0 size-full object-cover"><?php endif ?>
+                    <?php if ($brand['login_image']): ?><img src="<?= e($brand['login_image']) ?>" alt="" class="absolute inset-0 size-full object-contain p-3"><?php endif ?>
                     <div class="absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent"></div>
                     <div class="absolute bottom-[22%] left-0 right-[8%] bg-signal-600 py-2 pl-4" style="clip-path: polygon(0 0,100% 0,94% 100%,0 100%)"><p class="truncate font-display text-lg font-bold text-white"><?= e($brand['name']) ?></p></div>
                 </div>
