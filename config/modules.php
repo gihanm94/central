@@ -59,8 +59,7 @@ return [
             ['label' => 'Campaigns',     'url' => '/crm/campaigns',     'icon' => 'chat',      'permission' => 'crm_campaigns.view'],
             ['heading' => 'Setup'],
             ['label' => 'Data tools',    'url' => '/crm/data',          'icon' => 'download',  'admin_only' => true],
-            ['label' => 'Industries',    'url' => '/crm/settings/industries',   'icon' => 'building', 'permission' => 'crm_settings.view'],
-            ['label' => 'Lead sources',  'url' => '/crm/settings/lead-sources', 'icon' => 'globe',    'permission' => 'crm_settings.view'],
+            ['label' => 'Settings',      'url' => '/crm/settings',      'icon' => 'cog', 'permission_any' => ['crm_settings.view', 'crm_stages.view', 'crm_targets.view']],
         ],
     ],
     'accounting' => [

@@ -1518,4 +1518,5 @@ return [
     'Won opportunities in the CRM (no ERP department linked)' => 'โอกาสที่ปิดได้ใน CRM (ยังไม่ผูกแผนก ERP)',
     'Set targets' => 'ตั้งเป้าหมาย',
     'No target set for this year yet.' => 'ยังไม่ได้ตั้งเป้าหมายของปีนี้',
+    'Settings' => 'ตั้งค่า',
 ];

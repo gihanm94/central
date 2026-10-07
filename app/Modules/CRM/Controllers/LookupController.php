@@ -34,6 +34,8 @@ abstract class LookupController extends ResourceController
 
     protected function meta(): array { return parent::meta() + ['tabs' => self::tabs()]; }
 
+    protected function topExtra(): string { return partial('partials/tabs', ['tabs' => self::tabs()]); }
+
     protected function label(array $row): string { return (string) ($row['name'] ?? $row['code'] ?? '#'.$row['id']); }
 
     protected function prepare(array $data, ?array $existing): array
