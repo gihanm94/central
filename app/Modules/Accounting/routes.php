@@ -71,6 +71,8 @@ $r->get('/accounting/billing/invoices', [BillingController::class, 'invoices']);
 $r->post('/accounting/billing', [BillingController::class, 'store']);
 $r->post('/accounting/billing/bulk-delete', [BillingController::class, 'bulkDestroy']);
 $r->get('/accounting/billing/{id}', [BillingController::class, 'show']);
+$r->get('/accounting/billing/{id}/edit', [BillingController::class, 'edit']);
+$r->post('/accounting/billing/{id}', [BillingController::class, 'update']);
 $r->get('/accounting/billing/{id}/pdf', [BillingController::class, 'pdf']);
 $r->post('/accounting/billing/{id}/regenerate', [BillingController::class, 'regenerate']);
 $r->post('/accounting/billing/{id}/state/{to}', [BillingController::class, 'state']);

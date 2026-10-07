@@ -29,7 +29,10 @@ class BillingController extends ErpListController
                        (SELECT count(*) FROM billing_note_invoices b WHERE b.billing_id = t.id) AS invoice_count FROM billing_notes t";
     }
 
-    protected function canModify(array $row, string $action): bool { return $action === 'delete'; }
+    protected function canModify(array $row, string $action): bool
+    {
+        return $action === 'delete' || ($action === 'edit' && (! filter_var($row['is_complete'], FILTER_VALIDATE_BOOL) || $this->user()->isAdmin()));
+    }
     protected function meta(): array { return parent::meta() + ['selectable' => can($this->resource, 'delete')]; }
     protected function label(array $row): string { return (string) $row['billing_number']; }
     protected function searchable(): array { return ['t.billing_number', 't.customer_code', 't.customer_name', 't.vat_number']; }
@@ -63,8 +66,9 @@ class BillingController extends ErpListController
     protected function rowLinks(array $row): array
     {
         $b = $this->base.'/'.$row['id'];
-        $l = [['url' => $b.'/pdf', 'label' => __('View PDF'), 'icon' => 'eye'], ['url' => $b.'/pdf?download=1', 'label' => __('Download PDF'), 'icon' => 'download']];
+        $l = [['url' => $b, 'label' => __('Open'), 'icon' => 'doc'], ['url' => $b.'/pdf', 'label' => __('View PDF'), 'icon' => 'eye'], ['url' => $b.'/pdf?download=1', 'label' => __('Download PDF'), 'icon' => 'download']];
         if (can($this->resource, 'edit')) {
+            if ($this->canModify($row, 'edit')) { $l[] = ['url' => $b.'/edit', 'label' => __('Edit'), 'icon' => 'pencil']; }
             $l[] = ['url' => $b.'/regenerate', 'label' => __('Build the PDF again'), 'icon' => 'bolt', 'post' => true];
             if (! filter_var($row['is_paid'], FILTER_VALIDATE_BOOL)) { $l[] = ['url' => $b.'/state/paid', 'label' => __('Mark as paid'), 'icon' => 'check', 'post' => true]; }
             if (! filter_var($row['is_complete'], FILTER_VALIDATE_BOOL)) { $l[] = ['url' => $b.'/state/complete', 'label' => __('Mark as complete'), 'icon' => 'check', 'post' => true]; }
@@ -102,13 +106,13 @@ class BillingController extends ErpListController
     {
         $this->authorize($this->resource, 'create');
         session_write_close();
-        $id = (int) Request::query('customer');
+        $id = trim((string) Request::query('customer'));
         try {
             $c = BillingService::customer($id);
             $rows = $c ? BillingService::invoices($id) : [];
         } catch (\Throwable $e) { error_log('[billing] invoices: '.$e->getMessage()); json_response(['error' => $e->getMessage()], 500); }
-        $c || json_response(['error' => __('Customer not found.')], 404);
-        json_response(['customer' => ['id' => $c['id'], 'name' => (string) $c['name'], 'code' => (string) $c['code'], 'address' => (string) $c['address']], 'rows' => $rows]);
+        $c || json_response(['error' => __('Customer not found.').' (#'.e($id).')'], 404);
+        json_response(['customer' => ['id' => (string) $c['id'], 'name' => (string) $c['name'], 'code' => (string) $c['code'], 'address' => (string) $c['address']], 'rows' => $rows]);
     }
 
     public function store(): never
@@ -116,7 +120,7 @@ class BillingController extends ErpListController
         $this->authorize($this->resource, 'create');
         try {
             $id = BillingService::create([
-                'customer_id' => (int) Request::input('customer_id'), 'invoices' => (array) Request::input('invoices', []), 'address' => (string) Request::input('address', ''),
+                'customer_id' => trim((string) Request::input('customer_id')), 'invoices' => (array) Request::input('invoices', []), 'address' => (string) Request::input('address', ''),
                 'billing_date' => (string) Request::input('billing_date', ''), 'remind_date' => (string) Request::input('remind_date', ''), 'is_thai' => Request::input('lang', 'th') !== 'en',
                 'override' => (string) Request::input('override', ''),
             ], $this->user()->id, $this->user()->isAdmin());
@@ -130,6 +134,43 @@ class BillingController extends ErpListController
         Session::flash('success', __('Billing note :n created.', ['n' => $row['billing_number']]));
         if (Request::isJson()) { json_response(['ok' => true, 'id' => $id, 'url' => url('/accounting/billing')]); }
         redirect('/accounting/billing');
+    }
+
+    /* ------------------------------------------------------------------ view + edit */
+
+    public function show(int $id): string
+    {
+        $this->authorize($this->resource, 'view');
+        $row = $this->find($id);
+        $note = BillingService::get($id) ?? abort(404);
+
+        return view('accounting/billing-show', ['title' => (string) $row['billing_number'], 'n' => $note, 'status' => $row['status'], 'canEdit' => can($this->resource, 'edit') && $this->canModify($row, 'edit'),
+            'canDelete' => can($this->resource, 'delete'), 'by' => array_column(DB::select('SELECT id, name FROM users WHERE id IN (?, ?)', [(int) $note['created_by'], (int) $note['updated_by']], 'core'), 'name', 'id')]);
+    }
+
+    public function edit(int $id): string
+    {
+        $row = $this->findForChange($id, 'edit');
+        $note = BillingService::get($id) ?? abort(404);
+
+        return view('accounting/billing-edit', ['title' => __('Edit :n', ['n' => $row['billing_number']]), 'n' => $note, 'choices' => BillingService::choices($note), 'isAdmin' => $this->user()->isAdmin()]);
+    }
+
+    public function update(int $id): never
+    {
+        $row = $this->findForChange($id, 'edit');
+        try {
+            BillingService::update($id, [
+                'invoices' => (array) Request::input('invoices', []), 'address' => (string) Request::input('address', ''), 'billing_date' => (string) Request::input('billing_date', ''), 'remind_date' => (string) Request::input('remind_date', ''),
+                'is_thai' => Request::input('lang', 'th') !== 'en', 'note' => (string) Request::input('note', ''), 'remark' => (string) Request::input('remark', ''), 'billing_number' => (string) Request::input('billing_number', ''),
+            ], $this->user()->id, $this->user()->isAdmin());
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+            back();
+        }
+        Activity::log('updated', $this->type, $id, (string) $row['billing_number'], ['Updated :type ":label"', ['type' => $this->singular, 'label' => $row['billing_number']]], ['_url' => url('/accounting/billing/'.$id)], null, null, false, 'accounting');
+        Session::flash('success', __('Billing note :n saved. The PDF was built again.', ['n' => $row['billing_number']]));
+        redirect('/accounting/billing/'.$id);
     }
 
     /* ------------------------------------------------------------------ pdf + states */

@@ -36,14 +36,16 @@ final class BillingService
             $par = [$like, $like, $like];
         }
 
-        return DB::select("SELECT c.id, c.name, c.code, coalesce(x.n, 0)::int AS invoices FROM erp_customers c
+        return array_map(fn ($r) => ['id' => (string) $r['id']] + $r, DB::select("SELECT c.id, c.name, c.code, coalesce(x.n, 0)::int AS invoices FROM erp_customers c
                            LEFT JOIN (SELECT d.customer_id, count(*) AS n FROM erp_documents d WHERE NOT EXISTS (SELECT 1 FROM billing_note_invoices b WHERE b.invoice_number = d.invoice_number) GROUP BY d.customer_id) x ON x.customer_id = c.id
-                           {$where} ORDER BY coalesce(x.n, 0) DESC, c.name LIMIT 40", $par, self::C);
+                           {$where} ORDER BY coalesce(x.n, 0) DESC, c.name LIMIT 40", $par, self::C));
     }
 
-    public static function customer(int $id): ?array
+    /** @param int|string $id ERP ids can be larger than a browser can count exactly, so they travel as strings */
+    public static function customer(int|string $id): ?array
     {
-        $c = DB::first('SELECT c.*, a.addressee, a.field1, a.field2, a.field3, a.field4, a.field5, a.locality, a.region, a.postal_code FROM erp_customers c LEFT JOIN erp_addresses a ON a.id = c.mailing_address_id WHERE c.id = ?', [$id], self::C);
+        if (! preg_match('/^\d{1,19}$/', (string) $id)) { return null; }
+        $c = DB::first('SELECT c.*, a.addressee, a.field1, a.field2, a.field3, a.field4, a.field5, a.locality, a.region, a.postal_code FROM erp_customers c LEFT JOIN erp_addresses a ON a.id = c.mailing_address_id WHERE c.id = ?::bigint', [(string) $id], self::C);
         if (! $c) { return null; }
         $parts = [];
         foreach (['addressee', 'field1', 'field2', 'field3', 'field4', 'field5', 'locality', 'region', 'postal_code'] as $k) {
@@ -56,15 +58,15 @@ final class BillingService
     }
 
     /** Invoices of a customer that are not on any billing note yet. */
-    public static function invoices(int $customerId): array
+    public static function invoices(int|string $customerId): array
     {
         $rows = DB::select("SELECT d.invoice_number, d.order_number, d.invoice_date, d.currency_code, d.amount AS net, d.is_credit AS doc_credit,
                                    r.invoice_amount, r.vat_amount, r.due_date, r.is_credit AS r_credit, pt.grace_period_in_days AS grace
                               FROM erp_documents d
                               LEFT JOIN erp_receivables r ON r.invoice_number = d.invoice_number
                               LEFT JOIN erp_orders o ON o.id = d.order_id LEFT JOIN erp_payment_terms pt ON pt.id = o.payment_term_id
-                             WHERE d.customer_id = ? AND NOT EXISTS (SELECT 1 FROM billing_note_invoices b WHERE b.invoice_number = d.invoice_number)
-                             ORDER BY d.invoice_number DESC LIMIT 300", [$customerId], self::C);
+                             WHERE d.customer_id = ?::bigint AND NOT EXISTS (SELECT 1 FROM billing_note_invoices b WHERE b.invoice_number = d.invoice_number)
+                             ORDER BY d.invoice_number DESC LIMIT 300", [(string) $customerId], self::C);
         $out = [];
         foreach ($rows as $r) {
             $credit = $r['r_credit'] !== null ? filter_var($r['r_credit'], FILTER_VALIDATE_BOOL) : filter_var($r['doc_credit'], FILTER_VALIDATE_BOOL);
@@ -94,7 +96,7 @@ final class BillingService
      */
     public static function create(array $in, int $by, bool $isAdmin): int
     {
-        $c = self::customer((int) $in['customer_id']) ?? throw new \RuntimeException(__('Choose a customer.'));
+        $c = self::customer($in['customer_id']) ?? throw new \RuntimeException(__('Choose a customer.'));
         $want = array_values(array_unique(array_map('intval', $in['invoices'])));
         if (! $want) { throw new \RuntimeException(__('Choose at least one invoice.')); }
         $avail = array_column(self::invoices((int) $c['id']), null, 'invoice_number');
@@ -148,6 +150,78 @@ final class BillingService
         DB::exec('UPDATE billing_notes SET file_key = ?, updated_at = now() WHERE id = ?', [$key, $id], self::C);
 
         return $abs;
+    }
+
+    /** A note with its invoices, for the detail and edit pages. */
+    public static function get(int $id): ?array
+    {
+        $n = DB::first('SELECT * FROM billing_notes WHERE id = ?', [$id], self::C);
+        if (! $n) {
+            return null;
+        }
+        $n['rows'] = DB::select('SELECT * FROM billing_note_invoices WHERE billing_id = ? ORDER BY invoice_number', [$id], self::C);
+
+        return $n;
+    }
+
+    /** What can be on this note: its own invoices plus the customer's invoices that are not billed yet. @return array<int, array> by invoice number */
+    public static function choices(array $note): array
+    {
+        $out = [];
+        foreach ($note['rows'] as $r) {
+            $out[(int) $r['invoice_number']] = ['invoice_number' => (int) $r['invoice_number'], 'order_no' => (string) $r['order_no'], 'invoice_date' => $r['invoice_date'], 'due_date' => $r['due_date'], 'amount' => (float) $r['amount'],
+                'vat_amount' => (float) $r['vat_amount'], 'is_credit' => filter_var($r['is_credit'], FILTER_VALIDATE_BOOL), 'currency' => $note['currency_code'], 'on_note' => true];
+        }
+        if ($note['customer_id']) {
+            foreach (self::invoices($note['customer_id']) as $r) {
+                $out[$r['invoice_number']] ??= $r + ['on_note' => false];
+            }
+        }
+        krsort($out);
+
+        return $out;
+    }
+
+    /** Change a note: address, dates, language, remark, the invoices on it (and its number, administrators only). Builds the PDF again. */
+    public static function update(int $id, array $in, int $by, bool $isAdmin): void
+    {
+        $n = self::get($id) ?? throw new \RuntimeException(__('Billing note not found.'));
+        if (filter_var($n['is_complete'], FILTER_VALIDATE_BOOL) && ! $isAdmin) {
+            throw new \RuntimeException(__('A complete billing note can only be changed by an administrator.'));
+        }
+        $choices = self::choices($n);
+        $want = array_values(array_unique(array_map('intval', (array) ($in['invoices'] ?? []))));
+        if (! $want) { throw new \RuntimeException(__('Choose at least one invoice.')); }
+        $rows = [];
+        foreach ($want as $no) { isset($choices[$no]) ? $rows[] = $choices[$no] : throw new \RuntimeException(__('Invoice :no is not available (already billed, or not this customer\'s).', ['no' => $no])); }
+        $date   = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($in['billing_date'] ?? '')) ? (string) $in['billing_date'] : (string) $n['billing_at'];
+        $remind = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($in['remind_date'] ?? '')) ? (string) $in['remind_date'] : $date;
+        $address = trim((string) ($in['address'] ?? '')); $address = $address !== '' ? $address : (string) $n['address'];
+        $total = 0.0;
+        foreach ($rows as $r) { $total += $r['is_credit'] ? -$r['amount'] : $r['amount']; }
+        $number = (string) $n['billing_number'];
+        if ($isAdmin && trim((string) ($in['billing_number'] ?? '')) !== '' && trim((string) $in['billing_number']) !== $number) {
+            $number = trim((string) $in['billing_number']);
+            if (DB::scalar('SELECT 1 FROM billing_notes WHERE billing_number = ? AND id <> ?', [$number, $id], self::C)) { throw new \RuntimeException(__('The number :n is already used.', ['n' => $number])); }
+        }
+        $pdo = DB::connection(self::C);
+        $pdo->beginTransaction();
+        try {
+            DB::exec('DELETE FROM billing_note_invoices WHERE billing_id = ?', [$id], self::C);
+            foreach ($rows as $r) {
+                DB::insert('billing_note_invoices', ['billing_id' => $id, 'invoice_number' => $r['invoice_number'], 'order_no' => $r['order_no'], 'amount' => $r['amount'], 'vat_amount' => $r['vat_amount'],
+                    'is_credit' => $r['is_credit'] ? 'true' : 'false', 'invoice_date' => $r['invoice_date'], 'due_date' => $r['due_date']], self::C);
+            }
+            DB::update('billing_notes', ['billing_number' => $number, 'is_thai' => ! empty($in['is_thai']) ? 'true' : 'false', 'address' => $address, 'billing_at' => $date, 'remind_date' => $remind, 'total_amount' => round($total, 2),
+                'currency_code' => $rows[0]['currency'] ?: $n['currency_code'], 'note' => trim((string) ($in['note'] ?? '')) ?: null, 'remark' => trim((string) ($in['remark'] ?? '')) ?: null, 'updated_by' => $by, 'updated_at' => now()], ['id' => $id], self::C);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        if ($number !== $n['billing_number'] && $n['file_key']) { @unlink(BASE_PATH.'/storage/'.$n['file_key']); DB::exec('UPDATE billing_notes SET file_key = NULL WHERE id = ?', [$id], self::C); }
+        Log::info('billing', $number.': edited', ['invoices' => count($rows), 'total' => round($total, 2), 'by' => $by]);
+        try { self::pdf($id, true); } catch (\Throwable $e) { Log::exception('billing', $e, $number.' PDF not made'); }
     }
 
     public static function banks(bool $thai): array { return self::BANKS[$thai ? 'th' : 'en']; }
