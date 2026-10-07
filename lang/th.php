@@ -1388,4 +1388,6 @@ return [
     'Changed the person responsible for ":label"' => 'เปลี่ยนผู้รับผิดชอบของ ":label"',
     'Completed (late)' => 'เสร็จ (ล่าช้า)',
     'Supervisor overdue' => 'หัวหน้างานเกินกำหนด',
+    'Sign-in banner' => 'ชื่อบนแถบแดงหน้าเข้าสู่ระบบ',
+    'The name in the red band on the sign-in picture. Empty = the company name.' => 'ชื่อในแถบสีแดงบนรูปหน้าเข้าสู่ระบบ ถ้าว่างจะใช้ชื่อบริษัท',
 ];

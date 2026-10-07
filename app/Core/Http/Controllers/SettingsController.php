@@ -30,9 +30,10 @@ class SettingsController extends Controller
         $data = $this->validate([
             'company_name'   => 'required|max:120',
             'login_tagline'  => 'nullable|max:160',
+            'login_banner'   => 'nullable|max:60',
             'support_email'  => 'nullable|email|max:160',
             'default_locale' => 'required|in:'.implode(',', array_keys(I18n::available())),
-        ], ['company_name' => __('Company name'), 'support_email' => __('Support e-mail'), 'default_locale' => __('Default language')]);
+        ], ['company_name' => __('Company name'), 'login_banner' => __('Sign-in banner'), 'support_email' => __('Support e-mail'), 'default_locale' => __('Default language')]);
 
         $changed = [];
         foreach ($data as $key => $value) {

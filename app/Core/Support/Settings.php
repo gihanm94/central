@@ -43,6 +43,7 @@ final class Settings
             'logo'        => upload_url($s['company_logo'] ?? null),
             'login_image' => upload_url($s['login_image'] ?? null),
             'support'     => $s['support_email'] ?? null,
+            'banner'      => trim((string) ($s['login_banner'] ?? $s['company_name'] ?? config('app.name'))),
             'auth_logo'   => ($s['auth_logo'] ?? '1') !== '0',
         ];
     }

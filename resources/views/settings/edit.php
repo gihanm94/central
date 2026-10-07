@@ -8,6 +8,7 @@
         <div class="panel-head"><h2 class="panel-title"><?= e(__('Brand')) ?></h2></div>
         <div class="space-y-5 p-5">
             <div><label for="company_name" class="label"><?= e(__('Company name')) ?></label><input id="company_name" name="company_name" value="<?= e(old('company_name', $brand['name'])) ?>" required class="input"><?= field_error('company_name') ?></div>
+            <div><label for="login_banner" class="label"><?= e(__('Sign-in banner')) ?></label><input id="login_banner" name="login_banner" value="<?= e(old('login_banner', $brand['banner'])) ?>" maxlength="60" class="input"><p class="hint"><?= e(__('The name in the red band on the sign-in picture. Empty = the company name.')) ?></p></div>
             <div><label for="login_tagline" class="label"><?= e(__('Sign-in page message')) ?></label><input id="login_tagline" name="login_tagline" value="<?= e(old('login_tagline', $brand['tagline'])) ?>" maxlength="160" class="input"><p class="hint"><?= e(__('One short line shown under the company name.')) ?></p></div>
             <div><label for="support_email" class="label"><?= e(__('Support e-mail')) ?></label><input id="support_email" name="support_email" type="email" value="<?= e(old('support_email', $brand['support'])) ?>" placeholder="it-help@company.com" class="input"><p class="hint"><?= e(__('Shown on the sign-in page for people who need an account.')) ?></p><?= field_error('support_email') ?></div>
             <div><label for="default_locale" class="label"><?= e(__('Default language')) ?></label><?= select_field('default_locale', App\Core\Support\I18n::available(), old('default_locale', setting('default_locale', 'en')), ['id' => 'default_locale', 'required' => true]) ?><p class="hint"><?= e(__('For the sign-in page and anyone who has not picked a language.')) ?></p></div>
@@ -51,7 +52,7 @@
                 <div class="relative overflow-hidden bg-graphite-800">
                     <?php if ($brand['login_image']): ?><img src="<?= e($brand['login_image']) ?>" alt="" class="absolute inset-0 size-full object-contain p-3"><?php endif ?>
                     <div class="absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent"></div>
-                    <div class="absolute bottom-[22%] left-0 right-[8%] bg-signal-600 py-2 pl-4" style="clip-path: polygon(0 0,100% 0,94% 100%,0 100%)"><p class="truncate font-display text-lg font-bold text-white"><?= e($brand['name']) ?></p></div>
+                    <div class="absolute bottom-[22%] left-0 right-[8%] bg-signal-600 py-2 pl-4" style="clip-path: polygon(0 0,100% 0,94% 100%,0 100%)"><p class="truncate font-display text-lg font-bold text-white"><?= e($brand['banner']) ?></p></div>
                 </div>
                 <div class="flex flex-col justify-center gap-2 p-4"><div class="h-2.5 w-1/2 rounded bg-white/80"></div><div class="mt-2 h-5 rounded bg-graphite-800"></div><div class="h-5 rounded bg-graphite-800"></div><div class="mt-1 h-5 rounded bg-signal-600"></div></div>
             </div>
