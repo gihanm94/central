@@ -41,6 +41,9 @@ class NotificationController extends Controller
         if (config('modules.crm.enabled') && class_exists(\App\Modules\CRM\Support\Reminders::class)) {
             \App\Modules\CRM\Support\Reminders::tick();
         }
+        if (config('modules.machines.enabled') && class_exists(\App\Modules\Machines\Support\Jobs::class)) {
+            try { \App\Modules\Machines\Support\Jobs::tick(); } catch (\Throwable $e) { error_log('[machines-jobs] '.$e->getMessage()); }
+        }
         json_response(['unread' => self::unread($u->id), 'html' => partial('partials/notification-list', ['items' => self::latest($u->id)])]);
     }
 

@@ -211,6 +211,19 @@ Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, 
 - **Google connectors** (`/connectors` for the administrator, *Profile → Connectors* for everyone): create an OAuth client in Google Cloud Console (type *Web application*), enable the Gmail API and Google Calendar API, add the redirect URI shown on the Connectors page, paste the client id and secret. Each person then connects their own account; tokens are stored encrypted (AES-256-GCM, key derived from `app.key`). **Mail** (`/mail`) reads/searches/sends Gmail without copying it. **Calendar** (`/calendar`, and *CRM → Calendar*) shows CRM activities plus the Google Calendar; click a day to create an activity in the side sheet, click an activity to edit it. Every activity with a start time is also written to its owner's Google Calendar and kept in sync on edit, status change and delete.
 - Notification e-mails are sent by the `mail` driver in `config/config.php`: `log` only writes them to *Settings → Mail log*; set `smtp` to really send.
 
+## Machine Checklist (`/machines`)
+
+Ported from the Spring service (entities, services, schedulers). Data lives in `machine_db` (migration `database/sql/migrations/machines`); people and departments come from the core. No overview page yet.
+
+- **Machine types** (group → type) and **Questions** (the question bank) are managed by Admin, BU manager and Manager (`machines_types`, `machines_questions`).
+- **Register**: anyone files a request (machine, people, maintenance and calibration plan, documents). An administrator/manager turns it into a **Machine** (*Create the machine*), which gets the code `<dept code>-<group><type>-<running no>` and a QR label (`{"status":true,"code":"…"}`, the same text the old labels carry). Documents are stored in `storage/machines` (signed-in download only).
+- **Machine page**: QR code (print labels at `/machines/label`), checklist items (a question + when it starts again: general, daily, a weekday, monthly), maintenance and calibration plan, responsible-person history, change of responsible person.
+- **Checklists** (mobile first): scan a QR code (`/machines/scan`: camera, photo of a QR code or typed code). Everybody does the *general* check. The responsible person's weekly/monthly *re-check* goes to the supervisor, then the manager, for approval; every step notifies the next person. NG answers and a non-operational status notify the team.
+- **Maintenance** and **Calibration**: lists by year/state/department, edit, *Do the maintenance* (maintenance checklist, work done, photo, documents, late detection), calibration certificate and measurements.
+- **Who sees what**: whole-company roles see everything; a department head sees the department; everybody else the machines they are responsible for, supervise or manage (plus what they checked or must approve).
+- **Background jobs** (`app/Modules/Machines/Support/Jobs.php`): items start again on their day, weekly (Mon 00:05) / monthly (1st) close-out marks unapproved re-checks `…-OVERDUE` and puts machines back to PENDING, Friday 15:00 / last day 23:55 automatic "no action taken" records, weekday 09:00 maintenance/calibration reminders (managers Mon/Wed 09:15), 25 December copies the rounds to next year. Run `*/5 * * * * php bin/machines-cron.php` from cron; without cron the website runs them about once a minute while somebody is signed in. They start counting from the first run (no catching up on the past).
+- Differences from the old service: a general check never changes the machine's check state; approving moves the machine's state along; the monthly automatic record runs on the last day of the month.
+
 ## E-mail
 
 The installer defaults to **log** mode: every e-mail is saved as an HTML file in `storage/mail/`
