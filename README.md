@@ -264,3 +264,9 @@ resources/views    PHP templates (layouts, pages, e-mails)
 routes/web.php     all URLs
 storage/           logs, saved e-mails, install lock
 ```
+
+### CRM header, revenue vs target
+
+- **Departments → ERP department**: an admin can link a department to an Accounting (ERP) department; the id is stored in `departments.erp_department_id`.
+- The CRM overview has the same header as the Control room (period presets, date range). The department select is shown to admin and management only; the member select lists everyone with CRM access (admin/management), or the people of the own department (BU manager / manager). Members do not see it.
+- The full-width **Revenue vs target** card shows Q1–Q4 and the year: revenue is the invoiced amount from Accounting for the linked ERP department (converted with the CRM currency rates), or CRM won deals when no ERP department is linked. Targets and the saved achieved amount are set in CRM settings → Targets (admin, BU manager).

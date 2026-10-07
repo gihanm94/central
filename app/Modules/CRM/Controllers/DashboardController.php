@@ -26,6 +26,14 @@ class DashboardController extends Controller
         $pick  = $all ? (int) Request::query('department', 0) : 0;
         $pick  = isset($deps[$pick]) ? $pick : 0;
         $mine  = Request::query('mine') === '1';
+        [$from, $to, $range] = \App\Core\Support\Period::fromRequest();
+        $lo = $from->format('Y-m-d'); $hi = $to->format('Y-m-d');          // validated dates: safe to put in the SQL
+
+        // who can be picked: everybody with CRM access for whole-company roles, the own department's for BU managers and managers, nobody for members
+        $people = Access::crmMembers($u, $pick ?: null);
+        $member = (int) Request::query('member', 0);
+        $member = isset($people[$member]) ? $member : 0;
+        if ($people) { $mine = false; }
 
         // Which records feed the numbers (alias t = the CRM table)
         if ($all) {
@@ -38,9 +46,9 @@ class DashboardController extends Controller
             [$sql, $params] = ['t.owner_id = ?', [$u->id]];
             $scopeName = __('My records');
         }
-        if ($mine) {
+        if ($mine || $member) {
             $sql    = "($sql) AND t.owner_id = ?";
-            $params = [...$params, $u->id];
+            $params = [...$params, $member ?: $u->id];
         }
         $f = ['sql' => $sql, 'params' => $params];
 
@@ -62,8 +70,8 @@ class DashboardController extends Controller
 
         // ----- won / lost
         $won = (array) DB::first("SELECT
-              count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON' AND date_trunc('month', {$when}) = date_trunc('month', now())) AS month_n,
-              COALESCE(sum({$val}) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON' AND date_trunc('month', {$when}) = date_trunc('month', now())), 0) AS month_v,
+              count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON' AND {$when}::date BETWEEN '{$lo}' AND '{$hi}') AS month_n,
+              COALESCE(sum({$val}) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON' AND {$when}::date BETWEEN '{$lo}' AND '{$hi}'), 0) AS month_v,
               COALESCE(sum({$val}) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON' AND date_trunc('year', {$when}) = date_trunc('year', now())), 0) AS year_v,
               count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON' AND {$when} >= now() - interval '12 months') AS won12,
               count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_LOST' AND {$when} >= now() - interval '12 months') AS lost12
@@ -72,14 +80,14 @@ class DashboardController extends Controller
         $winRate = $closed ? round((int) $won['won12'] / $closed * 100) : null;
 
         $months = DB::select("SELECT to_char(m, 'YYYY-MM') AS ym, to_char(m, 'Mon') AS label, COALESCE(sum({$val}), 0) AS v, count(t.id) AS n
-            FROM generate_series(date_trunc('month', now()) - interval '5 months', date_trunc('month', now()), interval '1 month') m
+            FROM generate_series(LEAST(date_trunc('month', '{$lo}'::date), date_trunc('month', '{$hi}'::date) - interval '5 months'), date_trunc('month', '{$hi}'::date), interval '1 month') m
             LEFT JOIN opportunities t ON t.deleted_at IS NULL AND t.opportunity_stage = 'CLOSED_WON' AND date_trunc('month', {$when}) = m AND {$f['sql']}
             LEFT JOIN currencies c ON c.code = t.currency GROUP BY m ORDER BY m", $f['params'], 'crm');
 
         // ----- leads, contacts
         $counts = (array) DB::first("SELECT
               (SELECT count(*) FROM leads t WHERE t.deleted_at IS NULL AND {$f['sql']}) AS leads,
-              (SELECT count(*) FROM leads t WHERE t.deleted_at IS NULL AND t.created_at >= date_trunc('month', now()) AND {$f['sql']}) AS leads_new,
+              (SELECT count(*) FROM leads t WHERE t.deleted_at IS NULL AND t.created_at::date BETWEEN '{$lo}' AND '{$hi}' AND {$f['sql']}) AS leads_new,
               (SELECT count(*) FROM contacts t WHERE t.deleted_at IS NULL AND {$f['sql']}) AS contacts",
             [...$f['params'], ...$f['params'], ...$f['params']], 'crm');
         $industries = DB::select("SELECT i.name, i.color, count(DISTINCT t.id) AS n FROM industries i JOIN lead_industries x ON x.industry_id = i.id
@@ -91,7 +99,7 @@ class DashboardController extends Controller
         $actCount = (array) DB::first("SELECT
               count(*) FILTER (WHERE t.status = 'PLANNED' AND t.start_at < now()) AS overdue,
               count(*) FILTER (WHERE t.status = 'PLANNED' AND t.start_at >= now() AND t.start_at < now() + interval '7 days') AS week,
-              count(*) FILTER (WHERE t.status = 'DONE' AND t.start_at >= date_trunc('month', now())) AS done_month
+              count(*) FILTER (WHERE t.status = 'DONE' AND t.start_at::date BETWEEN '{$lo}' AND '{$hi}') AS done_month
             FROM activities t WHERE t.deleted_at IS NULL AND {$f['sql']}", $f['params'], 'crm');
         $upcoming = DB::select("SELECT t.id, t.topic, t.activity_type, t.start_at, t.status, t.owner_id, l.name_en AS lead_name
             FROM activities t LEFT JOIN leads l ON l.id = t.lead_id
@@ -115,10 +123,9 @@ class DashboardController extends Controller
         }
 
         // yearly target of the department being looked at (all departments added up for whole-company roles)
-        $year    = (int) date('Y');
+        $year    = (int) $to->format('Y');
         $depFor  = $all ? ($pick ?: null) : ($u->department_id ?: 0);
-        $summary = $depFor === 0 ? null : Targets::summary($depFor, $year);
-        $target  = $summary && ($summary['total'] > 0 || array_sum($summary['target']) > 0) ? $summary : null;
+        $target  = $depFor === 0 ? null : Targets::summary($depFor, $year);
 
         $pipeline = array_sum(array_column($stages, 'v'));
 
@@ -126,7 +133,7 @@ class DashboardController extends Controller
             'title' => __('CRM overview'), 'all' => $all, 'deps' => $deps, 'pick' => $pick, 'mine' => $mine, 'scopeName' => $scopeName, 'cur' => $cur,
             'stages' => $stages, 'hold' => $hold, 'pipeline' => $pipeline, 'forecast' => array_sum(array_column($stages, 'w')), 'openCount' => array_sum(array_column($stages, 'n')),
             'won' => $won, 'winRate' => $winRate, 'months' => $months, 'counts' => $counts, 'industries' => $industries, 'sources' => $sources,
-            'target' => $target, 'targetYear' => $year, 'actCount' => $actCount, 'upcoming' => $upcoming, 'reminders' => $reminders, 'top' => $top, 'campaigns' => $campaigns, 'owners' => $owners, 'compare' => $compare,
+            'target' => $target, 'targetYear' => $year, 'from' => $from, 'to' => $to, 'range' => $range, 'people' => $people, 'member' => $member, 'depFor' => $depFor, 'erpId' => $depFor ? \App\Modules\CRM\Support\Revenue::erpId((int) $depFor) : null, 'actCount' => $actCount, 'upcoming' => $upcoming, 'reminders' => $reminders, 'top' => $top, 'campaigns' => $campaigns, 'owners' => $owners, 'compare' => $compare,
         ]);
     }
 

@@ -49,7 +49,7 @@ class TargetController extends Controller
         $history = DB::select('SELECT year, total, a1, a2, a3, a4, actuals_saved_at FROM sales_targets WHERE department_id = ? AND actuals_saved_at IS NOT NULL ORDER BY year DESC LIMIT 6', [$dep], 'crm');
 
         return view('crm/targets', [
-            'title' => __('Sales targets'), 'tabs' => LookupController::tabs(), 'deps' => $deps, 'dep' => $dep, 'year' => $year, 'row' => $row, 'live' => Targets::live($dep, $year),
+            'title' => __('Sales targets'), 'tabs' => LookupController::tabs(), 'deps' => $deps, 'dep' => $dep, 'year' => $year, 'row' => $row, 'live' => Targets::live($dep, $year), 'source' => Targets::source($dep), 'erp' => \App\Modules\CRM\Support\Revenue::erpId($dep),
             'cur' => Targets::baseCurrency(), 'canEdit' => can('crm_targets', 'edit') && (Access::seesAll($u) || $dep === $u->department_id), 'pickDept' => Access::seesAll($u), 'history' => $history,
         ]);
     }

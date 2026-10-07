@@ -11,7 +11,7 @@ $next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep
 ?>
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div><h1 class="page-title"><?= e(__('Sales targets')) ?></h1>
-        <p class="mt-1 max-w-3xl text-sm text-steel"><?= e(__('Set the target for each quarter and the year. Actuals come from opportunities won in that quarter (in :cur); save them at year end to keep the record.', ['cur' => $cur])) ?></p></div>
+        <p class="mt-1 max-w-3xl text-sm text-steel"><?= e(__('Set the target for each quarter and the year. The achieved amount is the invoiced revenue of the ERP department of this department in that quarter (in :cur), or the opportunities won when no ERP department is set; save it at year end to keep the record.', ['cur' => $cur])) ?></p></div>
     <div class="flex flex-wrap items-center gap-2">
         <?php if ($pickDept): ?>
         <form method="GET" class="w-56"><input type="hidden" name="year" value="<?= (int) $year ?>"><?= select_field('department', $deps, (string) $dep, ['submit' => true, 'required' => true, 'aria' => __('Department')]) ?></form>
@@ -24,6 +24,9 @@ $next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep
     </div>
 </div>
 <?= partial('partials/tabs', ['tabs' => $tabs]) ?>
+<p class="mt-4 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm ring-1 <?= $source === 'accounting' ? 'bg-emerald-50 text-emerald-900 ring-emerald-600/20' : 'bg-amber-50 text-amber-900 ring-amber-600/20' ?>">
+    <?= icon($source === 'accounting' ? 'calc' : 'target', 'size-4') ?>
+    <?= e($source === 'accounting' ? ($erp ? __('Achieved = invoiced revenue of ERP department #:id from Accounting.', ['id' => $erp]) : __('Achieved = invoiced revenue of the whole company from Accounting.')) : __('Achieved = opportunities won in the CRM. Set this department\'s ERP department under Departments to use Accounting revenue instead.')) ?></p>
 
 <form method="POST" action="<?= url('/crm/settings/targets') ?>" class="mt-5">
     <?= csrf_field() ?>
@@ -32,7 +35,7 @@ $next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep
     <section class="panel overflow-hidden">
         <div class="overflow-x-auto">
             <table class="table w-max min-w-full">
-                <thead><tr><th><?= e(__('Quarter')) ?></th><th class="text-right"><?= e(__('Target')) ?> (<?= e($cur) ?>)</th><th class="text-right"><?= e(__('Won so far')) ?></th><th class="text-right"><?= e(__('Saved actual')) ?></th><th class="min-w-48"><?= e(__('Achieved')) ?></th></tr></thead>
+                <thead><tr><th><?= e(__('Quarter')) ?></th><th class="text-right"><?= e(__('Target')) ?> (<?= e($cur) ?>)</th><th class="text-right"><?= e($source === 'accounting' ? __('Revenue so far') : __('Won so far')) ?></th><th class="text-right"><?= e(__('Saved actual')) ?></th><th class="min-w-48"><?= e(__('Achieved')) ?></th></tr></thead>
                 <tbody>
                 <?php foreach ([1, 2, 3, 4] as $q): $t = (float) $row['q'.$q]; $a = $row['a'.$q]; $p = $pct($live[$q], $t); ?>
                     <tr>
@@ -61,7 +64,7 @@ $next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep
     <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p class="text-xs text-steel"><?= $row['actuals_saved_at'] ? e(__('Actuals last saved :time.', ['time' => time_ago($row['actuals_saved_at'])])) : e(__('Actuals have not been saved for this year yet.')) ?></p>
         <div class="flex flex-wrap gap-2">
-            <button name="action" value="actuals_live" class="btn-secondary"><?= icon('tick', 'size-4') ?> <?= e(__('Save actuals from won deals')) ?></button>
+            <button name="action" value="actuals_live" class="btn-secondary"><?= icon('tick', 'size-4') ?> <?= e(__('Save the achieved amount')) ?></button>
             <button name="action" value="actuals" class="btn-secondary"><?= e(__('Save typed actuals')) ?></button>
             <button name="action" value="targets" class="btn-primary"><?= e(__('Save targets')) ?></button>
         </div>

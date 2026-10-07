@@ -169,6 +169,39 @@ final class Access
         return array_column(DB::select("SELECT id, name FROM {$table} WHERE id IN ({$in})", $ids), 'name', 'id');
     }
 
+    /**
+     * People whose records can be picked on the CRM dashboard: [id => "Name · Department"].
+     * Whole-company roles: everybody who may open the CRM (optionally of one department). BU managers and managers: the same, in their own department.
+     * Everybody else: nobody (empty list = no member filter).
+     */
+    public static function crmMembers(CurrentUser $u, ?int $departmentId = null): array
+    {
+        $own = false;
+        if (! self::seesAll($u)) {
+            if (! in_array($u->role_slug, ['bu_manager', 'manager'], true) && $u->scope() !== 'department') {
+                return [];
+            }
+            if (! $u->department_id) {
+                return [];
+            }
+            $departmentId = $u->department_id;
+            $own = true;
+        }
+        $rows = DB::select("SELECT u.id, u.name, d.name AS department
+                              FROM users u LEFT JOIN departments d ON d.id = u.department_id
+                              JOIN permissions p ON p.key IN ('crm_dashboard', 'crm_leads')
+                              LEFT JOIN role_permissions rp ON rp.role_id = u.role_id AND rp.permission_id = p.id
+                              LEFT JOIN user_permissions up ON up.user_id = u.id AND up.permission_id = p.id
+                             WHERE u.deleted_at IS NULL AND u.is_active AND COALESCE(up.can_view, rp.can_view, FALSE)".($departmentId ? ' AND u.department_id = ?' : '').'
+                             GROUP BY u.id, d.name ORDER BY u.name', $departmentId ? [$departmentId] : []);
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r['id']] = $r['name'].(! $own && $r['department'] ? ' · '.$r['department'] : '');
+        }
+
+        return $out;
+    }
+
     /** Active people with their department: [id => ['name', 'department_id', 'department']] */
     public static function people(): array
     {

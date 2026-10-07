@@ -13,8 +13,24 @@ final class Targets
         return (string) (DB::scalar('SELECT code FROM currencies WHERE is_base LIMIT 1', [], 'crm') ?: 'THB');
     }
 
-    /** Won value per quarter of a year: [1 => x, 2 => x, 3 => x, 4 => x]. $departmentId null = every department. */
+    /** Where the actual figures come from: 'accounting' (revenue of the department's ERP department / the whole company) or 'crm' (opportunities won). */
+    public static function source(?int $departmentId): string
+    {
+        return $departmentId ? (Revenue::erpId($departmentId) ? 'accounting' : 'crm') : (Revenue::anyMapped() ? 'accounting' : 'crm');
+    }
+
+    /** Actual per quarter: invoiced revenue from Accounting when the department is tied to an ERP department, else what was won in the CRM. */
     public static function live(?int $departmentId, int $year): array
+    {
+        if (self::source($departmentId) === 'accounting') {
+            return Revenue::quarters($departmentId ? Revenue::erpId($departmentId) : null, $year);
+        }
+
+        return self::won($departmentId, $year);
+    }
+
+    /** Won value per quarter of a year: [1 => x, 2 => x, 3 => x, 4 => x]. $departmentId null = every department. */
+    public static function won(?int $departmentId, int $year): array
     {
         $sql = "SELECT extract(quarter FROM COALESCE(t.close_at, t.updated_at))::int AS q, COALESCE(sum(COALESCE(t.amount, 0) * COALESCE(c.rate_to_base, 1)), 0) AS v
                   FROM opportunities t LEFT JOIN currencies c ON c.code = t.currency
@@ -54,6 +70,6 @@ final class Targets
         }
         $actual = self::live($departmentId, $year);
 
-        return ['target' => $target, 'total' => $total, 'actual' => $actual, 'actual_total' => array_sum($actual)];
+        return ['target' => $target, 'total' => $total, 'actual' => $actual, 'actual_total' => array_sum($actual), 'source' => self::source($departmentId)];
     }
 }

@@ -8,7 +8,7 @@ use App\Modules\CRM\Support\Ui;
 $crumbs = [];
 $money  = fn ($n) => e($cur).' '.Ui::compact((float) $n);
 $pl     = fn ($n, $one, $many) => __((int) $n === 1 ? $one : $many, ['n' => $n]);
-$link   = fn (array $over) => url('/crm/dashboard', array_filter(array_merge(['department' => $pick ?: null, 'mine' => $mine ? 1 : null], $over), fn ($v) => $v !== null));
+$link   = fn (array $over) => url('/crm/dashboard', array_filter(array_merge(['department' => $pick ?: null, 'member' => $member ?: null, 'mine' => $mine ? 1 : null, 'range' => $range, 'from' => $range === 'custom' ? $from->format('Y-m-d') : null, 'to' => $range === 'custom' ? $to->format('Y-m-d') : null], $over), fn ($v) => $v !== null));
 $maxStage = max(1.0, ...array_column($stages, 'v'));
 $maxMonth = max(1.0, ...array_map(fn ($m) => (float) $m['v'], $months));
 $maxInd   = max(1, ...array_map(fn ($i) => (int) $i['n'], $industries ?: [['n' => 1]]));
@@ -16,30 +16,31 @@ $maxSrc   = max(1, ...array_map(fn ($i) => (int) $i['n'], $sources ?: [['n' => 1
 $typeTone = ['CALL' => 'info', 'MEETING' => 'violet', 'EMAIL' => 'neutral', 'TASK' => 'warn'];
 $tiles = [
     [__('Open pipeline'), $money($pipeline), $pl($openCount, ':n open opportunity', ':n open opportunities').($forecast ? ' · '.__('forecast :v', ['v' => $money($forecast)]) : ''), null],
-    [__('Won this month'), $money($won['month_v']), $pl($won['month_n'], ':n deal', ':n deals').' · '.__('this year :v', ['v' => $money($won['year_v'])]), null],
+    [__('Won in period'), $money($won['month_v']), $pl($won['month_n'], ':n deal', ':n deals').' · '.__('this year :v', ['v' => $money($won['year_v'])]), null],
     [__('Win rate, 12 months'), $winRate === null ? '—' : $winRate.'%', __(':w won · :l lost', ['w' => (int) $won['won12'], 'l' => (int) $won['lost12']]), null],
     [__('Activities to do'), (string) (int) $actCount['overdue'], __('overdue').' · '.__(':n in the next 7 days', ['n' => (int) $actCount['week']]), (int) $actCount['overdue'] > 0 ? 'text-signal-700' : null],
-    [__('Leads'), number_format((int) $counts['leads']), __(':n new this month', ['n' => (int) $counts['leads_new']]).' · '.$pl($counts['contacts'], ':n contact', ':n contacts'), null],
+    [__('Leads'), number_format((int) $counts['leads']), __(':n new in period', ['n' => (int) $counts['leads_new']]).' · '.$pl($counts['contacts'], ':n contact', ':n contacts'), null],
 ];
+?>
+<?php
+$selects = [];
+if ($all) { $selects[] = ['department', __('Department'), $deps, $pick ?: '', __('All departments')]; }
+if ($people) { $selects[] = ['member', __('Member'), $people, $member ?: '', __('All members')]; }
+$keepQ = ['department' => $pick ?: null, 'member' => $member ?: null, 'mine' => $mine ? 1 : null, 'from' => $range === 'custom' ? $from->format('Y-m-d') : null, 'to' => $range === 'custom' ? $to->format('Y-m-d') : null];
 ?>
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
         <h1 class="page-title"><?= e(__('CRM overview')) ?></h1>
-        <p class="mt-1 text-sm text-steel"><?= e(__('Showing')) ?> <span class="font-medium text-graphite-900"><?= e($scopeName) ?></span><?= $mine ? ' · '.e(__('my records only')) : '' ?></p>
+        <p class="mt-1 text-sm text-steel"><?= e(__('Showing')) ?> <span class="font-medium text-graphite-900"><?= e($scopeName) ?></span><?= $member && isset($people[$member]) ? ' · '.e(explode(' · ', $people[$member])[0]) : '' ?><?= $mine ? ' · '.e(__('my records only')) : '' ?> · <?= e($from->format('d M Y')) ?> → <?= e($to->format('d M Y')) ?></p>
     </div>
-    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <?php if ($all): ?>
-        <form method="GET" class="w-full sm:w-56">
-            <?php if ($mine): ?><input type="hidden" name="mine" value="1"><?php endif ?>
-            <?= select_field('department', $deps, $pick ?: '', ['placeholder' => __('All departments'), 'submit' => true, 'aria' => __('Department')]) ?>
-        </form>
-        <?php endif ?>
-        <div class="inline-flex rounded-md bg-white p-0.5 text-sm ring-1 ring-graphite-900/15" role="group" aria-label="<?= e(__('Whose records')) ?>">
-            <a href="<?= e($link(['mine' => null])) ?>" class="rounded px-3 py-1.5 <?= ! $mine ? 'bg-graphite-900 font-medium text-white' : 'text-steel hover:text-graphite-900' ?>" <?= ! $mine ? 'aria-current="true"' : '' ?>><?= e($all && ! $pick ? __('Everyone') : __('Department')) ?></a>
-            <a href="<?= e($link(['mine' => 1])) ?>" class="rounded px-3 py-1.5 <?= $mine ? 'bg-graphite-900 font-medium text-white' : 'text-steel hover:text-graphite-900' ?>" <?= $mine ? 'aria-current="true"' : '' ?>><?= e(__('My records')) ?></a>
-        </div>
+    <?php if (! $people): ?>
+    <div class="inline-flex rounded-md bg-white p-0.5 text-sm ring-1 ring-graphite-900/15" role="group" aria-label="<?= e(__('Whose records')) ?>">
+        <a href="<?= e($link(['mine' => null])) ?>" class="rounded px-3 py-1.5 <?= ! $mine ? 'bg-graphite-900 font-medium text-white' : 'text-steel hover:text-graphite-900' ?>"><?= e(__('Department')) ?></a>
+        <a href="<?= e($link(['mine' => 1])) ?>" class="rounded px-3 py-1.5 <?= $mine ? 'bg-graphite-900 font-medium text-white' : 'text-steel hover:text-graphite-900' ?>"><?= e(__('My records')) ?></a>
     </div>
+    <?php endif ?>
 </div>
+<?= partial('partials/range-bar', ['action' => url('/crm/dashboard'), 'range' => $range, 'from' => $from, 'to' => $to, 'keep' => array_diff_key($keepQ, ['from' => 1, 'to' => 1]), 'selects' => $selects]) ?>
 
 <?php if ($reminders): ?>
 <section class="mt-5 rounded-lg bg-amber-50 p-4 ring-1 ring-amber-600/25" aria-label="<?= e(__('Reminders')) ?>">
@@ -62,17 +63,19 @@ $tiles = [
     <?php endforeach ?>
 </div>
 
-<?php if ($target):
+<?php if ($target !== null):
     $tt = $target['total'] > 0 ? $target['total'] : array_sum($target['target']);
     $pt = $tt > 0 ? round($target['actual_total'] / $tt * 100) : 0;
     $curQ = (int) ceil(date('n') / 3);
+    $acc = ($target['source'] ?? 'crm') === 'accounting';
 ?>
-<section class="panel mt-6">
+<section class="panel mt-6 w-full">
     <div class="panel-head">
-        <h2 class="panel-title"><?= e(__('Sales target :year', ['year' => $targetYear])) ?></h2>
-        <?php if (can('crm_targets', 'view')): ?><a href="<?= url('/crm/settings/targets', array_filter(['year' => $targetYear, 'department' => $pick ?: null])) ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('Details')) ?></a><?php endif ?>
+        <div><h2 class="panel-title"><?= e(__('Revenue vs target :year', ['year' => $targetYear])) ?></h2>
+            <p class="text-xs text-steel"><?= e($acc ? __('Revenue from Accounting invoices') : __('Won opportunities in the CRM (no ERP department linked)')) ?></p></div>
+        <?php if (can('crm_targets', 'view')): ?><a href="<?= url('/crm/settings/targets', array_filter(['year' => $targetYear, 'department' => $depFor ?: null])) ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('Set targets')) ?></a><?php endif ?>
     </div>
-    <div class="grid gap-px bg-graphite-900/6 sm:grid-cols-5">
+    <div class="grid gap-px bg-graphite-900/6 sm:grid-cols-2 lg:grid-cols-5">
         <?php foreach ([1, 2, 3, 4] as $q): $t = $target['target'][$q]; $a = $target['actual'][$q]; $p = $t > 0 ? round($a / $t * 100) : null; ?>
         <div class="bg-white px-5 py-4 <?= $q === $curQ ? 'bg-signal-50/40' : '' ?>">
             <p class="flex items-center justify-between text-xs font-medium text-steel"><span>Q<?= $q ?><?= $q === $curQ ? ' · '.e(__('now')) : '' ?></span><span class="tabular-nums"><?= $p === null ? '—' : $p.'%' ?></span></p>
@@ -88,6 +91,7 @@ $tiles = [
             <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full" style="width: <?= min(100, $pt) ?>%; background: <?= $pt >= 100 ? '#16a34a' : '#2a78d6' ?>"></div></div>
         </div>
     </div>
+    <?php if ($tt <= 0): ?><p class="border-t border-graphite-900/6 px-5 py-3 text-xs text-steel"><?= e(__('No target set for this year yet.')) ?></p><?php endif ?>
 </section>
 <?php endif ?>
 
