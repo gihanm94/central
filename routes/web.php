@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use App\Core\Http\Controllers\AccessRequestController;
 use App\Core\Http\Controllers\ActivityController;
 use App\Core\Http\Controllers\AuthController;
 use App\Core\Http\Controllers\DashboardController;
@@ -32,6 +33,7 @@ $router->get('/lang/{code}', [AuthController::class, 'language']);
 $router->group(['guest'], function (Router $r) {
     $r->get('/login', [AuthController::class, 'showLogin']);
     $r->post('/login', [AuthController::class, 'login']);
+    $r->post('/request-access', [AccessRequestController::class, 'submit']);
     $r->get('/forgot-password', [AuthController::class, 'showForgot']);
     $r->post('/forgot-password', [AuthController::class, 'sendReset']);
     $r->get('/reset-password', [AuthController::class, 'showReset']);
@@ -117,6 +119,11 @@ $router->group(['auth'], function (Router $r) {
         $r->get("/{$path}/{id}/download", [$controller, 'download']);
     }
     $r->post('/tasks/{id}/status', [TaskController::class, 'status']);
+    $r->get('/members/requests', [AccessRequestController::class, 'index']);
+    $r->get('/members/requests/{id}', [AccessRequestController::class, 'review']);
+    $r->post('/members/requests/{id}/approve', [AccessRequestController::class, 'approve']);
+    $r->post('/members/requests/{id}/reject', [AccessRequestController::class, 'reject']);
+    $r->post('/members/requests/{id}/delete', [AccessRequestController::class, 'destroy']);
     $r->get('/members/{id}/access', [MemberController::class, 'access']);
     $r->post('/members/{id}/access', [MemberController::class, 'saveAccess']);
 

@@ -23,6 +23,7 @@ return [
             ['label' => 'KPIs',             'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
             ['heading' => 'Organization'],
             ['label' => 'Members',          'url' => '/members',     'icon' => 'users',    'permission' => 'members.view'],
+            ['label' => 'Account requests', 'url' => '/members/requests', 'icon' => 'user', 'permission' => 'members.create', 'admin_only' => true],
             ['label' => 'Departments',      'url' => '/departments', 'icon' => 'building', 'permission' => 'departments.view'],
             ['label' => 'Teams',            'url' => '/teams',       'icon' => 'team',     'permission' => 'teams.view'],
             ['heading' => 'Administration'],

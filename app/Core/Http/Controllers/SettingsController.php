@@ -43,6 +43,11 @@ class SettingsController extends Controller
             }
         }
 
+        $reqOn = Request::boolean('access_requests') ? '1' : '0';
+        if ((Settings::get('access_requests') ?? '1') !== $reqOn) {
+            $changed['access_requests'] = ['from' => Settings::get('access_requests') ?? '1', 'to' => $reqOn];
+            Settings::put('access_requests', $reqOn);
+        }
         $logoOn = Request::boolean('auth_logo') ? '1' : '0';
         if ((Settings::get('auth_logo') ?? '1') !== $logoOn) {
             $changed['auth_logo'] = ['from' => Settings::get('auth_logo') ?? '1', 'to' => $logoOn];

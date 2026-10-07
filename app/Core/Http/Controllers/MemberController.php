@@ -199,6 +199,14 @@ class MemberController extends ResourceController
         return can('roles', 'view') ? [['label' => __('Access rules'), 'url' => '/members/'.$row['id'].'/access', 'icon' => 'shield']] : [];
     }
 
+    protected function topExtra(): string
+    {
+        $u = $this->user();
+        $n = ($u->isAdmin() || ($u->scope() === 'all' && can('members', 'create'))) ? AccessRequestController::pending() : 0;
+
+        return $n ? '<a href="'.e(url('/members/requests')).'" class="mt-4 flex items-center gap-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-600/20 hover:bg-amber-100">'.icon('user', 'size-5').'<span><strong>'.e(__(':n account requests waiting', ['n' => $n])).'</strong> · '.e(__('Review them')).'</span></a>' : '';
+    }
+
     protected function intro(): string
     {
         return $this->user()->isAdmin() ? '' : __('You can manage people in your :scope view whose role is below yours.', ['scope' => mb_strtolower(__(config('core.scopes')[$this->user()->scope()]))]);

@@ -45,9 +45,11 @@
         <div class="my-auto w-full py-10"><?= $content ?></div>
         <p class="text-xs text-graphite-400">
             <?= e(__('Accounts are created by your administrator.')) ?>
-            <?php if ($branding['support']): ?><?= e(__('Need access?')) ?> <a href="mailto:<?= e($branding['support']) ?>" class="text-graphite-300 underline underline-offset-2 hover:text-white"><?= e($branding['support']) ?></a><?php endif ?>
+            <?php if (App\Core\Http\Controllers\AccessRequestController::enabled()): ?><?= e(__('Need access?')) ?> <button type="button" data-request-open class="text-graphite-300 underline underline-offset-2 hover:text-white"><?= e(__('Request')) ?></button>.
+            <?php elseif ($branding['support']): ?><?= e(__('Need access?')) ?> <a href="mailto:<?= e($branding['support']) ?>" class="text-graphite-300 underline underline-offset-2 hover:text-white"><?= e($branding['support']) ?></a><?php endif ?>
         </p>
     </section>
 </div>
+<?php if (App\Core\Http\Controllers\AccessRequestController::enabled()) { include dirname(__DIR__).'/auth/_request-dialog.php'; } ?>
 </body>
 </html>
