@@ -41,11 +41,6 @@ $mobile = $sid === 'mobile';
                         <span class="flex-1"><?= e(__($m['name'])) ?></span>
                         <?php if ($key === $current): ?><?= icon('tick', 'size-4 text-white') ?><?php endif ?>
                     </a>
-                <?php else: ?>
-                    <span class="flex cursor-default items-center gap-3 rounded-md px-2 py-1.5 text-sm text-graphite-400" aria-disabled="true">
-                        <span class="flex size-7 items-center justify-center rounded-md bg-white/5"><?= icon($m['icon'], 'size-4') ?></span>
-                        <span class="flex-1"><?= e(__($m['name'])) ?></span><span class="text-[11px]"><?= e(__('Coming soon')) ?></span>
-                    </span>
                 <?php endif ?>
             <?php endforeach ?>
         </div>
