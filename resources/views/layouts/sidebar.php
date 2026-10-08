@@ -32,7 +32,7 @@ $mobile = $sid === 'mobile';
             </span>
             <?= icon('updown', 'size-4 shrink-0 text-graphite-400 '.($mobile ? '' : 'lg:collapsed:hidden')) ?>
         </button>
-        <div id="module-menu-<?= $sid ?>" data-menu-panel hidden role="menu" class="fixed z-[70] w-64 rounded-lg bg-graphite-800 p-1.5 text-graphite-300 shadow-2xl ring-1 ring-white/10">
+        <div id="module-menu-<?= $sid ?>" data-menu-panel hidden role="menu" class="fixed z-[70] w-56 rounded-lg bg-graphite-800 p-1.5 text-graphite-300 shadow-2xl ring-1 ring-white/10">
             <p class="px-2.5 pb-1.5 pt-1 text-xs text-graphite-400"><?= e(__('Modules')) ?></p>
             <?php foreach ($modules as $key => $m): ?>
                 <?php if ($m['enabled']): ?>
