@@ -18,7 +18,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  splash: { image: './assets/splash-icon.png', resizeMode: 'contain', backgroundColor: '#ffffff' },
   ios: {
     bundleIdentifier: `com.acmeinter.mobile${suffix}`,
     supportsTablet: true,
@@ -59,7 +58,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ['expo-secure-store', { faceIDPermission: false }],
     ['expo-build-properties', { android: { usesCleartextTraffic: isDev } }],
   ],
-  experiments: { typedRoutes: true },
   extra: {
     variant,
     defaultApiUrl: process.env.EXPO_PUBLIC_API_URL ?? '',
