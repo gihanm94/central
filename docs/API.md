@@ -73,7 +73,7 @@ Signing in again with the same `device_id` replaces that install's old sign-in.
 ## CRM
 
 ```
-GET  /crm/stats                      pipeline by stage, won this year, my activities and tasks
+GET  /crm/stats                      pipeline by stage, won this year, my activities and tasks, this year's sales target
 GET  /crm/search?q=                  leads, contacts, opportunities (5 each)
 GET  /crm/leads?q=&mine=1            GET /crm/leads/{id}  (+ its contacts, opportunities, latest activities)
 GET  /crm/contacts?q=&lead_id=       GET /crm/contacts/{id}  (+ mobile numbers)
@@ -85,6 +85,16 @@ POST /crm/activities/{id}            change it (fields left out keep their value
 POST /crm/activities/{id}/status     {"status": "PLANNED|DONE|CANCELLED"}
 GET  /crm/tasks?q=&status=&open=1&mine=1&project_id=          GET /crm/tasks/{id}
 POST /crm/tasks/{id}/status          {"status": "TODO|IN_PROGRESS|BLOCKED|DONE|CANCELLED"}
+```
+
+`/crm/stats`: `pipeline` and `won_this_year` have one row per currency; `base_amount` / `base_weighted` are the same
+converted to `base_currency`, so rows can be added up. `target` (only with the CRM dashboard permission; your department, or all departments for
+whole-company roles; left out for someone without a department). `actual` is invoiced revenue when the department is
+linked to Accounting (`source: "accounting"`), else opportunities won (`"crm"`), in the base currency:
+
+```json
+"target": {"year": 2026, "currency": "THB", "source": "crm", "total": 12000000, "actual": 7350000,
+           "quarters": [{"q": 1, "target": 3000000, "actual": 2100000}, …]}
 ```
 
 Log a call (same rules as the website form: `lead_id` required, linked lead / contact / opportunity must be

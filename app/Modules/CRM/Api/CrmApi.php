@@ -11,6 +11,7 @@ use App\Modules\CRM\Controllers\ActivityController;
 use App\Modules\CRM\Controllers\TaskController;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Catalog;
+use App\Modules\CRM\Support\Targets;
 
 /**
  * CRM for the mobile app. Every list and record goes through the same visibility as the website
@@ -309,10 +310,16 @@ class CrmApi extends Controller
         $out = [];
         if ($u->can('crm_opportunities', 'view')) {
             [$w, $p] = $this->scope('opportunity', 'crm_opportunities');
+            // amounts per currency, plus the same converted to the base currency (base_*) so rows can be added up
+            $base = "coalesce(c.rate_to_base, 1)";
+            $out['base_currency'] = Targets::baseCurrency();
             $out['pipeline'] = DB::select("SELECT t.opportunity_stage AS stage, t.currency, count(*) AS count, coalesce(sum(t.amount), 0) AS amount,
-                coalesce(sum(t.amount * coalesce(t.probability, 0) / 100), 0) AS weighted FROM opportunities t
+                coalesce(sum(t.amount * coalesce(t.probability, 0) / 100), 0) AS weighted,
+                round(coalesce(sum(t.amount * {$base}), 0), 2) AS base_amount, round(coalesce(sum(t.amount * coalesce(t.probability, 0) / 100 * {$base}), 0), 2) AS base_weighted
+                FROM opportunities t LEFT JOIN currencies c ON c.code = t.currency
                 WHERE {$w} AND t.opportunity_stage IN ('".implode("', '", Catalog::OPEN)."') GROUP BY 1, 2 ORDER BY 1, 2", $p, self::C);
-            $out['won_this_year'] = DB::select("SELECT t.currency, count(*) AS count, coalesce(sum(t.amount), 0) AS amount FROM opportunities t
+            $out['won_this_year'] = DB::select("SELECT t.currency, count(*) AS count, coalesce(sum(t.amount), 0) AS amount, round(coalesce(sum(t.amount * {$base}), 0), 2) AS base_amount
+                FROM opportunities t LEFT JOIN currencies c ON c.code = t.currency
                 WHERE {$w} AND t.opportunity_stage = 'CLOSED_WON' AND t.close_at >= date_trunc('year', now()) GROUP BY 1", $p, self::C);
         }
         if ($u->can('crm_activities', 'view')) {
@@ -329,6 +336,20 @@ class CrmApi extends Controller
             $out['my_tasks'] = DB::first("SELECT count(*) FILTER (WHERE t.status NOT IN ('DONE', 'CANCELLED')) AS open,
                 count(*) FILTER (WHERE t.status NOT IN ('DONE', 'CANCELLED') AND t.end_date < CURRENT_DATE) AS late
                 FROM tasks t WHERE {$w} AND EXISTS (SELECT 1 FROM task_assignees a WHERE a.task_id = t.id AND a.user_id = ?)", [...$p, $u->id], self::C);
+        }
+        // this year's sales target, the same figure as the website's CRM dashboard: own department, or every department
+        // added up for whole-company roles; nothing for someone outside any department
+        if ($u->can('crm_dashboard', 'view')) {
+            $dep = Access::seesAll($u) ? null : ((int) $u->department_id ?: 0);
+            if ($dep !== 0) {
+                $year = (int) date('Y');
+                $t    = Targets::summary($dep, $year);
+                $out['target'] = [
+                    'year' => $year, 'currency' => Targets::baseCurrency(), 'source' => $t['source'],
+                    'total' => round($t['total'], 2), 'actual' => round($t['actual_total'], 2),
+                    'quarters' => array_map(fn (int $q) => ['q' => $q, 'target' => round($t['target'][$q], 2), 'actual' => round((float) $t['actual'][$q], 2)], [1, 2, 3, 4]),
+                ];
+            }
         }
 
         return ['data' => $out];
