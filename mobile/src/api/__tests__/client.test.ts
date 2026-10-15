@@ -275,3 +275,120 @@ describe('ApiClient – url', () => {
     expect(Array.from(d.bytes)).toEqual([37, 80, 68, 70]);
   });
 });
+
+describe('ApiClient – review fixes', () => {
+  const pairOf = (access: string, refresh: string) => ({ accessToken: access, refreshToken: refresh, accessExpiresAt: Date.now() + 9e5, refreshExpiresAt: Date.now() + 9e9, deviceId: 1 });
+
+  it('a late "session ended" for the previous person does not sign out the next one', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const tokens = new MemoryTokenStore(pairOf('acme_at_A', 'acme_rt_A'));
+    const ended: string[] = [];
+    const client = new ApiClient({
+      baseUrl: () => BASE,
+      tokens,
+      onSessionEnded: (e) => ended.push(e.code),
+      fetch: async (_url, init) => {
+        const auth = (init?.headers as Record<string, string>).Authorization;
+        if (auth === 'Bearer acme_at_A') {
+          await gate;
+          return json(401, { error: { code: 'invalid_token', message: 'Sign in again.' } });
+        }
+        return json(200, { data: { ok: true } });
+      },
+    });
+    const old = client.get('/me').catch((e: unknown) => e);
+    await new Promise((r) => setTimeout(r, 5));
+    await client.clearSession();
+    await client.startSession({ token_type: 'Bearer', access_token: 'acme_at_B', expires_in: 900, refresh_token: 'acme_rt_B', refresh_expires_in: 9999, device_id: 2 });
+    release();
+    expect(await old).toBeInstanceOf(ApiError);
+    expect(tokens.pair?.accessToken).toBe('acme_at_B');
+    expect(ended).toEqual([]);
+    await expect(client.get('/me')).resolves.toBeTruthy();
+  });
+
+  it('never retries an old request with the next person\'s token', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const seen: string[] = [];
+    const client = new ApiClient({
+      baseUrl: () => BASE,
+      tokens: new MemoryTokenStore(pairOf('acme_at_A', 'acme_rt_A')),
+      fetch: async (url, init) => {
+        const auth = (init?.headers as Record<string, string>).Authorization ?? '';
+        seen.push(`${String(url).replace(BASE, '')} ${auth}`);
+        if (auth === 'Bearer acme_at_A') {
+          await gate;
+          return json(401, { error: { code: 'token_expired', message: '' } });
+        }
+        return json(200, { data: {} });
+      },
+    });
+    const old = client.get('/crm/leads').catch((e: unknown) => e);
+    await new Promise((r) => setTimeout(r, 5)); // the old request is out
+    await client.clearSession();
+    await client.startSession({ token_type: 'Bearer', access_token: 'acme_at_B', expires_in: 900, refresh_token: 'acme_rt_B', refresh_expires_in: 9999, device_id: 2 });
+    release();
+    await old;
+    expect(seen).toEqual(['/crm/leads Bearer acme_at_A']);
+  });
+
+  it('keeps a refreshed pair when the keychain write fails, and writes it again later', async () => {
+    const server = new FakeServer();
+    const tokens = new MemoryTokenStore(pairOf(server.access, server.refresh));
+    let failNext = false;
+    const save = tokens.save.bind(tokens);
+    tokens.save = async (p) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error('keychain locked');
+      }
+      return save(p);
+    };
+    const client = new ApiClient({ baseUrl: () => BASE, tokens, fetch: server.fetch });
+    server.expireAccess();
+    failNext = true;
+    await client.get('/a'); // refresh → R2, write fails
+    expect(tokens.pair?.refreshToken).toBe('acme_rt_R1');
+    await client.get('/b'); // no second refresh; the pair is written now
+    expect(server.refreshCount).toBe(1);
+    expect(tokens.pair?.refreshToken).toBe('acme_rt_R2');
+    expect(server.revoked).toBe(false);
+  });
+
+  it('gives up after the timeout', async () => {
+    const client = new ApiClient({
+      baseUrl: () => BASE,
+      tokens: new MemoryTokenStore(null),
+      timeoutMs: 30,
+      fetch: (_u, init) =>
+        new Promise((_r, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+        }),
+    });
+    await expect(client.post('/auth/login', {}, { auth: false })).rejects.toMatchObject({ code: 'timeout' });
+  });
+
+  it('refuses an answer that was redirected to another host', async () => {
+    const client = new ApiClient({
+      baseUrl: () => BASE,
+      tokens: new MemoryTokenStore(pairOf('acme_at_A', 'acme_rt_A')),
+      fetch: async () => {
+        const r = json(200, { data: {} });
+        Object.defineProperty(r, 'url', { value: 'https://evil.example.net/me' });
+        return r;
+      },
+    });
+    await expect(client.get('/me')).rejects.toMatchObject({ code: 'bad_response' });
+  });
+
+  it('reports a module as available again after a normal answer', async () => {
+    const back: string[] = [];
+    const client = new ApiClient({ baseUrl: () => BASE, tokens: new MemoryTokenStore(pairOf('acme_at_A', 'acme_rt_A')), fetch: async () => json(200, { data: {} }), onModuleAvailable: (m) => back.push(m) });
+    await client.get('/accounting/stats');
+    await client.get('/me');
+    expect(back).toEqual(['accounting']);
+  });
+});
+

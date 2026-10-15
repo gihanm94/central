@@ -11,13 +11,11 @@ import { useSettings } from '@/state/settings';
 
 import { shouldLockAfterBackground, shouldLockOnStart, shouldLockWhenIdle } from './lockPolicy';
 
-export const lockStore = createStore({ locked: false });
-let lastTouch = Date.now();
+import { msSinceInteraction, noteInteraction } from './activity';
 
-/** Call from the root view's touch capture. */
-export function noteInteraction(): void {
-  lastTouch = Date.now();
-}
+export { noteInteraction };
+
+export const lockStore = createStore({ locked: false });
 
 export async function deviceIsSecure(): Promise<boolean> {
   try {
@@ -38,7 +36,7 @@ export function AppLock({ children }: { children: ReactNode }) {
   const { locked } = useStore(lockStore);
   const [secure, setSecure] = useState<boolean | null>(null);
   const backgroundAt = useRef<number | null>(null);
-  const started = useRef(false);
+  const [decided, setDecided] = useState(false);
   const authenticating = useRef(false);
 
   useEffect(() => {
@@ -49,9 +47,9 @@ export function AppLock({ children }: { children: ReactNode }) {
 
   // cold start
   useEffect(() => {
-    if (started.current || secure === null || status === 'loading') return;
-    started.current = true;
+    if (decided || secure === null || status === 'loading') return;
     if (shouldLockOnStart(policy)) lockStore.set({ locked: true });
+    setDecided(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secure, status]);
 
@@ -73,7 +71,7 @@ export function AppLock({ children }: { children: ReactNode }) {
   // idle in the foreground
   useEffect(() => {
     const id = setInterval(() => {
-      if (AppState.currentState === 'active' && shouldLockWhenIdle(policy, Date.now() - lastTouch)) lockStore.set({ locked: true });
+      if (AppState.currentState === 'active' && shouldLockWhenIdle(policy, msSinceInteraction())) lockStore.set({ locked: true });
     }, 15_000);
     return () => clearInterval(id);
   });
@@ -101,17 +99,27 @@ export function AppLock({ children }: { children: ReactNode }) {
     if (locked && AppState.currentState === 'active') void unlock();
   }, [locked, unlock]);
 
-  if (locked && status === 'signedIn') {
-    return (
-      <View style={styles.lock} testID="app-locked">
-        <Text style={styles.title}>{t('lock.title')}</Text>
-        <Text style={styles.text}>{t('lock.message')}</Text>
-        <Button title={t('lock.unlock')} onPress={() => void unlock()} style={{ alignSelf: 'stretch' }} />
-        <Button title={t('profile.signOut')} variant="ghost" onPress={() => void signOut()} />
-      </View>
-    );
-  }
-  return <>{children}</>;
+  // Until the first lock decision on a cold start, nothing may show through.
+  const deciding = status === 'signedIn' && settings.appLock && !decided;
+  // The lock is drawn over the app instead of replacing it, so open forms, photos and the
+  // navigation stack survive locking; the cover is opaque and takes every touch.
+  return (
+    <>
+      {children}
+      {status === 'signedIn' && (locked || deciding) && (
+        <View style={[StyleSheet.absoluteFill, styles.lock]} testID={locked ? 'app-locked' : 'app-lock-pending'} accessibilityViewIsModal>
+          {locked && (
+            <>
+              <Text style={styles.title}>{t('lock.title')}</Text>
+              <Text style={styles.text}>{t('lock.message')}</Text>
+              <Button title={t('lock.unlock')} onPress={() => void unlock()} style={{ alignSelf: 'stretch' }} />
+              <Button title={t('profile.signOut')} variant="ghost" onPress={() => void signOut()} />
+            </>
+          )}
+        </View>
+      )}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

@@ -52,6 +52,7 @@ export const apiClient = new ApiClient({
     void endLocally(err.message || t('auth.sessionEnded'));
   },
   onModuleUnavailable: markModuleUnavailable,
+  onModuleAvailable: markModuleAvailable,
   // Development only: method, path without query, status, request id. Never bodies or tokens.
   log: __DEV__ ? (line) => console.log(`[api] ${line}`) : undefined,
 });
@@ -74,8 +75,10 @@ export async function bootstrap(): Promise<void> {
 
 /** /me again (permissions can change at any time on the website). */
 export async function refreshProfile(): Promise<Profile | null> {
+  const epoch = sessionEpoch;
   try {
     const profile = (await api.me.get()).data;
+    if (epoch !== sessionEpoch) return null; // answered for a sign-in that has ended since
     await setProfile(profile);
     return profile;
   } catch (e) {
@@ -86,6 +89,7 @@ export async function refreshProfile(): Promise<Profile | null> {
 
 export async function signIn(req: LoginRequest): Promise<Profile> {
   const res = await api.auth.login(req);
+  sessionEpoch++;
   queryClient.clear();
   await apiClient.startSession(res);
   await setProfile(res.user);
@@ -93,21 +97,25 @@ export async function signIn(req: LoginRequest): Promise<Profile> {
   return res.user;
 }
 
-/** Sign out on the server, then forget everything on this phone. */
+/** Longest wait for the server's sign-out before the phone forgets everything anyway. */
+const LOGOUT_WAIT_MS = 5_000;
+
+/** Sign out on the server (best effort, bounded), then forget everything on this phone. */
 export async function signOut(): Promise<void> {
-  try {
-    await api.auth.logout();
-  } catch {
-    // offline or already signed out: still clear locally
-  }
+  const logout = api.auth.logout().catch(() => undefined); // offline or already signed out: still clear locally
+  await Promise.race([logout, new Promise((r) => setTimeout(r, LOGOUT_WAIT_MS))]);
   await endLocally(null);
 }
+
+/** Bumped on every sign-in and sign-out: answers for an older sign-in are dropped. */
+let sessionEpoch = 0;
 
 let ending: Promise<void> | null = null;
 
 /** Forget tokens, profile, cached server data and files. */
 export function endLocally(notice: string | null): Promise<void> {
   if (!ending) {
+    sessionEpoch++;
     ending = (async () => {
       sessionStore.set({ status: 'signedOut', profile: null, notice });
       await apiClient.clearSession();
@@ -130,7 +138,6 @@ export function clearNotice(): void {
 
 async function setProfile(profile: Profile): Promise<void> {
   setProfileLocale(profile.locale);
-  for (const m of profile.modules) markModuleAvailable(m);
   sessionStore.set((s) => (s.status === 'signedIn' ? { ...s, profile } : s));
   await writeSecure(KEYS.profile, JSON.stringify(profile));
 }

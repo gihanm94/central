@@ -4,10 +4,12 @@ import type { TokenPair, TokenStore } from '@/api/tokens';
 import { deserializePair, serializePair } from '@/api/tokens';
 
 /**
- * Keychain (iOS) / Keystore-backed storage (Android). "This device only" and "when unlocked":
- * never in a backup, never readable while the phone is locked.
+ * Keychain (iOS) / Keystore-backed storage (Android), "this device only": never in a backup or on
+ * another phone. "After first unlock" (not "when unlocked") so a token refresh that finishes while
+ * the phone locks can still be written; a lost write would make the server see the old refresh
+ * token again, treat it as stolen and sign the device out.
  */
-const OPTIONS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
+const OPTIONS: SecureStore.SecureStoreOptions = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 
 export const KEYS = {
   tokens: 'acme.tokens',

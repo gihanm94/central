@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { createStore, useStore } from '@/lib/store';
 
 /** Modules whose API answered 503 module_unavailable, until when (ms since epoch). */
@@ -22,6 +24,14 @@ export function resetModuleHealth(): void {
 }
 
 export function useModuleUnavailable(module: string): boolean {
-  const s = useStore(moduleHealthStore);
-  return (s[module] ?? 0) > Date.now();
+  const until = useStore(moduleHealthStore)[module] ?? 0;
+  const [, setTick] = useState(0);
+  const down = until > Date.now();
+  // re-render when the hold runs out, so the banner goes away by itself
+  useEffect(() => {
+    if (!down) return;
+    const id = setTimeout(() => setTick((n) => n + 1), until - Date.now() + 50);
+    return () => clearTimeout(id);
+  }, [down, until]);
+  return down;
 }

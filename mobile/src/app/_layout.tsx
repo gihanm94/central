@@ -8,7 +8,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { useT } from '@/i18n';
-import { AppLock, noteInteraction } from '@/security/AppLock';
+import { noteInteraction } from '@/security/activity';
+import { AppLock } from '@/security/AppLock';
 import { PrivacyShield } from '@/security/PrivacyShield';
 import { bootstrap, queryClient, useProfileRefresh, useSession } from '@/state/session';
 

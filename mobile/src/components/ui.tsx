@@ -17,6 +17,7 @@ import {
 import { isApiError } from '@/api/errors';
 import { useT } from '@/i18n';
 import { errorMessage } from '@/lib/errorMessage';
+import { noteInteraction } from '@/security/activity';
 
 import { colors, font, radius, space, tones, type Tone } from './theme';
 
@@ -207,6 +208,10 @@ export function TextField({ label, error, hint, style, ...input }: TextInputProp
         accessibilityLabel={label}
         style={[styles.input, input.multiline && styles.inputMulti, !!error && styles.inputError]}
         {...input}
+        onChangeText={(v) => {
+          noteInteraction(); // typing keeps the idle lock away
+          input.onChangeText?.(v);
+        }}
       />
       {!!error && <Text style={styles.errorText}>{error}</Text>}
       {!error && !!hint && <Text style={styles.hint}>{hint}</Text>}

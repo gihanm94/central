@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TextInput, Vie
 
 import type { Page } from '@/api/types';
 import { useT } from '@/i18n';
+import { noteInteraction } from '@/security/activity';
 
 import { colors, radius, space } from './theme';
 import { EmptyState, ErrorView } from './ui';
@@ -70,7 +71,10 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
     <View style={styles.searchWrap}>
       <TextInput
         value={value}
-        onChangeText={onChange}
+        onChangeText={(v) => {
+          noteInteraction();
+          onChange(v);
+        }}
         placeholder={placeholder}
         placeholderTextColor={colors.faint}
         style={styles.search}

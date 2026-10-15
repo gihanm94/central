@@ -29,6 +29,10 @@ export interface ClientOptions {
   onSessionEnded?: (error: ApiError) => void;
   /** A module answered 503 module_unavailable. */
   onModuleUnavailable?: (module: string) => void;
+  /** A module answered normally again. */
+  onModuleAvailable?: (module: string) => void;
+  /** Per-request deadline (ms). */
+  timeoutMs?: number;
   /** Development logging of method, path (without query), status and request id. Never bodies or headers. */
   log?: (line: string) => void;
   now?: () => number;
@@ -49,8 +53,8 @@ const EXPIRY_SKEW_MS = 15_000;
  * token that is used twice as stolen and signs the device out.
  */
 export class ApiClient {
-  private readonly opts: Required<Omit<ClientOptions, 'onSessionEnded' | 'onModuleUnavailable' | 'log' | 'language'>> &
-    Pick<ClientOptions, 'onSessionEnded' | 'onModuleUnavailable' | 'log' | 'language'>;
+  private readonly opts: Required<Omit<ClientOptions, 'onSessionEnded' | 'onModuleUnavailable' | 'onModuleAvailable' | 'log' | 'language'>> &
+    Pick<ClientOptions, 'onSessionEnded' | 'onModuleUnavailable' | 'onModuleAvailable' | 'log' | 'language'>;
   private pair: TokenPair | null = null;
   private loaded = false;
   private refreshing: Promise<TokenPair> | null = null;
@@ -58,6 +62,8 @@ export class ApiClient {
   private generation = 0;
   /** After a 429 rate_limited: no request goes out before this time (ms since epoch). */
   private blockedUntil = 0;
+  /** The latest pair is only in memory (a keychain write failed). */
+  private unsaved = false;
 
   constructor(options: ClientOptions) {
     this.opts = {
@@ -65,6 +71,7 @@ export class ApiClient {
       now: () => Date.now(),
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
       maxRateWait: 5_000,
+      timeoutMs: 30_000,
       ...options,
     };
   }
@@ -75,9 +82,9 @@ export class ApiClient {
   async startSession(response: TokenResponse): Promise<TokenPair> {
     this.generation++;
     const pair = pairFromResponse(response, this.opts.now());
-    await this.opts.tokens.save(pair);
     this.pair = pair;
     this.loaded = true;
+    await this.persist(pair);
     return pair;
   }
 
@@ -87,6 +94,7 @@ export class ApiClient {
     this.pair = null;
     this.loaded = true;
     this.refreshing = null;
+    this.unsaved = false;
     await this.opts.tokens.clear();
   }
 
@@ -143,32 +151,36 @@ export class ApiClient {
 
   private async send(method: 'GET' | 'POST', path: string, options: RequestOptions): Promise<Response> {
     const auth = options.auth !== false;
+    // Everything this request learns belongs to the sign-in it started under (see stale()).
+    const gen = this.generation;
     await this.waitForRateWindow();
 
     let token: string | null = null;
     if (auth) {
-      token = (await this.validPair()).accessToken;
+      token = (await this.validPair(gen)).accessToken;
     }
     let res = await this.fetchOnce(method, path, options, token);
 
     if (auth && res.status === 401) {
       const err = await errorFromResponse(res, this.opts.now());
       if (err.code !== 'token_expired') {
-        throw await this.fail(err, path);
+        throw await this.fail(err, path, gen);
       }
       // Refresh once (or take the pair another request just got) and retry once.
-      const fresh = await this.pairAfterExpiry(token!);
+      const fresh = await this.pairAfterExpiry(token!, gen);
       res = await this.fetchOnce(method, path, options, fresh.accessToken);
       if (res.status === 401) {
         const again = await errorFromResponse(res, this.opts.now());
         // Still "expired" right after a refresh means the sign-in is gone (e.g. revoked meanwhile).
-        throw await this.fail(again.code === 'token_expired' ? new ApiError({ status: 401, code: 'session_ended', message: again.message, requestId: again.requestId }) : again, path);
+        throw await this.fail(again.code === 'token_expired' ? new ApiError({ status: 401, code: 'session_ended', message: again.message, requestId: again.requestId }) : again, path, gen);
       }
     }
 
     if (!res.ok) {
-      throw await this.fail(await errorFromResponse(res, this.opts.now()), path);
+      throw await this.fail(await errorFromResponse(res, this.opts.now()), path, gen);
     }
+    const module = moduleOf(path);
+    if (module && !this.stale(gen)) this.opts.onModuleAvailable?.(module);
     return res;
   }
 
@@ -189,13 +201,35 @@ export class ApiClient {
       }
     }
 
+    // Every request has a deadline, so a stalled refresh can never block the app (or sign-out) forever.
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, this.opts.timeoutMs);
+    const onCallerAbort = () => controller.abort();
+    options.signal?.addEventListener('abort', onCallerAbort);
+
     let res: Response;
     try {
-      res = await this.opts.fetch(url, { method, headers, body, signal: options.signal });
+      res = await this.opts.fetch(url, { method, headers, body, signal: controller.signal });
     } catch (e) {
+      if (timedOut) {
+        this.opts.log?.(`${method} ${stripQuery(path)} → timeout`);
+        throw new ApiError({ status: 0, code: 'timeout' });
+      }
       if ((e as { name?: string } | null)?.name === 'AbortError') throw e;
       this.opts.log?.(`${method} ${stripQuery(path)} → network error`);
       throw new ApiError({ status: 0, code: 'network' });
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', onCallerAbort);
+    }
+    // A redirect to another host must never be trusted (it may have carried the token there).
+    if (res.url && originOf(res.url) !== originOf(url)) {
+      this.opts.log?.(`${method} ${stripQuery(path)} → redirected to another host`);
+      throw new ApiError({ status: 0, code: 'bad_response' });
     }
     this.opts.log?.(`${method} ${stripQuery(path)} → ${res.status} ${res.headers.get('X-Request-Id') ?? ''}`.trim());
     return res;
@@ -216,26 +250,44 @@ export class ApiClient {
 
   /* ------------------------------------------------------------------ refresh */
 
+  /** The sign-in changed (sign-out, or a new sign-in) since generation `gen`. */
+  private stale(gen: number): boolean {
+    return gen !== this.generation;
+  }
+
+  private staleError(): ApiError {
+    return new ApiError({ status: 401, code: 'unauthenticated' });
+  }
+
   /** A pair whose access token has not run out yet (refreshing first if needed). */
-  private async validPair(): Promise<TokenPair> {
-    if (this.refreshing) return this.refreshing;
+  private async validPair(gen: number): Promise<TokenPair> {
+    if (this.refreshing) return this.joinRefresh(gen);
     const pair = await this.currentPair();
+    if (this.stale(gen)) throw this.staleError();
     if (!pair) {
-      throw await this.fail(new ApiError({ status: 401, code: 'unauthenticated' }), '');
+      throw await this.fail(new ApiError({ status: 401, code: 'unauthenticated' }), '', gen);
     }
     if (pair.accessExpiresAt - EXPIRY_SKEW_MS <= this.opts.now()) {
-      return this.refresh();
+      return this.joinRefresh(gen, true);
     }
+    if (this.unsaved) await this.persist(pair);
     return pair;
   }
 
   /** After a token_expired for `usedToken`: join the running refresh, reuse a newer pair, or refresh. */
-  private async pairAfterExpiry(usedToken: string): Promise<TokenPair> {
-    if (this.refreshing) return this.refreshing;
+  private async pairAfterExpiry(usedToken: string, gen: number): Promise<TokenPair> {
+    if (this.stale(gen)) throw this.staleError(); // never retry with someone else's token
+    if (this.refreshing) return this.joinRefresh(gen);
     const pair = await this.currentPair();
-    if (!pair) throw await this.fail(new ApiError({ status: 401, code: 'unauthenticated' }), '');
+    if (!pair) throw await this.fail(new ApiError({ status: 401, code: 'unauthenticated' }), '', gen);
     if (pair.accessToken !== usedToken) return pair; // someone refreshed while this request was out
-    return this.refresh();
+    return this.joinRefresh(gen, true);
+  }
+
+  private async joinRefresh(gen: number, start = false): Promise<TokenPair> {
+    const pair = await (start ? this.refresh() : (this.refreshing ?? this.refresh()));
+    if (this.stale(gen)) throw this.staleError();
+    return pair;
   }
 
   /** Single flight: every caller during a refresh gets the same promise. */
@@ -258,38 +310,52 @@ export class ApiClient {
   private async doRefresh(): Promise<TokenPair> {
     const gen = this.generation;
     const pair = await this.currentPair();
-    if (!pair) throw await this.fail(new ApiError({ status: 401, code: 'unauthenticated' }), '');
+    if (!pair) throw await this.fail(new ApiError({ status: 401, code: 'unauthenticated' }), '', gen);
 
     const res = await this.fetchOnce('POST', '/auth/refresh', { body: { refresh_token: pair.refreshToken } }, null);
     if (!res.ok) {
       const err = await errorFromResponse(res, this.opts.now());
       if (res.status === 401) {
         // invalid_token / session_ended (or anything else): this sign-in cannot be renewed.
-        throw await this.fail(err.endsSession ? err : new ApiError({ status: 401, code: 'session_ended', message: err.message, requestId: err.requestId }), '/auth/refresh');
+        throw await this.fail(err.endsSession ? err : new ApiError({ status: 401, code: 'session_ended', message: err.message, requestId: err.requestId }), '/auth/refresh', gen);
       }
-      throw await this.fail(err, '/auth/refresh');
+      throw await this.fail(err, '/auth/refresh', gen);
     }
     const fresh = pairFromResponse((await res.json()) as TokenResponse, this.opts.now());
-    if (gen !== this.generation) {
+    if (this.stale(gen)) {
       // Signed out (or in as someone else) while refreshing: drop the result.
-      throw new ApiError({ status: 401, code: 'unauthenticated' });
+      throw this.staleError();
     }
-    await this.opts.tokens.save(fresh); // stored before anyone uses it
+    // The server has already rotated: the new pair is the only valid one, so keep it in memory
+    // even if the keychain write fails (e.g. the phone locked meanwhile) and write it again later.
     this.pair = fresh;
+    await this.persist(fresh);
     return fresh;
+  }
+
+  /** Writes the pair to the token store; on failure remembers to try again before the next request. */
+  private async persist(pair: TokenPair): Promise<void> {
+    try {
+      await this.opts.tokens.save(pair);
+      this.unsaved = false;
+    } catch {
+      this.unsaved = true;
+      this.opts.log?.('token store write failed; will retry');
+    }
   }
 
   /* ------------------------------------------------------------------- errors */
 
-  /** Side effects of an error answer; returns the error to throw. */
-  private async fail(err: ApiError, path: string): Promise<ApiError> {
+  /** Side effects of an error answer; returns the error to throw. Answers for an old sign-in change nothing. */
+  private async fail(err: ApiError, path: string, gen: number): Promise<ApiError> {
+    if (this.stale(gen)) return err.endsSession ? this.staleError() : err;
     if (err.endsSession) {
       await this.clearSession();
       this.opts.onSessionEnded?.(err);
     } else if (err.status === 429 && err.code === 'rate_limited') {
       this.blockedUntil = this.opts.now() + (err.retryAfter ?? 60) * 1000;
     } else if (err.status === 503 && err.code === 'module_unavailable') {
-      const module = /^\/([a-z_-]+)\//.exec(path)?.[1];
+      const module = moduleOf(path);
       if (module) this.opts.onModuleUnavailable?.(module);
     }
     return err;
@@ -307,6 +373,15 @@ export class ApiClient {
 
 function isFormData(v: unknown): v is FormData {
   return typeof FormData !== 'undefined' && v instanceof FormData;
+}
+
+function moduleOf(path: string): string | undefined {
+  const m = /^\/(crm|machines|accounting)\//.exec(path)?.[1];
+  return m;
+}
+
+function originOf(url: string): string {
+  return (/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i.exec(url)?.[0] ?? '').toLowerCase();
 }
 
 function stripQuery(path: string): string {

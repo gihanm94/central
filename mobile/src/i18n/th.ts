@@ -18,6 +18,7 @@ export const th: Record<TKey, string> = {
   'errors.title': 'เกิดข้อผิดพลาด',
   'errors.generic': 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง',
   'errors.network': 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง',
+  'errors.timeout': 'เซิร์ฟเวอร์ตอบช้าเกินไป กรุณาลองอีกครั้ง',
   'errors.no_server': 'กรุณาตั้งค่าที่อยู่เซิร์ฟเวอร์ก่อน',
   'errors.module_unavailable': 'ส่วนนี้ของระบบใช้งานไม่ได้ชั่วคราว ส่วนอื่นยังใช้งานได้ตามปกติ',
   'errors.module_unavailable_title': 'ใช้งานไม่ได้ชั่วคราว',

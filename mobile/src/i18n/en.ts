@@ -21,6 +21,7 @@ export const en = {
   'errors.title': 'Something went wrong',
   'errors.generic': 'Something went wrong. Please try again.',
   'errors.network': 'No connection to the server. Check your internet and try again.',
+  'errors.timeout': 'The server took too long to answer. Try again.',
   'errors.no_server': 'Set the server address first.',
   'errors.module_unavailable': 'This part of the system is temporarily unavailable. Everything else keeps working.',
   'errors.module_unavailable_title': 'Temporarily unavailable',

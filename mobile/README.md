@@ -129,17 +129,17 @@ To check that the JavaScript bundles build without EAS: `npm run export` (`expo 
 
 | Requirement | How |
 |---|---|
-| Token storage | Keychain / Keystore only (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`: never in backups). Settings and the cached profile are there too. Nothing goes to AsyncStorage. |
+| Token storage | Keychain / Keystore only (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`: never in backups or on another phone, and still writable if the phone locks during a refresh). Settings and the cached profile are there too. Nothing goes to AsyncStorage. |
 | No secrets in logs | The client logs (development builds only) method, path without query, status and request id. Never bodies, headers, tokens or passwords. |
-| Token refresh | On `401 token_expired` the client refreshes once and retries once. Only one refresh runs at a time; other requests wait for it (a refresh token used twice signs the device out). The new pair is stored before it is used. A refresh that finishes after sign-out is dropped. |
+| Token refresh | On `401 token_expired` the client refreshes once and retries once. Only one refresh runs at a time; other requests wait for it (a refresh token used twice signs the device out). If the keychain write fails the new pair is kept in memory and written again before the next request (the old refresh token is never reused). Answers that arrive for an earlier sign-in are ignored: they never retry with, or sign out, the next person. Every request times out after 30 s. |
 | Sign-in ended | `invalid_token`, `session_ended`, `no_api_access`, `unauthenticated` (or a refused refresh) clear the tokens and everything cached, and show the sign-in screen with the server's message. |
 | 429 | Retry-After is respected: requests are held (≤ 5 s) or fail fast until the window passes; `locked` shows a countdown on sign-in. |
 | 503 | `module_unavailable` marks only that module (banner + "Unavailable" on home); the rest keeps working. |
-| App lock | Face ID / fingerprint / phone passcode on start, after time in the background and after inactivity (Profile → Settings, on by default, 0/1/5/15 min). Nothing is rendered behind the lock. |
+| App lock | Face ID / fingerprint / phone passcode on start, after time in the background and after inactivity (no touch or typing; Profile → Settings, on by default, 0/1/5/15 min). The lock is an opaque cover over the app, so half-filled forms survive it; on a cold start the cover is up before anything is shown. |
 | App switcher | iOS: system blur + an opaque cover while inactive. Android: `FLAG_SECURE` (blank thumbnail; it also blocks screenshots). |
-| Sign-out | Server sign-out, then tokens, profile, query cache, downloaded PDFs, photos and the image cache are deleted. |
+| Sign-out | Server sign-out (waits at most 5 s), then tokens, profile, query cache, downloaded PDFs, photos and the image cache are deleted. |
 | QR codes | At most 500 characters, no control characters, sent to `POST /machines/scan` as text. The app never opens a URL from a QR code. |
-| Links | Only `tel:` and `mailto:` links the app builds itself. PDF URLs from the server are reduced to their API path and always fetched from the configured server, so the token never goes to another host. |
+| Links | Only `tel:` and `mailto:` links the app builds itself. PDF URLs from the server are reduced to their API path and always fetched from the configured server, so the token never goes to another host. An answer redirected to another host is refused. |
 | Accounting | Read only: there is no generate, send or sync anywhere. |
 
 ## Backend changes made for the app

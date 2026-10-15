@@ -11,6 +11,8 @@ export function errorMessage(err: unknown, t: T): string {
   switch (err.code) {
     case 'network':
       return t('errors.network');
+    case 'timeout':
+      return t('errors.timeout');
     case 'no_server':
       return t('errors.no_server');
     case 'module_unavailable':
