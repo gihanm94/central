@@ -2,7 +2,6 @@ import { mailtoUrl, telUrl } from '@/lib/contactLinks';
 
 import { whenFilter } from '../when';
 
-jest.mock('react-native', () => ({ Linking: { openURL: jest.fn() } }));
 
 describe('whenFilter', () => {
   const now = new Date(2026, 9, 1, 9, 0); // 1 Oct 2026
