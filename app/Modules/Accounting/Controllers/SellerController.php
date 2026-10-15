@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Accounting\Controllers;
 
 use App\Core\Support\DB;
-use App\Modules\CRM\Support\Ui;
+use App\Core\Support\Ui;
 
 /**
  * Sellers (persons) copied from the ERP. The ERP columns are read-only here; e-mail, user and Lark id are filled in by hand

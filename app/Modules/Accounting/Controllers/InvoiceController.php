@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Accounting\Controllers;
 
-use App\Modules\CRM\Support\Ui;
+use App\Core\Support\Ui;
 
 /** Invoices (one row per invoice number, added up from the ERP invoice log). */
 class InvoiceController extends ErpListController

@@ -1,6 +1,6 @@
 <?php
 $layout = auth() ? 'layouts/app' : 'layouts/guest';
-$headline = [403 => __("You don't have access to this page"), 404 => __("We couldn't find that page"), 419 => __('Your session expired'), 405 => __('That action is not allowed here'), 401 => __('Please sign in')][$status] ?? __('Something went wrong');
+$headline = [403 => __("You don't have access to this page"), 404 => __("We couldn't find that page"), 419 => __('Your session expired'), 405 => __('That action is not allowed here'), 401 => __('Please sign in'), 503 => __('This module is temporarily unavailable')][$status] ?? __('Something went wrong');
 $dark = ! auth();
 ?>
 <div class="mx-auto max-w-lg py-16 text-center">

@@ -20,6 +20,7 @@ spl_autoload_register(function (string $class): void {
 require BASE_PATH.'/app/helpers.php';
 
 App\Core\Support\Config::load(BASE_PATH.'/config');
+App\Core\Support\Modules::boot();             // reads app/Modules/*/module.php into config('modules')
 
 date_default_timezone_set((string) config('app.timezone', 'UTC'));
 

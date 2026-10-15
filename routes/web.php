@@ -9,6 +9,7 @@ use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
 use App\Core\Http\Controllers\KpiController;
 use App\Core\Http\Controllers\MemberController;
+use App\Core\Http\Controllers\ModuleController;
 use App\Core\Http\Controllers\NotificationController;
 use App\Core\Http\Controllers\PasskeyController;
 use App\Core\Http\Controllers\ProfileController;
@@ -70,6 +71,9 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/files/rename', [FileController::class, 'rename']);
     $r->post('/files/move', [FileController::class, 'move']);
     $r->post('/files/delete', [FileController::class, 'delete']);
+    $r->get('/modules', [ModuleController::class, 'index']);
+    $r->post('/modules/retry', [ModuleController::class, 'retry']);
+
     $r->get('/sessions', [SessionAdminController::class, 'index']);
     $r->post('/sessions/user/{id}/revoke', [SessionAdminController::class, 'revokeUser']);
     $r->post('/sessions/{id}/revoke', [SessionAdminController::class, 'revoke']);
@@ -148,15 +152,6 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/settings/notifications', [SettingsController::class, 'saveNotifications']);
     $r->post('/settings/test-lark', [SettingsController::class, 'testLark']);
 
-    // Modules register their routes here when built
-    $crmRoutes = BASE_PATH.'/app/Modules/CRM/routes.php';
-    if (config('modules.crm.enabled')) {
-        require $crmRoutes;
-    }
-    if (config('modules.accounting.enabled')) {
-        require BASE_PATH.'/app/Modules/Accounting/routes.php';
-    }
-    if (config('modules.machines.enabled')) {
-        require BASE_PATH.'/app/Modules/Machines/routes.php';
-    }
+    // Module routes: only the module this URL belongs to is loaded, so a broken module cannot break other pages.
+    App\Core\Support\Modules::routes($r, App\Core\Support\Request::path());
 });

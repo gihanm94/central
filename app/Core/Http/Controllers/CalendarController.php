@@ -7,15 +7,15 @@ use App\Core\Support\DB;
 use App\Core\Support\Request;
 use App\Core\Support\Google\GCalendar;
 use App\Core\Support\Google\Google;
-use App\Modules\CRM\Support\Access;
+use App\Core\Support\Modules;
 
-/** One calendar: CRM activities (what you may see) + your Google Calendar. /calendar for everyone, /crm/calendar is the same page inside CRM. */
+/** One calendar: events from the modules' 'calendar.events' hooks (CRM activities you may see) + your Google Calendar. /calendar for everyone, /crm/calendar is the same page inside CRM. */
 class CalendarController extends Controller
 {
     public function index(): string
     {
         $u = $this->user();
-        $crm = can('crm_activities', 'view');
+        $crm = Modules::usable('crm') && can('crm_activities', 'view');
 
         return view('calendar/index', ['title' => __('Calendar'), 'crm' => $crm, 'canCreate' => $crm && can('crm_activities', 'create'),
             'google' => Google::connected($u->id), 'configured' => Google::configured(), 'inCrm' => str_starts_with(Request::path(), '/crm'),
@@ -30,19 +30,9 @@ class CalendarController extends Controller
         $from = substr($from, 0, 10); $to = substr($to, 0, 10);
         $events = []; $linked = []; $warn = null;
 
-        if (can('crm_activities', 'view')) {
-            $s = Access::visible($u, 't', 'activity');
-            $where = $s['sql'].' AND t.deleted_at IS NULL AND t.start_at IS NOT NULL AND t.start_at >= ?::date AND t.start_at < (?::date + 1)';
-            $params = array_merge($s['params'], [$from, $to]);
-            if (Request::query('mine') === '1') { $where .= ' AND t.owner_id = ?'; $params[] = $u->id; }
-            $rows = DB::select("SELECT t.id, t.topic, t.activity_type, t.status, t.start_at, t.call_duration, t.meeting_duration, t.google_event_id, t.google_user_id, t.owner_id FROM activities t WHERE $where ORDER BY t.start_at LIMIT 1000", $params, 'crm');
-            foreach ($rows as $a) {
-                $start = strtotime((string) $a['start_at']);
-                $mins = (int) ($a['activity_type'] === 'MEETING' ? ($a['meeting_duration'] ?: 60) : ($a['call_duration'] ?: 30));
-                $events[] = ['id' => 'a'.$a['id'], 'title' => (string) $a['topic'], 'start' => date('Y-m-d\TH:i:s', $start), 'end' => date('Y-m-d\TH:i:s', $start + $mins * 60), 'all_day' => false,
-                    'source' => 'crm', 'type' => $a['activity_type'], 'status' => $a['status'], 'url' => '/crm/activities/'.$a['id'].'/edit', 'show' => '/crm/activities/'.$a['id']];
-                if ($a['google_event_id'] && (int) $a['google_user_id'] === $u->id) { $linked[(string) $a['google_event_id']] = true; }
-            }
+        foreach (Modules::hook('calendar.events', [$u, $from, $to, Request::query('mine') === '1']) as $feed) {
+            $events = array_merge($events, $feed['events'] ?? []);
+            $linked += $feed['linked'] ?? [];
         }
         if (Google::connected($u->id)) {
             try {

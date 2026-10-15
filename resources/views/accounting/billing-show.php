@@ -11,7 +11,7 @@ $b = '/accounting/billing/'.$n['id'];
     <div class="min-w-0">
         <p class="text-sm text-steel"><a href="<?= url('/accounting/billing') ?>" class="hover:text-signal-700"><?= e(__('Billing notes')) ?></a> ›</p>
         <h1 class="page-title"><?= e($n['billing_number']) ?></h1>
-        <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-steel"><?= \App\Modules\CRM\Support\Ui::badge(__(ucfirst($status)), $tone[$status] ?? 'neutral') ?> <span><?= e($thai ? 'ไทย' : 'English') ?></span> · <span><?= e(__(':n invoices', ['n' => count($n['rows'])])) ?></span></p>
+        <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-steel"><?= \App\Core\Support\Ui::badge(__(ucfirst($status)), $tone[$status] ?? 'neutral') ?> <span><?= e($thai ? 'ไทย' : 'English') ?></span> · <span><?= e(__(':n invoices', ['n' => count($n['rows'])])) ?></span></p>
     </div>
     <div class="flex w-full flex-wrap gap-2 sm:w-auto">
         <a href="<?= url($b.'/pdf') ?>" data-bill-view data-title="<?= e($n['billing_number']) ?>" class="btn-dark flex-1 sm:flex-none"><?= icon('eye', 'size-4') ?> <?= e(__('View PDF')) ?></a>

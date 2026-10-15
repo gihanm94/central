@@ -25,6 +25,28 @@ final class Router
         }
     }
 
+    /** Registers routes all-or-nothing: if $routes throws, none of what it added is kept. */
+    public function attempt(callable $routes): void
+    {
+        $before = $this->routes;
+        try {
+            $routes($this);
+        } catch (\Throwable $e) {
+            $this->routes = $before;
+            throw $e;
+        }
+    }
+
+    /** GET and POST on $prefix and everything below it. */
+    public function any(string $prefix, array $handler, array $middleware = []): void
+    {
+        $regex = '#^'.preg_quote(rtrim($prefix, '/'), '#').'(?:/.*)?$#';
+        foreach (['GET', 'POST'] as $method) {
+            $path = $prefix;
+            $this->routes[] = compact('method', 'path', 'regex', 'handler', 'middleware');
+        }
+    }
+
     private function add(string $method, string $path, array $handler, array $middleware): void
     {
         $regex = '#^'.preg_replace_callback('#\{(\w+)\}#', fn ($m) => $m[1] === 'id' ? '(?P<id>\d+)' : '(?P<'.$m[1].'>[^/]+)', rtrim($path, '/') ?: '/').'$#';

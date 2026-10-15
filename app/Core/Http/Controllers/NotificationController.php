@@ -34,16 +34,11 @@ class NotificationController extends Controller
         return view('notifications/index', ['title' => __('Notifications'), 'rows' => $rows, 'total' => $total, 'perPage' => $per, 'page' => $page, 'only' => $only, 'unread' => self::unread($u->id)]);
     }
 
-    /** Polled every minute by the page: unread count + the dropdown's list. Also fires due activity reminders. */
+    /** Polled every minute by the page: unread count + the dropdown's list. Also gives every module its 'tick'. */
     public function feed(): never
     {
         $u = $this->user();
-        if (config('modules.crm.enabled') && class_exists(\App\Modules\CRM\Support\Reminders::class)) {
-            \App\Modules\CRM\Support\Reminders::tick();
-        }
-        if (config('modules.machines.enabled') && class_exists(\App\Modules\Machines\Support\Jobs::class)) {
-            try { \App\Modules\Machines\Support\Jobs::tick(); } catch (\Throwable $e) { error_log('[machines-jobs] '.$e->getMessage()); }
-        }
+        \App\Core\Support\Modules::hook('tick');      // module background work (CRM reminders, machine jobs …); one failing never stops the others
         json_response(['unread' => self::unread($u->id), 'html' => partial('partials/notification-list', ['items' => self::latest($u->id)])]);
     }
 

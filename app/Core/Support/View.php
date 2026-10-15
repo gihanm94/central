@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace App\Core\Support;
 
 /**
- * Plain-PHP templates in resources/views.
+ * Plain-PHP templates in resources/views, or in a module's own folder with 'key::name'
+ * (view('inventory::items/index') → app/Modules/Inventory/views/items/index.php).
  * A page may set $layout (default 'layouts/app'), $title and $breadcrumb;
  * the layout receives $content plus every variable the page defined.
  */
@@ -51,7 +52,12 @@ final class View
 
     private static function path(string $template): string
     {
-        $file = BASE_PATH.'/resources/views/'.$template.'.php';
+        if (str_contains($template, '::')) {
+            [$module, $name] = explode('::', $template, 2);
+            $file = (Modules::all()[$module]['dir'] ?? BASE_PATH.'/app/Modules/'.$module).'/views/'.$name.'.php';
+        } else {
+            $file = BASE_PATH.'/resources/views/'.$template.'.php';
+        }
         if (! is_file($file)) {
             throw new \RuntimeException("View [{$template}] not found.");
         }

@@ -39,6 +39,7 @@ $mobile = $sid === 'mobile';
                     <a role="menuitem" href="<?= url($m['home']) ?>" class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-graphite-700 hover:text-white <?= $key === $current ? 'text-white' : '' ?>">
                         <span class="flex size-7 items-center justify-center rounded-md <?= $key === $current ? 'bg-brand text-white' : 'bg-white/5' ?>"><?= icon($m['icon'], 'size-4') ?></span>
                         <span class="flex-1"><?= e(__($m['name'])) ?></span>
+                        <?php if (App\Core\Support\Modules::problems($key)): ?><span title="<?= e(__('Temporarily unavailable')) ?>"><?= icon('alert', 'size-4 text-amber-400') ?></span><?php endif ?>
                         <?php if ($key === $current): ?><?= icon('tick', 'size-4 text-white') ?><?php endif ?>
                     </a>
                 <?php endif ?>

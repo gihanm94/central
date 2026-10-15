@@ -93,7 +93,7 @@ and add `'xx' => 'Name'` to `locales` in `config/core.php`. Missing lines fall b
 - Collapsible sidebar with company + module switcher, breadcrumbs, phone-friendly drawer and card lists
 - Tailwind dropdowns everywhere (no native selects), keyboard and search support
 - Profile pages: details, security (password, passkeys, devices), preferences, notifications
-- Module switcher ready for CRM, Accounting, Inventory, Machines, HR (see `app/Modules/README.md`)
+- Plug-in modules: each one is a folder in `app/Modules` with a `module.php` manifest. A module that breaks (bad file, failed migration) is switched off on its own pages only; the rest keeps working. Health is on **Administration → Modules** (`/modules`). Start a new module from `app/Modules/_Template` (see `app/Modules/README.md`)
 
 
 ## CRM module (`/crm`)
@@ -257,7 +257,7 @@ public/            index.php (front door), install.php, assets/, uploads/
 app/Core/Auth      sign-in, remember me, passkeys
 app/Core/Support   DB, router, validation, permissions + data scope, activity log, mailer, CSV
 app/Core/Http      controllers (members, departments, teams, tasks, KPIs, roles, activity, settings…)
-app/Modules        future CRM / Accounting / Inventory / Machines / HR
+app/Modules        one folder per module (CRM, Accounting, Machines …), _Template = starter
 config/            config.php (written by installer), core.php (rule book), modules.php (menus)
 database/sql/      every SQL file
 resources/views    PHP templates (layouts, pages, e-mails)

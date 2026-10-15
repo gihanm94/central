@@ -15,7 +15,7 @@ use App\Modules\Accounting\Inet\Generator;
 use App\Modules\Accounting\Inet\InetClient;
 use App\Modules\Accounting\Inet\Jobs;
 use App\Modules\Accounting\Support\InetBuilder;
-use App\Modules\CRM\Support\Ui;
+use App\Core\Support\Ui;
 
 /**
  * e-Tax (INET) page: one row per invoice / credit note. "Generate" picks invoices that came from the ERP and are not

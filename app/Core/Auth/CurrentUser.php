@@ -85,7 +85,7 @@ final class CurrentUser
     public function homeUrl(): string
     {
         $modules = config('modules');
-        $module  = $this->default_module && ($modules[$this->default_module]['enabled'] ?? false) ? $this->default_module : 'core';
+        $module  = $this->default_module && $this->default_module !== 'core' && \App\Core\Support\Modules::usable($this->default_module) ? $this->default_module : 'core';
 
         return $modules[$module]['home'];
     }

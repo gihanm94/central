@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Accounting\Controllers;
 
-use App\Modules\CRM\Support\Ui;
+use App\Core\Support\Ui;
 
 /** Customers copied from the ERP. */
 class CustomerController extends ErpListController

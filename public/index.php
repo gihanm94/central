@@ -23,6 +23,7 @@ use App\Core\Auth\Auth;
 use App\Core\Support\HttpException;
 use App\Core\Support\I18n;
 use App\Core\Support\Migrator;
+use App\Core\Support\Modules;
 use App\Core\Support\Request;
 use App\Core\Support\Router;
 use App\Core\Support\Session;
@@ -44,14 +45,14 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 
 try {
-    Migrator::autoRun();                       // applies new database/sql/migrations after an update
+    Migrator::autoRun();                       // applies new database/sql/migrations after an update (a failing module is fenced off, not fatal)
     I18n::set(I18n::resolve(Auth::user()?->locale));
     View::share('branding', Settings::branding());
 
     $router = new Router();
     require BASE_PATH.'/routes/web.php';
-    if (Request::method() === 'GET' && str_starts_with($path, '/accounting')) {
-        try { \App\Modules\Accounting\Erp\Schedule::kick(); } catch (Throwable) { /* the schedule must never break a page */ }
+    if ($module = Modules::forPath($path)) {
+        Modules::hook('request', [], $module);  // e.g. Accounting starts its ERP schedule; errors are logged, never shown
     }
     $router->dispatch(Request::method(), $path);
 } catch (ValidationException $e) {
@@ -73,7 +74,9 @@ try {
     echo View::render('errors/http', ['status' => $e->status, 'message' => $e->getMessage(), 'title' => 'Error '.$e->status]);
 } catch (Throwable $e) {
     error_log((string) $e);
-    if (str_starts_with(Request::path(), '/accounting')) { \App\Modules\Accounting\Support\Log::exception('app', $e, 'Uncaught on '.Request::method().' '.Request::path()); }
+    if ($module = Modules::forPath(Request::path())) {
+        Modules::hook('error', [$e], $module);   // the module may keep its own log too
+    }
     http_response_code(500);
     if (config('app.env') === 'local') {
         echo '<pre style="padding:2rem;white-space:pre-wrap;font:13px/1.5 monospace">'.e(get_class($e).': '.$e->getMessage()."\n\n".$e->getTraceAsString()).'</pre>';

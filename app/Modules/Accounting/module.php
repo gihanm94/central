@@ -1,0 +1,41 @@
+<?php
+declare(strict_types=1);
+
+use App\Core\Support\Request;
+use App\Modules\Accounting\Erp\Schedule;
+use App\Modules\Accounting\Support\Log;
+
+/*
+ | Accounting module manifest — read by App\Core\Support\Modules at boot.
+ | 'enabled' here is the default; config/modules.php may override it.
+ */
+return [
+    'key' => 'accounting',
+    'name' => 'Accounting', 'icon' => 'calc', 'home' => '/accounting', 'enabled' => true, 'db' => 'accounting',
+    'dashboards' => ['overview' => ['label' => 'Accounting overview', 'url' => '/accounting']],
+    'menu' => [
+        ['heading' => 'Overview'],
+        ['label' => 'Accounting overview', 'url' => '/accounting', 'icon' => 'chart'],
+        ['heading' => 'ERP data'],
+        ['label' => 'Customers', 'url' => '/accounting/customers', 'icon' => 'users', 'permission' => 'accounting_customers.view'],
+        ['label' => 'Orders',    'url' => '/accounting/orders',    'icon' => 'cart',  'permission' => 'accounting_orders.view'],
+        ['label' => 'Invoices',  'url' => '/accounting/invoices',  'icon' => 'doc',   'permission' => 'accounting_invoices.view'],
+        ['label' => 'Products',  'url' => '/accounting/products',  'icon' => 'box',   'permission' => 'accounting_products.view'],
+        ['label' => 'Sellers',   'url' => '/accounting/sellers',   'icon' => 'users', 'permission' => 'accounting_sellers.view'],
+        ['heading' => 'E-Tax'],
+        ['label' => 'Inets',     'url' => '/accounting/inet',      'icon' => 'doc',   'permission' => 'accounting_inet.view'],
+        ['heading' => 'Billing'],
+        ['label' => 'Billing notes', 'url' => '/accounting/billing', 'icon' => 'doc', 'permission' => 'accounting_billing.view'],
+        ['heading' => 'Setup'],
+        ['label' => 'Company',        'url' => '/accounting/company', 'icon' => 'building', 'admin_only' => true],
+        ['label' => 'Notifications',  'url' => '/accounting/notify', 'icon' => 'bell', 'admin_only' => true],
+        ['label' => 'ERP connection', 'url' => '/accounting/erp', 'icon' => 'cog', 'admin_only' => true],
+        ['label' => 'Logs',           'url' => '/accounting/logs', 'icon' => 'tasks', 'admin_only' => true],
+    ],
+    'hooks' => [
+        // Every request to an /accounting page: start the ERP / billing schedule when it is due.
+        'request' => function () { if (Request::method() === 'GET') { Schedule::kick(); } },
+        // An uncaught error on an /accounting page also goes to the accounting log.
+        'error'   => fn (\Throwable $e) => Log::exception('app', $e, 'Uncaught on '.Request::method().' '.Request::path()),
+    ],
+];

@@ -9,7 +9,7 @@ use App\Core\Support\Request;
 use App\Core\Support\Session;
 use App\Modules\Accounting\Billing\BillingService;
 use App\Modules\Accounting\Erp\ErpSettings;
-use App\Modules\CRM\Support\Ui;
+use App\Core\Support\Ui;
 
 /** Billing notes: list, the 4-step generate page, PDF view / download, paid / complete. */
 class BillingController extends ErpListController
