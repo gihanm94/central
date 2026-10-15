@@ -8,9 +8,13 @@ use App\Core\Api\Kernel;
 use App\Core\Support\DB;
 use App\Core\Support\Request;
 use App\Modules\CRM\Controllers\ActivityController;
+use App\Modules\CRM\Controllers\ContactController;
+use App\Modules\CRM\Controllers\LeadController;
+use App\Modules\CRM\Controllers\OpportunityController;
 use App\Modules\CRM\Controllers\TaskController;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Catalog;
+use App\Modules\CRM\Support\Stages;
 use App\Modules\CRM\Support\Targets;
 
 /**
@@ -215,6 +219,51 @@ class CrmApi extends Controller
         Kernel::delegate(fn () => (new ActivityController())->update($id), $input);
 
         return $this->activity($id);
+    }
+
+    /* ------------------------------------------------------------ new leads, contacts, opportunities */
+
+    private const LEAD_INPUT = ['name_en', 'name_th', 'code', 'tax_id', 'phone', 'mobile', 'fax', 'address', 'city', 'province', 'country', 'zipcode',
+        'is_register', 'is_government', 'description'];
+    private const CONTACT_INPUT = ['lead_id', 'salutation', 'name_en', 'name_th', 'job_title', 'department', 'code', 'email', 'phone', 'phone_ext',
+        'additional_contact', 'description'];
+    private const OPPORTUNITY_INPUT = ['name', 'lead_id', 'contact_id', 'opportunity_stage', 'priority', 'code', 'amount', 'currency', 'probability',
+        'follow_at', 'close_at', 'description'];
+
+    /** Choices for the forms: the stages this person may use, priorities, currencies, salutations. */
+    public function options(): array
+    {
+        $this->need('crm_leads');
+        $pairs = fn (array $a) => array_map(fn ($k, $v) => ['value' => (string) $k, 'label' => (string) $v], array_keys($a), array_values($a));
+
+        return ['data' => [
+            'stages' => $pairs(Stages::options($this->user())),
+            'priorities' => $pairs(Catalog::tr(Catalog::PRIORITIES)),
+            'currencies' => $pairs(array_column(DB::select("SELECT code, code || ' · ' || name AS label FROM currencies ORDER BY is_base DESC, code", [], self::C), 'label', 'code')),
+            'salutations' => Catalog::SALUTATIONS,
+        ]];
+    }
+
+    /** Same form rules as the website: you become the owner, linked records must be visible to you. */
+    public function createLead(): array
+    {
+        $r = Kernel::delegate(fn () => (new LeadController())->store(), $this->input(self::LEAD_INPUT));
+
+        return $this->lead((int) $r['id']) + ['_status' => 201];
+    }
+
+    public function createContact(): array
+    {
+        $r = Kernel::delegate(fn () => (new ContactController())->store(), $this->input(self::CONTACT_INPUT));
+
+        return $this->contact((int) $r['id']) + ['_status' => 201];
+    }
+
+    public function createOpportunity(): array
+    {
+        $r = Kernel::delegate(fn () => (new OpportunityController())->store(), $this->input(self::OPPORTUNITY_INPUT));
+
+        return $this->opportunity((int) $r['id']) + ['_status' => 201];
     }
 
     /** {status: PLANNED|DONE|CANCELLED} */

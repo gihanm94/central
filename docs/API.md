@@ -75,9 +75,13 @@ Signing in again with the same `device_id` replaces that install's old sign-in.
 ```
 GET  /crm/stats                      pipeline by stage, won this year, my activities and tasks, this year's sales target
 GET  /crm/search?q=                  leads, contacts, opportunities (5 each)
+GET  /crm/options                    choices for the forms: stages you may use, priorities, currencies, salutations
 GET  /crm/leads?q=&mine=1            GET /crm/leads/{id}  (+ its contacts, opportunities, latest activities)
+POST /crm/leads                      new lead (below)
 GET  /crm/contacts?q=&lead_id=       GET /crm/contacts/{id}  (+ mobile numbers)
+POST /crm/contacts                   new contact
 GET  /crm/opportunities?q=&stage=&open=1&lead_id=&mine=1      GET /crm/opportunities/{id}
+POST /crm/opportunities              new opportunity
 GET  /crm/activities?q=&status=&type=&from=YYYY-MM-DD&to=YYYY-MM-DD&mine=1&lead_id=
 GET  /crm/activities/{id}
 POST /crm/activities                 log a call / meeting (below)
@@ -96,6 +100,16 @@ linked to Accounting (`source: "accounting"`), else opportunities won (`"crm"`),
 "target": {"year": 2026, "currency": "THB", "source": "crm", "total": 12000000, "actual": 7350000,
            "quarters": [{"q": 1, "target": 3000000, "actual": 2100000}, …]}
 ```
+
+New records use the website's own forms (same validation, you become the owner, a linked lead / contact must be
+visible to you, `422 invalid` with `fields` otherwise) and answer `201` with the record:
+
+- `POST /crm/leads`: `name_en` (required), `name_th`, `code` (empty = numbered automatically), `tax_id`, `phone`, `mobile`,
+  `fax`, `address`, `city`, `province`, `country`, `zipcode`, `is_register`, `is_government`, `description`
+- `POST /crm/contacts`: `lead_id`, `name_en` (required), `salutation`, `name_th`, `job_title`, `department`, `code`, `email`,
+  `phone`, `phone_ext`, `additional_contact`, `description`
+- `POST /crm/opportunities`: `name`, `lead_id`, `opportunity_stage`, `priority`, `currency` (required), `contact_id`, `code`,
+  `amount`, `probability` (empty = the stage's default), `follow_at`, `close_at` (YYYY-MM-DD), `description`
 
 Log a call (same rules as the website form: `lead_id` required, linked lead / contact / opportunity must be
 visible to you, you become the owner; HTML in `description` is cleaned):
