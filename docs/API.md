@@ -44,7 +44,9 @@ Settings (`config/config.php`, all optional):
 | Status | `code` | App should |
 |---|---|---|
 | 401 | `token_expired` | call `/auth/refresh`, then retry once |
-| 401 | `invalid_token`, `session_ended`, `no_api_access`, `unauthenticated` | go to the sign-in screen |
+| 401 | `invalid_token`, `session_ended`, `no_api_access`, `unauthenticated` | go to the sign-in screen (also when `/auth/refresh` answers any 401) |
+| 401 | `invalid_credentials` | sign-in only: show the message |
+| 403 | `no_api_access` | sign-in only: the account may not use the app |
 | 403 | `forbidden`, `not_waiting_for_you` | show the message |
 | 404 | `not_found`, `machine_not_found`, `pdf_not_available` | show the message |
 | 422 | `invalid` | show `fields` next to the inputs |

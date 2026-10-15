@@ -88,7 +88,7 @@ final class Tokens
         }
         if (strtotime((string) $d['refresh_expires_at']) <= time() || strtotime((string) $d['expires_at']) <= time()) {
             self::revoke((int) $d['id'], 'expired');
-            throw new ApiException(401, 'session_expired', __('Your sign-in on this device has ended. Sign in again.'));
+            throw new ApiException(401, 'session_ended', __('Your sign-in on this device has ended. Sign in again.'));
         }
         $u = self::user($d);
 
