@@ -11,13 +11,32 @@ if (PHP_SAPI === 'cli-server' && is_file(__DIR__.parse_url($_SERVER['REQUEST_URI
     return false;
 }
 
+// /api/... is the mobile/API front door: no PHP session, no cookies (see App\Core\Api\Kernel).
+$apiPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+$apiBase = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+if ($apiBase !== '' && str_starts_with($apiPath, $apiBase)) {
+    $apiPath = substr($apiPath, strlen($apiBase));
+}
+if (str_starts_with($apiPath, '/api/')) {
+    define('API_REQUEST', true);
+}
+
 // Not installed yet → installer.
 if (! is_file(dirname(__DIR__).'/storage/installed.lock')) {
+    if (defined('API_REQUEST')) {
+        http_response_code(503);
+        header('Content-Type: application/json');
+        exit('{"error":{"code":"not_installed","message":"The system is not installed yet."}}');
+    }
     header('Location: '.rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/').'/install.php');
     exit;
 }
 
 require dirname(__DIR__).'/app/bootstrap.php';
+
+if (defined('API_REQUEST')) {
+    App\Core\Api\Kernel::handle(App\Core\Support\Request::path());
+}
 
 use App\Core\Auth\Auth;
 use App\Core\Support\HttpException;

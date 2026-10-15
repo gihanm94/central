@@ -13,6 +13,9 @@ final class Router
 {
     private array $routes = [];
 
+    /** The API router turns CSRF off: its requests carry a Bearer token, never cookies. */
+    public function __construct(private readonly bool $csrf = true) {}
+
     public function get(string $path, array $handler, array $middleware = []): void  { $this->add('GET', $path, $handler, $middleware); }
     public function post(string $path, array $handler, array $middleware = []): void { $this->add('POST', $path, $handler, $middleware); }
 
@@ -53,7 +56,8 @@ final class Router
         $this->routes[] = compact('method', 'path', 'regex', 'handler', 'middleware');
     }
 
-    public function dispatch(string $method, string $path): void
+    /** Runs the matching handler; returns what it returned (the API turns arrays into JSON). */
+    public function dispatch(string $method, string $path): mixed
     {
         $allowed = false;
 
@@ -66,7 +70,7 @@ final class Router
                 continue;
             }
 
-            if ($method === 'POST') {
+            if ($method === 'POST' && $this->csrf) {
                 $token = $_POST['_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
                 if (! Session::verifyCsrf($token)) {
                     throw new HttpException(419, 'Your session expired. Reload the page and try again.');
@@ -86,7 +90,7 @@ final class Router
                 echo $result;
             }
 
-            return;
+            return $result;
         }
 
         throw new HttpException($allowed ? 405 : 404);

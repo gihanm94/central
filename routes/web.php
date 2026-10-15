@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use App\Core\Http\Controllers\AccessRequestController;
 use App\Core\Http\Controllers\ActivityController;
+use App\Core\Http\Controllers\ApiAccessController;
 use App\Core\Http\Controllers\AuthController;
 use App\Core\Http\Controllers\DashboardController;
 use App\Core\Http\Controllers\DepartmentController;
@@ -71,6 +72,11 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/files/rename', [FileController::class, 'rename']);
     $r->post('/files/move', [FileController::class, 'move']);
     $r->post('/files/delete', [FileController::class, 'delete']);
+    $r->get('/api-access', [ApiAccessController::class, 'admin']);
+    $r->post('/api-access/devices/{id}/revoke', [ApiAccessController::class, 'adminRevoke']);
+    $r->get('/profile/devices', [ApiAccessController::class, 'mine']);
+    $r->post('/profile/devices/{id}/revoke', [ApiAccessController::class, 'revokeMine']);
+
     $r->get('/modules', [ModuleController::class, 'index']);
     $r->post('/modules/retry', [ModuleController::class, 'retry']);
 

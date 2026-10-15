@@ -154,6 +154,9 @@ function abort(int $code, string $message = ''): never { throw new App\Core\Supp
 
 function redirect(string $to): never
 {
+    if (App\Core\Api\Kernel::$capturing) {
+        throw new App\Core\Api\Captured(['redirect' => $to], 303);
+    }
     header('Location: '.(str_starts_with($to, 'http') ? $to : url($to)), true, 302);
     exit;
 }
@@ -170,6 +173,9 @@ function back(?string $type = null, ?string $message = null): never
 
 function json_response(array $data, int $status = 200): never
 {
+    if (App\Core\Api\Kernel::$capturing) {
+        throw new App\Core\Api\Captured($data, $status);
+    }
     while (ob_get_level() > 0) { ob_end_clean(); }      // drop stray notices so the JSON stays valid
     http_response_code($status);
     header('Content-Type: application/json');

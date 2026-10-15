@@ -234,6 +234,15 @@ People send tables to their own Google spreadsheets on a schedule. Each sync rep
 - A failed sync shows its reason on the page and rings the owner's bell. A person who loses access stops syncing on the next run.
 - Setup: the Connectors OAuth client plus the Sheets API and Drive API (scopes `spreadsheets`, `drive.metadata.readonly`), same redirect URI. Run `*/5 * * * * php bin/sheets-sync.php` from cron, so evening and night syncs run when nobody is signed in. Without cron, the website runs one due sync per minute while somebody is signed in.
 
+## Mobile app & API (`/api/v1`)
+
+A JSON API for a mobile app: CRM (read, log calls/meetings, change activity and task status), Machine Checklist (scan QR, do checks with a photo, approve re-checks, what is due) and **read-only** Accounting (customers, products, orders, invoices, sellers, Inets and billing notes with their stored PDFs, overview figures). Mobile cannot generate or send Inets, billing notes or tax reports.
+
+- Only roles you give **Mobile app & API** in Roles & access may sign in (none by default). Everyone keeps exactly their website permissions and row visibility.
+- HTTPS only. Short-lived access tokens with rotating refresh tokens; a reused (stolen) refresh token signs the device out. Only token hashes are stored. Same password lockout as the website, rate limits, and a log of every request.
+- Administration → **Mobile app & API** lists every signed-in device (sign any out) and the request log. Each person sees and ends their own under Profile → **Mobile devices**. Changing password or "Sign out all others" also signs out the phones.
+- Full reference for the app developer: [`docs/API.md`](docs/API.md).
+
 ## Account requests
 
 The sign-in page says "Accounts are created by your administrator. Need access? **Request**". The dialog asks for employee ID, name, e-mail, phone, gender, department (typed) and a password (with confirmation). The password is hashed at once. Administrators see the requests under *Members → Account requests* (also a banner on the Members list and a bell notice), open one, choose the real department, role, team and manager, correct anything, and **Approve**: the member is created with the password hash the person chose, so no administrator ever knows it, and the person gets an e-mail. **Reject** sends an optional reason. Spam protection: hidden field, 5 requests per hour per address, one open request per e-mail. Switch it off in Company settings (then the support e-mail link is shown again).

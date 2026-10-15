@@ -1,6 +1,6 @@
 <?php /* $modules (without core), $status */
 use App\Core\Support\Modules;
-$where = ['manifest' => __('module.php'), 'routes' => __('routes.php'), 'migrations' => __('Database migrations')];
+$where = ['manifest' => __('module.php'), 'routes' => __('routes.php'), 'api' => __('api.php (mobile API)'), 'migrations' => __('Database migrations')];
 ?>
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0"><h1 class="page-title"><?= e(__('Modules')) ?></h1>

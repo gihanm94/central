@@ -143,5 +143,7 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 -- keep identity counters ahead of the fixed ids above
 SELECT setval(pg_get_serial_sequence('roles','id'), GREATEST((SELECT MAX(id) FROM roles), 1));
 SELECT setval(pg_get_serial_sequence('permissions','id'), GREATEST((SELECT MAX(id) FROM permissions), 1));
+-- Mobile app & API (also added by migrations/core/2026_10_22_001_api.sql on existing installs). Granted to no role by default.
+INSERT INTO permissions (module, key, label, sort) VALUES ('core', 'api_access', 'Mobile app & API', 90) ON CONFLICT (key) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('departments','id'), GREATEST((SELECT MAX(id) FROM departments), 1));
 SELECT setval(pg_get_serial_sequence('users','id'), GREATEST((SELECT MAX(id) FROM users), 1));

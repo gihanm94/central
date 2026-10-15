@@ -60,6 +60,7 @@ class SessionAdminController extends Controller
     {
         $this->gate();
         $n = SessionGuard::revokeAll($id, ! empty($_SESSION['sid']) && (int) $this->user()->id === $id ? (int) $_SESSION['sid'] : null, $this->user()->id);
+        $n += \App\Core\Api\Tokens::revokeAll($id, 'revoked_by_admin');
         Session::flash('success', __(':n session(s) ended.', ['n' => $n]));
         redirect('/sessions');
     }

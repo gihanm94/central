@@ -6,6 +6,10 @@ namespace App\Core\Support;
 final class Request
 {
     private static ?array $json = null;
+    private static ?array $replaced = null;
+
+    /** The API hands controllers only the fields it allows (Request::all() then returns exactly these). */
+    public static function replace(?array $data): void { self::$replaced = $data; }
 
     public static function method(): string { return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET'); }
 
@@ -29,6 +33,9 @@ final class Request
 
     public static function all(): array
     {
+        if (self::$replaced !== null) {
+            return self::$replaced;
+        }
         if (str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'application/json')) {
             return self::$json ??= (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
         }

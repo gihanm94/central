@@ -30,7 +30,7 @@ ini_set('display_errors', $local ? '1' : '0');
 ini_set('log_errors', '1');
 ini_set('error_log', BASE_PATH.'/storage/logs/php-error.log');
 
-if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE && ! defined('API_REQUEST')) {      // the API never uses a session
     session_name('acme_session');
     session_set_cookie_params([
         'lifetime' => 0,

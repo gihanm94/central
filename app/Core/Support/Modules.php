@@ -98,6 +98,34 @@ final class Modules
     }
 
     /**
+     * API endpoints of the module named by /api/v1/<key>/…, from its api.php (only that module's file is loaded).
+     * A module that is off, fenced or whose api.php fails answers 503 on its API URLs; the rest of the API keeps working.
+     */
+    public static function api(Router $r, string $path): void
+    {
+        if (! preg_match('#^/api/v1/([a-z0-9_]+)(/|$)#', $path, $m) || $m[1] === 'core' || ! isset(self::all()[$m[1]])) {
+            return;
+        }
+        $key = $m[1];
+        $file = (self::all()[$key]['dir'] ?? '').'/api.php';
+        if (! self::enabled($key) || ! is_file($file)) {
+            return;                                     // no API → plain 404
+        }
+        $fenced = array_intersect_key(self::status()[$key] ?? [], ['manifest' => 1, 'migrations' => 1]);
+        if (! $fenced) {
+            try {
+                $r->attempt(function (Router $r) use ($file) { require $file; });
+                self::ok($key, 'api');
+
+                return;
+            } catch (\Throwable $e) {
+                self::fail($key, 'api', $e);
+            }
+        }
+        $r->any('/api/v1/'.$key, [\App\Core\Api\Controllers\SystemController::class, 'unavailable']);
+    }
+
+    /**
      * Runs hook $name of every usable module (or only of $only) with $args. A hook that throws is logged
      * and skipped, so one module never stops the others' work.
      * @return array<string,mixed> results by module key

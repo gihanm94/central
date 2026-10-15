@@ -82,14 +82,32 @@ final class Auth
     /** Returns null on success or an error message. */
     public static function attempt(string $email, string $password, bool $remember): ?string
     {
+        [$userId, $error] = self::verify($email, $password);
+        if ($error !== null) {
+            return $error;
+        }
+        self::login(self::load($userId), $remember, 'password');
+
+        return null;
+    }
+
+    /**
+     * Checks e-mail + password with the lockout after repeated failures (shared by the web sign-in and the API).
+     * Failures are logged; on success the hash is upgraded when needed.
+     * @return array{0: ?int, 1: ?string, 2?: int} [user id, null] or [null, error message, seconds locked (when locked)]
+     */
+    public static function verify(string $email, string $password, string $method = 'password'): array
+    {
         $key  = strtolower($email).'|'.Request::ip();
         $lock = DB::first('SELECT attempts, locked_until FROM login_attempts WHERE key = ?', [$key]);
         if ($lock && $lock['locked_until'] && strtotime($lock['locked_until']) > time()) {
-            return __('Too many attempts. Try again in :seconds seconds.', ['seconds' => max(1, strtotime($lock['locked_until']) - time())]);
+            $wait = max(1, strtotime($lock['locked_until']) - time());
+
+            return [null, __('Too many attempts. Try again in :seconds seconds.', ['seconds' => $wait]), $wait];
         }
 
         $row = DB::first('SELECT id, password, is_active FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL', [$email]);
-        $ok  = $row && password_verify($password, $row['password']);
+        $ok  = password_verify($password, $row['password'] ?? '$2y$10$USo5amzlXOl..rh2CsA1O.CQLOjNh3Mn.SEy/SL1wgN/p1bMJC/by') && $row;  // same work for unknown e-mails
 
         if (! $ok || ! filter_var($row['is_active'], FILTER_VALIDATE_BOOL)) {
             $max      = (int) config('security.max_login_attempts', 5);
@@ -97,10 +115,10 @@ final class Auth
             DB::exec('INSERT INTO login_attempts (key, attempts, locked_until) VALUES (?, ?, ?)
                       ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until',
                 [$key, $attempts >= $max ? 0 : $attempts, $attempts >= $max ? date('c', time() + 60 * (int) config('security.lockout_minutes', 1)) : null]);
-            Activity::log('login_failed', null, null, null, ['Failed sign-in for :email', ['email' => $email]], ['email' => $email], null, $row['id'] ?? null, false);
-            SessionGuard::event($row['id'] ?? null, 'failed', 'password', null, $email);
+            Activity::log('login_failed', null, null, null, ['Failed sign-in for :email', ['email' => $email]], ['email' => $email, 'method' => $method], null, $row['id'] ?? null, false);
+            SessionGuard::event($row['id'] ?? null, 'failed', $method, null, $email);
 
-            return $ok ? __('This account is deactivated. Contact your administrator.') : __('These details do not match an active account.');
+            return [null, $ok ? __('This account is deactivated. Contact your administrator.') : __('These details do not match an active account.')];
         }
 
         DB::exec('DELETE FROM login_attempts WHERE key = ?', [$key]);
@@ -108,9 +126,14 @@ final class Auth
             DB::exec('UPDATE users SET password = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $row['id']]);
         }
 
-        self::login(self::load((int) $row['id']), $remember, 'password');
+        return [(int) $row['id'], null];
+    }
 
-        return null;
+    /** The API authenticated this request with a token: act as that person for this request only (no session). */
+    public static function actAs(CurrentUser $user): void
+    {
+        self::$user = $user;
+        self::$resolved = true;
     }
 
     /** Final step for every sign-in method. */

@@ -122,6 +122,7 @@ class ProfileController extends Controller
     {
         $u = $this->user();
         $n = \App\Core\Auth\SessionGuard::revokeAll($u->id, ! empty($_SESSION['sid']) ? (int) $_SESSION['sid'] : null, $u->id);
+        $n += \App\Core\Api\Tokens::revokeAll($u->id, 'revoked_by_user');      // and every mobile device
         Session::flash('success', __(':n other session(s) ended.', ['n' => $n]));
         redirect('/profile/sessions');
     }

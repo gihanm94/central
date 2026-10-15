@@ -32,6 +32,7 @@ return [
             ['label' => 'Sessions',         'url' => '/sessions',    'icon' => 'lock',     'admin_only' => true],
             ['label' => 'Connectors',       'url' => '/connectors',  'icon' => 'link',     'admin_only' => true],
             ['label' => 'Modules',          'url' => '/modules',     'icon' => 'grid',     'admin_only' => true],
+            ['label' => 'Mobile app & API', 'url' => '/api-access',  'icon' => 'key',      'admin_only' => true],
             ['label' => 'File manager',     'url' => '/files',       'icon' => 'folder',   'admin_only' => true],
             ['label' => 'Company settings', 'url' => '/settings',    'icon' => 'cog',      'permission' => 'settings.view'],
         ],
