@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 
-/** Seconds left until `until` (ms since epoch), ticking every second; 0 when over. */
+/** Seconds left until `until` (ms since epoch), re-rendering every second; 0 when over. */
 export function useCountdown(until: number | null): number {
-  const [now, setNow] = useState(() => Date.now());
+  const [, setTick] = useState(0);
+  const left = until ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0;
   useEffect(() => {
-    if (!until) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    if (!until || left === 0) return;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(id);
-  }, [until]);
-  return until ? Math.max(0, Math.ceil((until - now) / 1000)) : 0;
+  }, [until, left === 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  return left;
 }
 
 export function formatSeconds(s: number): string {
