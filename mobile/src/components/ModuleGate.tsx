@@ -1,4 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
+import { View } from 'react-native';
 
 import type { ModuleKey } from '@/api/types';
 import { useT } from '@/i18n';
@@ -16,7 +17,7 @@ export function ModuleStack({ module }: { module: ModuleKey }) {
   const unavailable = useModuleUnavailable(module);
   if (profile && !hasModule(profile, module)) return <Redirect href="/" />;
   return (
-    <>
+    <View style={{ flex: 1 }}>
       {unavailable && <Banner tone="warn" text={t('errors.module_unavailable')} testID={`unavailable-${module}`} />}
       <Stack
         screenOptions={{
@@ -26,6 +27,6 @@ export function ModuleStack({ module }: { module: ModuleKey }) {
           contentStyle: { backgroundColor: colors.bg },
         }}
       />
-    </>
+    </View>
   );
 }
