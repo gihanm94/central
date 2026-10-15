@@ -48,6 +48,7 @@ class ConnectorController extends Controller
         Google::configured() || abort(404, __('The administrator has not set up the Google connector yet.'));
         $state = bin2hex(random_bytes(16));
         $_SESSION['google_state'] = $state;
+        unset($_SESSION['google_forward']);
         $_SESSION['google_back'] = in_array(Request::query('back'), ['mail', 'calendar'], true) ? Request::query('back') : 'profile';
         header('Location: '.Google::loginUrl($state, $this->user()->email));
         exit;
@@ -56,6 +57,13 @@ class ConnectorController extends Controller
     public function callback(): never
     {
         $u = $this->user();
+        $forward = (string) ($_SESSION['google_forward'] ?? '');
+        if ($forward !== '') {                                    // a module's own Google sign-in (see Google::forwardTo)
+            unset($_SESSION['google_forward']);
+            if (str_starts_with($forward, '/') && ! str_starts_with($forward, '//')) {
+                redirect($forward.'?'.http_build_query(array_intersect_key($_GET, array_flip(['code', 'state', 'error']))));
+            }
+        }
         $back = ['mail' => '/mail', 'calendar' => '/calendar'][$_SESSION['google_back'] ?? ''] ?? '/profile/connectors';
         $state = (string) Request::query('state', '');
         if ($state === '' || ! hash_equals((string) ($_SESSION['google_state'] ?? ''), $state)) {

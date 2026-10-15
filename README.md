@@ -224,6 +224,16 @@ Ported from the Spring service (entities, services, schedulers). Data lives in `
 - **Background jobs** (`app/Modules/Machines/Support/Jobs.php`): items start again on their day, weekly (Mon 00:05) / monthly (1st) close-out marks unapproved re-checks `…-OVERDUE` and puts machines back to PENDING, Friday 15:00 / last day 23:55 automatic "no action taken" records, weekday 09:00 maintenance/calibration reminders (managers Mon/Wed 09:15), 25 December copies the rounds to next year. Run `*/5 * * * * php bin/machines-cron.php` from cron; without cron the website runs them about once a minute while somebody is signed in. They start counting from the first run (no catching up on the past).
 - Differences from the old service: a general check never changes the machine's check state; approving moves the machine's state along; the monthly automatic record runs on the last day of the month.
 
+## Google Sheets (`/sheets`)
+
+People send tables to their own Google spreadsheets on a schedule. Each sync replaces the whole tab with the latest rows.
+
+- **Administrators** (Tables & access) see every table of core and the enabled modules. They open a table, choose which **roles** and/or **people** may sync it, and untick columns to keep out. Tables and columns that hold passwords, tokens, sessions or keys are never listed or sent. Soft-deleted rows (`deleted_at`) are left out. People given a table get every row of it, whatever they may see on screen.
+- **People** connect one or more Google accounts (separate from the Gmail/Calendar connection). For each allowed table they pick an account, a spreadsheet (one of theirs, a pasted link, or a new one) and a tab. One table can go to many sheets, each with its own schedule: **every day once** (on chosen weekdays, at a time) or **one day only**.
+- **Office hours** (default Mon–Fri 08:30–17:30, Google Sheets → Settings) are kept free. Schedules cannot be set inside them, "Sync now" is refused, and a sync that falls due during them waits until they end.
+- A failed sync shows its reason on the page and rings the owner's bell. A person who loses access stops syncing on the next run.
+- Setup: the Connectors OAuth client plus the Sheets API and Drive API (scopes `spreadsheets`, `drive.metadata.readonly`), same redirect URI. Run `*/5 * * * * php bin/sheets-sync.php` from cron, so evening and night syncs run when nobody is signed in. Without cron, the website runs one due sync per minute while somebody is signed in.
+
 ## Account requests
 
 The sign-in page says "Accounts are created by your administrator. Need access? **Request**". The dialog asks for employee ID, name, e-mail, phone, gender, department (typed) and a password (with confirmation). The password is hashed at once. Administrators see the requests under *Members → Account requests* (also a banner on the Members list and a bell notice), open one, choose the real department, role, team and manager, correct anything, and **Approve**: the member is created with the password hash the person chose, so no administrator ever knows it, and the person gets an e-mail. **Reject** sends an optional reason. Spam protection: hidden field, 5 requests per hour per address, one open request per e-mail. Switch it off in Company settings (then the support e-mail link is shown again).

@@ -28,13 +28,20 @@ final class Google
     private static function tokenUrl(): string { return (string) (Settings::get('google_token_url') ?: 'https://oauth2.googleapis.com/token'); }
     public static function apiUrl(): string { return rtrim((string) (Settings::get('google_api_url') ?: 'https://www.googleapis.com'), '/'); }
 
-    public static function loginUrl(string $state, ?string $hint = null): string
+    /** @param string[]|null $scopes other scopes than the Gmail + Calendar set (e.g. the Sheets module's) */
+    public static function loginUrl(string $state, ?string $hint = null, ?array $scopes = null, string $prompt = 'consent'): string
     {
         return self::authUrl().'?'.http_build_query(array_filter([
-            'client_id' => self::clientId(), 'redirect_uri' => self::redirectUri(), 'response_type' => 'code', 'scope' => implode(' ', self::SCOPES), 'access_type' => 'offline',
-            'prompt' => 'consent', 'include_granted_scopes' => 'true', 'state' => $state, 'login_hint' => $hint,
+            'client_id' => self::clientId(), 'redirect_uri' => self::redirectUri(), 'response_type' => 'code', 'scope' => implode(' ', $scopes ?? self::SCOPES), 'access_type' => 'offline',
+            'prompt' => $prompt, 'include_granted_scopes' => $scopes === null ? 'true' : null, 'state' => $state, 'login_hint' => $hint,
         ]));
     }
+
+    /**
+     * Sign-in flows of modules use the same redirect URI: they put their own callback path in
+     * $_SESSION['google_forward'] and /connect/google/callback hands the answer on to it.
+     */
+    public static function forwardTo(string $path): void { $_SESSION['google_forward'] = $path; }
 
     public static function connection(int $userId): ?array
     {
@@ -105,7 +112,7 @@ final class Google
 
     public static function apiRaw(string $token, string $method, string $path, array $query = [], ?array $json = null): array
     {
-        $url = self::apiUrl().$path.($query ? '?'.preg_replace('/%5B\d+%5D/', '', http_build_query($query)) : '');
+        $url = (str_starts_with($path, 'https://') || str_starts_with($path, 'http://') ? $path : self::apiUrl().$path).($query ? '?'.preg_replace('/%5B\d+%5D/', '', http_build_query($query)) : '');
         $ch = curl_init($url);
         $h = ['Authorization: Bearer '.$token, 'Accept: application/json'];
         curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8]);
@@ -119,6 +126,12 @@ final class Google
 
         return ['status' => $st, 'body' => json_decode((string) $out, true) ?: []];
     }
+
+    /** Token endpoint: exchange a code ('authorization_code') or renew ('refresh_token'). Raw answer, never throws for an OAuth error. */
+    public static function oauth(array $params): array { return self::token($params); }
+
+    /** Revoke a token on the Google side (best effort). */
+    public static function revoke(string $token): void { self::post((string) (Settings::get('google_revoke_url') ?: 'https://oauth2.googleapis.com/revoke'), ['token' => $token]); }
 
     private static function token(array $params): array
     {

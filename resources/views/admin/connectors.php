@@ -18,6 +18,7 @@
             <li><?= e(__('Create an OAuth client (type: Web application) and paste the redirect URI shown here.')) ?></li>
             <li><?= e(__('On the consent screen add the scopes gmail.readonly, gmail.send and calendar.')) ?></li>
             <li><?= e(__('Paste the client ID and secret here. Each person then connects under Profile → Connectors.')) ?></li>
+            <li><?= e(__('For the Google Sheets module also enable the Google Sheets API and the Google Drive API, and add the scopes spreadsheets and drive.metadata.readonly. Same client, same redirect URI.')) ?></li>
         </ol>
         <p class="border-t border-graphite-900/8 px-5 py-3 text-xs text-steel"><?= e(__('Tokens are stored encrypted. Mail is read live from Google and is not copied into this system.')) ?></p>
     </section>
