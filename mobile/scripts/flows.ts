@@ -13,6 +13,8 @@
  *   ACCOUNTING_EMAIL   user who may see Inets (default admin@acmeinter.com)
  *   ACCOUNTING_PASSWORD
  *   SCAN_TEXT          what the QR code says (default {"code":"OPS-CN01-0001"})
+ *   APPROVER_EMAILS    comma-separated supervisors / managers who approve waiting re-checks
+ *   APPROVER_PASSWORD
  *
  * Never prints tokens, passwords or response bodies.
  */
@@ -30,6 +32,10 @@ import { apiBaseFromServerUrl } from '../src/lib/serverUrl';
 const root = process.env.API_URL ?? 'http://127.0.0.1:8000';
 const member = { email: process.env.MEMBER_EMAIL ?? 'member@acmeinter.com', password: process.env.MEMBER_PASSWORD ?? 'Password@123' };
 const accountant = { email: process.env.ACCOUNTING_EMAIL ?? 'admin@acmeinter.com', password: process.env.ACCOUNTING_PASSWORD ?? 'Password@123' };
+const approvers = (process.env.APPROVER_EMAILS ?? 'manager@acmeinter.com,bu.manager@acmeinter.com')
+  .split(',')
+  .filter(Boolean)
+  .map((email: string) => ({ email: email.trim(), password: process.env.APPROVER_PASSWORD ?? 'Password@123' }));
 const scanText = process.env.SCAN_TEXT ?? '{"code":"OPS-CN01-0001"}';
 
 const base = apiBaseFromServerUrl(root, { allowInsecureLocal: true });
@@ -205,6 +211,22 @@ async function main() {
     const e = await m.api.me.get().catch((x: unknown) => x);
     assert(e instanceof ApiError && e.status === 401, 'expected 401');
   });
+
+  /* ------------------------------------------------------------ approvals */
+  console.log(`\nApprovals (supervisor, then manager)`);
+  for (const who of approvers) {
+    const s = session();
+    if (!(await step(`sign in as ${who.email}`, () => signIn(s, who)))) continue;
+    await step('approve re-checks waiting for me', async () => {
+      const page = await s.api.machines.checklists({ pending: true, per_page: 5 });
+      for (const r of page.data.filter((x) => x.can_approve)) {
+        const after = await s.api.machines.approve(r.id, 'OK (flow script)');
+        console.log(`    #${r.id}: ${r.checklist_status} → ${after.data.checklist_status}`);
+      }
+      if (!page.data.length) console.log('    (nothing waiting)');
+    });
+    await step('sign out', () => s.api.auth.logout());
+  }
 
   /* ------------------------------------------------------------ accounting */
   console.log(`\nAs ${accountant.email}`);
