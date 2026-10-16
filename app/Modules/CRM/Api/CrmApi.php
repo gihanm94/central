@@ -8,9 +8,14 @@ use App\Core\Api\Kernel;
 use App\Core\Support\DB;
 use App\Core\Support\Request;
 use App\Modules\CRM\Controllers\ActivityController;
+use App\Modules\CRM\Controllers\ContactController;
+use App\Modules\CRM\Controllers\LeadController;
+use App\Modules\CRM\Controllers\OpportunityController;
 use App\Modules\CRM\Controllers\TaskController;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Catalog;
+use App\Modules\CRM\Support\Stages;
+use App\Modules\CRM\Support\Targets;
 
 /**
  * CRM for the mobile app. Every list and record goes through the same visibility as the website
@@ -110,6 +115,7 @@ class CrmApi extends Controller
 
     /* --------------------------------------------------------------- contacts */
 
+    /** ?q= ?lead_id= ?mine=1 */
     public function contacts(): array
     {
         [$w, $p] = $this->scope('contact', 'crm_contacts');
@@ -118,6 +124,7 @@ class CrmApi extends Controller
             array_push($p, ...array_fill(0, 5, $this->like($q)));
         }
         if ($lead = (int) Request::query('lead_id')) { $w .= ' AND t.lead_id = ?'; $p[] = $lead; }
+        if (Request::query('mine') === '1') { $w .= ' AND t.owner_id = ?'; $p[] = $this->user()->id; }
 
         return $this->list("SELECT t.*, l.name_en AS lead_name FROM contacts t LEFT JOIN leads l ON l.id = t.lead_id WHERE {$w}", $p, 't.name_en, t.id', self::CONTACT);
     }
@@ -216,6 +223,52 @@ class CrmApi extends Controller
         return $this->activity($id);
     }
 
+    /* ------------------------------------------------------------ new leads, contacts, opportunities */
+
+    private const LEAD_INPUT = ['name_en', 'name_th', 'code', 'tax_id', 'phone', 'mobile', 'fax', 'address', 'city', 'province', 'country', 'zipcode',
+        'is_register', 'is_government', 'description'];
+    private const CONTACT_INPUT = ['lead_id', 'salutation', 'name_en', 'name_th', 'job_title', 'department', 'code', 'email', 'phone', 'phone_ext',
+        'additional_contact', 'description'];
+    private const OPPORTUNITY_INPUT = ['name', 'lead_id', 'contact_id', 'opportunity_stage', 'priority', 'code', 'amount', 'currency', 'probability',
+        'follow_at', 'close_at', 'description'];
+
+    /** Choices for the forms: the stages this person may use, priorities, currencies, salutations. */
+    public function options(): array
+    {
+        $this->need('crm_leads');
+        $pairs = fn (array $a) => array_map(fn ($k, $v) => ['value' => (string) $k, 'label' => (string) $v], array_keys($a), array_values($a));
+
+        return ['data' => [
+            'stages' => $pairs(Stages::options($this->user())),
+            'priorities' => $pairs(Catalog::tr(Catalog::PRIORITIES)),
+            'currencies' => $pairs(array_column(DB::select("SELECT code, code || ' · ' || name AS label FROM currencies ORDER BY is_base DESC, code", [], self::C), 'label', 'code')),
+            'salutations' => Catalog::SALUTATIONS,
+            'stage_names' => Stages::forMobile(),
+        ]];
+    }
+
+    /** Same form rules as the website: you become the owner, linked records must be visible to you. */
+    public function createLead(): array
+    {
+        $r = Kernel::delegate(fn () => (new LeadController())->store(), $this->input(self::LEAD_INPUT));
+
+        return $this->lead((int) $r['id']) + ['_status' => 201];
+    }
+
+    public function createContact(): array
+    {
+        $r = Kernel::delegate(fn () => (new ContactController())->store(), $this->input(self::CONTACT_INPUT));
+
+        return $this->contact((int) $r['id']) + ['_status' => 201];
+    }
+
+    public function createOpportunity(): array
+    {
+        $r = Kernel::delegate(fn () => (new OpportunityController())->store(), $this->input(self::OPPORTUNITY_INPUT));
+
+        return $this->opportunity((int) $r['id']) + ['_status' => 201];
+    }
+
     /** {status: PLANNED|DONE|CANCELLED} */
     public function activityStatus(int $id): array
     {
@@ -309,10 +362,16 @@ class CrmApi extends Controller
         $out = [];
         if ($u->can('crm_opportunities', 'view')) {
             [$w, $p] = $this->scope('opportunity', 'crm_opportunities');
+            // amounts per currency, plus the same converted to the base currency (base_*) so rows can be added up
+            $base = "coalesce(c.rate_to_base, 1)";
+            $out['base_currency'] = Targets::baseCurrency();
             $out['pipeline'] = DB::select("SELECT t.opportunity_stage AS stage, t.currency, count(*) AS count, coalesce(sum(t.amount), 0) AS amount,
-                coalesce(sum(t.amount * coalesce(t.probability, 0) / 100), 0) AS weighted FROM opportunities t
+                coalesce(sum(t.amount * coalesce(t.probability, 0) / 100), 0) AS weighted,
+                round(coalesce(sum(t.amount * {$base}), 0), 2) AS base_amount, round(coalesce(sum(t.amount * coalesce(t.probability, 0) / 100 * {$base}), 0), 2) AS base_weighted
+                FROM opportunities t LEFT JOIN currencies c ON c.code = t.currency
                 WHERE {$w} AND t.opportunity_stage IN ('".implode("', '", Catalog::OPEN)."') GROUP BY 1, 2 ORDER BY 1, 2", $p, self::C);
-            $out['won_this_year'] = DB::select("SELECT t.currency, count(*) AS count, coalesce(sum(t.amount), 0) AS amount FROM opportunities t
+            $out['won_this_year'] = DB::select("SELECT t.currency, count(*) AS count, coalesce(sum(t.amount), 0) AS amount, round(coalesce(sum(t.amount * {$base}), 0), 2) AS base_amount
+                FROM opportunities t LEFT JOIN currencies c ON c.code = t.currency
                 WHERE {$w} AND t.opportunity_stage = 'CLOSED_WON' AND t.close_at >= date_trunc('year', now()) GROUP BY 1", $p, self::C);
         }
         if ($u->can('crm_activities', 'view')) {
@@ -330,6 +389,45 @@ class CrmApi extends Controller
                 count(*) FILTER (WHERE t.status NOT IN ('DONE', 'CANCELLED') AND t.end_date < CURRENT_DATE) AS late
                 FROM tasks t WHERE {$w} AND EXISTS (SELECT 1 FROM task_assignees a WHERE a.task_id = t.id AND a.user_id = ?)", [...$p, $u->id], self::C);
         }
+        // this quarter for the Home "performance" card: new leads, deals won / lost, and activities per day (last 8 days)
+        $q = [];
+        if ($u->can('crm_leads', 'view')) {
+            [$w, $p] = $this->scope('lead', 'crm_leads');
+            $q['leads'] = (int) DB::scalar("SELECT count(*) FROM leads t WHERE {$w} AND t.created_at >= date_trunc('quarter', now())", $p, self::C);
+        }
+        if ($u->can('crm_opportunities', 'view')) {
+            [$w, $p] = $this->scope('opportunity', 'crm_opportunities');
+            $r = DB::first("SELECT count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON') AS won, count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_LOST') AS lost
+                FROM opportunities t WHERE {$w} AND COALESCE(t.close_at, t.updated_at::date) >= date_trunc('quarter', now())", $p, self::C) ?? [];
+            $q['won'] = (int) ($r['won'] ?? 0);
+            $q['lost'] = (int) ($r['lost'] ?? 0);
+        }
+        if ($u->can('crm_activities', 'view')) {
+            [$w, $p] = $this->scope('activity', 'crm_activities');
+            $rows = DB::select("SELECT t.start_at::date AS day, count(*) AS n FROM activities t WHERE {$w} AND t.owner_id = ?
+                AND t.start_at >= CURRENT_DATE - 7 AND t.start_at < CURRENT_DATE + 1 GROUP BY 1", [...$p, $u->id], self::C);
+            $byDay = array_column($rows, 'n', 'day');
+            $q['activities'] = array_map(fn (int $k) => ['date' => $d = date('Y-m-d', strtotime("-{$k} days")), 'count' => (int) ($byDay[$d] ?? 0)], range(7, 0));
+        }
+        if ($q) {
+            $out['quarter'] = $q;
+        }
+        // this year's sales target, the same figure as the website's CRM dashboard: own department, or every department
+        // added up for whole-company roles; nothing for someone outside any department
+        if ($u->can('crm_dashboard', 'view')) {
+            $dep = Access::seesAll($u) ? null : ((int) $u->department_id ?: 0);
+            if ($dep !== 0) {
+                $year = (int) date('Y');
+                $t    = Targets::summary($dep, $year);
+                $out['target'] = [
+                    'year' => $year, 'currency' => Targets::baseCurrency(), 'source' => $t['source'],
+                    'total' => round($t['total'], 2), 'actual' => round($t['actual_total'], 2),
+                    'quarters' => array_map(fn (int $q) => ['q' => $q, 'target' => round($t['target'][$q], 2), 'actual' => round((float) $t['actual'][$q], 2)], [1, 2, 3, 4]),
+                ];
+            }
+        }
+
+        $out['stage_names'] = Stages::forMobile();
 
         return ['data' => $out];
     }

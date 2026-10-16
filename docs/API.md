@@ -73,11 +73,15 @@ Signing in again with the same `device_id` replaces that install's old sign-in.
 ## CRM
 
 ```
-GET  /crm/stats                      pipeline by stage, won this year, my activities and tasks
+GET  /crm/stats                      pipeline by stage, won this year, my activities and tasks, this year's sales target
 GET  /crm/search?q=                  leads, contacts, opportunities (5 each)
+GET  /crm/options                    choices for the forms: stages you may use, priorities, currencies, salutations
 GET  /crm/leads?q=&mine=1            GET /crm/leads/{id}  (+ its contacts, opportunities, latest activities)
-GET  /crm/contacts?q=&lead_id=       GET /crm/contacts/{id}  (+ mobile numbers)
+POST /crm/leads                      new lead (below)
+GET  /crm/contacts?q=&lead_id=&mine=1   GET /crm/contacts/{id}  (+ mobile numbers)
+POST /crm/contacts                   new contact
 GET  /crm/opportunities?q=&stage=&open=1&lead_id=&mine=1      GET /crm/opportunities/{id}
+POST /crm/opportunities              new opportunity
 GET  /crm/activities?q=&status=&type=&from=YYYY-MM-DD&to=YYYY-MM-DD&mine=1&lead_id=
 GET  /crm/activities/{id}
 POST /crm/activities                 log a call / meeting (below)
@@ -86,6 +90,32 @@ POST /crm/activities/{id}/status     {"status": "PLANNED|DONE|CANCELLED"}
 GET  /crm/tasks?q=&status=&open=1&mine=1&project_id=          GET /crm/tasks/{id}
 POST /crm/tasks/{id}/status          {"status": "TODO|IN_PROGRESS|BLOCKED|DONE|CANCELLED"}
 ```
+
+`/crm/stats` and `/crm/options` → `stage_names`: every stage with its `label`, a `short` name for the app (set by
+admins in CRM → Settings → Stages, "Name in the app"; the normal name when empty), its `color` and whether it is `open`:
+`[{"code": "QUALIFICATION", "label": "Qualification", "short": "Qualify", "color": "#0ea5e9", "open": true}, …]`.
+
+`/crm/stats` → `quarter`: `leads` created this quarter, deals `won` / `lost` this quarter, and your `activities` per day
+for the last 8 days (`[{"date": "2026-10-09", "count": 2}, …]`), each only with the matching view permission.
+`pipeline` and `won_this_year` have one row per currency; `base_amount` / `base_weighted` are the same
+converted to `base_currency`, so rows can be added up. `target` (only with the CRM dashboard permission; your department, or all departments for
+whole-company roles; left out for someone without a department). `actual` is invoiced revenue when the department is
+linked to Accounting (`source: "accounting"`), else opportunities won (`"crm"`), in the base currency:
+
+```json
+"target": {"year": 2026, "currency": "THB", "source": "crm", "total": 12000000, "actual": 7350000,
+           "quarters": [{"q": 1, "target": 3000000, "actual": 2100000}, …]}
+```
+
+New records use the website's own forms (same validation, you become the owner, a linked lead / contact must be
+visible to you, `422 invalid` with `fields` otherwise) and answer `201` with the record:
+
+- `POST /crm/leads`: `name_en` (required), `name_th`, `code` (empty = numbered automatically), `tax_id`, `phone`, `mobile`,
+  `fax`, `address`, `city`, `province`, `country`, `zipcode`, `is_register`, `is_government`, `description`
+- `POST /crm/contacts`: `lead_id`, `name_en` (required), `salutation`, `name_th`, `job_title`, `department`, `code`, `email`,
+  `phone`, `phone_ext`, `additional_contact`, `description`
+- `POST /crm/opportunities`: `name`, `lead_id`, `opportunity_stage`, `priority`, `currency` (required), `contact_id`, `code`,
+  `amount`, `probability` (empty = the stage's default), `follow_at`, `close_at` (YYYY-MM-DD), `description`
 
 Log a call (same rules as the website form: `lead_id` required, linked lead / contact / opportunity must be
 visible to you, you become the owner; HTML in `description` is cleaned):
@@ -126,8 +156,8 @@ A re-check by the responsible person goes to the supervisor (then the manager) f
 GET /accounting/stats                       overview blocks the person may see
 GET /accounting/customers?q=                GET /accounting/customers/{id}  (+ links: invoices, orders, Inets, billing notes, CRM leads with the same tax id)
 GET /accounting/products?q=                 GET /accounting/products/{id}
-GET /accounting/orders?q=&customer_id=&credit=0|1      GET /accounting/orders/{id}  (+ rows)
-GET /accounting/invoices?q=&customer_id=    GET /accounting/invoices/{number}  (+ lines)
+GET /accounting/orders?q=&customer_id=&credit=0|1&from=YYYY-MM-DD&to=YYYY-MM-DD      GET /accounting/orders/{id}  (+ rows)
+GET /accounting/invoices?q=&customer_id=&from=YYYY-MM-DD&to=YYYY-MM-DD    GET /accounting/invoices/{number}  (+ lines)
 GET /accounting/sellers?q=
 GET /accounting/inets?q=&credit=1&send=sent|unsent&customer_id=      GET /accounting/inets/{id}
 GET /accounting/inets/{id}/pdf/{388|t01|81}            stored PDF;  ?signed=1 → the copy signed by INET

@@ -1,7 +1,7 @@
 <?php
 use App\Modules\CRM\Support\Catalog;
 use App\Modules\CRM\Support\Stages;
-/* $stages (code => [label, …]), $colors, $deps [id => name], $hidden [code][dep] => true, $editableDeps [ids], $canColor, $tabs */
+/* $stages (code => [label, …]), $colors, $mobile [code => short name for the app], $deps [id => name], $hidden [code][dep] => true, $editableDeps [ids], $canColor, $tabs */
 $crumbs = [[__('CRM settings'), '/crm/settings']];
 $anyEdit = $editableDeps || $canColor;
 ?>
@@ -28,6 +28,8 @@ $anyEdit = $editableDeps || $canColor;
                             <div class="flex items-center gap-3">
                                 <input type="color" name="color[<?= e($code) ?>]" value="<?= e($colors[$code]) ?>" class="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60" <?= $canColor ? '' : 'disabled' ?> aria-label="<?= e(__('Colour of :stage', ['stage' => Catalog::stageLabel($code)])) ?>">
                                 <?= \App\Modules\CRM\Support\Ui::stageBadge($code) ?>
+                                <input type="text" name="mobile[<?= e($code) ?>]" value="<?= e($mobile[$code] ?? '') ?>" maxlength="24" placeholder="<?= e(__('Name in the app')) ?>"
+                                       title="<?= e(__('Short name shown in the mobile app')) ?>" class="input h-8 w-36 text-xs" <?= $canColor ? '' : 'disabled' ?>>
                             </div>
                         </td>
                         <?php foreach ($deps as $id => $name): $edit = in_array($id, $editableDeps, true); $on = empty($hidden[$code][$id]); ?>
