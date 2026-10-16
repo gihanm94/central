@@ -1,0 +1,110 @@
+# Deploy to the server on every push to main (and by hand from the Actions tab).
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   SERVER_HOST      server name or IP
+#   SERVER_USERNAME  SSH user that may write to DEPLOY_PATH
+#   SERVER_SSH       that user's private SSH key (the whole key, including the BEGIN/END lines)
+#   SERVER_PORT      optional, default 22
+#
+# The app is copied to DEPLOY_PATH, so its public/ folder becomes /var/www/apache8000/public —
+# point Apache's DocumentRoot there. The rest (app/, config/, storage/ …) stays outside the
+# web root, where browsers cannot read it.
+#
+# Old code is removed and new code copied (rsync --delete), but these are never touched,
+# because they hold the server's own data:
+#   config/config.php   database password, mail settings (written by the installer)
+#   storage/            logs, cache, attachments, generated PDFs, installed.lock
+#   public/uploads/     uploaded logos, avatars, CRM files, editor images
+# New database migrations run by themselves on the next page load.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false      # never stop a deploy half-way; the next one waits
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_PATH: /var/www/apache8000
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the secrets are set
+        id: secrets
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USERNAME }}
+          KEY: ${{ secrets.SERVER_SSH }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$KEY" ]; then
+            echo "::warning::SERVER_HOST, SERVER_USERNAME and SERVER_SSH must be set as repository secrets. Nothing was deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready == 'true'
+
+      - name: PHP syntax check (a broken file never goes live)
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          php -v | head -1
+          find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+
+      - name: Set up SSH
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+          KEY: ${{ secrets.SERVER_SSH }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts || { echo "::error::Could not reach $HOST:$PORT over SSH."; exit 1; }
+
+      - name: Copy the new code (old files removed, server data kept)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USERNAME }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o BatchMode=yes"
+          $SSH "$USER@$HOST" "mkdir -p '$DEPLOY_PATH'"
+          rsync -rlptz --delete --delay-updates --itemize-changes -e "$SSH" \
+            --exclude='/.git/' --exclude='/.github/' --exclude='/node_modules/' --exclude='.DS_Store' \
+            --exclude='/config/config.php' \
+            --filter='P /storage/***' \
+            --filter='P /public/uploads/***' \
+            ./ "$USER@$HOST:$DEPLOY_PATH/" | sed -n '1,200p'
+          # First deploy only: the installer needs a config/config.php to start from (never overwritten later).
+          rsync -rlptz --ignore-existing -e "$SSH" config/config.php "$USER@$HOST:$DEPLOY_PATH/config/config.php"
+
+      - name: Make storage and uploads writable for the web server
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USERNAME }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes "$USER@$HOST" "cd '$DEPLOY_PATH' && \
+            if sudo -n true 2>/dev/null; then sudo -n chown -R www-data:www-data storage public/uploads && echo 'storage and uploads owned by www-data'; \
+            else chmod -R ug+rwX storage public/uploads 2>/dev/null; echo 'no passwordless sudo: made storage and uploads group-writable (add $USER and www-data to one group)'; fi; \
+            echo \"Deployed $GITHUB_SHA to $DEPLOY_PATH\""
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
