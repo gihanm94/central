@@ -29,12 +29,12 @@
                 <div>
                     <span class="label"><?= e(__('Sign-in picture')) ?></span>
                     <div class="relative h-24 overflow-hidden rounded-md bg-graphite-800">
-                        <img id="login-preview" src="<?= e($brand['login_image'] ?? '') ?>" alt="" <?= $brand['login_image'] ? '' : 'hidden' ?> class="size-full object-contain">
-                        <?php if (! $brand['login_image']): ?><span class="absolute inset-0 flex items-center justify-center gap-1.5 text-xs text-graphite-400"><?= icon('photo', 'size-4') ?> <?= e(__('Default texture')) ?></span><?php endif ?>
+                        <img id="login-preview" src="<?= e($brand['login_image'] ?: asset('assets/auth-hero.webp')) ?>" alt="" class="size-full object-contain">
+                        <?php if (! $brand['login_image']): ?><span class="absolute rounded px-1.5 text-[10px] text-graphite-300" style="bottom:.25rem; right:.375rem; background:rgba(0,0,0,.5)"><?= e(__('Built-in picture')) ?></span><?php endif ?>
                     </div>
                     <input name="login_image" type="file" accept="image/jpeg,image/png,image/webp" data-preview="#login-preview" class="mt-2 w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-graphite-900 file:px-2.5 file:py-1 file:text-white">
                     <p class="hint"><?= e(__('A wide photo of your site, plant or team, 1600 px or wider. Up to 5 MB.')) ?></p>
-                    <?php if ($brand['login_image']): ?><label class="mt-1 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="remove_login_image" value="1" class="accent-signal-600"> <?= e(__('Use the default texture')) ?></label><?php endif ?>
+                    <?php if ($brand['login_image']): ?><label class="mt-1 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="remove_login_image" value="1" class="accent-signal-600"> <?= e(__('Use the built-in picture')) ?></label><?php endif ?>
                 </div>
             </div>
             <?= field_error('branding') ?>
@@ -51,7 +51,7 @@
             <p class="label"><?= e(__('Sign-in page preview')) ?></p>
             <div class="grid aspect-[16/10] grid-cols-[1.15fr_0.85fr] overflow-hidden rounded-lg bg-graphite-950 ring-1 ring-graphite-900/10">
                 <div class="relative overflow-hidden bg-graphite-800">
-                    <?php if ($brand['login_image']): ?><img src="<?= e($brand['login_image']) ?>" alt="" class="absolute inset-0 size-full object-contain p-3"><?php endif ?>
+                    <img src="<?= e($brand['login_image'] ?: asset('assets/auth-hero.webp')) ?>" alt="" class="absolute inset-0 size-full object-contain p-3">
                     <div class="absolute inset-0 bg-gradient-to-t from-graphite-950 to-transparent"></div>
                     <div class="absolute bottom-[22%] left-0 right-[8%] bg-signal-600 py-2 pl-4" style="clip-path: polygon(0 0,100% 0,94% 100%,0 100%)"><p class="truncate font-display text-lg font-bold text-white"><?= e($brand['banner']) ?></p></div>
                 </div>

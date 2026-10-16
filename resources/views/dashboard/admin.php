@@ -58,7 +58,7 @@ $maxPeople = max(1, ...array_map(fn ($r) => (int) $r['total'], $people ?: [['tot
 </section>
 
 <!-- sign-ins by department over time + department ranking -->
-<div class="mt-4 grid items-start gap-4 xl:grid-cols-3">
+<div class="mt-4 grid items-stretch gap-4 xl:grid-cols-3">
     <section class="panel xl:col-span-2">
         <div class="panel-head"><div><h2 class="panel-title"><?= e(__('Sign-ins by department')) ?></h2><p class="text-xs text-steel"><?= e(['day' => __('per day'), 'week' => __('per week'), 'month' => __('per month')][$unit]) ?></p></div><span class="text-sm tabular-nums text-steel"><?= e(__(':count total', ['count' => number_format((int) $now['logins'])])) ?></span></div>
         <?php if (! $series): ?><p class="px-5 py-16 text-center text-sm text-steel"><?= e(__('No sign-ins in this period.')) ?></p><?php else: ?>
@@ -91,7 +91,7 @@ $maxPeople = max(1, ...array_map(fn ($r) => (int) $r['total'], $people ?: [['tot
 </div>
 
 <!-- people + hours -->
-<div class="mt-4 grid items-start gap-4 xl:grid-cols-3">
+<div class="mt-4 grid items-stretch gap-4 xl:grid-cols-3">
     <section class="panel xl:col-span-2">
         <div class="panel-head"><h2 class="panel-title"><?= e(__('Most active people')) ?></h2><span class="text-xs text-steel"><?= e(__('by sign-ins and changes')) ?></span></div>
         <ol class="divide-y divide-graphite-900/6">
