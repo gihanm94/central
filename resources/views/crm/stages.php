@@ -17,6 +17,7 @@ $anyEdit = $editableDeps || $canColor;
             <table class="table w-max min-w-full">
                 <thead><tr>
                     <th class="sticky left-0 z-[1] bg-white"><?= e(__('Stage')) ?></th>
+                    <th title="<?= e(__('Short name shown in the mobile app')) ?>"><?= e(__('Mobile text')) ?></th>
                     <?php foreach ($deps as $id => $name): $edit = in_array($id, $editableDeps, true); ?>
                         <th class="text-center <?= $edit ? '' : 'text-graphite-400' ?>"><?= e($name) ?><?php if (! $edit && $anyEdit): ?><span class="block text-[10px] font-normal text-steel"><?= e(__('view only')) ?></span><?php endif ?></th>
                     <?php endforeach ?>
@@ -28,9 +29,11 @@ $anyEdit = $editableDeps || $canColor;
                             <div class="flex items-center gap-3">
                                 <input type="color" name="color[<?= e($code) ?>]" value="<?= e($colors[$code]) ?>" class="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60" <?= $canColor ? '' : 'disabled' ?> aria-label="<?= e(__('Colour of :stage', ['stage' => Catalog::stageLabel($code)])) ?>">
                                 <?= \App\Modules\CRM\Support\Ui::stageBadge($code) ?>
-                                <input type="text" name="mobile[<?= e($code) ?>]" value="<?= e($mobile[$code] ?? '') ?>" maxlength="24" placeholder="<?= e(__('Name in the app')) ?>"
-                                       title="<?= e(__('Short name shown in the mobile app')) ?>" class="input h-8 w-36 text-xs" <?= $canColor ? '' : 'disabled' ?>>
                             </div>
+                        </td>
+                        <td>
+                            <input type="text" name="mobile[<?= e($code) ?>]" value="<?= e($mobile[$code] ?? '') ?>" maxlength="24" placeholder="<?= e(Catalog::stageLabel($code)) ?>"
+                                   aria-label="<?= e(__('Mobile text for :stage', ['stage' => Catalog::stageLabel($code)])) ?>" class="input h-8 w-36 text-xs" <?= $canColor ? '' : 'disabled' ?>>
                         </td>
                         <?php foreach ($deps as $id => $name): $edit = in_array($id, $editableDeps, true); $on = empty($hidden[$code][$id]); ?>
                             <td class="text-center">
