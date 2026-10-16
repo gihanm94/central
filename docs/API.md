@@ -78,7 +78,7 @@ GET  /crm/search?q=                  leads, contacts, opportunities (5 each)
 GET  /crm/options                    choices for the forms: stages you may use, priorities, currencies, salutations
 GET  /crm/leads?q=&mine=1            GET /crm/leads/{id}  (+ its contacts, opportunities, latest activities)
 POST /crm/leads                      new lead (below)
-GET  /crm/contacts?q=&lead_id=       GET /crm/contacts/{id}  (+ mobile numbers)
+GET  /crm/contacts?q=&lead_id=&mine=1   GET /crm/contacts/{id}  (+ mobile numbers)
 POST /crm/contacts                   new contact
 GET  /crm/opportunities?q=&stage=&open=1&lead_id=&mine=1      GET /crm/opportunities/{id}
 POST /crm/opportunities              new opportunity
@@ -156,8 +156,8 @@ A re-check by the responsible person goes to the supervisor (then the manager) f
 GET /accounting/stats                       overview blocks the person may see
 GET /accounting/customers?q=                GET /accounting/customers/{id}  (+ links: invoices, orders, Inets, billing notes, CRM leads with the same tax id)
 GET /accounting/products?q=                 GET /accounting/products/{id}
-GET /accounting/orders?q=&customer_id=&credit=0|1      GET /accounting/orders/{id}  (+ rows)
-GET /accounting/invoices?q=&customer_id=    GET /accounting/invoices/{number}  (+ lines)
+GET /accounting/orders?q=&customer_id=&credit=0|1&from=YYYY-MM-DD&to=YYYY-MM-DD      GET /accounting/orders/{id}  (+ rows)
+GET /accounting/invoices?q=&customer_id=&from=YYYY-MM-DD&to=YYYY-MM-DD    GET /accounting/invoices/{number}  (+ lines)
 GET /accounting/sellers?q=
 GET /accounting/inets?q=&credit=1&send=sent|unsent&customer_id=      GET /accounting/inets/{id}
 GET /accounting/inets/{id}/pdf/{388|t01|81}            stored PDF;  ?signed=1 → the copy signed by INET

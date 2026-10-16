@@ -115,6 +115,7 @@ class CrmApi extends Controller
 
     /* --------------------------------------------------------------- contacts */
 
+    /** ?q= ?lead_id= ?mine=1 */
     public function contacts(): array
     {
         [$w, $p] = $this->scope('contact', 'crm_contacts');
@@ -123,6 +124,7 @@ class CrmApi extends Controller
             array_push($p, ...array_fill(0, 5, $this->like($q)));
         }
         if ($lead = (int) Request::query('lead_id')) { $w .= ' AND t.lead_id = ?'; $p[] = $lead; }
+        if (Request::query('mine') === '1') { $w .= ' AND t.owner_id = ?'; $p[] = $this->user()->id; }
 
         return $this->list("SELECT t.*, l.name_en AS lead_name FROM contacts t LEFT JOIN leads l ON l.id = t.lead_id WHERE {$w}", $p, 't.name_en, t.id', self::CONTACT);
     }

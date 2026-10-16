@@ -126,6 +126,21 @@ class AccountingApi extends Controller
         FROM erp_orders t LEFT JOIN erp_customers c ON c.id = t.customer_id LEFT JOIN erp_sellers s ON s.id = t.seller_id";
 
     /** ?q= ?customer_id= ?credit=0|1 */
+    /** ?from=YYYY-MM-DD ?to=YYYY-MM-DD (both days included) on $column. */
+    private function period(string $column, string $w, array $p): array
+    {
+        foreach (['from' => '>=', 'to' => '<='] as $k => $op) {
+            $v = (string) Request::query($k);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) && checkdate((int) substr($v, 5, 2), (int) substr($v, 8, 2), (int) substr($v, 0, 4))) {
+                $w .= " AND {$column}::date {$op} ?::date";
+                $p[] = $v;
+            }
+        }
+
+        return [$w, $p];
+    }
+
+    /** ?q= ?customer_id= ?credit=0|1 ?from=YYYY-MM-DD ?to=YYYY-MM-DD */
     public function orders(): array
     {
         $this->need('accounting_orders');
@@ -136,6 +151,7 @@ class AccountingApi extends Controller
         }
         if ($cid = (int) Request::query('customer_id')) { $w .= ' AND t.customer_id = ?'; $p[] = $cid; }
         if (in_array(Request::query('credit'), ['0', '1'], true)) { $w .= ' AND coalesce(t.is_credit, false) = ?'; $p[] = Request::query('credit') === '1'; }
+        [$w, $p] = $this->period('t.order_date', $w, $p);
 
         return $this->paged(self::ORDER_SQL." WHERE {$w}", $p, 't.order_date DESC NULLS LAST, t.id DESC', self::C);
     }
@@ -155,7 +171,7 @@ class AccountingApi extends Controller
             sum(coalesce(i.invoiced_quantity, 0) * coalesce(i.price, 0) * (1 - coalesce(i.discount, 0) / 100)) AS amount
         FROM erp_invoices i LEFT JOIN erp_customers c ON c.id = i.customer_id WHERE i.invoice_number IS NOT NULL %s GROUP BY i.invoice_number";
 
-    /** ?q= ?customer_id= */
+    /** ?q= ?customer_id= ?from=YYYY-MM-DD ?to=YYYY-MM-DD */
     public function invoices(): array
     {
         $this->need('accounting_invoices');
@@ -165,6 +181,7 @@ class AccountingApi extends Controller
             array_push($p, ...array_fill(0, 4, $this->like($q)));
         }
         if ($cid = (int) Request::query('customer_id')) { $w .= ' AND i.customer_id = ?'; $p[] = $cid; }
+        [$w, $p] = $this->period('i.invoice_date', $w, $p);
 
         return $this->paged(sprintf(self::INVOICE_SQL, $w), $p, 'invoice_date DESC NULLS LAST, invoice_number DESC', self::C);
     }
