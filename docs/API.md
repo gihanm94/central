@@ -91,6 +91,10 @@ GET  /crm/tasks?q=&status=&open=1&mine=1&project_id=          GET /crm/tasks/{id
 POST /crm/tasks/{id}/status          {"status": "TODO|IN_PROGRESS|BLOCKED|DONE|CANCELLED"}
 ```
 
+`/crm/stats` and `/crm/options` → `stage_names`: every stage with its `label`, a `short` name for the app (set by
+admins in CRM → Settings → Stages, "Name in the app"; the normal name when empty), its `color` and whether it is `open`:
+`[{"code": "QUALIFICATION", "label": "Qualification", "short": "Qualify", "color": "#0ea5e9", "open": true}, …]`.
+
 `/crm/stats` → `quarter`: `leads` created this quarter, deals `won` / `lost` this quarter, and your `activities` per day
 for the last 8 days (`[{"date": "2026-10-09", "count": 2}, …]`), each only with the matching view permission.
 `pipeline` and `won_this_year` have one row per currency; `base_amount` / `base_weighted` are the same

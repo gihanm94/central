@@ -33,7 +33,7 @@ class StageController extends Controller
         }
 
         return view('crm/stages', [
-            'title' => __('Opportunity stages'), 'stages' => Catalog::STAGES, 'colors' => Stages::colors(), 'deps' => $deps, 'hidden' => $hidden,
+            'title' => __('Opportunity stages'), 'stages' => Catalog::STAGES, 'colors' => Stages::colors(), 'mobile' => Stages::mobileNames(), 'deps' => $deps, 'hidden' => $hidden,
             'editableDeps' => $canSet ? $mine : [], 'canColor' => $canSet && Access::seesAll($u), 'tabs' => LookupController::tabs(),
         ]);
     }
@@ -47,6 +47,15 @@ class StageController extends Controller
         $mine = $all ? array_keys($deps) : ($u->department_id ? [$u->department_id] : []);
 
         if ($all) {
+            foreach ((array) Request::input('mobile', []) as $code => $name) {
+                $name = trim(strip_tags((string) $name));
+                if (isset(Catalog::STAGES[$code])) {
+                    if (mb_strlen($name) > 24) {
+                        throw new ValidationException(['mobile' => __('A mobile name can have at most 24 characters.')]);
+                    }
+                    DB::exec('UPDATE crm_stages SET mobile_name = ? WHERE code = ?', [$name === '' ? null : $name, $code], 'crm');
+                }
+            }
             foreach ((array) Request::input('color', []) as $code => $hex) {
                 if (isset(Catalog::STAGES[$code]) && preg_match('/^#[0-9a-f]{6}$/i', (string) $hex)) {
                     DB::exec('UPDATE crm_stages SET color = ? WHERE code = ?', [strtolower((string) $hex), $code], 'crm');

@@ -42,7 +42,39 @@ final class Stages
 
     public static function color(?string $code): string { return self::colors()[$code] ?? '#94a3b8'; }
 
-    public static function forgetCache(): void { self::$colors = null; self::$hidden = []; }
+    public static function forgetCache(): void { self::$colors = null; self::$hidden = []; self::$mobile = null; }
+
+    private static ?array $mobile = null;
+
+    /** [code => short name for the mobile app] (only stages that have one). */
+    public static function mobileNames(): array
+    {
+        if (self::$mobile === null) {
+            self::$mobile = [];
+            try {
+                foreach (DB::select("SELECT code, mobile_name FROM crm_stages WHERE coalesce(mobile_name, '') <> ''", [], 'crm') as $r) {
+                    self::$mobile[$r['code']] = (string) $r['mobile_name'];
+                }
+            } catch (\Throwable) {
+                // column not there yet: the app uses the normal names
+            }
+        }
+
+        return self::$mobile;
+    }
+
+    /** Every stage for the mobile app: code, name, short name, colour, open or closed. */
+    public static function forMobile(): array
+    {
+        $short = self::mobileNames();
+        $out = [];
+        foreach (Catalog::STAGES as $code => $st) {
+            $out[] = ['code' => $code, 'label' => Catalog::stageLabel($code), 'short' => $short[$code] ?? Catalog::stageLabel($code), 'color' => self::color($code),
+                'open' => in_array($code, Catalog::OPEN, true)];
+        }
+
+        return $out;
+    }
 
     /** Stage codes a department does NOT use. */
     public static function hiddenFor(?int $departmentId): array

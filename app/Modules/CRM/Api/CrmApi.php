@@ -241,6 +241,7 @@ class CrmApi extends Controller
             'priorities' => $pairs(Catalog::tr(Catalog::PRIORITIES)),
             'currencies' => $pairs(array_column(DB::select("SELECT code, code || ' · ' || name AS label FROM currencies ORDER BY is_base DESC, code", [], self::C), 'label', 'code')),
             'salutations' => Catalog::SALUTATIONS,
+            'stage_names' => Stages::forMobile(),
         ]];
     }
 
@@ -423,6 +424,8 @@ class CrmApi extends Controller
                 ];
             }
         }
+
+        $out['stage_names'] = Stages::forMobile();
 
         return ['data' => $out];
     }
