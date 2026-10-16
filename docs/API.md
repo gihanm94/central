@@ -91,7 +91,9 @@ GET  /crm/tasks?q=&status=&open=1&mine=1&project_id=          GET /crm/tasks/{id
 POST /crm/tasks/{id}/status          {"status": "TODO|IN_PROGRESS|BLOCKED|DONE|CANCELLED"}
 ```
 
-`/crm/stats`: `pipeline` and `won_this_year` have one row per currency; `base_amount` / `base_weighted` are the same
+`/crm/stats` → `quarter`: `leads` created this quarter, deals `won` / `lost` this quarter, and your `activities` per day
+for the last 8 days (`[{"date": "2026-10-09", "count": 2}, …]`), each only with the matching view permission.
+`pipeline` and `won_this_year` have one row per currency; `base_amount` / `base_weighted` are the same
 converted to `base_currency`, so rows can be added up. `target` (only with the CRM dashboard permission; your department, or all departments for
 whole-company roles; left out for someone without a department). `actual` is invoiced revenue when the department is
 linked to Accounting (`source: "accounting"`), else opportunities won (`"crm"`), in the base currency:

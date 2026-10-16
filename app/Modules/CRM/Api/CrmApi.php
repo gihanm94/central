@@ -386,6 +386,29 @@ class CrmApi extends Controller
                 count(*) FILTER (WHERE t.status NOT IN ('DONE', 'CANCELLED') AND t.end_date < CURRENT_DATE) AS late
                 FROM tasks t WHERE {$w} AND EXISTS (SELECT 1 FROM task_assignees a WHERE a.task_id = t.id AND a.user_id = ?)", [...$p, $u->id], self::C);
         }
+        // this quarter for the Home "performance" card: new leads, deals won / lost, and activities per day (last 8 days)
+        $q = [];
+        if ($u->can('crm_leads', 'view')) {
+            [$w, $p] = $this->scope('lead', 'crm_leads');
+            $q['leads'] = (int) DB::scalar("SELECT count(*) FROM leads t WHERE {$w} AND t.created_at >= date_trunc('quarter', now())", $p, self::C);
+        }
+        if ($u->can('crm_opportunities', 'view')) {
+            [$w, $p] = $this->scope('opportunity', 'crm_opportunities');
+            $r = DB::first("SELECT count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON') AS won, count(*) FILTER (WHERE t.opportunity_stage = 'CLOSED_LOST') AS lost
+                FROM opportunities t WHERE {$w} AND COALESCE(t.close_at, t.updated_at::date) >= date_trunc('quarter', now())", $p, self::C) ?? [];
+            $q['won'] = (int) ($r['won'] ?? 0);
+            $q['lost'] = (int) ($r['lost'] ?? 0);
+        }
+        if ($u->can('crm_activities', 'view')) {
+            [$w, $p] = $this->scope('activity', 'crm_activities');
+            $rows = DB::select("SELECT t.start_at::date AS day, count(*) AS n FROM activities t WHERE {$w} AND t.owner_id = ?
+                AND t.start_at >= CURRENT_DATE - 7 AND t.start_at < CURRENT_DATE + 1 GROUP BY 1", [...$p, $u->id], self::C);
+            $byDay = array_column($rows, 'n', 'day');
+            $q['activities'] = array_map(fn (int $k) => ['date' => $d = date('Y-m-d', strtotime("-{$k} days")), 'count' => (int) ($byDay[$d] ?? 0)], range(7, 0));
+        }
+        if ($q) {
+            $out['quarter'] = $q;
+        }
         // this year's sales target, the same figure as the website's CRM dashboard: own department, or every department
         // added up for whole-company roles; nothing for someone outside any department
         if ($u->can('crm_dashboard', 'view')) {
