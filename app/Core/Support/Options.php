@@ -16,6 +16,21 @@ final class Options
         return array_column($rows, 'name', 'id');
     }
 
+    /** Same people as users(), with photo, role and department for the picture dropdown: [id => [label, sub, img]]. */
+    public static function people(CurrentUser $u, bool $activeOnly = true): array
+    {
+        $s = Permission::scope($u, 'u', ['owner' => 'id', 'department' => 'department_id', 'team' => 'team_id']);
+        $rows = DB::select('SELECT u.id, u.name, u.avatar, r.name AS role_name, d.name AS department_name FROM users u
+            JOIN roles r ON r.id = u.role_id LEFT JOIN departments d ON d.id = u.department_id
+            WHERE u.deleted_at IS NULL'.($activeOnly ? ' AND u.is_active' : '').' AND '.$s['sql'].' ORDER BY u.name', $s['params']);
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r['id']] = ['label' => $r['name'], 'sub' => $r['role_name'].($r['department_name'] ? ' · '.$r['department_name'] : ''), 'img' => upload_url($r['avatar'])];
+        }
+
+        return $out;
+    }
+
     public static function departments(CurrentUser $u): array
     {
         $rows = in_array($u->scope(), ['all'], true)

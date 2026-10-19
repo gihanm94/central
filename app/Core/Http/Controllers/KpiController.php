@@ -30,7 +30,7 @@ class KpiController extends ResourceController
 
     protected function select(): string
     {
-        return 'SELECT t.*, o.name AS owner_name FROM kpis t LEFT JOIN users o ON o.id = t.user_id';
+        return 'SELECT t.*, o.name AS owner_name, o.avatar AS owner_avatar FROM kpis t LEFT JOIN users o ON o.id = t.user_id';
     }
 
     protected function fields(?array $row): array
@@ -40,8 +40,8 @@ class KpiController extends ResourceController
             'kind'         => ['label' => __('Type'), 'type' => 'select', 'options' => self::kinds(), 'rules' => 'required', 'default' => 'kpi', 'search' => false, 'example' => 'kpi'],
             'criteria'     => ['label' => __('Criteria'), 'type' => 'number', 'rules' => 'nullable|numeric', 'example' => '90',
                                'help' => __('Target or weight from 1 to 100, e.g. 90 for "at least 90%". Copied into each monthly submission.')],
-            'user_id'      => ['label' => __('Owner'), 'type' => 'select', 'options' => Options::users($this->user()), 'rules' => 'required',
-                               'all_options' => $row ? [$row['user_id'] => $row['owner_name']] : []],
+            'user_id'      => ['label' => __('Owner'), 'type' => 'select', 'options' => Options::people($this->user()), 'rules' => 'required', 'rich' => true,
+                               'all_options' => $row ? [$row['user_id'] => ['label' => $row['owner_name'], 'img' => upload_url($row['owner_avatar'])]] : []],
             'status'       => ['label' => __('Status'), 'type' => 'select', 'options' => self::statuses(), 'rules' => 'required', 'default' => 'active'],
             'target'       => ['label' => __('Target'), 'type' => 'number', 'rules' => 'required|numeric', 'example' => '95'],
             'actual'       => ['label' => __('Actual'), 'type' => 'number', 'rules' => 'required|numeric', 'default' => '0', 'example' => '80'],
@@ -59,7 +59,7 @@ class KpiController extends ResourceController
             'title'    => ['label' => __('KPI / OKR'), 'primary' => true, 'render' => fn ($r) => '<span class="badge mr-1 '.($r['kind'] === 'okr' ? 'bg-violet-50 text-violet-800' : 'bg-sky-50 text-sky-800').'">'.e(self::KINDS[$r['kind']] ?? 'KPI').'</span>'
                 .'<a href="'.url('/kpis/'.$r['id']).'" class="font-medium hover:text-signal-700">'.e($r['title']).'</a>'],
             'criteria' => ['label' => __('Criteria'), 'render' => fn ($r) => '<span class="tabular-nums">'.($r['criteria'] !== null ? e(number_clean($r['criteria'])) : '—').'</span>'],
-            'owner'    => ['label' => __('Owner'), 'render' => fn ($r) => e($r['owner_name'] ?? '—')],
+            'owner'    => ['label' => __('Owner'), 'render' => fn ($r) => $r['owner_name'] ? TaskController::person($r['owner_name'], $r['owner_avatar']) : '—'],
             'progress' => ['label' => __('Progress'), 'render' => function ($r) {
                 $pct = (float) $r['target'] > 0 ? (int) round((float) $r['actual'] / (float) $r['target'] * 100) : 0;
 

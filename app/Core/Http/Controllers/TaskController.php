@@ -29,7 +29,7 @@ class TaskController extends ResourceController
 
     protected function select(): string
     {
-        return 'SELECT t.*, a.name AS assignee_name, c.name AS creator_name, d.name AS department_name
+        return 'SELECT t.*, a.name AS assignee_name, a.avatar AS assignee_avatar, c.name AS creator_name, d.name AS department_name
                   FROM tasks t
              LEFT JOIN users a ON a.id = t.assigned_to
              LEFT JOIN users c ON c.id = t.created_by
@@ -40,12 +40,12 @@ class TaskController extends ResourceController
     {
         // People who can only update tasks (Members) change status and notes, nothing else.
         $limited = ! can('tasks', 'create');
-        $users   = Options::users($this->user());
+        $users   = Options::people($this->user());
 
         return [
             'title'       => ['label' => __('Title'), 'rules' => 'required|max:200', 'span' => 2, 'readonly' => $limited, 'example' => 'Inspect press guards'],
-            'assigned_to' => ['label' => __('Assigned to'), 'type' => 'select', 'options' => $users, 'rules' => 'required', 'readonly' => $limited,
-                              'all_options' => $row ? [$row['assigned_to'] => $row['assignee_name']] : []],
+            'assigned_to' => ['label' => __('Assigned to'), 'type' => 'select', 'options' => $users, 'rules' => 'required', 'readonly' => $limited, 'rich' => true,
+                              'all_options' => $row && $row['assigned_to'] ? [$row['assigned_to'] => ['label' => $row['assignee_name'], 'img' => upload_url($row['assignee_avatar'])]] : []],
             'priority'    => ['label' => __('Priority'), 'type' => 'select', 'options' => self::priorities(), 'rules' => 'required', 'default' => 'medium', 'readonly' => $limited],
             'status'      => ['label' => __('Status'), 'type' => 'select', 'options' => self::statuses(), 'rules' => 'required', 'default' => 'todo'],
             'due_date'    => ['label' => __('Due date'), 'type' => 'date', 'rules' => 'nullable|date', 'readonly' => $limited],
@@ -62,7 +62,7 @@ class TaskController extends ResourceController
                 return '<a href="'.url('/tasks/'.$r['id']).'" class="font-medium hover:text-signal-700">'.e($r['title']).'</a>'
                     .($overdue ? ' <span class="badge ml-1 bg-signal-50 text-signal-800">'.__('Overdue').'</span>' : '');
             }],
-            'assignee' => ['label' => __('Assigned to'), 'render' => fn ($r) => e($r['assignee_name'] ?? '—')],
+            'assignee' => ['label' => __('Assigned to'), 'render' => fn ($r) => $r['assignee_name'] ? self::person($r['assignee_name'], $r['assignee_avatar']) : '—'],
             'priority' => ['label' => __('Priority'), 'render' => fn ($r) => partial('partials/priority', ['p' => $r['priority']])],
             'status'   => ['label' => __('Status'), 'render' => fn ($r) => partial('partials/status', ['s' => $r['status'], 'labels' => self::statuses()])],
             'due'      => ['label' => __('Due'), 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.format_date($r['due_date'], 'd M').'</span>'],
@@ -70,6 +70,12 @@ class TaskController extends ResourceController
     }
 
     protected function searchable(): array { return ['t.title', 'a.name']; }
+
+    /** Photo (or initials) and name, for a person column. */
+    public static function person(string $name, ?string $avatar): string
+    {
+        return '<span class="flex items-center gap-2 whitespace-nowrap">'.partial('partials/avatar', ['name' => $name, 'avatar' => $avatar, 'size' => 'size-7', 'extra' => 'text-[11px]']).'<span>'.e($name).'</span></span>';
+    }
 
     protected function filters(): array
     {
