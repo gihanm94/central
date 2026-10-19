@@ -32,6 +32,18 @@ if (! is_file(dirname(__DIR__).'/storage/installed.lock')) {
     exit;
 }
 
+// Installed, but the settings file is gone (it is not in git: a pull or a fresh clone does not bring it).
+if (! is_file(dirname(__DIR__).'/config/config.php')) {
+    http_response_code(503);
+    if (defined('API_REQUEST')) {
+        header('Content-Type: application/json');
+        exit('{"error":{"code":"not_configured","message":"The server is not configured."}}');
+    }
+    header('Content-Type: text/plain; charset=utf-8');
+    exit("config/config.php is missing.\n\nCopy config/config.php.example to config/config.php and fill in the database settings,\n"
+        ."or delete storage/installed.lock and open /install.php to run the installer again.");
+}
+
 require dirname(__DIR__).'/app/bootstrap.php';
 
 if (defined('API_REQUEST')) {
