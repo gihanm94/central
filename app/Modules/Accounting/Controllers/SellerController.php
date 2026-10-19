@@ -34,7 +34,11 @@ class SellerController extends ErpListController
     {
         $ids = array_values(array_unique(array_filter(array_map(fn ($r) => (int) ($r['user_id'] ?? 0), $rows))));
         $names = $ids ? array_column(DB::select('SELECT id, name FROM users WHERE id IN ('.implode(',', array_fill(0, count($ids), '?')).')', $ids, 'core'), 'name', 'id') : [];
-        foreach ($rows as &$r) { $r['user_name'] = $names[(int) ($r['user_id'] ?? 0)] ?? null; }
+        $deps = self::departments();
+        foreach ($rows as &$r) {
+            $r['user_name'] = $names[(int) ($r['user_id'] ?? 0)] ?? null;
+            $r['app_department'] = $deps[(string) ($r['app_department_id'] ?? '')] ?? null;
+        }
 
         return $rows;
     }
@@ -44,6 +48,21 @@ class SellerController extends ErpListController
 
     protected function label(array $row): string { return (string) ($row['name'] ?: '#'.$row['id']); }
     protected function searchable(): array { return ["trim(coalesce(t.first_name, '') || ' ' || coalesce(t.last_name, ''))", 't.employee_number', 't.email', 't.email_address', 't.lark_id', 't.phone_number']; }
+
+    /** @return array<string,string> departments of this app (core database) */
+    private static function departments(): array
+    {
+        return array_column(DB::select('SELECT id::text AS id, name FROM departments WHERE deleted_at IS NULL ORDER BY name', [], 'core'), 'name', 'id');
+    }
+
+    /** A seller got a department: its Inets that have none yet take it (newer ones get it when generated). */
+    protected function saved(int $id, array $data, ?array $existing): void
+    {
+        if (! empty($data['app_department_id'])) {
+            DB::exec('UPDATE inets i SET app_department_id = ? FROM erp_orders o WHERE o.id = i.order_id AND o.seller_id = ? AND i.app_department_id IS NULL',
+                [(int) $data['app_department_id'], $id], 'accounting');
+        }
+    }
 
     private function users(): array
     {
@@ -65,6 +84,8 @@ class SellerController extends ErpListController
             'sec_manual'      => ['section' => __('Filled in here')],
             'email'           => ['label' => __('E-mail'), 'type' => 'email', 'rules' => 'nullable|email|max:190', 'help' => __('Used to reach the seller. Never overwritten by a sync.')],
             'user_id'         => ['label' => __('User (system account)'), 'type' => 'select', 'options' => $this->users(), 'rules' => 'nullable'],
+            'app_department_id' => ['label' => __('Department (this app)'), 'type' => 'select', 'options' => ['' => '—'] + self::departments(), 'rules' => 'nullable',
+                'help' => __('Inets of this seller get this department when they are generated; people of that department see the stamped ones under ERP → Invoices. Never overwritten by a sync.')],
             'lark_id'         => ['label' => __('Lark ID'), 'type' => 'text', 'rules' => 'nullable|max:120'],
         ];
     }
@@ -72,7 +93,7 @@ class SellerController extends ErpListController
     protected function detail(): array
     {
         return ['name' => ['Name', 'text'], 'employee_number' => ['Employee number', 'text'], 'phone_number' => ['Phone', 'text'], 'email_address' => ['E-mail in the ERP', 'text'],
-            'department' => ['Department', 'text'], 'email' => ['E-mail', 'text'], 'user_name' => ['User', 'text'], 'lark_id' => ['Lark ID', 'text']];
+            'department' => ['Department', 'text'], 'email' => ['E-mail', 'text'], 'user_name' => ['User', 'text'], 'app_department' => ['Department (this app)', 'text'], 'lark_id' => ['Lark ID', 'text']];
     }
 
     protected function columns(): array
@@ -80,6 +101,7 @@ class SellerController extends ErpListController
         return [
             'name'  => ['label' => __('Seller'), 'primary' => true, 'sort' => 'name', 'render' => fn ($r) => Ui::person((string) $r['name'], (string) $r['employee_number'], null, '/accounting/sellers/'.$r['id'])],
             'dept'  => ['label' => __('Department'), 'render' => fn ($r) => e($r['department'] ?: '—')],
+            'app_dept' => ['label' => __('Department (this app)'), 'render' => fn ($r) => $r['app_department'] ? e($r['app_department']) : '<span class="text-graphite-400">—</span>'],
             'email' => ['label' => __('E-mail'), 'sort' => 'mail_shown', 'render' => fn ($r) => e($r['mail_shown'] ?: '—')],
             'user'  => ['label' => __('User'), 'render' => fn ($r) => $r['user_name'] ? e($r['user_name']) : '<span class="text-graphite-400">—</span>'],
             'lark'  => ['label' => __('Lark ID'), 'render' => fn ($r) => e($r['lark_id'] ?: '—')],

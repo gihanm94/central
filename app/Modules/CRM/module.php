@@ -10,7 +10,7 @@ use App\Modules\CRM\Support\Reminders;
  */
 return [
     'key' => 'crm',
-    'name' => 'CRM', 'icon' => 'handshake', 'home' => '/crm', 'enabled' => true, 'db' => 'crm',
+    'name' => 'CRM', 'icon' => 'handshake', 'home' => '/crm/dashboard', 'enabled' => true, 'db' => 'crm',
     'dashboards' => [
         'overview' => ['label' => 'CRM overview', 'url' => '/crm/dashboard'],
     ],

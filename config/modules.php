@@ -21,6 +21,8 @@ return [
             ['label' => 'Mail',             'url' => '/mail',        'icon' => 'mail'],
             ['label' => 'Tasks',            'url' => '/tasks',       'icon' => 'check',    'permission' => 'tasks.view'],
             ['label' => 'KPIs',             'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
+            ['heading' => 'ERP'],
+            ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
             ['heading' => 'Organization'],
             ['label' => 'Members',          'url' => '/members',     'icon' => 'users',    'permission' => 'members.view'],
             ['label' => 'Account requests', 'url' => '/members/requests', 'icon' => 'user', 'permission' => 'members.create', 'admin_only' => true],

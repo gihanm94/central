@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use App\Core\Support\Request;
 use App\Modules\Accounting\Erp\Schedule;
+use App\Modules\Accounting\Support\DepartmentInvoices;
 use App\Modules\Accounting\Support\Log;
 
 /*
@@ -37,5 +38,8 @@ return [
         'request' => function () { if (Request::method() === 'GET') { Schedule::kick(); } },
         // An uncaught error on an /accounting page also goes to the accounting log.
         'error'   => fn (\Throwable $e) => Log::exception('app', $e, 'Uncaught on '.Request::method().' '.Request::path()),
+        // ERP → Invoices in User Management: stamped Inets of the person's department (the core page never reads this database itself)
+        'erp.invoices'    => fn ($user, array $filters) => DepartmentInvoices::list($user, $filters),
+        'erp.invoice_pdf' => fn ($user, int $id, string $doc) => DepartmentInvoices::pdf($user, $id, $doc),
     ],
 ];

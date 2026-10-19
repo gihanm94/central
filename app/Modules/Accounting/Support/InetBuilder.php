@@ -38,6 +38,7 @@ final class InetBuilder
             'no_invoice' => $invoiceNumber, 'invoice_date' => $f['invoice_date'], 'is_credit' => $isCredit, 'is_international' => strtoupper($cur) !== 'THB',
             'order_id' => $order['id'] ?? null, 'customer_order_number' => $f['customer_order_number'] ?: ($order['order_number'] ?? null), 'delivery_note_number' => $note,
             'seller_name' => $seller ? trim($seller['first_name'].' '.$seller['last_name']) : ($f['seller'] ?: null), 'department_name' => $dept,
+            'app_department_id' => isset($seller['app_department_id']) ? (int) $seller['app_department_id'] : null,      // the seller's department in this app
             'customer_id' => $f['customer_id'], 'customer_code' => $f['customer_code'] ?: ($cust['code'] ?? null), 'customer_name' => $cust['name'] ?? null,
             'currency_code' => $cur, 'tax_id' => $cust ? ($cust['vat_number'] ?: $cust['corporation_identification_number']) : ($order['vat_number'] ?? null), 'email' => $email,
             'amount' => round($amount, 6), 'tax_amount' => round($amount * $rate / 100, 6), 'total_amount' => round($amount * (1 + $rate / 100), 6),

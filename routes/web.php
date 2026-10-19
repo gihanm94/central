@@ -8,6 +8,7 @@ use App\Core\Http\Controllers\AuthController;
 use App\Core\Http\Controllers\DashboardController;
 use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
+use App\Core\Http\Controllers\ErpInvoiceController;
 use App\Core\Http\Controllers\KpiController;
 use App\Core\Http\Controllers\MemberController;
 use App\Core\Http\Controllers\ModuleController;
@@ -72,6 +73,9 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/files/rename', [FileController::class, 'rename']);
     $r->post('/files/move', [FileController::class, 'move']);
     $r->post('/files/delete', [FileController::class, 'delete']);
+    $r->get('/erp/invoices', [ErpInvoiceController::class, 'index']);
+    $r->get('/erp/invoices/{id}/pdf/{doc}', [ErpInvoiceController::class, 'pdf']);
+
     $r->get('/api-access', [ApiAccessController::class, 'admin']);
     $r->post('/api-access/devices/{id}/revoke', [ApiAccessController::class, 'adminRevoke']);
     $r->get('/profile/devices', [ApiAccessController::class, 'mine']);

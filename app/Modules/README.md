@@ -56,6 +56,8 @@ To switch a module off without deleting it, set `'inventory' => ['enabled' => fa
   * `request()`: on every request to the module's own URLs.
   * `error(Throwable $e)`: an uncaught error on one of the module's pages.
   * `calendar.events($user, $from, $to, $mine)` returns `['events' => [...], 'linked' => [googleId => true]]` for `/calendar`.
+  * `erp.invoices($user, $filters)` / `erp.invoice_pdf($user, $id, $doc)` (Accounting): stamped Inets of the
+    person's department for **ERP → Invoices** (`/erp/invoices`, permission `erp_invoices.view`).
 
   To add a hook, call `Modules::hook('name', [$args])` in Core and add `'name' => fn (...) => ...` to
   the modules that answer it.
