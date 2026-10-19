@@ -95,7 +95,7 @@ class KpiController extends ResourceController
     /** Status, progress against the target, this year's submissions and every change, on the KPI's page. */
     protected function showExtra(array $row): string
     {
-        $subs = DB::select('SELECT s.*, ap.name AS approver_name FROM kpi_submissions s LEFT JOIN users ap ON ap.id = s.approver_id
+        $subs = DB::select('SELECT s.*, ap.name AS approver_name, ap.avatar AS approver_avatar FROM kpi_submissions s LEFT JOIN users ap ON ap.id = s.approver_id
             WHERE s.kpi_id = ? AND s.deleted_at IS NULL ORDER BY s.period_year DESC, s.period_month DESC LIMIT 36', [$row['id']]);
         $history = DB::select("SELECT l.*, u.name AS user_name, u.avatar FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id
             WHERE (l.subject_type = 'kpi' AND l.subject_id = ?) OR (l.subject_type = 'kpi_submission' AND l.properties->>'kpi_id' = ?)

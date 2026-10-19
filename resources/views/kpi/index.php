@@ -44,7 +44,7 @@ $today = date('Y-m-d');
 <details class="panel group/p mt-4 overflow-hidden" id="u<?= (int) $uid ?>" open data-kpi-group>
     <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-mist/50">
         <?= icon('right', 'size-4 text-steel transition group-open/p:rotate-90') ?>
-        <span class="inline-flex size-8 items-center justify-center rounded-full bg-graphite-900 text-xs font-semibold text-white"><?= e(initials($g['name'])) ?></span>
+        <?= partial('partials/avatar', ['name' => $g['name'], 'avatar' => $g['avatar'], 'size' => 'size-8']) ?>
         <span><span class="block font-semibold leading-tight"><?= e($g['name']) ?></span><span class="block text-xs text-steel"><?= e($g['department'] ?? '—') ?></span></span>
         <span class="text-sm text-steel"><?= e(count($all) === 1 ? __('1 submission') : __(':n submissions', ['n' => count($all)])) ?></span>
         <span class="badge <?= $gApproved === count($all) ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800' ?>"><?= e(__(':a of :n approved', ['a' => $gApproved, 'n' => count($all)])) ?></span>
@@ -95,10 +95,10 @@ $today = date('Y-m-d');
                     <?php else: ?><span class="badge <?= $r['percentage'] ? 'bg-amber-50 text-amber-800' : 'bg-signal-50 text-signal-800' ?>"><?= e(__('Late :n days', ['n' => $r['days_late']])) ?></span><?php endif ?>
                     <span class="mt-0.5 block text-[11px] text-steel" title="<?= e(__('Submitted')) ?>"><?= e(format_date($r['submitted_at'], 'j M Y H:i')) ?></span></td>
                 <td class="px-3 py-2.5"><div class="flex items-center gap-2">
-                    <span class="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-graphite-900/8 text-[11px] font-semibold text-graphite-700"><?= e(initials($r['submitter_name'])) ?></span>
+                    <?= partial('partials/avatar', ['name' => $r['submitter_name'], 'avatar' => $r['submitter_avatar'], 'size' => 'size-7', 'extra' => 'text-[11px]']) ?>
                     <span class="min-w-0"><span class="block truncate font-medium"><?= e($r['submitter_name']) ?></span><span class="block truncate text-xs text-steel"><?= e($r['department_name'] ?? '—') ?></span></span></div></td>
                 <td class="min-w-[18rem] max-w-[26rem] px-3 py-2.5"><span class="badge mr-1 <?= $r['task_kind'] === 'okr' ? 'bg-violet-50 text-violet-800' : 'bg-sky-50 text-sky-800' ?>"><?= e(strtoupper($r['task_kind'])) ?></span><?php if ($r['kpi_id'] && can('kpis')): ?><a href="<?= url('/kpis/'.(int) $r['kpi_id']) ?>" class="font-medium hover:text-signal-700"><?= e($r['task_title']) ?></a><?php else: ?><span class="font-medium"><?= e($r['task_title']) ?></span><?php endif ?></td>
-                <td class="whitespace-nowrap px-3 py-2.5"><?= e($r['approver_name'] ?? '—') ?></td>
+                <td class="whitespace-nowrap px-3 py-2.5"><?php if ($r['approver_name']): ?><span class="flex items-center gap-2"><?= partial('partials/avatar', ['name' => $r['approver_name'], 'avatar' => $r['approver_avatar'], 'size' => 'size-7', 'extra' => 'text-[11px]']) ?><span><?= e($r['approver_name']) ?></span></span><?php else: ?>—<?php endif ?></td>
                 <td class="whitespace-nowrap px-3 py-2.5">
                     <?php if ($r['approved_at']): ?>
                         <span class="inline-flex items-center gap-1.5 text-emerald-700"><span class="flex size-5 items-center justify-center rounded bg-emerald-600 text-white"><?= icon('check', 'size-3.5') ?></span><span class="tabular-nums text-xs text-steel"><?= e(format_date($r['approved_at'], 'j M H:i')) ?></span></span>

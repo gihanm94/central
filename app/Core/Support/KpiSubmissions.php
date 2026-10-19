@@ -75,13 +75,26 @@ final class KpiSubmissions
         return $out;
     }
 
-    /** People who can approve: active managers and above (not the submitter themselves). @return array<int,string> */
+    /** People who can approve, with photo: active managers and above (not the submitter themselves). @return array<int,string> */
     public static function approvers(CurrentUser|int $u): array
     {
-        $rows = DB::select('SELECT u.id, u.name FROM users u JOIN roles r ON r.id = u.role_id
+        $rows = DB::select('SELECT u.id, u.name, u.avatar, r.name AS role_name, d.name AS department_name FROM users u JOIN roles r ON r.id = u.role_id
+            LEFT JOIN departments d ON d.id = u.department_id
             WHERE u.deleted_at IS NULL AND u.is_active AND u.id <> ? AND r.level >= 40 ORDER BY u.name', [is_int($u) ? $u : $u->id]);
 
-        return array_column($rows, 'name', 'id');
+        return self::people($rows);
+    }
+
+    /** Dropdown options with photo: [id => [label, sub, img]]. */
+    public static function people(array $rows): array
+    {
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r['id']] = ['label' => $r['name'], 'sub' => trim(($r['role_name'] ?? '').(! empty($r['department_name']) ? ' · '.$r['department_name'] : ''), ' ·'),
+                'img' => ! empty($r['avatar']) ? upload_url($r['avatar']) : null];
+        }
+
+        return $out;
     }
 
     /**

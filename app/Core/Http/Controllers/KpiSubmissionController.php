@@ -47,7 +47,7 @@ class KpiSubmissionController extends Controller
             $where[] = '(s.task_title ILIKE ? OR su.name ILIKE ? OR s.note ILIKE ?)';
             array_push($params, $like, $like, $like);
         }
-        $rows = DB::select('SELECT s.*, su.name AS submitter_name, su.avatar AS submitter_avatar, ap.name AS approver_name, d.name AS department_name
+        $rows = DB::select('SELECT s.*, su.name AS submitter_name, su.avatar AS submitter_avatar, ap.name AS approver_name, ap.avatar AS approver_avatar, d.name AS department_name
               FROM kpi_submissions s
               JOIN users su ON su.id = s.user_id
          LEFT JOIN users ap ON ap.id = s.approver_id
@@ -75,7 +75,7 @@ class KpiSubmissionController extends Controller
         $groups = [];
         foreach ($this->rows($f) as $r) {
             $g = &$groups[(int) $r['user_id']];
-            $g ??= ['name' => $r['submitter_name'], 'department' => $r['department_name'], 'months' => []];
+            $g ??= ['name' => $r['submitter_name'], 'avatar' => $r['submitter_avatar'], 'department' => $r['department_name'], 'months' => []];
             $g['months'][(int) $r['period_month']][] = $r;
             unset($g);
         }
@@ -244,8 +244,10 @@ class KpiSubmissionController extends Controller
     {
         $row = $this->forChange($id);
 
-        return view('kpi/edit', ['title' => __('Correct submission'), 'row' => $row, 'approvers' => K::approvers((int) $row['user_id'])
-            + ($row['approver_id'] ? [(int) $row['approver_id'] => (string) DB::scalar('SELECT name FROM users WHERE id = ?', [$row['approver_id']])] : []),
+        $current = $row['approver_id'] ? DB::select('SELECT u.id, u.name, u.avatar, r.name AS role_name, d.name AS department_name FROM users u JOIN roles r ON r.id = u.role_id
+            LEFT JOIN departments d ON d.id = u.department_id WHERE u.id = ?', [$row['approver_id']]) : [];
+
+        return view('kpi/edit', ['title' => __('Correct submission'), 'row' => $row, 'approvers' => K::approvers((int) $row['user_id']) + K::people($current),
             'submitter' => DB::scalar('SELECT name FROM users WHERE id = ?', [$row['user_id']])]);
     }
 

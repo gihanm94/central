@@ -49,7 +49,7 @@ $actionTone = ['created' => 'bg-emerald-50 text-emerald-800', 'updated' => 'bg-s
                 <td class="px-3 py-2.5 text-right tabular-nums"><?= e(number_format((float) $s['finished'], 2)) ?></td>
                 <td class="px-3 py-2.5 text-right tabular-nums"><?= e(number_format((float) $s['total'], 2)) ?></td>
                 <td class="px-3 py-2.5 text-right"><span class="inline-flex min-w-14 justify-center rounded-md px-2 py-0.5 font-semibold tabular-nums <?= (int) $s['percentage'] >= 100 ? 'bg-emerald-50 text-emerald-800' : ((int) $s['percentage'] >= 60 ? 'bg-amber-50 text-amber-800' : 'bg-signal-50 text-signal-800') ?>"><?= (int) $s['percentage'] ?>%</span></td>
-                <td class="whitespace-nowrap px-3 py-2.5"><?= e($s['approver_name'] ?? '—') ?></td>
+                <td class="whitespace-nowrap px-3 py-2.5"><?php if ($s['approver_name']): ?><span class="flex items-center gap-2"><?= partial('partials/avatar', ['name' => $s['approver_name'], 'avatar' => $s['approver_avatar'], 'size' => 'size-7', 'extra' => 'text-[11px]']) ?><span><?= e($s['approver_name']) ?></span></span><?php else: ?>—<?php endif ?></td>
                 <td class="whitespace-nowrap px-3 py-2.5"><?= $s['approved_at'] ? '<span class="text-emerald-700">'.icon('check', 'mr-1 inline size-4').e(format_date($s['approved_at'], 'j M Y')).'</span>' : '<span class="text-steel">'.e(__('Waiting')).'</span>' ?></td>
             </tr>
         <?php endforeach ?>
