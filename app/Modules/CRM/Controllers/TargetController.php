@@ -12,7 +12,7 @@ use App\Core\Support\ValidationException;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Targets;
 
-/** Yearly sales targets (per quarter and total) and the actuals saved for each year. BU Managers set their own department's. */
+/** CRM → Manager → Sales targets: yearly targets (per quarter and total) and the actuals saved for each year. Admins pick any department, BU Managers set their own. */
 class TargetController extends Controller
 {
     /** The department being looked at: whole-company roles choose, everyone else gets their own. */
@@ -36,6 +36,13 @@ class TargetController extends Controller
         return $y >= 2000 && $y <= 2100 ? $y : (int) date('Y');
     }
 
+    /** Sales targets used to live under CRM settings. */
+    public function moved(): never
+    {
+        $q = http_build_query(array_filter(['year' => Request::query('year'), 'department' => Request::query('department')]));
+        redirect('/crm/targets'.($q !== '' ? '?'.$q : ''));
+    }
+
     public function index(): string
     {
         $this->authorize('crm_targets', 'view');
@@ -49,7 +56,7 @@ class TargetController extends Controller
         $history = DB::select('SELECT year, total, a1, a2, a3, a4, actuals_saved_at FROM sales_targets WHERE department_id = ? AND actuals_saved_at IS NOT NULL ORDER BY year DESC LIMIT 6', [$dep], 'crm');
 
         return view('crm/targets', [
-            'title' => __('Sales targets'), 'tabs' => LookupController::tabs(), 'deps' => $deps, 'dep' => $dep, 'year' => $year, 'row' => $row, 'live' => Targets::live($dep, $year), 'source' => Targets::source($dep), 'erp' => \App\Modules\CRM\Support\Revenue::erpId($dep),
+            'title' => __('Sales targets'), 'deps' => $deps, 'dep' => $dep, 'year' => $year, 'row' => $row, 'live' => Targets::live($dep, $year), 'source' => Targets::source($dep), 'erp' => \App\Modules\CRM\Support\Revenue::erpId($dep),
             'cur' => Targets::baseCurrency(), 'canEdit' => can('crm_targets', 'edit') && (Access::seesAll($u) || $dep === $u->department_id), 'pickDept' => Access::seesAll($u), 'history' => $history,
         ]);
     }
@@ -103,6 +110,6 @@ class TargetController extends Controller
 
         Activity::log('updated', 'sales_target', null, $year.' · '.(Access::departments()[$dep] ?? $dep), ['Updated sales targets for :year', ['year' => $year]], ['department_id' => $dep], null, null, false, 'crm');
         Session::flash('success', $msg);
-        redirect('/crm/settings/targets?year='.$year.'&department='.$dep);
+        redirect('/crm/targets?year='.$year.'&department='.$dep);
     }
 }

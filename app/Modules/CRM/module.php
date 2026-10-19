@@ -30,9 +30,11 @@ return [
         ['label' => 'Team',          'url' => '/crm/team',          'icon' => 'users',     'permission' => 'crm_reassign.view'],
         ['heading' => 'Marketing'],
         ['label' => 'Campaigns',     'url' => '/crm/campaigns',     'icon' => 'chat',      'permission' => 'crm_campaigns.view'],
+        ['heading' => 'Manager'],
+        ['label' => 'Sales targets', 'url' => '/crm/targets',       'icon' => 'chart',     'permission' => 'crm_targets.view'],
         ['heading' => 'Setup'],
         ['label' => 'Data tools',    'url' => '/crm/data',          'icon' => 'download',  'admin_only' => true],
-        ['label' => 'Settings',      'url' => '/crm/settings',      'icon' => 'cog', 'permission_any' => ['crm_settings.view', 'crm_stages.view', 'crm_targets.view']],
+        ['label' => 'Settings',      'url' => '/crm/settings',      'icon' => 'cog', 'permission_any' => ['crm_settings.view', 'crm_stages.view']],
     ],
     'hooks' => [
         // Polled about once a minute by every signed-in page (notification feed).

@@ -27,15 +27,16 @@ use App\Modules\CRM\Controllers\TeamController;
 $r->get('/crm', [DashboardController::class, 'index']);
 $r->get('/crm/dashboard', [DashboardController::class, 'index']);
 
-// Pipeline board, dropdown search, stage and target settings
+// Pipeline board, dropdown search, stage settings, sales targets
 $r->get('/crm/pipeline', [PipelineController::class, 'index']);
 $r->get('/crm/pipeline/cards', [PipelineController::class, 'cards']);
 $r->post('/crm/pipeline/move', [PipelineController::class, 'move']);
 $r->get('/crm/search/{kind}', [SearchController::class, 'find']);
 $r->get('/crm/settings/stages', [StageController::class, 'index']);
 $r->post('/crm/settings/stages', [StageController::class, 'save']);
-$r->get('/crm/settings/targets', [TargetController::class, 'index']);
-$r->post('/crm/settings/targets', [TargetController::class, 'save']);
+$r->get('/crm/targets', [TargetController::class, 'index']);
+$r->post('/crm/targets', [TargetController::class, 'save']);
+$r->get('/crm/settings/targets', [TargetController::class, 'moved']);   // old address (bookmarks)
 
 // Admin data tools: import / export Excel, CSV, SQL with column mapping
 $r->get('/crm/data', [DataController::class, 'index']);

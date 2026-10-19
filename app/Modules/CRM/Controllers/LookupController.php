@@ -27,7 +27,6 @@ abstract class LookupController extends ResourceController
             }
         }
         if (can('crm_stages', 'view')) { $tabs[] = ['/crm/settings/stages', __('Stages'), 'columns']; }
-        if (can('crm_targets', 'view')) { $tabs[] = ['/crm/settings/targets', __('Sales targets'), 'chart']; }
 
         return $tabs;
     }

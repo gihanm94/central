@@ -1,13 +1,12 @@
 <?php
 use App\Modules\CRM\Support\Ui;
-/* $deps, $dep, $year, $row, $live [1..4], $cur, $canEdit, $pickDept, $history, $tabs */
-$crumbs = [[__('CRM settings'), '/crm/settings']];
+/* $deps, $dep, $year, $row, $live [1..4], $cur, $canEdit, $pickDept, $history */
 $num   = fn ($v) => $v === null || $v === '' ? '' : rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
 $pct   = fn ($a, $t) => (float) $t > 0 ? round((float) $a / (float) $t * 100) : null;
 $qsum  = array_sum([(float) $row['q1'], (float) $row['q2'], (float) $row['q3'], (float) $row['q4']]);
 $liveT = array_sum($live);
-$prev  = url('/crm/settings/targets', ['year' => $year - 1, 'department' => $dep]);
-$next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep]);
+$prev  = url('/crm/targets', ['year' => $year - 1, 'department' => $dep]);
+$next  = url('/crm/targets', ['year' => $year + 1, 'department' => $dep]);
 ?>
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div><h1 class="page-title"><?= e(__('Sales targets')) ?></h1>
@@ -23,12 +22,11 @@ $next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep
         </div>
     </div>
 </div>
-<?= partial('partials/tabs', ['tabs' => $tabs]) ?>
 <p class="mt-4 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm ring-1 <?= $source === 'accounting' ? 'bg-emerald-50 text-emerald-900 ring-emerald-600/20' : 'bg-amber-50 text-amber-900 ring-amber-600/20' ?>">
     <?= icon($source === 'accounting' ? 'calc' : 'target', 'size-4') ?>
     <?= e($source === 'accounting' ? ($erp ? __('Achieved = invoiced revenue of ERP department #:id from Accounting.', ['id' => $erp]) : __('Achieved = invoiced revenue of the whole company from Accounting.')) : __('Achieved = opportunities won in the CRM. Set this department\'s ERP department under Departments to use Accounting revenue instead.')) ?></p>
 
-<form method="POST" action="<?= url('/crm/settings/targets') ?>" class="mt-5">
+<form method="POST" action="<?= url('/crm/targets') ?>" class="mt-5">
     <?= csrf_field() ?>
     <input type="hidden" name="year" value="<?= (int) $year ?>"><input type="hidden" name="department" value="<?= (int) $dep ?>">
     <button name="action" value="targets" class="hidden" tabindex="-1" aria-hidden="true"></button>   <?php /* Enter in a field saves the targets, never the actuals */ ?>
@@ -79,7 +77,7 @@ $next  = url('/crm/settings/targets', ['year' => $year + 1, 'department' => $dep
         <thead><tr><th><?= e(__('Year')) ?></th><th class="text-right"><?= e(__('Target')) ?></th><th class="text-right">Q1</th><th class="text-right">Q2</th><th class="text-right">Q3</th><th class="text-right">Q4</th><th class="text-right"><?= e(__('Actual')) ?></th><th class="min-w-40"><?= e(__('Achieved')) ?></th></tr></thead>
         <tbody>
         <?php foreach ($history as $h): $act = (float) $h['a1'] + (float) $h['a2'] + (float) $h['a3'] + (float) $h['a4']; $p = $pct($act, $h['total']); ?>
-            <tr><td class="font-medium"><a href="<?= e(url('/crm/settings/targets', ['year' => $h['year'], 'department' => $dep])) ?>" class="hover:text-signal-700"><?= (int) $h['year'] ?></a></td>
+            <tr><td class="font-medium"><a href="<?= e(url('/crm/targets', ['year' => $h['year'], 'department' => $dep])) ?>" class="hover:text-signal-700"><?= (int) $h['year'] ?></a></td>
                 <td class="text-right tabular-nums"><?= e(number_format((float) $h['total'], 2)) ?></td>
                 <?php foreach (['a1', 'a2', 'a3', 'a4'] as $k): ?><td class="text-right tabular-nums"><?= $h[$k] === null ? '—' : e(number_format((float) $h[$k], 2)) ?></td><?php endforeach ?>
                 <td class="text-right font-medium tabular-nums"><?= e(number_format($act, 2)) ?></td>

@@ -73,7 +73,7 @@ $keepQ = ['department' => $pick ?: null, 'member' => $member ?: null, 'mine' => 
     <div class="panel-head">
         <div><h2 class="panel-title"><?= e(__('Revenue vs target :year', ['year' => $targetYear])) ?></h2>
             <p class="text-xs text-steel"><?= e($acc ? __('Revenue from Accounting invoices') : __('Won opportunities in the CRM (no ERP department linked)')) ?></p></div>
-        <?php if (can('crm_targets', 'view')): ?><a href="<?= url('/crm/settings/targets', array_filter(['year' => $targetYear, 'department' => $depFor ?: null])) ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('Set targets')) ?></a><?php endif ?>
+        <?php if (can('crm_targets', 'view')): ?><a href="<?= url('/crm/targets', array_filter(['year' => $targetYear, 'department' => $depFor ?: null])) ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('Set targets')) ?></a><?php endif ?>
     </div>
     <div class="grid gap-px bg-graphite-900/6 sm:grid-cols-2 lg:grid-cols-5">
         <?php foreach ([1, 2, 3, 4] as $q): $t = $target['target'][$q]; $a = $target['actual'][$q]; $p = $t > 0 ? round($a / $t * 100) : null; ?>
