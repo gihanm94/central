@@ -47,11 +47,12 @@ $r->post('/crm/data/run', [DataController::class, 'run']);
 $r->post('/crm/data/discard', [DataController::class, 'discard']);
 $r->post('/crm/data/mappings/{id}/delete', [DataController::class, 'deleteMapping']);
 
-// Team: see one person's records, hand them to somebody else, change many at once
-$r->get('/crm/team', [TeamController::class, 'index']);
-$r->post('/crm/team/reassign', [TeamController::class, 'reassign']);
-$r->post('/crm/team/handover', [TeamController::class, 'handover']);
-$r->post('/crm/team/status', [TeamController::class, 'status']);
+// Sales control: by person (hand records to somebody else) and by stage (move stale opportunities on)
+$r->get('/crm/control', [TeamController::class, 'index']);
+$r->post('/crm/control/reassign', [TeamController::class, 'reassign']);
+$r->post('/crm/control/handover', [TeamController::class, 'handover']);
+$r->post('/crm/control/status', [TeamController::class, 'status']);
+$r->get('/crm/team', [TeamController::class, 'moved']);              // old address (bookmarks)
 
 // Standard screens: list, new, detail, edit, delete, export, import, template, download
 $crm = [

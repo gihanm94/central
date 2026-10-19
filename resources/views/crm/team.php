@@ -1,18 +1,41 @@
 <?php
 use App\Modules\CRM\Support\Ui;
-/* $members [id => label], $from, $person, $type, $types, $openOnly, $counts, $rows, $targets, $canEdit, $wholeCompany */
+use App\Modules\CRM\Support\Catalog;
+use App\Modules\CRM\Support\StageReview;
+/* $view (person|stage), $members [id => label], $from, $person, $type, $types, $openOnly, $counts, $rows, $targets, $canEdit, $wholeCompany,
+   $f {department, owner, from, to, date}, $stage, $stageCounts, $stageRows, $people [id => name], $deps, $openCount */
 $t       = $types[$type];
-$qs      = fn (array $x) => url('/crm/team', array_filter(array_merge(['user' => $from, 'type' => $type, 'all' => $openOnly ? null : 1], $x), fn ($v) => $v !== null && $v !== 0));
+$qs      = fn (array $x) => url('/crm/control', array_filter(array_merge(['user' => $from, 'type' => $type, 'all' => $openOnly ? null : 1], $x), fn ($v) => $v !== null && $v !== 0));
+$sq      = fn (array $x = []) => url('/crm/control', array_filter(array_merge(['view' => 'stage', 'stage' => $stage] + $f, $x), fn ($v) => $v !== null && $v !== 0 && $v !== '' && $v !== 'since'));
 $stageTone = fn ($s) => $type === 'opportunity' ? Ui::stageBadge($s) : Ui::badge($t['statuses'][$s] ?? (string) $s, 'neutral');
 ?>
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
-        <h1 class="page-title"><?= e(__('Team')) ?></h1>
-        <p class="mt-1 text-sm text-steel"><?= e($wholeCompany ? __('Pick a person to see everything they have, then hand it to somebody else or change many at once.') : __('Pick someone from your department to see everything they have, then hand it to somebody else or change many at once.')) ?></p>
+        <h1 class="page-title"><?= e(__('Sales control')) ?></h1>
+        <p class="mt-1 text-sm text-steel"><?= e($wholeCompany ? __('Hand records to somebody else, or find opportunities stuck in a stage and move them on — every department.') : __('Hand records to somebody else, or find opportunities stuck in a stage and move them on — your department.')) ?></p>
     </div>
 </div>
 
-<form method="GET" action="<?= url('/crm/team') ?>" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-graphite-900/8">
+<nav class="mt-4 grid gap-3 sm:grid-cols-2" aria-label="<?= e(__('Sales control')) ?>">
+    <?php foreach ([
+        'person' => ['users', __('By person'), __('Pick a person, see everything they have and move it to someone else with a reason.'), $from ? ($person['name'] ?? '') : __('Choose a person')],
+        'stage'  => ['columns', __('By stage'), __('See how many opportunities are in each stage for a date range, then change the stage of the ones that sat too long.'), __(':n open opportunities', ['n' => $openCount])],
+    ] as $k => [$ic, $label, $hint, $meta]): $on = $view === $k; ?>
+    <a href="<?= e($k === 'person' ? url('/crm/control', array_filter(['user' => $from ?: null])) : url('/crm/control', ['view' => 'stage'])) ?>" <?= $on ? 'aria-current="page"' : '' ?>
+       class="flex items-start gap-3 rounded-xl p-4 shadow-sm ring-1 transition-colors <?= $on ? 'bg-graphite-900 text-white ring-graphite-900' : 'bg-white ring-graphite-900/8 hover:bg-mist' ?>">
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg <?= $on ? 'bg-white/10' : 'bg-mist text-steel' ?>"><?= icon($ic, 'size-5') ?></span>
+        <span class="min-w-0"><span class="block font-semibold"><?= e($label) ?></span>
+            <span class="mt-0.5 block text-sm <?= $on ? 'text-white/70' : 'text-steel' ?>"><?= e($hint) ?></span>
+            <span class="mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-medium <?= $on ? 'bg-white/10' : 'bg-mist' ?>"><?= e($meta) ?></span></span>
+    </a>
+    <?php endforeach ?>
+</nav>
+
+<?php if ($view === 'stage'): ?>
+<?= partial('crm/team-stage', compact('f', 'stage', 'stageCounts', 'stageRows', 'people', 'deps', 'members', 'wholeCompany', 'canEdit', 'sq')) ?>
+<?php else: ?>
+
+<form method="GET" action="<?= url('/crm/control') ?>" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-graphite-900/8">
     <input type="hidden" name="type" value="<?= e($type) ?>">
     <?php if (! $openOnly): ?><input type="hidden" name="all" value="1"><?php endif ?>
     <label class="text-sm font-medium" for="team-user"><?= e(__('Person')) ?></label>
@@ -43,7 +66,7 @@ $stageTone = fn ($s) => $type === 'opportunity' ? Ui::stageBadge($s) : Ui::badge
 </nav>
 <p class="mt-1 text-xs text-steel"><?= e(__('Open / all records')) ?></p>
 
-<form method="POST" action="<?= url('/crm/team/reassign') ?>" class="mt-4" data-team>
+<form method="POST" action="<?= url('/crm/control/reassign') ?>" class="mt-4" data-team>
     <?= csrf_field() ?>
     <input type="hidden" name="type" value="<?= e($type) ?>"><input type="hidden" name="from" value="<?= (int) $from ?>">
 
@@ -54,12 +77,12 @@ $stageTone = fn ($s) => $type === 'opportunity' ? Ui::stageBadge($s) : Ui::badge
                 <h2 class="text-sm font-semibold"><?= e(__('Hand to somebody else')) ?></h2>
                 <div class="mt-2 grid gap-2 sm:grid-cols-2">
                     <?= select_field('to', $targets, '', ['placeholder' => __('New owner…'), 'aria' => __('New owner'), 'search' => true]) ?>
-                    <input name="note" class="input" maxlength="250" placeholder="<?= e(__('Note (optional), e.g. resigned')) ?>" aria-label="<?= e(__('Note')) ?>">
+                    <input name="note" class="input" maxlength="250" placeholder="<?= e(__('Reason (required), e.g. resigned')) ?>" aria-label="<?= e(__('Reason')) ?>" value="<?= e((string) old('note')) ?>">
                 </div>
                 <?php if ($wholeCompany): ?><label class="mt-2 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="move_department" value="1" class="size-4 accent-signal-600"> <?= e(__('Also move the records to the new owner\'s department')) ?></label><?php endif ?>
                 <div class="mt-2 flex flex-wrap gap-2">
                     <button type="submit" class="btn-primary" data-needs-ticked><?= icon('users', 'size-4') ?> <?= e(__('Hand over ticked')) ?> (<span data-ticked>0</span>)</button>
-                    <button type="submit" class="btn-secondary" formaction="<?= url('/crm/team/handover') ?>" data-confirm="<?= e(__('Hand over everything this person has to the chosen owner?')) ?>"><?= e(__('Hand over everything')) ?></button>
+                    <button type="submit" class="btn-secondary" formaction="<?= url('/crm/control/handover') ?>" data-confirm="<?= e(__('Hand over everything this person has to the chosen owner?')) ?>"><?= e(__('Hand over everything')) ?></button>
                 </div>
                 <label class="mt-2 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="include_closed" value="1" class="size-4 accent-signal-600"> <?= e(__('"Everything" also includes closed records')) ?></label>
             </div>
@@ -70,7 +93,7 @@ $stageTone = fn ($s) => $type === 'opportunity' ? Ui::stageBadge($s) : Ui::badge
                     <?= select_field('status', $t['statuses'], '', ['placeholder' => $type === 'opportunity' ? __('New stage…') : __('New status…'), 'aria' => __('New status'), 'search' => false]) ?>
                     <input name="status_note" class="input" maxlength="500" placeholder="<?= e(__('Reason (needed to close, cancel or hold)')) ?>" aria-label="<?= e(__('Reason')) ?>">
                 </div>
-                <div class="mt-2"><button type="submit" class="btn-secondary" formaction="<?= url('/crm/team/status') ?>" data-needs-ticked><?= icon('check', 'size-4') ?> <?= e(__('Apply to ticked')) ?> (<span data-ticked>0</span>)</button></div>
+                <div class="mt-2"><button type="submit" class="btn-secondary" formaction="<?= url('/crm/control/status') ?>" data-needs-ticked><?= icon('check', 'size-4') ?> <?= e(__('Apply to ticked')) ?> (<span data-ticked>0</span>)</button></div>
             </div>
             <?php endif ?>
         </div>
@@ -106,4 +129,5 @@ $stageTone = fn ($s) => $type === 'opportunity' ? Ui::stageBadge($s) : Ui::badge
         <?php endif ?>
     </section>
 </form>
+<?php endif ?>
 <?php endif ?>

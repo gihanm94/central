@@ -13,11 +13,13 @@ use App\Core\Support\ValidationException;
 use App\Modules\CRM\Support\Access;
 use App\Modules\CRM\Support\Catalog;
 use App\Modules\CRM\Support\Reassign;
+use App\Modules\CRM\Support\StageReview;
 
 /**
- * "Team": a BU manager (own department) or an admin (everybody) picks a person, sees every record that person
- * has, and hands them to somebody else or moves many of them to a new stage / status in one click.
- * Nothing is lost: the record stays as it is and the previous owner is kept in its history.
+ * CRM → Manager → Sales control, for a BU manager (own department) or an admin (everybody). Two views:
+ *  - By person: pick someone, see every record they have, hand them to somebody else (with a reason) or change many at once.
+ *  - By stage: how many opportunities sit in each stage within a date range; pick a stage, tick the stale ones and move them on.
+ * Nothing is lost: the record stays as it is and the previous owner / stage is kept in its history.
  */
 class TeamController extends Controller
 {
@@ -34,10 +36,18 @@ class TeamController extends Controller
         return array_filter(Access::everyone(), fn ($p) => Access::seesAll($u) || ($u->department_id && (int) $p['department_id'] === $u->department_id));
     }
 
+    /** The old address of this screen. */
+    public function moved(): never
+    {
+        $q = http_build_query(array_filter(['user' => Request::query('user'), 'type' => Request::query('type')]));
+        redirect('/crm/control'.($q !== '' ? '?'.$q : ''));
+    }
+
     public function index(): string
     {
         $this->gate();
         $u       = $this->user();
+        $view    = Request::query('view') === 'stage' ? 'stage' : 'person';
         $members = $this->members();
         $types   = Reassign::types();
         $from    = (int) Request::query('user', 0);
@@ -53,8 +63,21 @@ class TeamController extends Controller
         $targets = Access::assignable($u);
         unset($targets[$from]);
 
+        // By stage
+        $f = ['department' => Access::seesAll($u) ? (int) Request::query('department', 0) : 0, 'owner' => (int) Request::query('owner', 0),
+            'from' => (string) Request::query('from', ''), 'to' => (string) Request::query('to', ''), 'date' => (string) Request::query('date', 'since')];
+        $f['owner'] = isset($members[$f['owner']]) ? $f['owner'] : 0;
+        $f['date']  = isset(StageReview::dates()[$f['date']]) ? $f['date'] : 'since';
+        $stage      = (string) Request::query('stage', 'QUALIFICATION');
+        $stage      = isset(Catalog::STAGES[$stage]) ? $stage : 'QUALIFICATION';
+        $people     = Access::everyone();
+        $openCount  = (int) DB::scalar('SELECT count(*) FROM opportunities t WHERE t.deleted_at IS NULL AND t.opportunity_stage IN (\''.implode("','", Catalog::OPEN).'\')'
+            .(Access::seesAll($u) ? '' : ' AND t.department_id = '.(int) $u->department_id), [], 'crm');
+
         return view('crm/team', [
-            'title' => __('Team'), 'members' => $options, 'from' => $from, 'person' => $members[$from] ?? null, 'type' => $type, 'types' => $types, 'openOnly' => $open,
+            'title' => __('Sales control'), 'view' => $view, 'f' => $f, 'stage' => $stage, 'openCount' => $openCount,
+            'stageCounts' => $view === 'stage' ? StageReview::counts($u, $f) : [], 'stageRows' => $view === 'stage' ? StageReview::rows($u, $stage, $f) : [],
+            'people' => array_map(fn ($p) => $p['name'], $people), 'deps' => Access::departments(), 'members' => $options, 'from' => $from, 'person' => $members[$from] ?? null, 'type' => $type, 'types' => $types, 'openOnly' => $open,
             'counts' => $from ? Reassign::counts($u, $from) : [], 'rows' => $from ? Reassign::recordsOf($u, $type, $from, $open) : [],
             'targets' => $targets, 'canEdit' => can('crm_reassign', 'edit'), 'wholeCompany' => Access::seesAll($u),
         ]);
@@ -62,7 +85,19 @@ class TeamController extends Controller
 
     private function back(int $from, string $type): never
     {
-        redirect('/crm/team?user='.$from.'&type='.$type);
+        $ret = (string) Request::input('return', '');             // the By stage view sends its own address (filters kept)
+        redirect(str_starts_with($ret, '/crm/control?') ? $ret : '/crm/control?user='.$from.'&type='.$type);
+    }
+
+    /** A reason is required whenever records change hands. */
+    private function reason(string $field = 'note'): string
+    {
+        $note = trim((string) Request::input($field));
+        if ($note === '') {
+            throw new ValidationException([$field => __('Write the reason for moving them.')]);
+        }
+
+        return mb_substr($note, 0, 250);
     }
 
     /** Hand the ticked records to another person. */
@@ -80,7 +115,7 @@ class TeamController extends Controller
             Session::flash('error', __('Tick at least one record first.'));
             $this->back($from, $type);
         }
-        [$moved, $skipped] = Reassign::apply($this->user(), $type, $ids, $to, $from ?: null, trim((string) Request::input('note')) ?: null, (bool) Request::input('move_department'));
+        [$moved, $skipped] = Reassign::apply($this->user(), $type, $ids, $to, $from ?: null, $this->reason(), (bool) Request::input('move_department'));
         Session::flash('success', __(':n moved.', ['n' => $moved]).($skipped ? ' '.__(':n skipped (not yours to change, or already theirs).', ['n' => $skipped]) : ''));
         $this->back($from, $type);
     }
@@ -95,7 +130,7 @@ class TeamController extends Controller
             throw new ValidationException(['to' => __('Choose who should get them.')]);
         }
         $openOnly = ! Request::input('include_closed');
-        $note     = trim((string) Request::input('note')) ?: __('Handed over');
+        $note     = $this->reason();
         $moved    = $skipped = 0;
         foreach (array_keys(Reassign::types()) as $type) {
             $ids = array_column(Reassign::recordsOf($this->user(), $type, $from, $openOnly, 5000), 'id');
