@@ -59,9 +59,15 @@ if (preg_match('/\.[a-z0-9]{2,5}$/i', $path)) {
 }
 
 Session::ageFlash();
+header_remove('X-Powered-By');
 header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
+header('Cross-Origin-Opener-Policy: same-origin');
+header('Permissions-Policy: geolocation=(), microphone=(), payment=(), usb=(), camera=(self)');
+if (is_https()) {
+    header('Strict-Transport-Security: max-age=31536000');
+}
 
 try {
     Migrator::autoRun();                       // applies new database/sql/migrations after an update (a failing module is fenced off, not fatal)

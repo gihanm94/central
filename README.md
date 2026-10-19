@@ -54,7 +54,7 @@ Password for all: `Password@123`
 
 ## Updating an existing install
 
-Copy the new files over your folder (keep `config/config.php` and `storage/`). The next page
+Copy the new files over your folder (keep `config/config.php`, `storage/` and `public/uploads/`; the Deploy workflow in `.github/workflows/deploy.yml` does this for you). The next page
 load applies any new SQL in `database/sql/migrations/` automatically — nothing to run.
 
 ## Languages
@@ -277,7 +277,7 @@ app/Core/Auth      sign-in, remember me, passkeys
 app/Core/Support   DB, router, validation, permissions + data scope, activity log, mailer, CSV
 app/Core/Http      controllers (members, departments, teams, tasks, KPIs, roles, activity, settings…)
 app/Modules        one folder per module (CRM, Accounting, Machines …), _Template = starter
-config/            config.php (written by installer), core.php (rule book), modules.php (menus)
+config/            config.php (written by the installer from config.php.example; holds passwords, never in git), core.php (rule book), modules.php (menus)
 database/sql/      every SQL file
 resources/views    PHP templates (layouts, pages, e-mails)
 routes/web.php     all URLs

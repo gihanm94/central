@@ -21,6 +21,9 @@ $current   = isset($modules[$segment]) && $modules[$segment]['enabled'] ? $segme
 <div class="flex min-h-full flex-col transition-[padding] duration-200 lg:pl-64 lg:collapsed:pl-[4.5rem]">
     <?php include __DIR__.'/navbar.php' ?>
     <main id="main" class="flex-1 px-4 pb-10 pt-5 sm:px-6 sm:pb-8 lg:px-8 lg:pt-6">
+        <?php if (config('app.env') === 'local' && auth()->isAdmin() && ! in_array(App\Core\Support\Request::host(), ['localhost', '127.0.0.1', '::1'], true)): ?>
+            <p class="mb-4 rounded-md border-l-4 border-signal-600 bg-signal-50 px-4 py-3 text-sm text-signal-800"><?= e(__('This server runs in debug mode: visitors can see error details and the mobile API accepts plain HTTP. Set \'env\' => \'production\' in config/config.php.')) ?></p>
+        <?php endif ?>
         <?php include __DIR__.'/../partials/flash.php' ?>
         <?= $content ?>
     </main>

@@ -49,6 +49,7 @@ final class Migrator
             $db = basename($dbDir);
             try {
                 $pdo = $connect ? $connect($db) : DB::connection($db);
+                $pdo->exec('SET statement_timeout = 0');          // a large upgrade may take long; the limit returns below
                 $pdo->exec('CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(190) PRIMARY KEY, ran_at TIMESTAMPTZ NOT NULL DEFAULT now())');
                 $done = $pdo->query('SELECT name FROM schema_migrations')->fetchAll(\PDO::FETCH_COLUMN);
 
@@ -66,6 +67,9 @@ final class Migrator
                     }
                     $pdo->prepare('INSERT INTO schema_migrations (name) VALUES (?)')->execute([$name]);
                     $ran[] = "{$db}/{$name}";
+                }
+                if (! $connect) {
+                    $pdo->exec(DB::timeoutSql());
                 }
                 if ($isolate) {
                     Modules::migrations($db, null);

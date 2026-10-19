@@ -8,7 +8,8 @@ declare(strict_types=1);
 
 define('BASE_PATH', dirname(__DIR__));
 $lock   = BASE_PATH.'/storage/installed.lock';
-$config = require BASE_PATH.'/config/config.php';
+// config/config.php is not in git (it holds passwords); a fresh copy starts from the template.
+$config = require BASE_PATH.(is_file(BASE_PATH.'/config/config.php') ? '/config/config.php' : '/config/config.php.example');
 $sqlDir = BASE_PATH.'/database/sql';
 session_start();
 
@@ -164,6 +165,8 @@ if (! is_file($lock) && $_SERVER['REQUEST_METHOD'] === 'POST' && $ready) {
             if (str_starts_with((string) $config['app']['key'], 'change-me')) {
                 $config['app']['key'] = bin2hex(random_bytes(32));
             }
+            // Error details only on the developer's own computer; every real server runs in production mode.
+            $config['app']['env'] = in_array(strtolower((string) parse_url($config['app']['url'], PHP_URL_HOST)), ['localhost', '127.0.0.1', '::1'], true) ? 'local' : 'production';
             $config['db'] = array_merge($config['db'], ['host' => $v['host'], 'port' => (int) $v['port'], 'username' => $v['user'], 'password' => $v['pass']]);
             foreach ($config['db']['databases'] as $key => $_) {
                 $config['db']['databases'][$key] = $v['db_'.$key];
@@ -173,7 +176,8 @@ if (! is_file($lock) && $_SERVER['REQUEST_METHOD'] === 'POST' && $ready) {
                 'encryption' => in_array($v['smtp_enc'], ['tls', 'ssl', 'none'], true) ? $v['smtp_enc'] : 'tls',
                 'username' => $v['smtp_user'], 'password' => $v['smtp_pass'], 'from_address' => $v['from'], 'from_name' => trim($v['company']),
             ]);
-            file_put_contents(BASE_PATH.'/config/config.php', "<?php\n// Written by public/install.php on ".date('Y-m-d H:i')." — edit freely.\nreturn ".var_export($config, true).";\n");
+            file_put_contents(BASE_PATH.'/config/config.php', "<?php\n// Written by public/install.php on ".date('Y-m-d H:i')." — edit freely. Holds passwords: never put it in git.\nreturn ".var_export($config, true).";\n");
+            @chmod(BASE_PATH.'/config/config.php', 0640);
             $log[] = 'Saved config/config.php';
 
             file_put_contents($lock, date('c'));

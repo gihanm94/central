@@ -12,7 +12,7 @@
 #
 # Old code is removed and new code copied (rsync --delete), but these are never touched,
 # because they hold the server's own data:
-#   config/config.php   database password, mail settings (written by the installer)
+#   config/config.php   database password, mail settings (written by the installer; never in git)
 #   storage/            logs, cache, attachments, generated PDFs, installed.lock
 #   public/uploads/     uploaded logos, avatars, CRM files, editor images
 # New database migrations run by themselves on the next page load.
@@ -90,8 +90,7 @@ jobs:
             --filter='P /storage/***' \
             --filter='P /public/uploads/***' \
             ./ "$USER@$HOST:$DEPLOY_PATH/" | sed -n '1,200p'
-          # First deploy only: the installer needs a config/config.php to start from (never overwritten later).
-          rsync -rlptz --ignore-existing -e "$SSH" config/config.php "$USER@$HOST:$DEPLOY_PATH/config/config.php"
+          # config/config.php is not in git; on a new server the installer creates it from config/config.php.example.
 
       - name: Make storage and uploads writable for the web server
         if: steps.secrets.outputs.ready == 'true'

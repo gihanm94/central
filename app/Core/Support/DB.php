@@ -21,14 +21,28 @@ final class DB
         if (! isset(self::$connections[$name])) {
             $c  = config('db');
             $db = $c['databases'][$name] ?? $name;
-            self::$connections[$name] = self::connect($c['host'], (int) $c['port'], $db, $c['username'], $c['password']);
+            // Optional own login per area (db.credentials.<name>): a PostgreSQL user that can reach only that database.
+            $login = $c['credentials'][$name] ?? ['username' => $c['username'], 'password' => $c['password']];
+            self::$connections[$name] = self::connect($c['host'], (int) $c['port'], $db, (string) $login['username'], (string) $login['password']);
             // Timestamps typed in the app are in the company time zone, so PostgreSQL must read them the same way.
             if (preg_match('#^[A-Za-z0-9_+\-/]+$#', (string) config('app.timezone', ''))) {
                 self::$connections[$name]->exec("SET TIME ZONE '".config('app.timezone')."'");
             }
+            self::$connections[$name]->exec(self::timeoutSql());
         }
 
         return self::$connections[$name];
+    }
+
+    /**
+     * A web request's query may run at most db.statement_timeout_seconds (default 60), so one runaway query
+     * in one module cannot hold the server. Command-line jobs (cron, ERP sync) have no limit.
+     */
+    public static function timeoutSql(): string
+    {
+        $s = PHP_SAPI === 'cli' ? 0 : max(0, (int) config('db.statement_timeout_seconds', 60));
+
+        return 'SET statement_timeout = '.($s * 1000);
     }
 
     public static function connect(string $host, int $port, string $db, string $user, string $pass): PDO

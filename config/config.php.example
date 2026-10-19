@@ -1,10 +1,11 @@
 <?php
-// Written by public/install.php — you can edit it by hand afterwards.
+// Template for config/config.php. The installer (public/install.php) copies it, fills in your answers and
+// a random app key, and saves config/config.php. That file holds passwords: it is never stored in git.
 return [
     'app' => [
         'name'     => 'Acme International',
         'url'      => 'http://localhost:8000',
-        'env'      => 'local',            // local shows errors, production hides them
+        'env'      => 'production',       // production hides error details; local shows them (only on your own computer)
         'timezone' => 'Asia/Bangkok',
         'key'      => 'change-me-run-installer',
     ],
@@ -12,7 +13,7 @@ return [
         'host'     => '127.0.0.1',
         'port'     => 5432,
         'username' => 'acme',
-        'password' => 'acmeinter123',
+        'password' => '',
         // One PostgreSQL database per area. Core (people, roles, logs) lives in user_db.
         'databases' => [
             'core'       => 'user_db',
@@ -22,15 +23,18 @@ return [
             'machines'   => 'machine_db',
             'hr'         => 'hr_db',
         ],
+        'statement_timeout_seconds' => 60,   // a runaway query in one module cannot hold the server
+        // Optional: a separate PostgreSQL login per area, each allowed only into its own database, e.g.
+        // 'credentials' => ['crm' => ['username' => 'acme_crm', 'password' => '…'], 'accounting' => [...]],
     ],
     'mail' => [
         'driver'       => 'log',          // log = save e-mails to storage/mail, smtp = really send
         'host'         => 'smtp.gmail.com',
         'port'         => 587,
         'encryption'   => 'tls',          // tls (587) | ssl (465) | none
-        'username'     => 'web-support@acme-inter.com',
-        'password'     => 'xzpqcgetujdzfqyb',
-        'from_address' => 'web-support@acme-inter.com',
+        'username'     => '',
+        'password'     => '',
+        'from_address' => '',
         'from_name'    => 'Acme International',
     ],
     'notifications' => [
@@ -45,7 +49,7 @@ return [
         'session_rotate_minutes' => 10,   // the session id (the browser's access token) is replaced this often
         'reset_minutes'      => 60,
         'max_login_attempts' => 5,
-        'lockout_minutes'    => 1,
+        'lockout_minutes'    => 15,
         'passkey_rp_id'      => null,     // null = current host name
     ],
 ];

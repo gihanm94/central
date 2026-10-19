@@ -1,5 +1,17 @@
-# Never execute uploaded files
-php_flag engine off
-<FilesMatch "\.(php|phtml|phar)$">
+# Uploaded files are data, never code.
+# PHP off (only where Apache runs PHP itself; with PHP-FPM the rule below already blocks scripts)
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<FilesMatch "\.(php\d?|phtml|phar|pht|cgi|pl|py|sh|shtml|htaccess)$">
     Require all denied
 </FilesMatch>
+Options -Indexes -ExecCGI
+# An uploaded HTML/SVG file opened directly cannot run script or reach the session
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox"
+</IfModule>
