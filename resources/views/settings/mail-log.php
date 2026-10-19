@@ -1,5 +1,6 @@
-<?php include __DIR__.'/_tabs.php'; $crumbs = []; ?>
-<section class="panel mt-6 overflow-hidden">
+<div class="min-w-0"><h1 class="page-title"><?= e(__('Mail log')) ?></h1>
+    <p class="mt-1 text-sm text-steel"><?= e(__('Every e-mail the system sent or tried to send. Mail settings are in config/config.php (mail).')) ?></p></div>
+<section class="panel mt-4 overflow-hidden">
     <div class="panel-head">
         <div><h2 class="panel-title"><?= e(__('Mail log')) ?></h2>
             <p class="text-xs text-steel"><?= e(__('Driver')) ?>: <strong><?= e($driver) ?></strong><?= $driver === 'smtp' ? ' · '.e($host).' · '.e(__('from')).' '.e($from) : '' ?>. <?= e(__('The last 100 messages and what happened to them.')) ?></p></div>

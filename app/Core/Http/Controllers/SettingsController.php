@@ -157,6 +157,9 @@ class SettingsController extends Controller
         return view('settings/mail-log', ['title' => __('Mail log'), 'rows' => $rows, 'driver' => config('mail.driver'), 'host' => config('mail.host'), 'from' => config('mail.from_address')]);
     }
 
+    /** The mail log used to be a tab of Company settings. */
+    public function mailLogMoved(): never { redirect('/mail-log'); }
+
     public function testMail(): never
     {
         $this->authorize('settings', 'edit');
@@ -164,7 +167,7 @@ class SettingsController extends Controller
         $ok = Mailer::notify($u->email, $u->name, __('Test e-mail'), [__('If you can read this, e-mail delivery works.'), __('Driver').': <strong>'.e(config('mail.driver')).'</strong>']);
         back($ok ? 'success' : 'error', $ok
             ? (config('mail.driver') === 'log' ? __('Test e-mail written to storage/mail (driver is "log").') : __('Test e-mail sent to :email.', ['email' => $u->email]))
-            : __('Sending failed. See Company settings → Mail log for the reason.'));
+            : __('Sending failed. See Administrator → Mail log for the reason.'));
     }
 
     public function testLark(): never

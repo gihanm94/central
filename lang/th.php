@@ -1792,4 +1792,6 @@ return [
     'Open the full error in System logs' => 'เปิดรายละเอียดข้อผิดพลาดในบันทึกระบบ',
     'Not saved: please fix the :n highlighted fields.' => 'ยังไม่บันทึก: กรุณาแก้ไข :n ช่องที่ไฮไลต์',
     'Not saved: :reason' => 'ยังไม่บันทึก: :reason',
+    'Sending failed. See Administrator → Mail log for the reason.' => 'ส่งไม่สำเร็จ ดูสาเหตุที่ ผู้ดูแลระบบ → บันทึกอีเมล',
+    'Every e-mail the system sent or tried to send. Mail settings are in config/config.php (mail).' => 'อีเมลทั้งหมดที่ระบบส่งหรือพยายามส่ง การตั้งค่าอีเมลอยู่ใน config/config.php (mail)',
 ];
