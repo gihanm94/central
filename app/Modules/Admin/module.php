@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /*
  | Administrator module manifest — read by App\Core\Support\Modules at boot.
- | The administration pages (members, departments, teams, roles, account requests, sessions, API access, settings, modules, connectors, files,
+ | The administration pages (control room, members, departments, teams, roles, account requests, sessions, API access, settings, modules, connectors, files,
  | activity log, system logs). They are core pages and keep their addresses ('paths' shows them under this module); /admin opens the
  | first one the person may use. Visible to administrators and to roles allowed one of its pages.
  */
@@ -11,9 +11,13 @@ return [
     'key' => 'admin',
     'name' => 'Administrator', 'icon' => 'shield', 'home' => '/admin', 'enabled' => true, 'db' => 'core',
     'permission_any' => ['admin', 'members.view', 'departments.view', 'teams.view', 'roles.view', 'activity_logs.view', 'settings.view'],
-    'paths' => ['/members', '/departments', '/teams', '/roles', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs'],
-    'dashboards' => [],
+    'paths' => ['/dashboard/admin', '/members', '/departments', '/teams', '/roles', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs'],
+    'dashboards' => [
+        'admin' => ['label' => 'Control room', 'url' => '/dashboard/admin', 'admin_only' => true],
+    ],
     'menu' => [
+        ['heading' => 'Overview'],
+        ['label' => 'Control room',     'url' => '/dashboard/admin',  'icon' => 'chart',    'admin_only' => true],
         ['heading' => 'Organization'],
         ['label' => 'Members',          'url' => '/members',          'icon' => 'users',    'permission' => 'members.view'],
         ['label' => 'Departments',      'url' => '/departments',      'icon' => 'building', 'permission' => 'departments.view'],

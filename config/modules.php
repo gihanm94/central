@@ -7,14 +7,12 @@
  */
 return [
     'core' => [
-        'name' => 'User Management', 'icon' => 'users', 'home' => '/dashboard', 'enabled' => true, 'db' => 'core',
+        'name' => 'User Management', 'icon' => 'users', 'home' => '/dashboard/personal', 'enabled' => true, 'db' => 'core',
         'dashboards' => [
             'personal' => ['label' => 'My workspace', 'url' => '/dashboard/personal'],
-            'admin'    => ['label' => 'Control room', 'url' => '/dashboard/admin', 'admin_only' => true],
         ],
         'menu' => [
             ['heading' => 'Overview'],
-            ['label' => 'Control room',     'url' => '/dashboard/admin',    'icon' => 'chart', 'admin_only' => true],
             ['label' => 'My workspace',     'url' => '/dashboard/personal', 'icon' => 'home'],
             ['heading' => 'Work'],
             ['label' => 'Calendar',         'url' => '/calendar',    'icon' => 'calendar'],

@@ -14,7 +14,7 @@ class DashboardController extends Controller
         $u      = $this->user();
         $boards = ProfileController::dashboardsFor($u)['core'] ?? [];
         $pick   = $u->default_module === 'core' || ! $u->default_module ? $u->default_dashboard : null;
-        $key    = $pick && isset($boards[$pick]) ? $pick : ($u->isAdmin() ? 'admin' : 'personal');
+        $key    = $pick && isset($boards[$pick]) ? $pick : 'personal';      // User Management opens My workspace (the control room is in Administrator)
         redirect(config('modules.core.dashboards.'.$key.'.url'));
     }
 
