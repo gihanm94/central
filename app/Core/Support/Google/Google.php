@@ -5,12 +5,17 @@ namespace App\Core\Support\Google;
 
 use App\Core\Support\Crypt;
 use App\Core\Support\DB;
+use App\Core\Support\Modules;
 use App\Core\Support\Settings;
 
 /**
  * Google OAuth + a tiny API client, without any SDK. One connection per person (google_connections).
  * The administrator enters the OAuth client id / secret once (Administration → Connectors); each person then connects their own account.
  * The three addresses can be changed in Settings (google_auth_url, google_token_url, google_api_url) — used by the test server.
+ *
+ * One sign-in serves everything: the consent asks for Gmail + Calendar and the scopes modules add (hook 'google.scopes',
+ * e.g. Sheets), and modules are told about it (hook 'google.connected'). Disconnecting only forgets the tokens here; it does
+ * not revoke the grant at Google, because that would also cut the other parts using the same Google account.
  */
 final class Google
 {
@@ -28,12 +33,24 @@ final class Google
     private static function tokenUrl(): string { return (string) (Settings::get('google_token_url') ?: 'https://oauth2.googleapis.com/token'); }
     public static function apiUrl(): string { return rtrim((string) (Settings::get('google_api_url') ?: 'https://www.googleapis.com'), '/'); }
 
-    /** @param string[]|null $scopes other scopes than the Gmail + Calendar set (e.g. the Sheets module's) */
+    /** Gmail + Calendar and every scope a module asks for (hook 'google.scopes'), so one consent covers all. @return string[] */
+    public static function allScopes(): array
+    {
+        $all = self::SCOPES;
+        foreach (Modules::hook('google.scopes') as $more) {
+            $all = [...$all, ...array_filter((array) $more, 'is_string')];
+        }
+
+        return array_values(array_unique($all));
+    }
+
+    /** @param string[]|null $scopes null = allScopes() */
     public static function loginUrl(string $state, ?string $hint = null, ?array $scopes = null, string $prompt = 'consent'): string
     {
         return self::authUrl().'?'.http_build_query(array_filter([
-            'client_id' => self::clientId(), 'redirect_uri' => self::redirectUri(), 'response_type' => 'code', 'scope' => implode(' ', $scopes ?? self::SCOPES), 'access_type' => 'offline',
-            'prompt' => $prompt, 'include_granted_scopes' => $scopes === null ? 'true' : null, 'state' => $state, 'login_hint' => $hint,
+            'client_id' => self::clientId(), 'redirect_uri' => self::redirectUri(), 'response_type' => 'code', 'scope' => implode(' ', $scopes ?? self::allScopes()), 'access_type' => 'offline',
+            // keep what was granted before: one refresh token keeps working for Gmail, Calendar and Sheets together
+            'prompt' => $prompt, 'include_granted_scopes' => 'true', 'state' => $state, 'login_hint' => $hint,
         ]));
     }
 
@@ -66,19 +83,42 @@ final class Google
         $me = self::apiRaw($t['access_token'], 'GET', '/gmail/v1/users/me/profile');
         $row = ['google_email' => (string) ($me['body']['emailAddress'] ?? ''), 'access_token' => Crypt::encrypt($t['access_token']), 'refresh_token' => Crypt::encrypt((string) $refresh),
             'expires_at' => date('c', time() + (int) ($t['expires_in'] ?? 3600) - 30), 'scopes' => (string) ($t['scope'] ?? implode(' ', self::SCOPES)), 'last_error' => null, 'updated_at' => now()];
-        DB::exec('INSERT INTO google_connections (user_id, google_email, access_token, refresh_token, expires_at, scopes, last_error, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, now())
-                  ON CONFLICT (user_id) DO UPDATE SET google_email = EXCLUDED.google_email, access_token = EXCLUDED.access_token, refresh_token = EXCLUDED.refresh_token, expires_at = EXCLUDED.expires_at, scopes = EXCLUDED.scopes, last_error = NULL, updated_at = now()',
-            [$userId, $row['google_email'], $row['access_token'], $row['refresh_token'], $row['expires_at'], $row['scopes'], null]);
+        self::save($userId, $row);
+        // Modules that use the same Google account (Sheets) take it too, when the grant covers them.
+        Modules::hook('google.connected', [$userId, $row['google_email'], $t['access_token'], (string) $refresh, (int) ($t['expires_in'] ?? 3600), explode(' ', $row['scopes'])]);
 
         return $row;
     }
 
+    private static function save(int $userId, array $row): void
+    {
+        DB::exec('INSERT INTO google_connections (user_id, google_email, access_token, refresh_token, expires_at, scopes, last_error, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, now())
+                  ON CONFLICT (user_id) DO UPDATE SET google_email = EXCLUDED.google_email, access_token = EXCLUDED.access_token, refresh_token = EXCLUDED.refresh_token, expires_at = EXCLUDED.expires_at, scopes = EXCLUDED.scopes, last_error = NULL, updated_at = now()',
+            [$userId, $row['google_email'], $row['access_token'], $row['refresh_token'], $row['expires_at'], $row['scopes'], null]);
+    }
+
+    /**
+     * A module's own Google sign-in also granted Gmail + Calendar: use it for Mail and Calendar too, unless the person
+     * already has a working connection to another Google account. @param string[] $scopes granted
+     */
+    public static function adopt(int $userId, string $email, string $access, string $refresh, int $expiresIn, array $scopes): bool
+    {
+        if (array_diff(self::SCOPES, $scopes, ['openid', 'email'])) {
+            return false;                                         // Gmail / Calendar not granted
+        }
+        $c = self::connection($userId);
+        if ($c && ! empty($c['refresh_token']) && ! $c['last_error'] && strcasecmp((string) $c['google_email'], $email) !== 0) {
+            return false;                                         // keep their own, different account
+        }
+        self::save($userId, ['google_email' => $email, 'access_token' => Crypt::encrypt($access), 'refresh_token' => Crypt::encrypt($refresh),
+            'expires_at' => date('c', time() + $expiresIn - 30), 'scopes' => implode(' ', $scopes)]);
+
+        return true;
+    }
+
+    /** Forgets the tokens here. The grant stays at Google (revoking it would also cut Sheets on the same account). */
     public static function disconnect(int $userId): void
     {
-        $c = self::connection($userId);
-        if ($c && $c['refresh_token'] && ($rt = Crypt::decrypt($c['refresh_token']))) {
-            self::post((string) (Settings::get('google_revoke_url') ?: 'https://oauth2.googleapis.com/revoke'), ['token' => $rt]);       // best effort
-        }
         DB::exec('DELETE FROM google_connections WHERE user_id = ?', [$userId]);
     }
 
@@ -88,9 +128,18 @@ final class Google
         $c = self::connection($userId) ?? throw new \RuntimeException(__('Google is not connected.'));
         if ($c['expires_at'] && strtotime((string) $c['expires_at']) > time() + 60 && $c['access_token']) { return (string) Crypt::decrypt($c['access_token']); }
         $rt = Crypt::decrypt((string) $c['refresh_token']);
+        if (! $rt) {                                              // saved under another app key (config/config.php was rebuilt)
+            DB::exec("UPDATE google_connections SET access_token = NULL, refresh_token = NULL, last_error = 'The saved Google key can no longer be read (the app key changed). Connect again.' WHERE user_id = ?", [$userId]);
+            throw new \RuntimeException(__('Google needs you to connect again.'));
+        }
         $t = self::token(['grant_type' => 'refresh_token', 'refresh_token' => (string) $rt]);
         if (empty($t['access_token'])) {
-            if (($t['error'] ?? '') === 'invalid_grant') { DB::exec("UPDATE google_connections SET access_token = NULL, refresh_token = NULL, last_error = 'The connection was removed on the Google side. Connect again.' WHERE user_id = ?", [$userId]); }
+            if (($t['error'] ?? '') === 'invalid_grant') {          // ended at Google: removed by the person, password change, or a 'Testing' OAuth app (7-day limit)
+                DB::exec("UPDATE google_connections SET access_token = NULL, refresh_token = NULL, last_error = ? WHERE user_id = ?",
+                    ['Google ended the connection ('.mb_substr((string) ($t['error_description'] ?? 'invalid_grant'), 0, 120).'). Connect again.', $userId]);
+            } else {                                                // network or Google trouble: keep the connection, try again later
+                DB::exec('UPDATE google_connections SET last_error = ? WHERE user_id = ?', ['Google could not be reached just now: '.mb_substr((string) ($t['error'] ?? 'no answer'), 0, 120), $userId]);
+            }
             throw new \RuntimeException(__('Google needs you to connect again.'));
         }
         DB::exec('UPDATE google_connections SET access_token = ?, expires_at = ?, last_error = NULL, updated_at = now() WHERE user_id = ?', [Crypt::encrypt($t['access_token']), date('c', time() + (int) ($t['expires_in'] ?? 3600) - 30), $userId]);
@@ -129,9 +178,6 @@ final class Google
 
     /** Token endpoint: exchange a code ('authorization_code') or renew ('refresh_token'). Raw answer, never throws for an OAuth error. */
     public static function oauth(array $params): array { return self::token($params); }
-
-    /** Revoke a token on the Google side (best effort). */
-    public static function revoke(string $token): void { self::post((string) (Settings::get('google_revoke_url') ?: 'https://oauth2.googleapis.com/revoke'), ['token' => $token]); }
 
     private static function token(array $params): array
     {

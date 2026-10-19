@@ -16,7 +16,8 @@ $legend = ['CALL' => [__('Call'), '#0284c7'], 'MEETING' => [__('Meeting'), '#7c3
         </div>
     </div>
     <?php if (! $google): ?><p class="mb-3 rounded-lg bg-white px-4 py-2.5 text-sm text-steel shadow-sm ring-1 ring-graphite-900/10">
-        <?= $configured ? '<a class="font-medium text-signal-700 underline" href="'.e(url('/connect/google', ['back' => 'calendar'])).'">'.e(__('Connect Google')).'</a> '.e(__('to see your Google Calendar here and put every activity on it.')) : e(__('The administrator has not set up the Google connector yet — only CRM activities are shown.')) ?></p><?php endif ?>
+        <?php if (! empty($lost)): ?><span class="text-signal-800"><?= e(__('Your Google connection ended: :why', ['why' => $lost])) ?></span> <?php endif ?>
+        <?= $configured ? '<a class="font-medium text-signal-700 underline" href="'.e(url('/connect/google', ['back' => 'calendar'])).'">'.e(! empty($lost) ? __('Connect again') : __('Connect Google')).'</a> '.e(__('to see your Google Calendar here and put every activity on it.')) : e(__('The administrator has not set up the Google connector yet — only CRM activities are shown.')) ?></p><?php endif ?>
     <div class="panel min-h-0 flex-1 p-3 sm:p-4"><div id="cal" data-config="<?= e(json_encode($cfg, JSON_UNESCAPED_UNICODE)) ?>" style="height:100%"></div></div>
 </div>
 <div id="cal-pop" class="fixed z-50 hidden w-72 rounded-xl bg-white p-4 text-sm shadow-xl ring-1 ring-graphite-900/15"></div>

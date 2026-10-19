@@ -51,12 +51,30 @@ final class Accounts
         if (! $refresh) {
             throw new \RuntimeException(__('Google gave no long-lived access. Remove the app under your Google account permissions and connect again.'));
         }
+        self::save($userId, $email, $t['access_token'], (string) $refresh, (int) ($t['expires_in'] ?? 3600));
+        // The same consent also covered Gmail + Calendar: Mail and Calendar use this account too (if they have none of their own).
+        Google::adopt($userId, $email, $t['access_token'], (string) $refresh, (int) ($t['expires_in'] ?? 3600), $granted);
+
+        return ['google_email' => $email];
+    }
+
+    private static function save(int $userId, string $email, string $access, string $refresh, int $expiresIn): void
+    {
         DB::exec('INSERT INTO gsheet_accounts (user_id, google_email, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)
                   ON CONFLICT (user_id, google_email) DO UPDATE SET access_token = EXCLUDED.access_token, refresh_token = EXCLUDED.refresh_token,
                   expires_at = EXCLUDED.expires_at, last_error = NULL, updated_at = now()',
-            [$userId, $email, Crypt::encrypt($t['access_token']), Crypt::encrypt((string) $refresh), date('c', time() + (int) ($t['expires_in'] ?? 3600) - 30)]);
+            [$userId, $email, Crypt::encrypt($access), Crypt::encrypt($refresh), date('c', time() + $expiresIn - 30)]);
+    }
 
-        return ['google_email' => $email];
+    /** Hook 'google.connected': the main 'Connect Google' also granted Sheets, so the account is ready here too. @param string[] $scopes */
+    public static function adopt(int $userId, string $email, string $access, string $refresh, int $expiresIn, array $scopes): bool
+    {
+        if ($email === '' || ! in_array('https://www.googleapis.com/auth/spreadsheets', $scopes, true)) {
+            return false;
+        }
+        self::save($userId, $email, $access, $refresh, $expiresIn);
+
+        return true;
     }
 
     /** Removes the account and (by cascade) its syncs. */
@@ -66,9 +84,7 @@ final class Accounts
         if (! $a) {
             return;
         }
-        if ($a['refresh_token'] && ($rt = Crypt::decrypt((string) $a['refresh_token']))) {
-            try { Google::revoke((string) $rt); } catch (\Throwable) { /* best effort */ }
-        }
+        // Only forgotten here: revoking at Google would also cut Mail and Calendar on the same account.
         DB::exec('DELETE FROM gsheet_accounts WHERE id = ?', [$id]);
     }
 

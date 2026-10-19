@@ -24,10 +24,11 @@ class MailController extends Controller
         if ($connected) {
             try { $data = Gmail::inbox($u->id, $label, $q, Request::query('t') ?: null); }
             catch (\Throwable $e) { $error = $e->getMessage(); }
+            $connected = Google::connected($u->id);           // Google may have ended it just now: show that, not an error
         }
 
         return view('mail/index', ['title' => __('Mail'), 'connected' => $connected, 'configured' => Google::configured(), 'label' => $label, 'labels' => self::LABELS, 'q' => $q, 'data' => $data, 'error' => $error,
-            'email' => Google::connection($u->id)['google_email'] ?? '', 'page' => max(1, (int) Request::query('p', 1))]);
+            'email' => Google::connection($u->id)['google_email'] ?? '', 'lost' => $connected ? null : (Google::connection($u->id)['last_error'] ?? null), 'page' => max(1, (int) Request::query('p', 1))]);
     }
 
     public function show(string $mid): string

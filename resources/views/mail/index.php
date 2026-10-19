@@ -6,8 +6,9 @@ $link = fn (array $e = []) => url('/mail', array_filter(['label' => $label !== '
     <?php if ($connected): ?><button type="button" class="btn-primary" data-compose><?= icon('mail', 'size-4') ?> <?= e(__('Compose')) ?></button><?php endif ?>
 </div>
 <?php if (! $connected): ?>
-<div class="panel mt-4 p-8 text-center"><p class="text-base font-medium"><?= e(__('Connect your Google account to see your e-mail here.')) ?></p>
-    <?php if ($configured): ?><a href="<?= url('/connect/google', ['back' => 'mail']) ?>" class="btn-primary mt-4"><?= icon('link', 'size-4') ?> <?= e(__('Connect Google')) ?></a>
+<div class="panel mt-4 p-8 text-center"><p class="text-base font-medium"><?= e(! empty($lost) ? __('Your Google connection ended. Connect again to see your e-mail here.') : __('Connect your Google account to see your e-mail here.')) ?></p>
+    <?php if (! empty($lost)): ?><p class="mx-auto mt-2 max-w-xl rounded-lg bg-signal-50 px-3 py-2 text-sm text-signal-800"><?= e($lost) ?></p><?php endif ?>
+    <?php if ($configured): ?><a href="<?= url('/connect/google', ['back' => 'mail']) ?>" class="btn-primary mt-4"><?= icon('link', 'size-4') ?> <?= e(! empty($lost) ? __('Connect again') : __('Connect Google')) ?></a>
     <?php else: ?><p class="mt-2 text-sm text-steel"><?= e(__('The administrator has not set up the Google connector yet.')) ?></p><?php endif ?></div>
 <?php else: ?>
 <div class="mt-4 flex flex-wrap items-center gap-2">

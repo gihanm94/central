@@ -39,7 +39,7 @@ class SyncController extends Controller
         $state = bin2hex(random_bytes(16));
         $_SESSION['gsheet_state'] = $state;
         Google::forwardTo('/sheets/connect/callback');
-        header('Location: '.Google::loginUrl($state, null, Accounts::SCOPES, 'consent select_account'));
+        header('Location: '.Google::loginUrl($state, null, null, 'consent select_account'));     // Sheets + Gmail + Calendar in one consent
         exit;
     }
 

@@ -18,7 +18,7 @@ class CalendarController extends Controller
         $crm = Modules::usable('crm') && can('crm_activities', 'view');
 
         return view('calendar/index', ['title' => __('Calendar'), 'crm' => $crm, 'canCreate' => $crm && can('crm_activities', 'create'),
-            'google' => Google::connected($u->id), 'configured' => Google::configured(), 'inCrm' => str_starts_with(Request::path(), '/crm'),
+            'google' => Google::connected($u->id), 'configured' => Google::configured(), 'lost' => Google::connected($u->id) ? null : (Google::connection($u->id)['last_error'] ?? null), 'inCrm' => str_starts_with(Request::path(), '/crm'),
             'mine' => Request::query('mine') === '1']);
     }
 

@@ -1595,4 +1595,11 @@ return [
     'Deleted the submission ":label" for :period' => 'ลบรายการส่งผล ":label" ของ :period',
     'Corrected the submission ":label" for :period' => 'แก้ไขรายการส่งผล ":label" ของ :period',
     'Exported KPI submissions for :year' => 'ส่งออกการส่งผล KPI ปี :year',
+    'Your Google connection ended. Connect again to see your e-mail here.' => 'การเชื่อมต่อ Google ของคุณสิ้นสุดแล้ว เชื่อมต่ออีกครั้งเพื่อดูอีเมลที่นี่',
+    'Connect again' => 'เชื่อมต่ออีกครั้ง',
+    'Your Google connection ended: :why' => 'การเชื่อมต่อ Google ของคุณสิ้นสุดแล้ว: :why',
+    'Your Google connection (:e) ended: :why' => 'การเชื่อมต่อ Google ของคุณ (:e) สิ้นสุดแล้ว: :why',
+    'Connect your Google account to read and send e-mail, see your calendar and sync Google Sheets here — one sign-in for all. Activities you create in the CRM are also added to your Google Calendar.' => 'เชื่อมต่อบัญชี Google เพื่ออ่านและส่งอีเมล ดูปฏิทิน และซิงก์ Google Sheets ที่นี่ — ลงชื่อเข้าใช้ครั้งเดียวใช้ได้ทั้งหมด กิจกรรมที่สร้างใน CRM จะถูกเพิ่มใน Google Calendar ด้วย',
+    'Gmail, Calendar and Google Sheets, inside this system.' => 'Gmail, ปฏิทิน และ Google Sheets ภายในระบบนี้',
+    'Stays connected until you disconnect. To remove access completely, also remove the app in your Google Account → Security → Third-party connections.' => 'เชื่อมต่อค้างไว้จนกว่าคุณจะยกเลิก หากต้องการถอนสิทธิ์ทั้งหมด ให้ลบแอปใน บัญชี Google → ความปลอดภัย → การเชื่อมต่อกับบุคคลที่สามด้วย',
 ];
