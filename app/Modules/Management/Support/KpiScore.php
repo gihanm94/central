@@ -1,10 +1,13 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Core\Support;
+namespace App\Modules\Management\Support;
+
+use App\Core\Support\DB;
+use App\Core\Support\KpiSubmissions;
 
 /**
- * Yearly appraisal score out of 100 (ACME-INTER 2569 rules), used by User Management → KPI calculator.
+ * Yearly appraisal score out of 100 (ACME-INTER 2569 rules), used by Management → KPI calculator.
  *
  *   Final = Σ (section rate × section points) − warning deductions
  *

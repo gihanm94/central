@@ -14,6 +14,8 @@ class KpiController extends ResourceController
 
     /** KPIs and OKRs are what people submit a monthly result for (KPI submissions). */
     public const KINDS = ['kpi' => 'KPI', 'okr' => 'OKR'];
+    /** Measuring period, as the KPI calculator (Management) reads it. */
+    public const PERIODS = ['month' => 'Monthly', 'quarter' => 'Quarterly', 'half' => 'Half-year', 'year' => 'Yearly'];
     public const STATUS_TONES = ['active' => 'bg-sky-600 text-white', 'achieved' => 'bg-emerald-600 text-white', 'missed' => 'bg-signal-600 text-white', 'archived' => 'bg-graphite-500 text-white'];
 
     public static function statuses(): array { return array_map(fn ($l) => __($l), self::STATUSES); }
@@ -45,7 +47,7 @@ class KpiController extends ResourceController
             'measure'      => ['label' => __('Monthly figure'), 'type' => 'select', 'options' => ['percent' => __('Finished ÷ total, in %'), 'count' => __('Count of finished')],
                                'rules' => 'required', 'default' => 'percent', 'search' => false, 'example' => 'percent',
                                'help' => __('How the KPI calculator reads each monthly submission against the criteria.')],
-            'period'       => ['label' => __('Measured'), 'type' => 'select', 'options' => array_map(fn ($l) => __($l), \App\Core\Support\KpiScore::PERIODS),
+            'period'       => ['label' => __('Measured'), 'type' => 'select', 'options' => array_map(fn ($l) => __($l), self::PERIODS),
                                'rules' => 'required', 'default' => 'month', 'search' => false, 'example' => 'month'],
             'weight'       => ['label' => __('Weight %'), 'type' => 'number', 'rules' => 'nullable|numeric', 'example' => '30',
                                'help' => __('Share of this KPI in the KPI section; the weights of one person should add up to 100.')],

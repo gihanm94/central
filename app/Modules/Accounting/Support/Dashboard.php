@@ -16,7 +16,7 @@ final class Dashboard
     private const TTL = 300;
 
     /** invoice line value in THB (the same rule as the e-tax JSON) */
-    private const LINE = "(coalesce(i.invoiced_quantity, 0) / CASE WHEN coalesce(i.conversion_factor, 0) = 0 THEN 1 ELSE i.conversion_factor END) * coalesce(i.price, 0) * (1 - coalesce(i.discount, 0) / 100) * coalesce(nullif(i.exchange_rate, 0), 1)";
+    public const LINE = "(coalesce(i.invoiced_quantity, 0) / CASE WHEN coalesce(i.conversion_factor, 0) = 0 THEN 1 ELSE i.conversion_factor END) * coalesce(i.price, 0) * (1 - coalesce(i.discount, 0) / 100) * coalesce(nullif(i.exchange_rate, 0), 1)";
     private const BKK = "(i.invoice_date AT TIME ZONE 'Asia/Bangkok')";
 
     public static function get(bool $fresh = false): array

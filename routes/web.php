@@ -9,7 +9,6 @@ use App\Core\Http\Controllers\DashboardController;
 use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
 use App\Core\Http\Controllers\ErpInvoiceController;
-use App\Core\Http\Controllers\KpiCalculatorController;
 use App\Core\Http\Controllers\KpiController;
 use App\Core\Http\Controllers\KpiSubmissionController;
 use App\Core\Http\Controllers\MemberController;
@@ -111,12 +110,6 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/passkeys/options', [PasskeyController::class, 'registerOptions']);
     $r->post('/passkeys', [PasskeyController::class, 'register']);
     $r->post('/passkeys/{id}/delete', [PasskeyController::class, 'destroy']);
-
-    // KPI calculator: yearly appraisal score out of 100
-    $r->get('/kpi-calculator', [KpiCalculatorController::class, 'index']);
-    $r->get('/kpi-calculator/export', [KpiCalculatorController::class, 'export']);
-    $r->get('/kpi-calculator/{id}', [KpiCalculatorController::class, 'show']);
-    $r->post('/kpi-calculator/{id}', [KpiCalculatorController::class, 'calculate']);
 
     // KPI submissions: monthly KPI / OKR results (before the standard screens so /kpi-submissions/create is not taken as an id)
     $r->get('/kpi-submissions', [KpiSubmissionController::class, 'index']);

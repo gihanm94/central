@@ -1,5 +1,5 @@
 <?php /* $p person, $year, $month, $group, $in inputs, $r result of KpiScore::calculate, $saved ?row, $preview, $canEdit */
-use App\Core\Support\KpiScore as S;
+use App\Modules\Management\Support\KpiScore as S;
 
 $n2 = fn ($v) => $v === null ? '—' : number_format((float) $v, 2);
 $pct = fn ($v) => $v === null ? '—' : number_format((float) $v, 2).'%';
@@ -24,10 +24,10 @@ $measureLabel = ['percent' => __('Finished ÷ total %'), 'count' => __('Count')]
         <div class="min-w-0"><h1 class="page-title break-words"><?= e($p['name']) ?></h1>
             <p class="text-sm text-steel"><?= e(($p['department_name'] ?? __('No department')).' · '.$p['role_name']) ?></p></div>
     </div>
-    <a href="<?= url('/kpi-calculator', ['year' => $year]) ?>" class="btn-secondary"><?= icon('arrowleft', 'size-4') ?><?= e(__('All people')) ?></a>
+    <a href="<?= url('/management/kpi-calculator', ['year' => $year]) ?>" class="btn-secondary"><?= icon('arrowleft', 'size-4') ?><?= e(__('All people')) ?></a>
 </div>
 
-<form method="GET" action="<?= url('/kpi-calculator/'.(int) $p['id']) ?>" class="mt-4 flex flex-wrap items-end gap-3">
+<form method="GET" action="<?= url('/management/kpi-calculator/'.(int) $p['id']) ?>" class="mt-4 flex flex-wrap items-end gap-3">
     <div class="w-28"><label class="label" for="kc-y"><?= e(__('Year')) ?></label><?= select_field('year', array_combine($years, $years), $year, ['id' => 'kc-y', 'submit' => true, 'search' => false]) ?></div>
     <div class="w-40"><label class="label" for="kc-m"><?= e(__('Up to month')) ?></label><?= select_field('month', $months, $month, ['id' => 'kc-m', 'submit' => true, 'search' => false]) ?></div>
     <div class="w-56"><label class="label" for="kc-g"><?= e(__('Employee group')) ?></label><?= select_field('group', array_map(fn ($l) => __($l), S::GROUPS), $group, ['id' => 'kc-g', 'submit' => true, 'search' => false]) ?></div>
@@ -135,7 +135,7 @@ $measureLabel = ['percent' => __('Finished ÷ total %'), 'count' => __('Count')]
     <p class="border-t border-graphite-900/8 bg-mist/40 px-5 py-2.5 text-xs text-steel"><?= e(__('Each day late −20% (day 12 / day 15 = 0%). Not submitted, or corrected afterwards = 0% for that month. Submitter and approver: the average of both.')) ?></p>
 </section>
 
-<form method="POST" action="<?= url('/kpi-calculator/'.(int) $p['id']) ?>" class="mt-4 space-y-4">
+<form method="POST" action="<?= url('/management/kpi-calculator/'.(int) $p['id']) ?>" class="mt-4 space-y-4">
     <?= csrf_field() ?>
     <input type="hidden" name="year" value="<?= (int) $year ?>"><input type="hidden" name="month" value="<?= (int) $month ?>"><input type="hidden" name="group" value="<?= e($group) ?>">
 

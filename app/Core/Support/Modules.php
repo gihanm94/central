@@ -52,7 +52,7 @@ final class Modules
         if (! is_array($m) || ! is_string($m['key'] ?? null) || ! preg_match('/^[a-z][a-z0-9_]{0,39}$/', $m['key']) || $m['key'] === 'core') {
             throw new \UnexpectedValueException('module.php must return an array with a "key" of lower-case letters, digits and _ (not "core").');
         }
-        foreach (['name' => 'string', 'icon' => 'string', 'home' => 'string', 'db' => 'string', 'enabled' => 'bool',
+        foreach (['name' => 'string', 'icon' => 'string', 'home' => 'string', 'db' => 'string', 'enabled' => 'bool', 'permission' => 'string',
             'menu' => 'array', 'dashboards' => 'array', 'hooks' => 'array'] as $k => $type) {
             if (array_key_exists($k, $m) && get_debug_type($m[$k]) !== $type) {
                 throw new \UnexpectedValueException("module.php: \"{$k}\" must be a {$type}.");
@@ -86,6 +86,18 @@ final class Modules
 
     /** Enabled and not fenced off by a failure. */
     public static function usable(string $key): bool { return self::enabled($key) && ! self::problems($key); }
+
+    /** May this person open the module? A manifest can name a permission ('permission' => 'management.view'). */
+    public static function allowed(string $key): bool
+    {
+        $perm = self::all()[$key]['permission'] ?? null;
+        if (! is_string($perm) || $perm === '') {
+            return true;
+        }
+        [$res, $act] = array_pad(explode('.', $perm, 2), 2, 'view');
+
+        return can($res, $act);
+    }
 
     /** The module a URL belongs to (/crm/leads → crm), or null for core pages. */
     public static function forPath(string $path): ?string

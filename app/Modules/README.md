@@ -58,6 +58,11 @@ To switch a module off without deleting it, set `'inventory' => ['enabled' => fa
   * `calendar.events($user, $from, $to, $mine)` returns `['events' => [...], 'linked' => [googleId => true]]` for `/calendar`.
   * `erp.invoices($user, $filters)` / `erp.invoice_pdf($user, $id, $doc)` (Accounting): stamped Inets of the
     person's department for **ERP → Invoices** (`/erp/invoices`, permission `erp_invoices.view`).
+  * `revenue.ranking($from, $to)` (Accounting): revenue total, months, top customers, sellers and departments for the
+    **Management** overview.
+  * `google.scopes()` / `google.connected(...)`: a module adds its Google scopes to the one shared Google sign-in.
+* A manifest may set `'permission' => 'resource.view'`: people without it do not see the module in the switcher
+  (protect its routes too, e.g. `$r->group(['perm:management,view'], ...)`).
 
   To add a hook, call `Modules::hook('name', [$args])` in Core and add `'name' => fn (...) => ...` to
   the modules that answer it.

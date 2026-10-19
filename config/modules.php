@@ -22,7 +22,6 @@ return [
             ['label' => 'Tasks',            'url' => '/tasks',       'icon' => 'check',    'permission' => 'tasks.view'],
             ['label' => 'KPIs & OKRs',      'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
             ['label' => 'KPI submissions',  'url' => '/kpi-submissions', 'icon' => 'tick', 'permission' => 'kpi_submissions.view'],
-            ['label' => 'KPI calculator',   'url' => '/kpi-calculator', 'icon' => 'calc', 'permission' => 'kpi_calculator.view'],
             ['heading' => 'ERP'],
             ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
             ['heading' => 'Organization'],

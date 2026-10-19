@@ -1,9 +1,9 @@
 <?php
 // Checks the appraisal rules against the worked examples of the 2569 rule book.  Run:  php tests/kpi_score_test.php
 declare(strict_types=1);
-require __DIR__.'/../app/Core/Support/KpiScore.php';
+require __DIR__.'/../app/Modules/Management/Support/KpiScore.php';
 
-use App\Core\Support\KpiScore as S;
+use App\Modules\Management\Support\KpiScore as S;
 
 $fail = 0;
 $is = function (string $what, float $got, float $want) use (&$fail) {

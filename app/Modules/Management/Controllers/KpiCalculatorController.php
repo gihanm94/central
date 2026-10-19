@@ -1,20 +1,22 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Core\Http\Controllers;
+namespace App\Modules\Management\Controllers;
+
+use App\Core\Http\Controllers\Controller;
 
 use App\Core\Support\Activity;
 use App\Core\Support\Csv;
 use App\Core\Support\DB;
-use App\Core\Support\KpiScore as S;
+use App\Modules\Management\Support\KpiScore as S;
 use App\Core\Support\KpiSubmissions as K;
 use App\Core\Support\Request;
 use App\Core\Support\Session;
 
 /**
- * User Management → KPI calculator: everyone's yearly appraisal score (0 until calculated), and per person the
+ * Management → KPI calculator: everyone's yearly appraisal score (0 until calculated), and per person the
  * calculation with every figure. Sections 1 and 2 come from KPIs & OKRs and KPI submissions; 3–7 and warnings are typed in.
- * Who: administrators and Management see all, a BU manager the department (permission kpi_calculator).
+ * Who: the Management module (administrators and Management); saving needs kpi_calculator.edit.
  */
 class KpiCalculatorController extends Controller
 {
@@ -67,7 +69,7 @@ class KpiCalculatorController extends Controller
         $year = $this->year();
         $q = mb_substr(trim((string) Request::query('q', '')), 0, 100);
 
-        return view('kpi-calc/index', ['title' => __('KPI calculator'), 'year' => $year, 'q' => $q, 'rows' => $this->list($year, $q),
+        return view('management::kpi-calc/index', ['title' => __('KPI calculator'), 'year' => $year, 'q' => $q, 'rows' => $this->list($year, $q),
             'years' => range((int) date('Y'), (int) date('Y') - 4)]);
     }
 
@@ -89,7 +91,7 @@ class KpiCalculatorController extends Controller
     {
         $this->authorize('kpi_calculator', 'edit');
         $p = $this->person($id);
-        K::canManage($this->user(), $p['department_id']) || abort(403, __('Only the BU manager of the department or an administrator can calculate this score.'));
+        $this->mayEdit($p) || abort(403, __('You can view this score but not change it.'));
         $year = $this->year();
         $month = $this->month($year);
         $group = (string) Request::input('group', 'bu');
@@ -106,7 +108,7 @@ class KpiCalculatorController extends Controller
             Activity::log('updated', 'kpi_score', $id, $p['name'], ['Calculated the :year KPI score of :name: :score', ['year' => $year, 'name' => $p['name'], 'score' => number_format($r['score'], 2)]],
                 ['changes' => ['score' => ['from' => $before !== null ? number_format((float) $before, 2) : '', 'to' => number_format($r['score'], 2)]], 'month' => $month, 'group' => $group], $id, notify: false);
             Session::flash('success', __('Score saved: :score of 100.', ['score' => number_format($r['score'], 2)]));
-            redirect('/kpi-calculator/'.$id.'?'.http_build_query(['year' => $year]));
+            redirect('/management/kpi-calculator/'.$id.'?'.http_build_query(['year' => $year]));
         }
         $saved = DB::first('SELECT ks.*, cb.name AS calculated_by_name FROM kpi_scores ks LEFT JOIN users cb ON cb.id = ks.calculated_by WHERE ks.user_id = ? AND ks.year = ?', [$id, $year]);
 
@@ -117,9 +119,17 @@ class KpiCalculatorController extends Controller
     {
         $group = isset(S::POINTS[$group]) ? $group : 'bu';
 
-        return view('kpi-calc/show', ['title' => __('KPI calculator').' · '.$p['name'], 'p' => $p, 'year' => $year, 'month' => $month, 'group' => $group, 'in' => $in,
+        return view('management::kpi-calc/show', ['title' => __('KPI calculator').' · '.$p['name'], 'p' => $p, 'year' => $year, 'month' => $month, 'group' => $group, 'in' => $in,
             'r' => $r ?? S::calculate((int) $p['id'], $year, $month, $group, $in), 'saved' => $saved, 'preview' => $preview,
-            'canEdit' => can('kpi_calculator', 'edit') && K::canManage($this->user(), $p['department_id'])]);
+            'canEdit' => $this->mayEdit($p)]);
+    }
+
+    /** Saving: kpi_calculator.edit, and a role that sees everyone (Management) or the BU manager of the department / an administrator. */
+    private function mayEdit(array $p): bool
+    {
+        $u = $this->user();
+
+        return can('kpi_calculator', 'edit') && ($u->isAdmin() || $u->scope() === 'all' || K::canManage($u, $p['department_id']));
     }
 
     private function lastGroup(int $id): string
