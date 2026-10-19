@@ -2,7 +2,7 @@
  | KPI submissions.
  |   form[data-kpi-form]   year / month change reloads the KPI list for that month, shows the chosen KPI's criteria,
  |                         lists the attached files (drag and drop too), and sends only once.
- |   [data-kpi-group]      month groups remember being collapsed (this browser only).
+ |   [data-kpi-group]      person and month groups remember being collapsed (this browser only).
  */
 (function () {
     'use strict';
@@ -13,7 +13,7 @@
         var criteria = {};
         try { criteria = JSON.parse(form.getAttribute('data-kpi-criteria') || '{}'); } catch (e) {}
         var out = form.querySelector('[data-kpi-criteria-out]');
-        var showCriteria = function () { if (out) out.textContent = criteria[val('task_id')] || '—'; };
+        var showCriteria = function () { if (out) out.textContent = criteria[val('kpi_id')] || '—'; };
         showCriteria();
 
         form.addEventListener('change', function (e) {
@@ -23,7 +23,7 @@
                 if (val('approver_id')) q.set('approver', val('approver_id'));
                 window.location = form.getAttribute('data-kpi-url') + '?' + q.toString();
             }
-            if (n === 'task_id') showCriteria();
+            if (n === 'kpi_id') showCriteria();
             if (e.target.matches('[data-kpi-files]')) listFiles();
         });
 
@@ -67,9 +67,10 @@
     var KEY = 'kpi-collapsed';
     var closed = {};
     try { closed = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+    var target = location.hash.length > 1 ? document.getElementById(location.hash.slice(1)) : null;
     document.querySelectorAll('[data-kpi-group]').forEach(function (d) {
         var id = location.pathname + '|' + new URLSearchParams(location.search).get('year') + '|' + d.id;
-        if (closed[id] && location.hash !== '#' + d.id) d.open = false;
+        if (closed[id] && !(target && d.contains(target))) d.open = false;     // a link into a group opens it
         d.addEventListener('toggle', function () {
             if (d.open) delete closed[id]; else closed[id] = 1;
             try { localStorage.setItem(KEY, JSON.stringify(closed)); } catch (e) {}

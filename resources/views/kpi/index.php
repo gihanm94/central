@@ -1,4 +1,4 @@
-<?php /* $f {year,view,q}, $groups [month => rows], $years, $pending, $me CurrentUser */
+<?php /* $f {year,view,q}, $groups [user_id => {name, department, months: [month => rows]}], $years, $pending, $me CurrentUser */
 use App\Core\Support\KpiSubmissions as K;
 
 $link = fn (array $over = []) => url('/kpi-submissions', array_filter(array_replace(['year' => $f['year'], 'view' => $f['view'] === 'all' ? null : $f['view'], 'q' => $f['q'] ?: null], $over), fn ($v) => $v !== null && $v !== ''));
@@ -37,22 +37,35 @@ $today = date('Y-m-d');
     </section>
 <?php endif ?>
 
-<?php foreach ($groups as $m => $rows):
+<?php foreach ($groups as $uid => $g):
+    $all = array_merge(...array_values($g['months']));
+    $gApproved = count(array_filter($all, fn ($r) => $r['approved_at']));
+?>
+<details class="panel group/p mt-4 overflow-hidden" id="u<?= (int) $uid ?>" open data-kpi-group>
+    <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-mist/50">
+        <?= icon('right', 'size-4 text-steel transition group-open/p:rotate-90') ?>
+        <span class="inline-flex size-8 items-center justify-center rounded-full bg-graphite-900 text-xs font-semibold text-white"><?= e(initials($g['name'])) ?></span>
+        <span><span class="block font-semibold leading-tight"><?= e($g['name']) ?></span><span class="block text-xs text-steel"><?= e($g['department'] ?? '—') ?></span></span>
+        <span class="text-sm text-steel"><?= e(count($all) === 1 ? __('1 submission') : __(':n submissions', ['n' => count($all)])) ?></span>
+        <span class="badge <?= $gApproved === count($all) ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800' ?>"><?= e(__(':a of :n approved', ['a' => $gApproved, 'n' => count($all)])) ?></span>
+        <span class="text-sm text-steel"><?= e(__('Average')) ?> <strong class="tabular-nums text-graphite-900"><?= e(number_format(array_sum(array_column($all, 'percentage')) / count($all), 0)) ?>%</strong></span>
+    </summary>
+<?php foreach ($g['months'] as $m => $rows):
     $approved = count(array_filter($rows, fn ($r) => $r['approved_at']));
     $avg      = array_sum(array_column($rows, 'percentage')) / count($rows);
     $mineToApprove = count(array_filter($rows, fn ($r) => ! $r['approved_at'] && (int) $r['approver_id'] === $me->id));
     $approveBy = K::approveBy($f['year'], $m)->format('Y-m-d');
 ?>
-<details class="panel group mt-4 overflow-hidden" id="m<?= (int) $m ?>" open data-kpi-group>
-    <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-mist/50">
-        <?= icon('right', 'size-4 text-steel transition group-open:rotate-90') ?>
-        <span class="font-display text-xl font-semibold"><?= e(format_date(sprintf('%04d-%02d-01', $f['year'], $m), 'F Y')) ?></span>
+<details class="group/m border-t border-graphite-900/8" id="u<?= (int) $uid ?>-m<?= (int) $m ?>" open data-kpi-group>
+    <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 bg-mist/40 py-2.5 pl-10 pr-4 hover:bg-mist/70">
+        <?= icon('right', 'size-4 text-steel transition group-open/m:rotate-90') ?>
+        <span class="font-display text-lg font-semibold"><?= e(format_date(sprintf('%04d-%02d-01', $f['year'], $m), 'F Y')) ?></span>
         <span class="text-sm text-steel"><?= e(count($rows) === 1 ? __('1 submission') : __(':n submissions', ['n' => count($rows)])) ?></span>
         <span class="badge <?= $approved === count($rows) ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800' ?>"><?= e(__(':a of :n approved', ['a' => $approved, 'n' => count($rows)])) ?></span>
         <span class="text-sm text-steel"><?= e(__('Average')) ?> <strong class="tabular-nums text-graphite-900"><?= e(number_format($avg, 0)) ?>%</strong></span>
         <?php if ($mineToApprove): ?>
-            <form method="POST" action="<?= url('/kpi-submissions/approve-month') ?>" class="ml-auto" data-confirm="<?= e(__('Approve all :n submissions waiting for you in this month?', ['n' => $mineToApprove])) ?>">
-                <?= csrf_field() ?><input type="hidden" name="year" value="<?= (int) $f['year'] ?>"><input type="hidden" name="month" value="<?= (int) $m ?>">
+            <form method="POST" action="<?= url('/kpi-submissions/approve-month') ?>" class="ml-auto" data-confirm="<?= e(__('Approve all :n submissions of :name waiting for you in this month?', ['n' => $mineToApprove, 'name' => $g['name']])) ?>">
+                <?= csrf_field() ?><input type="hidden" name="user_id" value="<?= (int) $uid ?>"><input type="hidden" name="year" value="<?= (int) $f['year'] ?>"><input type="hidden" name="month" value="<?= (int) $m ?>">
                 <button class="btn-dark px-3 py-1 text-xs"><?= icon('check', 'size-3.5') ?><?= e(__('Approve all (:n)', ['n' => $mineToApprove])) ?></button></form>
         <?php endif ?>
     </summary>
@@ -113,6 +126,8 @@ $today = date('Y-m-d');
         <?php endforeach ?>
         </tbody>
     </table></div>
+</details>
+<?php endforeach ?>
 </details>
 <?php endforeach ?>
 <script src="<?= asset('assets/kpi.js') ?>" defer></script>

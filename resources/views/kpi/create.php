@@ -50,19 +50,19 @@ $criteria = array_map(fn ($t) => $t['criteria'] !== null ? number_clean($t['crit
 
             <div class="sm:col-span-2"><label class="label" for="k-task"><?= e(__('KPI / OKR')) ?> <span class="text-signal-600">*</span></label>
                 <?php if ($tasks): ?>
-                    <?= select_field('task_id', $taskOptions, old('task_id'), ['id' => 'k-task', 'required' => true, 'placeholder' => __('Choose a KPI or OKR…')]) ?>
+                    <?= select_field('kpi_id', $taskOptions, old('kpi_id'), ['id' => 'k-task', 'required' => true, 'placeholder' => __('Choose a KPI or OKR…')]) ?>
                     <p class="hint"><?= e(__(':n left to submit for :period. Ones already sent are not listed.', ['n' => count($tasks), 'period' => $period])) ?></p>
                 <?php else: ?>
-                    <div class="rounded-md bg-mist px-4 py-3 text-sm text-steel"><?= e(__('Nothing left to submit for :period: every KPI and OKR assigned to you is sent. If one is missing, ask your manager to add it in Tasks with the type KPI or OKR.', ['period' => $period])) ?></div>
+                    <div class="rounded-md bg-mist px-4 py-3 text-sm text-steel"><?= e(__('Nothing left to submit for :period: every KPI and OKR assigned to you is sent. If one is missing, ask your manager to add it in KPIs & OKRs.', ['period' => $period])) ?></div>
                 <?php endif ?>
-                <?= field_error('task_id') ?></div>
+                <?= field_error('kpi_id') ?></div>
 
             <div><label class="label" for="k-approver"><?= e(__('Approver')) ?> <span class="text-signal-600">*</span></label>
                 <?= select_field('approver_id', $approvers, $approver, ['id' => 'k-approver', 'required' => true, 'placeholder' => __('Choose a person…')]) ?>
                 <p class="hint"><?= e(__('Gets an e-mail for every submission.')) ?></p><?= field_error('approver_id') ?></div>
             <div><span class="label"><?= e(__('Criteria')) ?></span>
                 <p class="flex h-9 items-center rounded-md bg-mist px-3 text-sm tabular-nums" data-kpi-criteria-out>—</p>
-                <p class="hint"><?= e(__('Set on the KPI task; copied into the submission.')) ?></p></div>
+                <p class="hint"><?= e(__('Set in KPIs & OKRs; copied into the submission.')) ?></p></div>
 
             <div><label class="label" for="k-fin"><?= e(__('Finished')) ?> <span class="text-signal-600">*</span></label>
                 <input id="k-fin" name="finished" type="number" step="any" min="0" inputmode="decimal" required value="<?= e(old('finished')) ?>" class="input" placeholder="0">

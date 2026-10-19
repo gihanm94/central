@@ -53,7 +53,7 @@ class KpiSubmissionController extends Controller
          LEFT JOIN users ap ON ap.id = s.approver_id
          LEFT JOIN departments d ON d.id = s.department_id
              WHERE '.implode(' AND ', $where).'
-          ORDER BY s.period_month DESC, su.name, s.submitted_at, s.id LIMIT 5000', $params);
+          ORDER BY su.name, s.user_id, s.period_month DESC, s.submitted_at, s.id LIMIT 5000', $params);
         $files = [];
         if ($rows) {
             foreach (DB::select('SELECT id, submission_id, name, size FROM kpi_submission_files WHERE submission_id IN ('.implode(',', array_map('intval', array_column($rows, 'id'))).') ORDER BY id') as $file) {
@@ -71,10 +71,18 @@ class KpiSubmissionController extends Controller
     {
         $this->authorize('kpi_submissions', 'view');
         $f = $this->filters();
+        // Submitted by → month (newest first), like the grouped sheet people used before
         $groups = [];
         foreach ($this->rows($f) as $r) {
-            $groups[(int) $r['period_month']][] = $r;
+            $g = &$groups[(int) $r['user_id']];
+            $g ??= ['name' => $r['submitter_name'], 'department' => $r['department_name'], 'months' => []];
+            $g['months'][(int) $r['period_month']][] = $r;
+            unset($g);
         }
+        foreach ($groups as &$g) {
+            krsort($g['months']);
+        }
+        unset($g);
         $years = array_map('intval', array_column(DB::select('SELECT DISTINCT period_year FROM kpi_submissions WHERE deleted_at IS NULL'), 'period_year'));
         $years = array_values(array_unique([...$years, (int) date('Y'), $f['year']]));
         rsort($years);
@@ -111,9 +119,9 @@ class KpiSubmissionController extends Controller
         $this->authorize('kpi_submissions', 'create');
         $u = $this->user();
         $in = $this->validate([
-            'year' => 'required|integer', 'month' => 'required|integer', 'task_id' => 'required|integer', 'approver_id' => 'required|integer',
+            'year' => 'required|integer', 'month' => 'required|integer', 'kpi_id' => 'required|integer', 'approver_id' => 'required|integer',
             'finished' => 'required|numeric', 'total' => 'required|numeric', 'note' => 'nullable|max:2000', 'related_link' => 'nullable|max:500',
-        ], ['task_id' => __('KPI / OKR'), 'approver_id' => __('Approver'), 'finished' => __('Finished'), 'total' => __('Total tasks'), 'related_link' => __('Related link')]);
+        ], ['kpi_id' => __('KPI / OKR'), 'approver_id' => __('Approver'), 'finished' => __('Finished'), 'total' => __('Total tasks'), 'related_link' => __('Related link')]);
         $y = (int) $in['year'];
         $m = (int) $in['month'];
         $errors = [];
@@ -121,9 +129,9 @@ class KpiSubmissionController extends Controller
             $errors['month'] = __('Choose this month or one of the last eleven.');
         }
         $tasks = K::available($u, $y, $m);
-        $task = $tasks[(int) $in['task_id']] ?? null;
+        $task = $tasks[(int) $in['kpi_id']] ?? null;
         if (! $task) {
-            $errors['task_id'] = __('This KPI is not yours or was already submitted for this month.');
+            $errors['kpi_id'] = __('This KPI is not yours or was already submitted for this month.');
         }
         $approvers = K::approvers($u);
         if (! isset($approvers[(int) $in['approver_id']])) {
@@ -147,14 +155,14 @@ class KpiSubmissionController extends Controller
         try {
             $id = (int) DB::transaction(fn () => DB::insert('kpi_submissions', [
                 'user_id' => $u->id, 'department_id' => $u->department_id, 'team_id' => $u->team_id,
-                'task_id' => (int) $in['task_id'], 'task_title' => $task['title'], 'task_kind' => $task['kind'], 'criteria' => $task['criteria'],
+                'kpi_id' => (int) $in['kpi_id'], 'task_title' => $task['title'], 'task_kind' => $task['kind'], 'criteria' => $task['criteria'],
                 'period_year' => $y, 'period_month' => $m, 'approver_id' => (int) $in['approver_id'],
                 'finished' => $in['finished'], 'total' => $in['total'], 'note' => trim((string) ($in['note'] ?? '')) ?: null, 'related_link' => $link ?: null,
                 'days_late' => $t['days_late'], 'percentage' => $t['percentage'],
             ]));
         } catch (\PDOException $e) {
             if ($e->getCode() === '23505') {                // someone (another tab) submitted the same KPI a moment ago
-                throw new ValidationException(['task_id' => __('This KPI was already submitted for this month.')]);
+                throw new ValidationException(['kpi_id' => __('This KPI was already submitted for this month.')]);
             }
             throw $e;
         }
@@ -171,14 +179,14 @@ class KpiSubmissionController extends Controller
             redirect('/kpi-submissions/create?'.http_build_query(['year' => $y, 'month' => $m, 'approver' => (int) $in['approver_id']]));
         }
         Session::flash('success', $msg);
-        redirect('/kpi-submissions?'.http_build_query(['year' => $y, 'view' => 'mine']).'#m'.$m);
+        redirect('/kpi-submissions?'.http_build_query(['year' => $y, 'view' => 'mine']).'#u'.$u->id.'-m'.$m);
     }
 
     /** Bell and e-mail to the approver for every submission. */
     private function tellApprover(int $approverId, int $id, string $title, string $period, array $in, array $t): void
     {
         $u = $this->user();
-        $url = url('/kpi-submissions', ['year' => (int) $in['year'], 'view' => 'approve']).'#m'.(int) $in['month'];
+        $url = url('/kpi-submissions', ['year' => (int) $in['year'], 'view' => 'approve']).'#u'.$u->id.'-m'.(int) $in['month'];
         Notifier::bell($approverId, 'core', 'kpi_submission', __(':name submitted a KPI for :period', ['name' => $u->name, 'period' => $period]), $title, $url, $u->id);
         $a = DB::first('SELECT name, email FROM users WHERE id = ? AND deleted_at IS NULL AND is_active', [$approverId]);
         if (! $a) {
@@ -209,8 +217,9 @@ class KpiSubmissionController extends Controller
     public function approveMonth(): never
     {
         $u = $this->user();
-        $rows = DB::select('SELECT * FROM kpi_submissions WHERE deleted_at IS NULL AND approved_at IS NULL AND approver_id = ? AND period_year = ? AND period_month = ?',
-            [$u->id, (int) Request::input('year'), (int) Request::input('month')]);
+        $person = (int) Request::input('user_id', 0);
+        $rows = DB::select('SELECT * FROM kpi_submissions WHERE deleted_at IS NULL AND approved_at IS NULL AND approver_id = ? AND period_year = ? AND period_month = ?'
+            .($person ? ' AND user_id = ?' : ''), [$u->id, (int) Request::input('year'), (int) Request::input('month'), ...($person ? [$person] : [])]);
         $this->approveRows($rows);
         back('success', __(':n submissions approved.', ['n' => count($rows)]));
     }
@@ -226,7 +235,7 @@ class KpiSubmissionController extends Controller
             $period = format_date(sprintf('%04d-%02d-01', $row['period_year'], $row['period_month']), 'F Y');
             Activity::log('approved', 'kpi_submission', (int) $row['id'], $row['task_title'], ['Approved ":label" for :period', ['label' => $row['task_title'], 'period' => $period]], [], (int) $row['user_id'], notify: false);
             Notifier::bell((int) $row['user_id'], 'core', 'kpi_submission', __('KPI approved: :task (:period)', ['task' => $row['task_title'], 'period' => $period]), null,
-                url('/kpi-submissions', ['year' => (int) $row['period_year'], 'view' => 'mine']).'#m'.(int) $row['period_month'], $u->id);
+                url('/kpi-submissions', ['year' => (int) $row['period_year'], 'view' => 'mine']).'#u'.(int) $row['user_id'].'-m'.(int) $row['period_month'], $u->id);
         }
     }
 

@@ -7,7 +7,7 @@ use App\Core\Auth\CurrentUser;
 
 /**
  * Monthly KPI / OKR results (User Management → KPI submissions).
- *  - The KPIs and OKRs are tasks (tasks.kind) assigned to the person; each can be submitted once per month.
+ *  - The KPIs and OKRs come from User Management → KPIs & OKRs (kpis); each can be submitted once per month.
  *  - Month M is due on the 7th of month M+1: on time 100 %, then 20 % less per day late, 0 % from 5 days.
  *    The approver should approve by the 10th; a later approval is flagged.
  *  - A submission never changes. Only its approver (or an administrator) can delete it, which frees the KPI again.
@@ -54,13 +54,18 @@ final class KpiSubmissions
         return $out;
     }
 
-    /** The person's KPI / OKR tasks not yet submitted for this month. @return array<int, array{title:string,kind:string,criteria:?string}> */
+    /**
+     * The person's active KPIs & OKRs whose period covers this month and that are not yet submitted for it.
+     * @return array<int, array{title:string,kind:string,criteria:?string}>
+     */
     public static function available(CurrentUser $u, int $y, int $m): array
     {
-        $rows = DB::select("SELECT t.id, t.title, t.kind, t.criteria FROM tasks t
-            WHERE t.deleted_at IS NULL AND t.kind IN ('kpi','okr') AND t.assigned_to = ?
-              AND NOT EXISTS (SELECT 1 FROM kpi_submissions s WHERE s.task_id = t.id AND s.period_year = ? AND s.period_month = ? AND s.deleted_at IS NULL)
-            ORDER BY t.kind, t.title", [$u->id, $y, $m]);
+        $first = sprintf('%04d-%02d-01', $y, $m);
+        $rows = DB::select("SELECT k.id, k.title, k.kind, k.criteria FROM kpis k
+            WHERE k.deleted_at IS NULL AND k.status = 'active' AND k.user_id = ?
+              AND k.period_start <= (?::date + interval '1 month - 1 day') AND k.period_end >= ?::date
+              AND NOT EXISTS (SELECT 1 FROM kpi_submissions s WHERE s.kpi_id = k.id AND s.period_year = ? AND s.period_month = ? AND s.deleted_at IS NULL)
+            ORDER BY k.kind, k.title", [$u->id, $first, $first, $y, $m]);
         $out = [];
         foreach ($rows as $r) {
             $out[(int) $r['id']] = ['title' => $r['title'], 'kind' => $r['kind'], 'criteria' => $r['criteria']];

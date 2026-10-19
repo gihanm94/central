@@ -1567,4 +1567,10 @@ return [
     'KPI and OKR tasks are submitted every month in KPI submissions.' => 'งานประเภท KPI และ OKR ต้องส่งผลทุกเดือนในหน้าส่งผล KPI',
     'Target or weight from 1 to 100, e.g. 90 for "at least 90%".' => 'เป้าหมายหรือน้ำหนัก 1–100 เช่น 90 สำหรับ "อย่างน้อย 90%"',
     'Choose a type.' => 'เลือกประเภท', 'Criteria must be between 1 and 100.' => 'เกณฑ์ต้องอยู่ระหว่าง 1 ถึง 100',
+    'Nothing left to submit for :period: every KPI and OKR assigned to you is sent. If one is missing, ask your manager to add it in KPIs & OKRs.' => 'ส่งครบทุกหัวข้อของ :period แล้ว ถ้าหัวข้อใดหายไป ให้หัวหน้าเพิ่มในหน้า KPI และ OKR',
+    'Set in KPIs & OKRs; copied into the submission.' => 'กำหนดในหน้า KPI และ OKR และคัดลอกมาเมื่อส่งผล',
+    'Approve all :n submissions of :name waiting for you in this month?' => 'อนุมัติทั้ง :n รายการของ :name ที่รอคุณในเดือนนี้?',
+    'Target or weight from 1 to 100, e.g. 90 for "at least 90%". Copied into each monthly submission.' => 'เป้าหมายหรือน้ำหนัก 1–100 เช่น 90 สำหรับ "อย่างน้อย 90%" คัดลอกไปในการส่งผลทุกเดือน',
+    'People submit a result every month inside this period.' => 'ผู้รับผิดชอบส่งผลทุกเดือนภายในช่วงเวลานี้',
+    'KPIs and OKRs' => 'KPI และ OKR ทั้งหมด', 'KPIs & OKRs' => 'KPI และ OKR', 'KPI / OKR' => 'KPI / OKR',
 ];

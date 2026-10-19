@@ -18,7 +18,7 @@ INSERT INTO permissions (id, module, key, label, sort) VALUES
   (3, 'core', 'departments', 'Departments', 30),
   (4, 'core', 'teams', 'Teams', 40),
   (5, 'core', 'roles', 'Roles & permissions', 50),
-  (6, 'core', 'kpis', 'KPIs', 60),
+  (6, 'core', 'kpis', 'KPIs & OKRs', 60),
   (7, 'core', 'tasks', 'Tasks', 70),
   (8, 'core', 'activity_logs', 'Activity log', 80),
   (9, 'core', 'settings', 'Company settings', 90)
