@@ -15,6 +15,10 @@ if (PHP_SAPI !== 'cli') {
 }
 require dirname(__DIR__).'/app/bootstrap.php';
 
+if (! App\Core\Support\Modules::usable('accounting')) {
+    exit(date('c')." the accounting module is off or unavailable\n");
+}
+
 use App\Modules\Accounting\Erp\Client;
 use App\Modules\Accounting\Erp\Schedule;
 

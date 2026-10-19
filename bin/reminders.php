@@ -10,5 +10,14 @@ if (PHP_SAPI !== 'cli') {
 }
 require dirname(__DIR__).'/app/bootstrap.php';
 
-$n = App\Modules\CRM\Support\Reminders::tick(true);
-echo date('c')." sent {$n} reminder(s)\n";
+if (! App\Core\Support\Modules::usable('crm')) {
+    exit(date('c')." the crm module is off or unavailable\n");
+}
+try {
+    $n = App\Modules\CRM\Support\Reminders::tick(true);
+    echo date('c')." sent {$n} reminder(s)\n";
+} catch (Throwable $e) {
+    App\Core\Support\Modules::fail('crm', 'hook:cron', $e);
+    fwrite(STDERR, date('c').' '.$e->getMessage()."\n");
+    exit(1);
+}

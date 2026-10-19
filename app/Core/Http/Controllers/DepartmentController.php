@@ -52,6 +52,9 @@ class DepartmentController extends ResourceController
     /** Departments copied from the ERP: [erp id => "CODE · Name"]. Empty until the ERP has been synced. */
     public static function erpDepartments(): array
     {
+        if (! \App\Core\Support\Modules::usable('accounting')) {
+            return [];
+        }
         try {
             $rows = DB::select("SELECT id, concat_ws(' · ', NULLIF(code, ''), COALESCE(NULLIF(name, ''), NULLIF(description, ''))) AS label FROM erp_departments ORDER BY 2", [], 'accounting');
         } catch (\Throwable) {

@@ -6,7 +6,7 @@ use App\Modules\Sheets\Support\Runner;
 /*
  | Google Sheets module manifest — read by App\Core\Support\Modules at boot.
  | People sync the tables the administrator allows into their own Google spreadsheets on a schedule.
- | Its tables live in the core database (gsheet_*, migration core/2026_10_21_001_google_sheets.sql).
+ | Its tables live in the core database (gsheet_*); its upgrades are in its own migrations/ folder, so a failing one fences off only this module.
  */
 return [
     'key' => 'sheets',

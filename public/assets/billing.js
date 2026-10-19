@@ -76,7 +76,7 @@
         if (!st.invoices.length) { empty.hidden = false; empty.textContent = L.lNone; box.hidden = true; return; }
         empty.hidden = true; box.hidden = false;
         body.innerHTML = st.invoices.map(function (r) {
-            return '<tr class="hover:bg-mist/50"><td class="px-3 py-2"><input type="checkbox" data-inv="' + r.invoice_number + '" class="size-4 accent-signal-600"></td><td class="px-3 py-2 font-medium">' + r.invoice_number + (r.is_credit ? ' <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">CN</span>' : '') + '</td>' +
+            return '<tr class="hover:bg-mist/50"><td class="px-3 py-2"><input type="checkbox" data-inv="' + esc(r.invoice_number) + '" class="size-4 accent-signal-600"></td><td class="px-3 py-2 font-medium">' + esc(r.invoice_number) + (r.is_credit ? ' <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">CN</span>' : '') + '</td>' +
                 '<td class="px-3 py-2">' + esc(r.order_no) + '</td><td class="px-3 py-2 tabular-nums text-steel">' + esc(r.invoice_date || '') + '</td><td class="px-3 py-2 tabular-nums text-steel">' + esc(r.due_date || '') + '</td><td class="px-3 py-2 text-right tabular-nums">' + (r.is_credit ? '-' : '') + money(r.amount) + '</td></tr>';
         }).join('');
     }
@@ -111,7 +111,7 @@
         var n = ok.filter(Boolean).length; $('[data-prog-n]', page).textContent = n;
         $('[data-sum-cust]', page).textContent = st.cust ? st.cust.code + ' · ' + st.cust.name : '—';
         $('[data-sum-inv]', page).textContent = picked.length ? picked.length + ' ' + L.lItems : '—';
-        $('[data-sum-chips]', page).innerHTML = picked.slice(0, 12).map(function (r) { return '<span class="rounded bg-signal-50 px-1.5 py-0.5 text-[11px] font-medium text-signal-800">' + r.invoice_number + '</span>'; }).join('') + (picked.length > 12 ? '<span class="text-xs text-steel">+' + (picked.length - 12) + '</span>' : '');
+        $('[data-sum-chips]', page).innerHTML = picked.slice(0, 12).map(function (r) { return '<span class="rounded bg-signal-50 px-1.5 py-0.5 text-[11px] font-medium text-signal-800">' + esc(r.invoice_number) + '</span>'; }).join('') + (picked.length > 12 ? '<span class="text-xs text-steel">+' + (picked.length - 12) + '</span>' : '');
         $('[data-sum-addr]', page).textContent = a || '—';
         $('[data-sum-date]', page).textContent = bd || '—'; $('[data-sum-remind]', page).textContent = rd || '—'; $('[data-sum-same]', page).textContent = st.sameRemind ? L.lSame : '';
         var total = picked.reduce(function (s, r) { return s + (r.is_credit ? -r.amount : r.amount); }, 0);

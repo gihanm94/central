@@ -16,19 +16,30 @@ final class DB
     /** @var PDO[] */
     private static array $connections = [];
 
+    /** @var array<string, \Throwable> databases that could not be reached during this request */
+    private static array $failed = [];
+
     public static function connection(string $name = 'core'): PDO
     {
+        if (isset(self::$failed[$name])) {
+            throw self::$failed[$name];                    // tried once already: do not wait again for an unreachable database
+        }
         if (! isset(self::$connections[$name])) {
-            $c  = config('db');
-            $db = $c['databases'][$name] ?? $name;
-            // Optional own login per area (db.credentials.<name>): a PostgreSQL user that can reach only that database.
-            $login = $c['credentials'][$name] ?? ['username' => $c['username'], 'password' => $c['password']];
-            self::$connections[$name] = self::connect($c['host'], (int) $c['port'], $db, (string) $login['username'], (string) $login['password']);
-            // Timestamps typed in the app are in the company time zone, so PostgreSQL must read them the same way.
-            if (preg_match('#^[A-Za-z0-9_+\-/]+$#', (string) config('app.timezone', ''))) {
-                self::$connections[$name]->exec("SET TIME ZONE '".config('app.timezone')."'");
+            try {
+                $c  = config('db');
+                $db = $c['databases'][$name] ?? $name;
+                // Optional own login per area (db.credentials.<name>): a PostgreSQL user that can reach only that database.
+                $login = $c['credentials'][$name] ?? ['username' => $c['username'], 'password' => $c['password']];
+                self::$connections[$name] = self::connect($c['host'], (int) $c['port'], $db, (string) $login['username'], (string) $login['password']);
+                // Timestamps typed in the app are in the company time zone, so PostgreSQL must read them the same way.
+                if (preg_match('#^[A-Za-z0-9_+\-/]+$#', (string) config('app.timezone', ''))) {
+                    self::$connections[$name]->exec("SET TIME ZONE '".config('app.timezone')."'");
+                }
+                self::$connections[$name]->exec(self::timeoutSql());
+            } catch (\PDOException $e) {
+                unset(self::$connections[$name]);
+                throw self::$failed[$name] = $e;
             }
-            self::$connections[$name]->exec(self::timeoutSql());
         }
 
         return self::$connections[$name];
@@ -47,7 +58,7 @@ final class DB
 
     public static function connect(string $host, int $port, string $db, string $user, string $pass): PDO
     {
-        return new PDO("pgsql:host={$host};port={$port};dbname={$db}", $user, $pass, [
+        return new PDO("pgsql:host={$host};port={$port};dbname={$db};connect_timeout=".(PHP_SAPI === 'cli' ? 15 : 3), $user, $pass, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,

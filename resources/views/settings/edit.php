@@ -21,7 +21,7 @@
                         <img id="logo-preview" src="<?= e($brand['logo'] ?? '') ?>" alt="" <?= $brand['logo'] ? '' : 'hidden' ?> class="max-h-full max-w-full object-contain">
                         <?php if (! $brand['logo']): ?><span class="text-xs text-graphite-400"><?= e(__('No logo')) ?></span><?php endif ?>
                     </div>
-                    <input name="company_logo" type="file" accept="image/*" data-preview="#logo-preview" class="mt-2 w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-graphite-900 file:px-2.5 file:py-1 file:text-white">
+                    <input name="company_logo" type="file" accept="image/png,image/jpeg,image/webp" data-preview="#logo-preview" class="mt-2 w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-graphite-900 file:px-2.5 file:py-1 file:text-white">
                     <p class="hint"><?= e(__('PNG or SVG with a transparent background suits the dark sidebar. Up to 2 MB.')) ?></p>
                     <label class="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" name="auth_logo" value="1" <?= $brand['auth_logo'] ? 'checked' : '' ?> class="accent-signal-600"> <?= e(__('Show the logo on the sign-in page')) ?></label>
                     <?php if ($brand['logo']): ?><label class="mt-1 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="remove_logo" value="1" class="accent-signal-600"> <?= e(__('Remove logo')) ?></label><?php endif ?>

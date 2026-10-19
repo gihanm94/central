@@ -30,6 +30,9 @@ final class Revenue
     public static function quarters(?int $erpDepartmentId, int $year): array
     {
         $out = [1 => 0.0, 2 => 0.0, 3 => 0.0, 4 => 0.0];
+        if (! \App\Core\Support\Modules::usable('accounting')) {
+            return $out;                                  // Accounting off or unavailable: targets show 0
+        }
         try {
             $sql = "SELECT extract(quarter FROM (d.invoice_date AT TIME ZONE 'Asia/Bangkok'))::int AS q, COALESCE(NULLIF(d.currency_code, ''), 'THB') AS cur,
                            COALESCE(sum(CASE WHEN d.is_credit THEN -d.amount ELSE d.amount END), 0) AS v

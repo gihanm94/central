@@ -11,6 +11,7 @@ app/Modules/<Name>/
     Controllers/      extend App\Core\Http\Controllers\Controller (or ResourceController)
     Support/          the module's own classes
     views/            optional: view('<key>::page') loads views/page.php from here
+    migrations/       optional: the module's own SQL upgrades (run on its 'db'; a failing one fences off only this module)
 ```
 
 Folders whose name starts with `_` are never loaded. `_Template` is a working starter.
@@ -21,8 +22,10 @@ Folders whose name starts with `_` are never loaded. `_Template` is a working st
 |--------------------------------------|------------------------------------------------------------------------------|
 | `module.php` has an error            | That module's pages answer "temporarily unavailable" (503). Everything else works. |
 | `routes.php` has an error            | Same. Routes are loaded only for the module the URL belongs to (`/crm/...` loads only CRM's). |
-| One of its SQL migrations fails      | Same, and the migration is retried every minute. Only a **core** migration failure stops the app. |
-| A hook throws (`tick`, `calendar.events` …) | Logged and skipped; other modules' hooks still run and the page still loads. |
+| One of its SQL migrations fails      | Same, and the migration is retried every minute. Only a **core** migration failure stops the app. Keep module tables in the module's own `migrations/` folder, even when they live in the core database. |
+| A hook throws (`tick`, `calendar.events` …) | Logged and skipped; other modules' hooks still run and the page still loads. Background `tick` work runs after the bell has answered and never holds the person's session. |
+| Its database is down or slow         | Connecting gives up after 3 s (once per request), and a web query stops after 60 s, so other modules keep answering. |
+| `module.php` has the wrong shape     | Refused at start-up and shown on the Modules page; it cannot break the menu of other modules. |
 | A controller throws on one page      | Only that page shows an error (as before).                                    |
 
 Every failure is written to `storage/logs/php-error.log` and shown on **Administration → Modules**
@@ -36,7 +39,7 @@ successful load clears the warning).
 2. In every file, replace `example` / `Example` with your key / name (`inventory`, `Inventory`).
    The namespace becomes `App\Modules\Inventory\...`.
 3. `module.php`: fill in `name`, `icon`, `menu` and `db` (a key of `config/config.php` → `db.databases`).
-4. Tables: put SQL in `database/sql/migrations/<db>/2026_11_01_001_inventory.sql`. It runs on the next page load.
+4. Tables: put SQL in `app/Modules/Inventory/migrations/2026_11_01_001_items.sql` (runs on the module's `db` on the next page load; make it safe to re-run with `IF NOT EXISTS`). If it fails, only this module is switched off.
 5. Permissions: add rows so roles can be granted access (a migration in `database/sql/migrations/core/`):
    `INSERT INTO permissions (module, key, label, sort) VALUES ('inventory', 'inventory_items.view', 'Items', 200);`
    Then tick the boxes in Roles & access. Protect routes with `['perm:inventory_items,view']`.

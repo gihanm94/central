@@ -207,7 +207,7 @@ class ContactController extends CrmController
     protected function showMain(array $row): string
     {
         $id   = (int) $row['id'];
-        $opps = array_map(fn ($o) => ['href' => '/crm/opportunities/'.$o['id'], 'title' => $o['name'], 'meta' => Ui::money($o['amount'], $o['currency']), 'badge' => Ui::stageBadge($o['opportunity_stage'])],
+        $opps = array_map(fn ($o) => ['href' => '/crm/opportunities/'.$o['id'], 'title' => $o['name'], 'meta_html' => true, 'meta' => Ui::money($o['amount'], $o['currency']), 'badge' => Ui::stageBadge($o['opportunity_stage'])],
             $this->visibleRows('opportunity', 't.id, t.name, t.amount, t.currency, t.opportunity_stage', 't.contact_id = ?', [$id], 't.id DESC'));
         $acts = array_map(fn ($a) => ['href' => '/crm/activities/'.$a['id'], 'title' => $a['topic'], 'meta' => __(Catalog::ACTIVITY_TYPES[$a['activity_type']] ?? $a['activity_type']).($a['start_at'] ? ' · '.format_date($a['start_at'], 'd M Y H:i') : ''),
             'badge' => Ui::badge(__(Catalog::ACTIVITY_STATUSES[$a['status']] ?? $a['status']), $a['status'] === 'DONE' ? 'success' : ($a['status'] === 'CANCELLED' ? 'neutral' : 'info'))],

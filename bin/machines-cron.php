@@ -12,5 +12,14 @@ if (PHP_SAPI !== 'cli') {
 }
 require dirname(__DIR__).'/app/bootstrap.php';
 
-$ran = App\Modules\Machines\Support\Jobs::tick(true);
-echo date('c').' ran: '.($ran ? implode(', ', $ran) : 'nothing due')."\n";
+if (! App\Core\Support\Modules::usable('machines')) {
+    exit(date('c')." the machines module is off or unavailable\n");
+}
+try {
+    $ran = App\Modules\Machines\Support\Jobs::tick(true);
+    echo date('c').' ran: '.($ran ? implode(', ', $ran) : 'nothing due')."\n";
+} catch (Throwable $e) {
+    App\Core\Support\Modules::fail('machines', 'hook:cron', $e);
+    fwrite(STDERR, date('c').' '.$e->getMessage()."\n");
+    exit(1);
+}

@@ -38,8 +38,18 @@ class NotificationController extends Controller
     public function feed(): never
     {
         $u = $this->user();
+        $answer = ['unread' => self::unread($u->id), 'html' => partial('partials/notification-list', ['items' => self::latest($u->id)])];
+        session_write_close();                             // module jobs below never hold this person's other pages
+        if (function_exists('fastcgi_finish_request')) {   // PHP-FPM: send the answer now, do the module work afterwards
+            while (ob_get_level() > 0) { ob_end_clean(); }
+            header('Content-Type: application/json');
+            echo json_encode($answer);
+            fastcgi_finish_request();
+            \App\Core\Support\Modules::hook('tick');
+            exit;
+        }
         \App\Core\Support\Modules::hook('tick');      // module background work (CRM reminders, machine jobs …); one failing never stops the others
-        json_response(['unread' => self::unread($u->id), 'html' => partial('partials/notification-list', ['items' => self::latest($u->id)])]);
+        json_response($answer);
     }
 
     public function open(int $id): never

@@ -93,9 +93,14 @@ class AccountingApi extends Controller
         }
         // CRM leads with the same tax id, through the CRM's own visibility (only when the CRM is on and the person may see leads)
         if ($c['vat_number'] && Modules::usable('crm') && $u->can('crm_leads', 'view')) {
-            $s = \App\Modules\CRM\Support\Access::visible($u, 't', 'lead');
-            $links['crm_leads'] = DB::select("SELECT t.id, t.code, t.name_en FROM leads t WHERE t.deleted_at IS NULL AND regexp_replace(t.tax_id, '\\D', '', 'g') = regexp_replace(?, '\\D', '', 'g') AND {$s['sql']} LIMIT 5",
-                [(string) $c['vat_number'], ...$s['params']], 'crm');
+            try {                                             // the CRM is another module: if it fails, the customer still shows
+                $s = \App\Modules\CRM\Support\Access::visible($u, 't', 'lead');
+                $links['crm_leads'] = DB::select("SELECT t.id, t.code, t.name_en FROM leads t WHERE t.deleted_at IS NULL AND regexp_replace(t.tax_id, '\\D', '', 'g') = regexp_replace(?, '\\D', '', 'g') AND {$s['sql']} LIMIT 5",
+                    [(string) $c['vat_number'], ...$s['params']], 'crm');
+            } catch (\Throwable $e) {
+                error_log('[accounting-api] CRM link: '.$e->getMessage());
+                $links['crm_leads'] = [];
+            }
         }
 
         return ['data' => $c, 'links' => (object) $links];

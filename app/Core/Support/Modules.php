@@ -30,9 +30,7 @@ final class Modules
             $guess = strtolower(basename($dir));
             try {
                 $m = require $file;
-                if (! is_array($m) || ! is_string($m['key'] ?? null) || $m['key'] === '' || $m['key'] === 'core') {
-                    throw new \UnexpectedValueException('module.php must return an array with a "key" (not "core").');
-                }
+                self::check($m);
             } catch (\Throwable $e) {
                 self::fail($guess, 'manifest', $e);
                 $all[$guess] = array_replace(self::defaults($guess, null, ['name' => basename($dir)]), $all[$guess] ?? []);
@@ -46,6 +44,33 @@ final class Modules
             $all[$key] = array_replace(self::defaults((string) $key, null, ['enabled' => false]), $m);
         }
         Config::set('modules', $all);
+    }
+
+    /** A manifest with a wrong shape is refused here, so it can never break the pages of other modules. */
+    private static function check(mixed $m): void
+    {
+        if (! is_array($m) || ! is_string($m['key'] ?? null) || ! preg_match('/^[a-z][a-z0-9_]{0,39}$/', $m['key']) || $m['key'] === 'core') {
+            throw new \UnexpectedValueException('module.php must return an array with a "key" of lower-case letters, digits and _ (not "core").');
+        }
+        foreach (['name' => 'string', 'icon' => 'string', 'home' => 'string', 'db' => 'string', 'enabled' => 'bool',
+            'menu' => 'array', 'dashboards' => 'array', 'hooks' => 'array'] as $k => $type) {
+            if (array_key_exists($k, $m) && get_debug_type($m[$k]) !== $type) {
+                throw new \UnexpectedValueException("module.php: \"{$k}\" must be a {$type}.");
+            }
+        }
+        if (isset($m['home']) && ! str_starts_with($m['home'], '/')) {
+            throw new \UnexpectedValueException('module.php: "home" must start with /.');
+        }
+        foreach ([...($m['menu'] ?? []), ...array_values($m['dashboards'] ?? [])] as $item) {
+            if (! is_array($item) || (isset($item['url']) && ! is_string($item['url'])) || (! isset($item['heading']) && ! is_string($item['label'] ?? null))) {
+                throw new \UnexpectedValueException('module.php: every menu / dashboard entry needs a "label" (or "heading") and a string "url".');
+            }
+        }
+        foreach ($m['hooks'] ?? [] as $name => $fn) {
+            if (! is_callable($fn)) {
+                throw new \UnexpectedValueException("module.php: hook \"{$name}\" is not callable.");
+            }
+        }
     }
 
     private static function defaults(string $key, ?string $dir, array $m): array

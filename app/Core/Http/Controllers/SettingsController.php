@@ -54,7 +54,7 @@ class SettingsController extends Controller
             Settings::put('auth_logo', $logoOn);
         }
 
-        foreach (['company_logo' => ['branding', 2048, true, 'remove_logo'], 'login_image' => ['branding', 5120, false, 'remove_login_image']] as $key => [$folder, $kb, $svg, $remove]) {
+        foreach (['company_logo' => ['branding', 2048, false, 'remove_logo'], 'login_image' => ['branding', 5120, false, 'remove_login_image']] as $key => [$folder, $kb, $svg, $remove]) {
             $old = Settings::get($key);
             if ($file = Request::file($key)) {
                 Settings::put($key, Upload::image($file, $folder, $kb, $svg));
