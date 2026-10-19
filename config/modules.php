@@ -24,10 +24,6 @@ return [
             ['label' => 'KPI submissions',  'url' => '/kpi-submissions', 'icon' => 'tick', 'permission' => 'kpi_submissions.view'],
             ['heading' => 'ERP'],
             ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
-            ['heading' => 'Organization'],
-            ['label' => 'Members',          'url' => '/members',     'icon' => 'users',    'permission' => 'members.view'],
-            ['label' => 'Departments',      'url' => '/departments', 'icon' => 'building', 'permission' => 'departments.view'],
-            ['label' => 'Teams',            'url' => '/teams',       'icon' => 'team',     'permission' => 'teams.view'],
         ],
     ],
     /*

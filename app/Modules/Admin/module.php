@@ -3,17 +3,21 @@ declare(strict_types=1);
 
 /*
  | Administrator module manifest — read by App\Core\Support\Modules at boot.
- | The administration pages (roles, account requests, sessions, API access, settings, modules, connectors, files,
+ | The administration pages (members, departments, teams, roles, account requests, sessions, API access, settings, modules, connectors, files,
  | activity log, system logs). They are core pages and keep their addresses ('paths' shows them under this module); /admin opens the
  | first one the person may use. Visible to administrators and to roles allowed one of its pages.
  */
 return [
     'key' => 'admin',
     'name' => 'Administrator', 'icon' => 'shield', 'home' => '/admin', 'enabled' => true, 'db' => 'core',
-    'permission_any' => ['admin', 'roles.view', 'activity_logs.view', 'settings.view'],
-    'paths' => ['/roles', '/members/requests', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs'],
+    'permission_any' => ['admin', 'members.view', 'departments.view', 'teams.view', 'roles.view', 'activity_logs.view', 'settings.view'],
+    'paths' => ['/members', '/departments', '/teams', '/roles', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs'],
     'dashboards' => [],
     'menu' => [
+        ['heading' => 'Organization'],
+        ['label' => 'Members',          'url' => '/members',          'icon' => 'users',    'permission' => 'members.view'],
+        ['label' => 'Departments',      'url' => '/departments',      'icon' => 'building', 'permission' => 'departments.view'],
+        ['label' => 'Teams',            'url' => '/teams',            'icon' => 'team',     'permission' => 'teams.view'],
         ['heading' => 'People & access'],
         ['label' => 'Roles & access',   'url' => '/roles',            'icon' => 'shield', 'permission' => 'roles.view'],
         ['label' => 'Account requests', 'url' => '/members/requests', 'icon' => 'user',   'permission' => 'members.create', 'admin_only' => true],
