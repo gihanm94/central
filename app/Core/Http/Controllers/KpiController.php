@@ -40,6 +40,15 @@ class KpiController extends ResourceController
             'kind'         => ['label' => __('Type'), 'type' => 'select', 'options' => self::kinds(), 'rules' => 'required', 'default' => 'kpi', 'search' => false, 'example' => 'kpi'],
             'criteria'     => ['label' => __('Criteria'), 'type' => 'number', 'rules' => 'nullable|numeric', 'example' => '90',
                                'help' => __('Target or weight from 1 to 100, e.g. 90 for "at least 90%". Copied into each monthly submission.')],
+            'direction'    => ['label' => __('Direction'), 'type' => 'select', 'options' => ['min' => __('Not less than (higher is better)'), 'max' => __('Not more than (a limit)')],
+                               'rules' => 'required', 'default' => 'min', 'search' => false, 'example' => 'min'],
+            'measure'      => ['label' => __('Monthly figure'), 'type' => 'select', 'options' => ['percent' => __('Finished ÷ total, in %'), 'count' => __('Count of finished')],
+                               'rules' => 'required', 'default' => 'percent', 'search' => false, 'example' => 'percent',
+                               'help' => __('How the KPI calculator reads each monthly submission against the criteria.')],
+            'period'       => ['label' => __('Measured'), 'type' => 'select', 'options' => array_map(fn ($l) => __($l), \App\Core\Support\KpiScore::PERIODS),
+                               'rules' => 'required', 'default' => 'month', 'search' => false, 'example' => 'month'],
+            'weight'       => ['label' => __('Weight %'), 'type' => 'number', 'rules' => 'nullable|numeric', 'example' => '30',
+                               'help' => __('Share of this KPI in the KPI section; the weights of one person should add up to 100.')],
             'user_id'      => ['label' => __('Owner'), 'type' => 'select', 'options' => Options::people($this->user()), 'rules' => 'required', 'rich' => true,
                                'all_options' => $row ? [$row['user_id'] => ['label' => $row['owner_name'], 'img' => upload_url($row['owner_avatar'])]] : []],
             'status'       => ['label' => __('Status'), 'type' => 'select', 'options' => self::statuses(), 'rules' => 'required', 'default' => 'active'],
@@ -121,6 +130,9 @@ class KpiController extends ResourceController
         }
         if (($data['criteria'] ?? null) !== null && $data['criteria'] !== '' && ((float) $data['criteria'] < 1 || (float) $data['criteria'] > 100)) {
             throw new ValidationException(['criteria' => __('Criteria must be between 1 and 100.')]);
+        }
+        if (($data['weight'] ?? null) !== null && $data['weight'] !== '' && ((float) $data['weight'] <= 0 || (float) $data['weight'] > 100)) {
+            throw new ValidationException(['weight' => __('Weight must be between 1 and 100.')]);
         }
         if (! $existing) {
             $data['created_by'] = $this->user()->id;
