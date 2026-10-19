@@ -5,7 +5,8 @@ $tones = [
     'import' => 'bg-violet-50 text-violet-800', 'export' => 'bg-violet-50 text-violet-800', 'download' => 'bg-violet-50 text-violet-800',
 ];
 $showUser ??= true;
-$link = can('activity_logs') ? url('/activity/'.$log['id']) : null;
+$base ??= null;                                            // '/my-activity' links to the own entry page
+$link = $base ? url($base.'/'.$log['id']) : (can('activity_logs') ? url('/activity/'.$log['id']) : null);
 ?>
 <li class="flex items-start gap-3 px-5 py-3">
     <?php if ($showUser): ?><?= partial('partials/avatar', ['name' => $log['user_name'] ?? __('System'), 'avatar' => $log['avatar'] ?? null, 'size' => 'size-8', 'extra' => 'mt-0.5']) ?><?php endif ?>

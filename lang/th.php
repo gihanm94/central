@@ -1840,4 +1840,7 @@ return [
     'Not calculated yet. Your score shows here once management calculates it.' => 'ยังไม่ได้คำนวณ คะแนนจะแสดงที่นี่เมื่อผู้บริหารคำนวณแล้ว',
     'Warnings deducted: −:n' => 'หักคะแนนจากใบเตือน: −:n',
     'The score is made of your KPIs, KPIs sent on time, quality objective, sales, QMS, your leader\'s evaluation and absence. Send your monthly KPI submissions on time to raise it.' => 'คะแนนมาจาก KPI ของคุณ การส่ง KPI ตรงเวลา วัตถุประสงค์คุณภาพ ยอดขาย QMS การประเมินจากหัวหน้า และการขาดงาน ส่ง KPI รายเดือนให้ตรงเวลาเพื่อเพิ่มคะแนน',
+    // User Management → My activity
+    'My activity' => 'กิจกรรมของฉัน',
+    ':count entries. Your own sign-ins, changes, imports, exports and downloads.' => ':count รายการ การเข้าสู่ระบบ การเปลี่ยนแปลง การนำเข้า การส่งออก และการดาวน์โหลดของคุณเอง',
 ];

@@ -1,4 +1,4 @@
-<?php $crumbs = [[__('Activity log'), '/activity']]; $props = $log['properties'] ? json_decode($log['properties'], true) : []; unset($props['_t']); ?>
+<?php $base ??= '/activity'; $crumbs = [[($mine ?? false) ? __('My activity') : __('Activity log'), $base]]; $props = $log['properties'] ? json_decode($log['properties'], true) : []; unset($props['_t']); ?>
 <h1 class="page-title break-words"><?= e(activity_text($log)) ?></h1>
 <p class="mt-1 text-sm text-steel"><?= e(format_date($log['created_at'], 'l d M Y, H:i:s')) ?></p>
 

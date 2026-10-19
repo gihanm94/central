@@ -170,6 +170,9 @@ $router->group(['auth'], function (Router $r) {
     $r->get('/roles/{id}/permissions', [RoleController::class, 'permissions']);
     $r->post('/roles/{id}/permissions', [RoleController::class, 'savePermissions']);
 
+    $r->get('/my-activity', [ActivityController::class, 'mine']);
+    $r->get('/my-activity/export', [ActivityController::class, 'mineExport']);
+    $r->get('/my-activity/{id}', [ActivityController::class, 'mineShow']);
     $r->get('/activity', [ActivityController::class, 'index']);
     $r->get('/activity/export', [ActivityController::class, 'export']);
     $r->get('/activity/{id}', [ActivityController::class, 'show']);

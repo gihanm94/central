@@ -14,6 +14,8 @@ return [
         'menu' => [
             ['heading' => 'Overview'],
             ['label' => 'My workspace',     'url' => '/dashboard/personal', 'icon' => 'home'],
+            ['label' => 'Notifications',    'url' => '/notifications', 'icon' => 'bell'],
+            ['label' => 'My activity',      'url' => '/my-activity',  'icon' => 'clock'],
             ['heading' => 'Work'],
             ['label' => 'Calendar',         'url' => '/calendar',    'icon' => 'calendar'],
             ['label' => 'Mail',             'url' => '/mail',        'icon' => 'mail'],
