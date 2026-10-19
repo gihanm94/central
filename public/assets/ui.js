@@ -380,7 +380,7 @@
             fetch(box.dataset.upload, { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() }, body: fd })
                 .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.message || 'Upload failed'); return d; }); })
                 .then(function (d) { q.insertEmbed(range.index, 'image', d.url, 'user'); q.setSelection(range.index + 1, 0, 'silent'); })
-                .catch(function (err) { window.alert(err.message); });
+                .catch(function (err) { if (window.toast) window.toast(err.message, 'error'); else window.alert(err.message); });
         }
         resizable(q, box);
     }
@@ -472,6 +472,7 @@
             if (go) go.click();
             first.scrollIntoView({ block: 'center' });
         }
+        if (window.toast) window.toast((d && d.message) || 'Could not save.', 'error');   // the reason as a toast too
     }
     function sheetSubmit(form) {
         form.addEventListener('input', function () { form.dataset.dirty = '1'; });

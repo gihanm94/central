@@ -6,8 +6,7 @@ foreach (['success' => 'success', 'status' => 'info', 'error' => 'error'] as $ke
     <div data-toast data-type="<?= $type ?>" hidden><?= e($msg) ?></div>
 <?php endif; endforeach;
 $errors = Session::errors();
+// form errors: the fields are highlighted where they are, and a toast says what is wrong
 if ($errors && ! ($hideErrorSummary ?? false)): ?>
-    <div class="mb-5 rounded-md border-l-4 border-signal-600 bg-signal-50 px-4 py-3 text-sm text-signal-800">
-        <?= count($errors) > 1 ? e(__('Please fix the highlighted fields.')) : e(reset($errors)) ?>
-    </div>
+    <div data-toast data-type="error" hidden><?= count($errors) > 1 ? e(__('Not saved: please fix the :n highlighted fields.', ['n' => count($errors)])) : e(__('Not saved: :reason', ['reason' => reset($errors)])) ?></div>
 <?php endif ?>

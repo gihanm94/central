@@ -92,20 +92,36 @@ try {
     Session::flash('_old', $old);
     back();
 } catch (HttpException $e) {
-    http_response_code($e->status);
     if (Request::isJson()) {
+        http_response_code($e->status);
         json_response(['message' => $e->getMessage() ?: 'Error '.$e->status], $e->status);
     }
+    // A form that was refused (no right, gone, expired, too many) goes back to the form with the reason as a toast.
+    if (Request::method() === 'POST' && in_array($e->status, [403, 404, 405, 409, 419, 422, 429], true) && Auth::id() !== null) {
+        $msg = $e->getMessage() ?: ([403 => __("You don't have access to this page"), 404 => __("We couldn't find that page"), 419 => __('Your session expired. Try again.'), 429 => __('Too many requests. Wait a moment and try again.')][$e->status] ?? __('Error :code.', ['code' => $e->status]));
+        back('error', $msg);
+    }
+    http_response_code($e->status);
     echo View::render('errors/http', ['status' => $e->status, 'message' => $e->getMessage(), 'title' => 'Error '.$e->status]);
 } catch (Throwable $e) {
-    error_log((string) $e);
+    // Full details with a reference code, so the error can be found in Administrator → System logs.
+    $ref = strtoupper(substr(bin2hex(random_bytes(5)), 0, 8));
+    $who = Auth::id() !== null ? 'user #'.Auth::id() : 'guest';
+    error_log("[ref {$ref}] ".Request::method().' '.Request::path()." · {$who} · ".Request::ip()."\n".$e);
     if ($module = Modules::forPath(Request::path())) {
         Modules::hook('error', [$e], $module);   // the module may keep its own log too
     }
+    if (Request::isJson()) {
+        http_response_code(500);
+        json_response(['message' => __('Something went wrong. The error was logged (reference :ref).', ['ref' => $ref]), 'reference' => $ref], 500);
+    }
+    if (Request::method() === 'POST' && Auth::id() !== null && ! headers_sent()) {
+        back('error', __('Something went wrong and nothing was saved. The error was logged (reference :ref).', ['ref' => $ref]));
+    }
     http_response_code(500);
     if (config('app.env') === 'local') {
-        echo '<pre style="padding:2rem;white-space:pre-wrap;font:13px/1.5 monospace">'.e(get_class($e).': '.$e->getMessage()."\n\n".$e->getTraceAsString()).'</pre>';
+        echo '<pre style="padding:2rem;white-space:pre-wrap;font:13px/1.5 monospace">'.e("Reference {$ref}\n".get_class($e).': '.$e->getMessage()."\n\n".$e->getTraceAsString()).'</pre>';
     } else {
-        echo View::render('errors/http', ['status' => 500, 'message' => 'Something went wrong. The error was logged.', 'title' => 'Error']);
+        echo View::render('errors/http', ['status' => 500, 'message' => __('Something went wrong. The error was logged (reference :ref).', ['ref' => $ref]), 'title' => 'Error', 'ref' => $ref]);
     }
 }

@@ -4,14 +4,14 @@ declare(strict_types=1);
 /*
  | Administrator module manifest — read by App\Core\Support\Modules at boot.
  | The administration pages (roles, account requests, sessions, API access, settings, modules, connectors, files,
- | activity log). They are core pages and keep their addresses ('paths' shows them under this module); /admin opens the
+ | activity log, system logs). They are core pages and keep their addresses ('paths' shows them under this module); /admin opens the
  | first one the person may use. Visible to administrators and to roles allowed one of its pages.
  */
 return [
     'key' => 'admin',
     'name' => 'Administrator', 'icon' => 'shield', 'home' => '/admin', 'enabled' => true, 'db' => 'core',
     'permission_any' => ['admin', 'roles.view', 'activity_logs.view', 'settings.view'],
-    'paths' => ['/roles', '/members/requests', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity'],
+    'paths' => ['/roles', '/members/requests', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs'],
     'dashboards' => [],
     'menu' => [
         ['heading' => 'People & access'],
@@ -26,6 +26,7 @@ return [
         ['label' => 'File manager',     'url' => '/files',            'icon' => 'folder', 'admin_only' => true],
         ['heading' => 'Audit'],
         ['label' => 'Activity log',     'url' => '/activity',         'icon' => 'clock',  'permission' => 'activity_logs.view'],
+        ['label' => 'System logs',      'url' => '/system-logs',      'icon' => 'alert',  'admin_only' => true],
     ],
     'hooks' => [],
 ];

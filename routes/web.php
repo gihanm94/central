@@ -19,6 +19,7 @@ use App\Core\Http\Controllers\ProfileController;
 use App\Core\Http\Controllers\CalendarController;
 use App\Core\Http\Controllers\ConnectorController;
 use App\Core\Http\Controllers\FileController;
+use App\Core\Http\Controllers\SystemLogController;
 use App\Core\Http\Controllers\MailController;
 use App\Core\Http\Controllers\SessionAdminController;
 use App\Core\Http\Controllers\RoleController;
@@ -68,6 +69,9 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/mail/send', [MailController::class, 'send']);
     $r->get('/mail/{mid}', [MailController::class, 'show']);
     $r->get('/files', [FileController::class, 'index']);
+    $r->get('/system-logs', [SystemLogController::class, 'index']);
+    $r->get('/system-logs/download', [SystemLogController::class, 'download']);
+    $r->post('/system-logs/clear', [SystemLogController::class, 'clear']);
     $r->get('/files/download', [FileController::class, 'download']);
     $r->post('/files/upload', [FileController::class, 'upload']);
     $r->post('/files/mkdir', [FileController::class, 'mkdir']);

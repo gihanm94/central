@@ -7,5 +7,6 @@ $dark = ! auth();
     <span class="inline-flex size-12 items-center justify-center rounded-full <?= $dark ? 'bg-white/5 text-signal-500' : 'bg-signal-50 text-signal-600' ?>"><?= icon($status === 403 ? 'lock' : 'alert', 'size-6') ?></span>
     <h1 class="mt-5 font-display text-3xl font-semibold tracking-tight"><?= e($headline) ?></h1>
     <p class="mt-2 text-sm <?= $dark ? 'text-graphite-400' : 'text-steel' ?>"><?= e($message ?: __('Error :code.', ['code' => $status])) ?><?= $status === 403 ? ' '.e(__('Ask an administrator if you need it.')) : '' ?></p>
+    <?php if (! empty($ref) && auth()?->isAdmin()): ?><p class="mt-3"><a href="<?= e(url('/system-logs', ['ref' => $ref])) ?>" class="text-sm font-medium text-signal-700 underline"><?= e(__('Open the full error in System logs')) ?></a></p><?php endif ?>
     <a href="<?= url(auth() ? '/dashboard' : '/login') ?>" class="btn-primary mt-6"><?= e(auth() ? __('Go to dashboard') : __('Go to sign in')) ?></a>
 </div>
