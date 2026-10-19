@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="<?= asset('assets/app.css') ?>">
 <script src="<?= asset('assets/toast.js') ?>" defer></script>
 <script src="<?= asset('assets/app.js') ?>" defer></script>
+<script src="<?= asset('assets/datepicker.js') ?>" defer></script>
 <script src="<?= asset('assets/crm.js') ?>" defer></script>
 <script src="<?= asset('assets/logview.js') ?>" defer></script>
 <script src="<?= asset('assets/accounting.js') ?>" defer></script>

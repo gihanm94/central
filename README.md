@@ -97,7 +97,7 @@ and add `'xx' => 'Name'` to `locales` in `config/core.php`. Missing lines fall b
 - Admin dashboard (Control room) and employee dashboard (My workspace); each person picks the module and dashboard that opens after sign-in
 - Employment data: level C1–C12/Other, status (Active, Probation, Suspended, Resigned, Terminated, Retired), type (Full time, Part time, Remote, Other), gender
 - Collapsible sidebar with company + module switcher, breadcrumbs, phone-friendly drawer and card lists
-- Tailwind dropdowns everywhere (no native selects), keyboard and search support
+- Tailwind dropdowns and date / time pickers everywhere (no native selects or date inputs), keyboard and search support
 - Profile pages: details, security (password, passkeys, devices), preferences, notifications
 - Plug-in modules: each one is a folder in `app/Modules` with a `module.php` manifest. A module that breaks (bad file, failed migration) is switched off on its own pages only; the rest keeps working. Health is on **Administration → Modules** (`/modules`). Start a new module from `app/Modules/_Template` (see `app/Modules/README.md`)
 
