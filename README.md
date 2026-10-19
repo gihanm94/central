@@ -57,6 +57,12 @@ Password for all: `Password@123`
 Copy the new files over your folder (keep `config/config.php`, `storage/` and `public/uploads/`; the Deploy workflow in `.github/workflows/deploy.yml` does this for you). The next page
 load applies any new SQL in `database/sql/migrations/` automatically — nothing to run.
 
+If `config/config.php` is lost (it is not in git), the app rebuilds it by itself: it tries the `DB_USERNAME` /
+`DB_PASSWORD` environment variables, the template's login, your own computer login and `postgres`, and keeps the one
+that opens the installed core database. If none works, `install.php` shows a **Reconnect the database** form, on
+the server itself (localhost) only. A rebuilt file gets a new app key, so Google connections and passkeys must be
+set up again. The installer never shows saved passwords; leaving a password field blank keeps the saved one.
+
 ## Languages
 
 English and Thai are built in. People pick their language from the globe menu or

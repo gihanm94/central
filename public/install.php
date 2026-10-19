@@ -59,7 +59,7 @@ $v = [
     'host'      => $_POST['host'] ?? $config['db']['host'],
     'port'      => $_POST['port'] ?? $config['db']['port'],
     'user'      => $_POST['user'] ?? $config['db']['username'],
-    'pass'      => $_POST['pass'] ?? $config['db']['password'],
+    'pass'      => (string) ($_POST['pass'] ?? ''),            // passwords are never sent back into the page
     'admin'     => $_POST['admin'] ?? 'System Admin',
     'email'     => $_POST['email'] ?? 'admin@acmeinter.com',
     'demo'      => isset($_POST['company']) ? isset($_POST['demo']) : true,
@@ -68,12 +68,46 @@ $v = [
     'smtp_port' => $_POST['smtp_port'] ?? $config['mail']['port'],
     'smtp_enc'  => $_POST['smtp_enc'] ?? $config['mail']['encryption'],
     'smtp_user' => $_POST['smtp_user'] ?? $config['mail']['username'],
-    'smtp_pass' => $_POST['smtp_pass'] ?? $config['mail']['password'],
+    'smtp_pass' => (string) ($_POST['smtp_pass'] ?? ''),
     'from'      => $_POST['from'] ?? $config['mail']['from_address'],
     'locale'    => $_POST['locale'] ?? 'en',
 ];
 foreach ($config['db']['databases'] as $key => $name) {
     $v['db_'.$key] = $_POST['db_'.$key] ?? $name;
+}
+
+$savedDbPass   = (string) ($config['db']['password'] ?? '');
+$savedMailPass = (string) ($config['mail']['password'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $v['pass']      = $v['pass'] !== '' ? $v['pass'] : $savedDbPass;           // left blank: keep the saved one
+    $v['smtp_pass'] = $v['smtp_pass'] !== '' ? $v['smtp_pass'] : $savedMailPass;
+}
+
+// ---------------------------------------------- reconnect (installed, config/config.php missing)
+// Only from this computer: anyone else could point the app at a database they control.
+$reconnect = is_file($lock) && ! is_file(BASE_PATH.'/config/config.php');
+$localUser = in_array((string) ($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1'], true);
+if ($reconnect && $localUser && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (! hash_equals($_SESSION['install_token'], (string) ($_POST['_token'] ?? ''))) {
+        $errors[] = 'The form expired. Reload the page and try again.';
+    } elseif (! preg_match('/^[a-z_][a-z0-9_]{0,62}$/', $v['db_core'])) {
+        $errors[] = 'Database names may only use lower-case letters, numbers and _.';
+    } else {
+        require_once BASE_PATH.'/app/Core/Support/AutoConfig.php';
+        $config['db']['databases']['core'] = $v['db_core'];
+        $login = ['host' => trim((string) $v['host']), 'port' => (int) $v['port'] ?: 5432, 'username' => trim((string) $v['user']), 'password' => $v['pass']];
+        if (($why = App\Core\Support\AutoConfig::try($config, $login)) !== null) {
+            $errors[] = 'Could not open '.$v['db_core'].': '.$why;
+        } else {
+            try {
+                App\Core\Support\AutoConfig::write($config, $login);
+                header('Location: index.php', true, 303);
+                exit;
+            } catch (Throwable $e) {
+                $errors[] = $e->getMessage();
+            }
+        }
+    }
 }
 
 // ------------------------------------------------------------- install
@@ -210,7 +244,26 @@ $css = 'assets/app.css?v='.(is_file(__DIR__.'/assets/app.css') ? filemtime(__DIR
 </header>
 
 <main class="mx-auto max-w-4xl px-6 py-8">
-<?php if ($done || $installed): ?>
+<?php if ($reconnect): ?>
+    <section class="panel p-6">
+        <h1 class="page-title">Reconnect the database</h1>
+        <p class="mt-2 text-sm text-steel">The system is installed, but <code>config/config.php</code> is missing and the usual PostgreSQL logins did not work. Enter the login of your existing database; nothing is changed in it, only the settings file is written again.</p>
+        <?php if (! $localUser): ?>
+            <p class="mt-4 rounded-md bg-mist p-4 text-sm">For safety this form works only on the server itself (<code>localhost</code>). On a server, copy <code>config/config.php.example</code> to <code>config/config.php</code> over SSH and fill in the database login.</p>
+        <?php else: ?>
+            <?php if ($errors): ?><div class="mt-4 rounded-md border-l-4 border-signal-600 bg-signal-50 px-4 py-3 text-sm text-signal-800"><?php foreach ($errors as $e): ?><p><?= h($e) ?></p><?php endforeach ?></div><?php endif ?>
+            <form method="POST" class="mt-5 grid gap-5 sm:grid-cols-4">
+                <input type="hidden" name="_token" value="<?= h($_SESSION['install_token']) ?>">
+                <div class="sm:col-span-2"><label class="label" for="host">Host</label><input class="input" id="host" name="host" value="<?= h($v['host']) ?>" required></div>
+                <div><label class="label" for="port">Port</label><input class="input" id="port" name="port" value="<?= h($v['port']) ?>" required></div>
+                <div><label class="label" for="db_core">Core database</label><input class="input" id="db_core" name="db_core" value="<?= h($v['db_core']) ?>" required></div>
+                <div class="sm:col-span-2"><label class="label" for="user">Username</label><input class="input" id="user" name="user" value="<?= h($v['user']) ?>" required autocomplete="off"></div>
+                <div class="sm:col-span-2"><label class="label" for="pass">Password</label><input class="input" id="pass" name="pass" type="password" autocomplete="new-password"></div>
+                <div class="sm:col-span-4 flex justify-end"><button class="btn-primary px-6 py-2.5">Connect and save</button></div>
+            </form>
+        <?php endif ?>
+    </section>
+<?php elseif ($done || $installed): ?>
     <section class="panel p-6">
         <h1 class="page-title"><?= $done ? 'Installed' : 'Already installed' ?></h1>
         <?php if ($log): ?><ul class="mt-4 space-y-1.5 text-sm"><?php foreach ($log as $l): ?><li class="flex gap-2"><span class="text-emerald-600">&#10003;</span><?= $l ?></li><?php endforeach ?></ul><?php endif ?>
@@ -263,7 +316,7 @@ $css = 'assets/app.css?v='.(is_file(__DIR__.'/assets/app.css') ? filemtime(__DIR
                 <div><label class="label" for="port">Port</label><input class="input" id="port" name="port" value="<?= h($v['port']) ?>" required></div>
                 <div></div>
                 <div class="sm:col-span-2"><label class="label" for="user">Username</label><input class="input" id="user" name="user" value="<?= h($v['user']) ?>" required></div>
-                <div class="sm:col-span-2"><label class="label" for="pass">Password</label><input class="input" id="pass" name="pass" type="password" value="<?= h($v['pass']) ?>"></div>
+                <div class="sm:col-span-2"><label class="label" for="pass">Password</label><input class="input" id="pass" name="pass" type="password" autocomplete="new-password"<?= $savedDbPass !== '' ? ' placeholder="Saved — leave blank to keep it"' : '' ?>></div>
             </div>
             <div class="border-t border-graphite-900/8 px-6 py-5">
                 <p class="text-sm font-medium">Databases (created if missing)</p>
@@ -286,7 +339,7 @@ $css = 'assets/app.css?v='.(is_file(__DIR__.'/assets/app.css') ? filemtime(__DIR
                 <div><label class="label" for="smtp_port">Port</label><input class="input" id="smtp_port" name="smtp_port" value="<?= h($v['smtp_port']) ?>"></div>
                 <div><label class="label" for="smtp_enc">Security</label><?= dropdown('smtp_enc', ['tls' => 'TLS (587)', 'ssl' => 'SSL (465)', 'none' => 'None'], (string) $v['smtp_enc'], 'smtp_enc') ?></div>
                 <div class="sm:col-span-2"><label class="label" for="smtp_user">SMTP username</label><input class="input" id="smtp_user" name="smtp_user" value="<?= h($v['smtp_user']) ?>" autocomplete="off"></div>
-                <div class="sm:col-span-2"><label class="label" for="smtp_pass">SMTP password</label><input class="input" id="smtp_pass" name="smtp_pass" type="password" value="<?= h($v['smtp_pass']) ?>" autocomplete="off"><p class="hint">For Gmail use an App Password.</p></div>
+                <div class="sm:col-span-2"><label class="label" for="smtp_pass">SMTP password</label><input class="input" id="smtp_pass" name="smtp_pass" type="password" autocomplete="new-password"<?= $savedMailPass !== '' ? ' placeholder="Saved — leave blank to keep it"' : '' ?>><p class="hint">For Gmail use an App Password.</p></div>
                 <div class="sm:col-span-2"><label class="label" for="from">Send from address</label><input class="input" id="from" name="from" type="email" value="<?= h($v['from']) ?>"></div>
             </div>
         </fieldset>
