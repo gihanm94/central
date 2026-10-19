@@ -1843,4 +1843,8 @@ return [
     // User Management → My activity
     'My activity' => 'กิจกรรมของฉัน',
     ':count entries. Your own sign-ins, changes, imports, exports and downloads.' => ':count รายการ การเข้าสู่ระบบ การเปลี่ยนแปลง การนำเข้า การส่งออก และการดาวน์โหลดของคุณเอง',
+    // CRM owner history
+    'User ID' => 'รหัสผู้ใช้',
+    'deleted user' => 'ผู้ใช้ที่ถูกลบ',
+    'by' => 'โดย',
 ];

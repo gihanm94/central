@@ -21,8 +21,8 @@ $before  = array_values(array_filter(Responsible::history($type, (int) $row['id'
         <p class="text-xs font-semibold uppercase tracking-wide text-steel"><?= e(__('Previous owners')) ?></p>
         <ul class="mt-2 space-y-1.5 text-xs text-steel">
             <?php foreach ($before as $h): ?>
-            <li><span class="font-medium text-graphite-800"><?= e($h['from_name'] ?? '—') ?></span> → <span class="font-medium text-graphite-800"><?= e($h['to_name'] ?? '—') ?></span>
-                <span class="block text-[11px]"><?= e(format_date($h['created_at'], 'd M Y')) ?><?= $h['by_name'] ? ' · '.e($h['by_name']) : '' ?><?= $h['note'] ? ' · '.e($h['note']) : '' ?></span></li>
+            <li><?= partial('crm/panels/history-person', ['h' => $h, 'k' => 'from']) ?> → <?= partial('crm/panels/history-person', ['h' => $h, 'k' => 'to']) ?>
+                <span class="block text-[11px]"><?= e(format_date($h['created_at'], 'd M Y')) ?><?php if ($h['by_name']): ?> · <?= e(__('by')) ?> <?= partial('crm/panels/history-person', ['h' => $h, 'k' => 'by']) ?><?php endif ?><?= $h['note'] ? ' · '.e($h['note']) : '' ?></span></li>
             <?php endforeach ?>
         </ul>
     </div>

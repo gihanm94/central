@@ -76,20 +76,47 @@ final class Responsible
         return true;
     }
 
+    /** Writes one hand-over. The names are saved with the ids, so they stay readable after a user is deleted. */
     public static function remember(string $type, int $id, ?int $from, ?int $to, int $by, ?string $note, string $role = 'responsible'): void
     {
-        DB::insert('ownership_history', ['entity_type' => $type, 'entity_id' => $id, 'role' => $role, 'from_user_id' => $from, 'to_user_id' => $to, 'changed_by' => $by, 'note' => $note ? mb_substr($note, 0, 255) : null], 'crm');
+        $names = Access::names('users', [$from, $to, $by]);
+        DB::insert('ownership_history', ['entity_type' => $type, 'entity_id' => $id, 'role' => $role,
+            'from_user_id' => $from, 'from_user_name' => $from ? ($names[$from] ?? null) : null,
+            'to_user_id' => $to, 'to_user_name' => $to ? ($names[$to] ?? null) : null,
+            'changed_by' => $by, 'changed_by_name' => $names[$by] ?? null,
+            'note' => $note ? mb_substr($note, 0, 255) : null], 'crm');
     }
 
-    /** Who had the record before: newest first, with names. */
+    private const WHO = ['from' => ['from_user_id', 'from_user_name'], 'to' => ['to_user_id', 'to_user_name'], 'by' => ['changed_by', 'changed_by_name']];
+
+    /**
+     * Who had the record before: newest first. Each person as from_/to_/by_ name, id and gone (user deleted).
+     * The saved name is shown; rows written before names were saved get them filled in now, while the user still exists.
+     */
     public static function history(string $type, int $id): array
     {
         $rows = DB::select('SELECT * FROM ownership_history WHERE entity_type = ? AND entity_id = ? ORDER BY created_at DESC, id DESC LIMIT 30', [$type, $id], 'crm');
-        $names = Access::names('users', array_merge(array_column($rows, 'from_user_id'), array_column($rows, 'to_user_id'), array_column($rows, 'changed_by')));
+        $ids  = [];
+        foreach ($rows as $r) {
+            foreach (self::WHO as [$idCol]) { $ids[] = (int) ($r[$idCol] ?? 0); }
+        }
+        $ids  = array_values(array_unique(array_filter($ids)));
+        $live = $ids ? array_column(DB::select('SELECT id, name, deleted_at FROM users WHERE id IN ('.implode(',', array_fill(0, count($ids), '?')).')', $ids), null, 'id') : [];
         foreach ($rows as &$r) {
-            $r['from_name'] = $names[$r['from_user_id'] ?? 0] ?? null;
-            $r['to_name']   = $names[$r['to_user_id'] ?? 0] ?? null;
-            $r['by_name']   = $names[$r['changed_by'] ?? 0] ?? null;
+            $fill = [];
+            foreach (self::WHO as $k => [$idCol, $nameCol]) {
+                $uid = (int) ($r[$idCol] ?? 0);
+                $saved = $r[$nameCol] ?? null;
+                if ($uid && $saved === null && isset($live[$uid])) {
+                    $saved = $fill[$nameCol] = (string) $live[$uid]['name'];
+                }
+                $r[$k.'_id']   = $uid ?: null;
+                $r[$k.'_name'] = $saved ?? ($uid ? '#'.$uid : null);
+                $r[$k.'_gone'] = $uid && (! isset($live[$uid]) || $live[$uid]['deleted_at'] !== null);
+            }
+            if ($fill) {
+                DB::update('ownership_history', $fill, ['id' => $r['id']], 'crm');
+            }
         }
 
         return $rows;
