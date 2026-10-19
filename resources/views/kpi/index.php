@@ -97,7 +97,7 @@ $today = date('Y-m-d');
                 <td class="px-3 py-2.5"><div class="flex items-center gap-2">
                     <span class="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-graphite-900/8 text-[11px] font-semibold text-graphite-700"><?= e(initials($r['submitter_name'])) ?></span>
                     <span class="min-w-0"><span class="block truncate font-medium"><?= e($r['submitter_name']) ?></span><span class="block truncate text-xs text-steel"><?= e($r['department_name'] ?? '—') ?></span></span></div></td>
-                <td class="min-w-[18rem] max-w-[26rem] px-3 py-2.5"><span class="badge mr-1 <?= $r['task_kind'] === 'okr' ? 'bg-violet-50 text-violet-800' : 'bg-sky-50 text-sky-800' ?>"><?= e(strtoupper($r['task_kind'])) ?></span><span class="font-medium"><?= e($r['task_title']) ?></span></td>
+                <td class="min-w-[18rem] max-w-[26rem] px-3 py-2.5"><span class="badge mr-1 <?= $r['task_kind'] === 'okr' ? 'bg-violet-50 text-violet-800' : 'bg-sky-50 text-sky-800' ?>"><?= e(strtoupper($r['task_kind'])) ?></span><?php if ($r['kpi_id'] && can('kpis')): ?><a href="<?= url('/kpis/'.(int) $r['kpi_id']) ?>" class="font-medium hover:text-signal-700"><?= e($r['task_title']) ?></a><?php else: ?><span class="font-medium"><?= e($r['task_title']) ?></span><?php endif ?></td>
                 <td class="whitespace-nowrap px-3 py-2.5"><?= e($r['approver_name'] ?? '—') ?></td>
                 <td class="whitespace-nowrap px-3 py-2.5">
                     <?php if ($r['approved_at']): ?>
@@ -117,9 +117,10 @@ $today = date('Y-m-d');
                     <?php endforeach ?>
                     <?php if ($r['related_link']): ?><a href="<?= e($r['related_link']) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex min-w-0 items-center gap-1 text-xs text-sky-700 hover:underline"><?= icon('link', 'size-3.5 shrink-0') ?><span class="truncate"><?= e(parse_url($r['related_link'], PHP_URL_HOST) ?: $r['related_link']) ?></span></a><?php endif ?>
                     <?php if (! $r['files'] && ! $r['related_link']): ?><span class="text-steel">—</span><?php endif ?></div></td>
-                <td class="px-3 py-2.5 text-right">
+                <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                    <?php if (K::canEdit($me, $r)): ?><a href="<?= url('/kpi-submissions/'.(int) $r['id'].'/edit') ?>" class="btn-ghost !px-2" title="<?= e(__('Correct')) ?>" aria-label="<?= e(__('Correct')) ?>"><?= icon('pencil', 'size-4') ?></a><?php endif ?>
                     <?php if (K::canDelete($me, $r)): ?>
-                        <form method="POST" action="<?= url('/kpi-submissions/'.(int) $r['id'].'/delete') ?>" data-confirm="<?= e(__('Delete this submission? :name can then submit this KPI again for the month.', ['name' => $r['submitter_name']])) ?>">
+                        <form class="inline" method="POST" action="<?= url('/kpi-submissions/'.(int) $r['id'].'/delete') ?>" data-confirm="<?= e(__('Delete this submission? :name can then submit this KPI again for the month.', ['name' => $r['submitter_name']])) ?>">
                             <?= csrf_field() ?><button class="btn-ghost !px-2 text-signal-700" title="<?= e(__('Delete')) ?>" aria-label="<?= e(__('Delete')) ?>"><?= icon('trash', 'size-4') ?></button></form>
                     <?php endif ?></td>
             </tr>

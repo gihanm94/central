@@ -119,6 +119,8 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/kpi-submissions/approve-month', [KpiSubmissionController::class, 'approveMonth']);
     $r->post('/kpi-submissions/{id}/approve', [KpiSubmissionController::class, 'approve']);
     $r->post('/kpi-submissions/{id}/delete', [KpiSubmissionController::class, 'destroy']);
+    $r->get('/kpi-submissions/{id}/edit', [KpiSubmissionController::class, 'edit']);
+    $r->post('/kpi-submissions/{id}', [KpiSubmissionController::class, 'update']);
     $r->get('/kpi-submissions/{id}/files/{file}', [KpiSubmissionController::class, 'file']);
 
     // Standard screens: list, new, detail, edit, delete, export, import, template, download

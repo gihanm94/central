@@ -10,7 +10,8 @@ use App\Core\Auth\CurrentUser;
  *  - The KPIs and OKRs come from User Management → KPIs & OKRs (kpis); each can be submitted once per month.
  *  - Month M is due on the 7th of month M+1: on time 100 %, then 20 % less per day late, 0 % from 5 days.
  *    The approver should approve by the 10th; a later approval is flagged.
- *  - A submission never changes. Only its approver (or an administrator) can delete it, which frees the KPI again.
+ *  - The submitter cannot change a submission. The BU manager of the department (or an administrator) can correct or
+ *    delete it; deleting frees the KPI again. Every change is in the activity log and on the KPI's page.
  */
 final class KpiSubmissions
 {
@@ -74,22 +75,52 @@ final class KpiSubmissions
         return $out;
     }
 
-    /** People who can approve: active managers and above (not the person themselves). @return array<int,string> */
-    public static function approvers(CurrentUser $u): array
+    /** People who can approve: active managers and above (not the submitter themselves). @return array<int,string> */
+    public static function approvers(CurrentUser|int $u): array
     {
         $rows = DB::select('SELECT u.id, u.name FROM users u JOIN roles r ON r.id = u.role_id
-            WHERE u.deleted_at IS NULL AND u.is_active AND u.id <> ? AND r.level >= 40 ORDER BY u.name', [$u->id]);
+            WHERE u.deleted_at IS NULL AND u.is_active AND u.id <> ? AND r.level >= 40 ORDER BY u.name', [is_int($u) ? $u : $u->id]);
 
         return array_column($rows, 'name', 'id');
     }
 
-    /** Rows this person may see: their own, the ones they approve, and their role's data scope. */
+    /**
+     * Who sees KPIs & OKRs and their submissions: administrators and roles that see everything (Management) see all;
+     * a department role (BU manager) sees its department and its own; everyone else only their own records.
+     */
+    public static function scopeSql(CurrentUser $u, string $alias, string $ownerCol = 'user_id'): array
+    {
+        $scope = $u->isAdmin() ? 'all' : $u->scope();
+        if ($scope === 'all') {
+            return ['sql' => 'TRUE', 'params' => []];
+        }
+        if ($scope === 'department' && $u->department_id) {
+            return ['sql' => "({$alias}.department_id = ? OR {$alias}.{$ownerCol} = ?)", 'params' => [$u->department_id, $u->id]];
+        }
+
+        return ['sql' => "{$alias}.{$ownerCol} = ?", 'params' => [$u->id]];
+    }
+
+    /** Submissions: the scope above, plus the ones this person has to approve. */
     public static function visibleSql(CurrentUser $u, string $alias = 's'): array
     {
-        $scope = Permission::scope($u, $alias, ['owner' => 'user_id', 'department' => 'department_id', 'team' => 'team_id']);
+        $scope = self::scopeSql($u, $alias);
 
         return ['sql' => "({$scope['sql']} OR {$alias}.approver_id = ?)", 'params' => [...$scope['params'], $u->id]];
     }
+
+    /** Adding, changing and deleting KPIs & OKRs and submissions: administrators, and the BU manager of that department. */
+    public static function canManage(CurrentUser $u, mixed $departmentId): bool
+    {
+        if ($u->isAdmin()) {
+            return true;
+        }
+
+        return $u->scope() === 'department' && $u->department_id && (int) $departmentId === $u->department_id;
+    }
+
+    /** May this person add KPIs & OKRs at all (administrator or a department role)? */
+    public static function canAdd(CurrentUser $u): bool { return $u->isAdmin() || ($u->scope() === 'department' && $u->department_id); }
 
     public static function find(CurrentUser $u, int $id): ?array
     {
@@ -103,11 +134,10 @@ final class KpiSubmissions
         return (int) $row['approver_id'] === $u->id || $u->isAdmin();
     }
 
-    /** Deleting is how a wrong submission is corrected: the approver or an administrator, never the submitter alone. */
-    public static function canDelete(CurrentUser $u, array $row): bool
-    {
-        return (int) $row['approver_id'] === $u->id || $u->isAdmin();
-    }
+    /** Correcting or deleting a submission: only the BU manager of its department (or an administrator). */
+    public static function canEdit(CurrentUser $u, array $row): bool { return self::canManage($u, $row['department_id']); }
+
+    public static function canDelete(CurrentUser $u, array $row): bool { return self::canManage($u, $row['department_id']); }
 
     // ---- attachments: storage/kpi/<year>/<random>.<ext>, never under public/
 

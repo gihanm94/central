@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Core\Http\Controllers;
 
 use App\Core\Support\DB;
+use App\Core\Support\KpiSubmissions as K;
 use App\Core\Support\Options;
 use App\Core\Support\ValidationException;
 
@@ -13,6 +14,7 @@ class KpiController extends ResourceController
 
     /** KPIs and OKRs are what people submit a monthly result for (KPI submissions). */
     public const KINDS = ['kpi' => 'KPI', 'okr' => 'OKR'];
+    public const STATUS_TONES = ['active' => 'bg-sky-600 text-white', 'achieved' => 'bg-emerald-600 text-white', 'missed' => 'bg-signal-600 text-white', 'archived' => 'bg-graphite-500 text-white'];
 
     public static function statuses(): array { return array_map(fn ($l) => __($l), self::STATUSES); }
     public static function kinds(): array { return array_map(fn ($l) => __($l), self::KINDS); }
@@ -65,11 +67,42 @@ class KpiController extends ResourceController
                     .'<p class="mt-1 text-xs text-steel">'.number_clean($r['actual']).' / '.number_clean($r['target']).' '.e($r['unit']).'</p>';
             }],
             'period'   => ['label' => __('Period'), 'render' => fn ($r) => '<span class="text-xs text-steel">'.format_date($r['period_start'], 'd M').' – '.format_date($r['period_end'], 'd M Y').'</span>'],
-            'status'   => ['label' => __('Status'), 'render' => fn ($r) => '<span class="badge '.($r['status'] === 'achieved' ? 'bg-emerald-50 text-emerald-800' : ($r['status'] === 'missed' ? 'bg-signal-50 text-signal-800' : 'bg-graphite-900/6 text-graphite-800')).'">'.e(self::statuses()[$r['status']] ?? $r['status']).'</span>'],
+            'status'   => ['label' => __('Status'), 'render' => fn ($r) => '<span class="badge '.(self::STATUS_TONES[$r['status']] ?? 'bg-graphite-900/6 text-graphite-800').'">'.e(self::statuses()[$r['status']] ?? $r['status']).'</span>'],
         ];
     }
 
     protected function searchable(): array { return ['t.title', 'o.name']; }
+
+    /** Administrators and Management see all, a BU manager the department and their own, everyone else their own. */
+    protected function scopeSql(): array { return K::scopeSql($this->user(), 't'); }
+
+    /** Only the BU manager of the department (or an administrator) changes or deletes. */
+    protected function canModify(array $row, string $action): bool { return K::canManage($this->user(), $row['department_id']); }
+
+    public function create(): string
+    {
+        K::canAdd($this->user()) || abort(403, __('Only a BU manager or an administrator can add KPIs & OKRs.'));
+
+        return parent::create();
+    }
+
+    public function store(): never
+    {
+        K::canAdd($this->user()) || abort(403, __('Only a BU manager or an administrator can add KPIs & OKRs.'));
+        parent::store();
+    }
+
+    /** Status, progress against the target, this year's submissions and every change, on the KPI's page. */
+    protected function showExtra(array $row): string
+    {
+        $subs = DB::select('SELECT s.*, ap.name AS approver_name FROM kpi_submissions s LEFT JOIN users ap ON ap.id = s.approver_id
+            WHERE s.kpi_id = ? AND s.deleted_at IS NULL ORDER BY s.period_year DESC, s.period_month DESC LIMIT 36', [$row['id']]);
+        $history = DB::select("SELECT l.*, u.name AS user_name, u.avatar FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id
+            WHERE (l.subject_type = 'kpi' AND l.subject_id = ?) OR (l.subject_type = 'kpi_submission' AND l.properties->>'kpi_id' = ?)
+            ORDER BY l.created_at DESC, l.id DESC LIMIT 100", [$row['id'], (string) $row['id']]);
+
+        return partial('kpi/kpi-extra', ['row' => $row, 'subs' => $subs, 'history' => $history, 'fields' => $this->fields($row)]);
+    }
 
     protected function filters(): array
     {
@@ -94,6 +127,9 @@ class KpiController extends ResourceController
         }
         if (! empty($data['user_id'])) {
             $o = DB::first('SELECT department_id, team_id FROM users WHERE id = ?', [$data['user_id']]);
+            if (! K::canManage($this->user(), $o['department_id'] ?? null)) {
+                throw new ValidationException(['user_id' => __('You can only give KPIs & OKRs to people in your department.')]);
+            }
             $data['department_id'] = $o['department_id'] ?? null;
             $data['team_id']       = $o['team_id'] ?? null;
         }

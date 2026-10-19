@@ -57,7 +57,7 @@ INSERT INTO role_permissions (role_id, permission_id, can_view, can_create, can_
   (4, 3, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
   (4, 4, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
   (4, 5, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
-  (4, 6, TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE),
+  (4, 6, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE),
   (4, 7, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, TRUE),
   (4, 8, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
   (4, 9, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
@@ -152,5 +152,7 @@ SELECT r.id, p.id, position('v' IN d.l) > 0, position('c' IN d.l) > 0, FALSE, FA
 FROM (VALUES ('admin','vcxw'),('management','vxw'),('bu_manager','vcxw'),('manager','vcxw'),('member','vcw')) AS d(role, l)
 JOIN roles r ON r.slug = d.role JOIN permissions p ON p.key = 'kpi_submissions'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
+UPDATE role_permissions rp SET can_edit = TRUE, can_delete = TRUE FROM roles r, permissions p
+WHERE rp.role_id = r.id AND rp.permission_id = p.id AND p.key = 'kpi_submissions' AND r.slug IN ('admin', 'bu_manager');
 SELECT setval(pg_get_serial_sequence('departments','id'), GREATEST((SELECT MAX(id) FROM departments), 1));
 SELECT setval(pg_get_serial_sequence('users','id'), GREATEST((SELECT MAX(id) FROM users), 1));

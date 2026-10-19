@@ -170,7 +170,7 @@ class KpiSubmissionController extends Controller
 
         $period = format_date(sprintf('%04d-%02d-01', $y, $m), 'F Y');
         Activity::log('created', 'kpi_submission', $id, $task['title'], ['Submitted ":label" for :period', ['label' => $task['title'], 'period' => $period]],
-            ['percentage' => $t['percentage']], (int) $in['approver_id'], notify: false);
+            ['percentage' => $t['percentage'], 'kpi_id' => (int) $in['kpi_id']], (int) $in['approver_id'], notify: false);
         $this->tellApprover((int) $in['approver_id'], $id, $task['title'], $period, $in, $t);
 
         $msg = __('":task" submitted for :period.', ['task' => $task['title'], 'period' => $period]);
@@ -233,20 +233,100 @@ class KpiSubmissionController extends Controller
             }
             DB::exec('UPDATE kpi_submissions SET approved_at = now(), approved_by = ? WHERE id = ? AND approved_at IS NULL', [$u->id, (int) $row['id']]);
             $period = format_date(sprintf('%04d-%02d-01', $row['period_year'], $row['period_month']), 'F Y');
-            Activity::log('approved', 'kpi_submission', (int) $row['id'], $row['task_title'], ['Approved ":label" for :period', ['label' => $row['task_title'], 'period' => $period]], [], (int) $row['user_id'], notify: false);
+            Activity::log('approved', 'kpi_submission', (int) $row['id'], $row['task_title'], ['Approved ":label" for :period', ['label' => $row['task_title'], 'period' => $period]], ['kpi_id' => (int) $row['kpi_id']], (int) $row['user_id'], notify: false);
             Notifier::bell((int) $row['user_id'], 'core', 'kpi_submission', __('KPI approved: :task (:period)', ['task' => $row['task_title'], 'period' => $period]), null,
                 url('/kpi-submissions', ['year' => (int) $row['period_year'], 'view' => 'mine']).'#u'.(int) $row['user_id'].'-m'.(int) $row['period_month'], $u->id);
         }
+    }
+
+    /** Correcting a submission: the BU manager of the department (or an administrator). Every change is logged. */
+    public function edit(int $id): string
+    {
+        $row = $this->forChange($id);
+
+        return view('kpi/edit', ['title' => __('Correct submission'), 'row' => $row, 'approvers' => K::approvers((int) $row['user_id'])
+            + ($row['approver_id'] ? [(int) $row['approver_id'] => (string) DB::scalar('SELECT name FROM users WHERE id = ?', [$row['approver_id']])] : []),
+            'submitter' => DB::scalar('SELECT name FROM users WHERE id = ?', [$row['user_id']])]);
+    }
+
+    public function update(int $id): never
+    {
+        $row = $this->forChange($id);
+        $in = $this->validate([
+            'approver_id' => 'required|integer', 'finished' => 'required|numeric', 'total' => 'required|numeric', 'criteria' => 'nullable|numeric',
+            'note' => 'nullable|max:2000', 'related_link' => 'nullable|max:500',
+        ], ['approver_id' => __('Approver'), 'finished' => __('Finished'), 'total' => __('Total tasks'), 'criteria' => __('Criteria'), 'related_link' => __('Related link')]);
+        $approvers = K::approvers((int) $row['user_id']);
+        $errors = [];
+        if (! isset($approvers[(int) $in['approver_id']]) && (int) $in['approver_id'] !== (int) $row['approver_id']) {
+            $errors['approver_id'] = __('Choose an approver from the list.');
+        }
+        foreach (['finished', 'total'] as $k) {
+            if ((float) $in[$k] < 0 || (float) $in[$k] > 999999999) {
+                $errors[$k] = __('Enter a number from 0 up.');
+            }
+        }
+        if ($in['criteria'] !== null && ((float) $in['criteria'] < 1 || (float) $in['criteria'] > 100)) {
+            $errors['criteria'] = __('Criteria must be between 1 and 100.');
+        }
+        $link = trim((string) ($in['related_link'] ?? ''));
+        if ($link !== '' && (! filter_var($link, FILTER_VALIDATE_URL) || ! preg_match('#^https?://#i', $link))) {
+            $errors['related_link'] = __('Enter a full link starting with https://');
+        }
+        if ($errors) {
+            throw new ValidationException($errors);
+        }
+        $new = ['approver_id' => (int) $in['approver_id'], 'finished' => $in['finished'], 'total' => $in['total'], 'criteria' => $in['criteria'],
+            'note' => trim((string) ($in['note'] ?? '')) ?: null, 'related_link' => $link ?: null];
+
+        // What changed, in words people read (names, plain numbers)
+        $name = fn ($id) => $id ? (string) DB::scalar('SELECT name FROM users WHERE id = ?', [$id]) : '';
+        $num  = fn ($v) => $v === null || $v === '' ? '' : number_clean($v);
+        $changes = [];
+        foreach ($new as $k => $v) {
+            [$from, $to] = match ($k) {
+                'approver_id' => [$name($row[$k]), $name($v)],
+                'finished', 'total', 'criteria' => [$num($row[$k]), $num($v)],
+                default => [(string) ($row[$k] ?? ''), (string) ($v ?? '')],
+            };
+            if ($from !== $to) {
+                $changes[$k === 'approver_id' ? 'approver' : $k] = ['from' => $from, 'to' => $to];
+            }
+        }
+        if (! $changes) {
+            Session::flash('success', __('Nothing changed.'));
+            redirect('/kpi-submissions?'.http_build_query(['year' => (int) $row['period_year']]).'#u'.(int) $row['user_id'].'-m'.(int) $row['period_month']);
+        }
+        DB::update('kpi_submissions', $new, ['id' => $id]);
+        $period = format_date(sprintf('%04d-%02d-01', $row['period_year'], $row['period_month']), 'F Y');
+        Activity::log('updated', 'kpi_submission', $id, $row['task_title'], ['Corrected the submission ":label" for :period', ['label' => $row['task_title'], 'period' => $period]],
+            ['changes' => $changes, 'kpi_id' => (int) $row['kpi_id']], (int) $row['user_id'], notify: false);
+        $u = $this->user();
+        if ((int) $row['user_id'] !== $u->id) {
+            Notifier::bell((int) $row['user_id'], 'core', 'kpi_submission', __('Your KPI submission was corrected: :task (:period)', ['task' => $row['task_title'], 'period' => $period]),
+                implode(', ', array_map(fn ($k, $c) => $k.': '.$c['from'].' → '.$c['to'], array_keys($changes), $changes)), url('/kpi-submissions', ['year' => (int) $row['period_year'], 'view' => 'mine']), $u->id);
+        }
+        Session::flash('success', __('Submission corrected.'));
+        redirect('/kpi-submissions?'.http_build_query(['year' => (int) $row['period_year']]).'#u'.(int) $row['user_id'].'-m'.(int) $row['period_month']);
+    }
+
+    private function forChange(int $id): array
+    {
+        $u = $this->user();
+        $row = K::find($u, $id) ?? abort(404);
+        K::canEdit($u, $row) || abort(403, __('Only the BU manager of the department can change a submission.'));
+
+        return $row;
     }
 
     public function destroy(int $id): never
     {
         $u = $this->user();
         $row = K::find($u, $id) ?? abort(404);
-        K::canDelete($u, $row) || abort(403, __('Only the approver can delete a submission.'));
+        K::canDelete($u, $row) || abort(403, __('Only the BU manager of the department can delete a submission.'));
         DB::exec('UPDATE kpi_submissions SET deleted_at = now(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL', [$u->id, $id]);
         $period = format_date(sprintf('%04d-%02d-01', $row['period_year'], $row['period_month']), 'F Y');
-        Activity::log('deleted', 'kpi_submission', $id, $row['task_title'], ['Deleted the submission ":label" for :period', ['label' => $row['task_title'], 'period' => $period]], [], (int) $row['user_id'], notify: false);
+        Activity::log('deleted', 'kpi_submission', $id, $row['task_title'], ['Deleted the submission ":label" for :period', ['label' => $row['task_title'], 'period' => $period]], ['kpi_id' => (int) $row['kpi_id']], (int) $row['user_id'], notify: false);
         if ((int) $row['user_id'] !== $u->id) {
             Notifier::bell((int) $row['user_id'], 'core', 'kpi_submission', __('Your KPI submission was deleted: :task (:period)', ['task' => $row['task_title'], 'period' => $period]),
                 __('You can submit it again.'), url('/kpi-submissions/create', ['year' => (int) $row['period_year'], 'month' => (int) $row['period_month']]), $u->id);
