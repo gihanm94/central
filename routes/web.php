@@ -9,6 +9,7 @@ use App\Core\Http\Controllers\DashboardController;
 use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
 use App\Core\Http\Controllers\ErpInvoiceController;
+use App\Core\Http\Controllers\ErpBillingController;
 use App\Core\Http\Controllers\KpiController;
 use App\Core\Http\Controllers\KpiSubmissionController;
 use App\Core\Http\Controllers\MemberController;
@@ -80,6 +81,8 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/files/delete', [FileController::class, 'delete']);
     $r->get('/erp/invoices', [ErpInvoiceController::class, 'index']);
     $r->get('/erp/invoices/{id}/pdf/{doc}', [ErpInvoiceController::class, 'pdf']);
+    $r->get('/erp/billing', [ErpBillingController::class, 'index']);
+    $r->get('/erp/billing/{id}/pdf', [ErpBillingController::class, 'pdf']);
 
     $r->get('/api-access', [ApiAccessController::class, 'admin']);
     $r->post('/api-access/devices/{id}/revoke', [ApiAccessController::class, 'adminRevoke']);

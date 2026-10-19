@@ -22,6 +22,7 @@ return [
             ['label' => 'KPI submissions',  'url' => '/kpi-submissions', 'icon' => 'tick', 'permission' => 'kpi_submissions.view'],
             ['heading' => 'ERP'],
             ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
+            ['label' => 'Billing notes',    'url' => '/erp/billing',  'icon' => 'doc',    'permission' => 'erp_billing.view'],
         ],
     ],
     /*

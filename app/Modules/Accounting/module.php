@@ -41,6 +41,9 @@ return [
         // ERP → Invoices in User Management: stamped Inets of the person's department (the core page never reads this database itself)
         'erp.invoices'    => fn ($user, array $filters) => DepartmentInvoices::list($user, $filters),
         'erp.invoice_pdf' => fn ($user, int $id, string $doc) => DepartmentInvoices::pdf($user, $id, $doc),
+        // ERP → Billing notes in User Management: billing notes of the person's department
+        'erp.billing'     => fn ($user, array $filters) => App\Modules\Accounting\Support\DepartmentBilling::list($user, $filters),
+        'erp.billing_pdf' => fn ($user, int $id) => App\Modules\Accounting\Support\DepartmentBilling::pdf($user, $id),
         // Management overview: revenue, top customers, sellers and departments between two dates
         'revenue.ranking' => fn (string $from, string $to) => App\Modules\Accounting\Support\Ranking::get($from, $to),
     ],
