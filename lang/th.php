@@ -1847,4 +1847,11 @@ return [
     'User ID' => 'รหัสผู้ใช้',
     'deleted user' => 'ผู้ใช้ที่ถูกลบ',
     'by' => 'โดย',
+    // CRM owner history pop-up
+    'Owner history' => 'ประวัติผู้รับผิดชอบ',
+    'Last change :date' => 'เปลี่ยนล่าสุด :date',
+    'No owner changes yet.' => 'ยังไม่เคยเปลี่ยนผู้รับผิดชอบ',
+    'View history' => 'ดูประวัติ',
+    'latest' => 'ล่าสุด',
+    ':title · history' => ':title · ประวัติ',
 ];

@@ -7,6 +7,7 @@
  |   bell               notifications polled once a minute
  |   forms              [data-form]: required-field counter + dialog, wizard steps, full screen
  |   rich text          [data-richtext]: Quill, loaded on demand, images uploaded to the server and resizable
+ |   pop-up cards       [data-open-dialog="id"] opens <dialog id>; [data-close-dialog] or a click outside closes it
  */
 (function () {
     'use strict';
@@ -33,6 +34,16 @@
         });
         $$('[data-scale-label]').forEach(function (l) { l.textContent = pct + '%'; });
         if (menu) postJson(menu.dataset.url, { scale: pct });
+    });
+
+    /* ---------------------------------------------------- pop-up cards */
+
+    document.addEventListener('click', function (e) {
+        var o = e.target.closest('[data-open-dialog]');
+        if (o) { var d = document.getElementById(o.dataset.openDialog); if (d && d.showModal) { e.preventDefault(); d.showModal(); } return; }
+        var c = e.target.closest('[data-close-dialog]');
+        if (c) { var p = c.closest('dialog'); if (p) p.close(); return; }
+        if (e.target.matches && e.target.matches('dialog[data-light-dismiss][open]')) e.target.close();   // the backdrop itself was clicked
     });
 
     /* ---------------------------------------------------- delete dialog */

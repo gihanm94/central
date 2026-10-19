@@ -16,17 +16,15 @@ $before  = array_values(array_filter(Responsible::history($type, (int) $row['id'
         <div class="flex items-center justify-between gap-3 px-5 py-3"><dt class="text-steel"><?= e(__('Created')) ?></dt><dd class="truncate text-right"><?= e(format_date($row['created_at'], 'd M Y')) ?><?php if ($row['creator_name']): ?><span class="block text-xs text-steel"><?= e($row['creator_name']) ?></span><?php endif ?></dd></div>
         <div class="flex items-center justify-between gap-3 px-5 py-3"><dt class="text-steel"><?= e(__('Updated')) ?></dt><dd class="text-right"><?= e(time_ago($row['updated_at'])) ?></dd></div>
     </dl>
-    <?php if ($before): ?>
-    <div class="border-t border-graphite-900/8 bg-mist/50 px-5 py-3">
-        <p class="text-xs font-semibold uppercase tracking-wide text-steel"><?= e(__('Previous owners')) ?></p>
-        <ul class="mt-2 space-y-1.5 text-xs text-steel">
-            <?php foreach ($before as $h): ?>
-            <li><?= partial('crm/panels/history-person', ['h' => $h, 'k' => 'from']) ?> → <?= partial('crm/panels/history-person', ['h' => $h, 'k' => 'to']) ?>
-                <span class="block text-[11px]"><?= e(format_date($h['created_at'], 'd M Y')) ?><?php if ($h['by_name']): ?> · <?= e(__('by')) ?> <?= partial('crm/panels/history-person', ['h' => $h, 'k' => 'by']) ?><?php endif ?><?= $h['note'] ? ' · '.e($h['note']) : '' ?></span></li>
-            <?php endforeach ?>
-        </ul>
+    <div class="flex items-center justify-between gap-3 border-t border-graphite-900/8 bg-mist/50 px-5 py-3">
+        <div class="min-w-0 text-xs text-steel">
+            <p class="font-semibold uppercase tracking-wide"><?= e(__('Owner history')) ?> <span class="font-normal normal-case">(<?= count($before) ?>)</span></p>
+            <p class="mt-0.5 truncate"><?= $before ? e(__('Last change :date', ['date' => format_date($before[0]['created_at'], 'd M Y')])) : e(__('No owner changes yet.')) ?></p>
+        </div>
+        <button type="button" class="btn-secondary h-8 shrink-0 px-3 text-xs" data-open-dialog="owner-history-<?= e($type) ?>-<?= (int) $row['id'] ?>"><?= icon('clock', 'size-4') ?> <?= e(__('View history')) ?></button>
     </div>
-    <?php endif ?>
+    <?= partial('crm/panels/owner-history', ['id' => 'owner-history-'.$type.'-'.(int) $row['id'], 'title' => __('Owner history'), 'history' => $before,
+        'created' => ['at' => $row['created_at'], 'by' => $row['creator_name'] ?? null]]) ?>
     <?php if ($canHand): $targets = Access::assignable(auth()); unset($targets[(int) ($row['owner_id'] ?? 0)]); ?>
     <details class="border-t border-graphite-900/8 px-5 py-3 text-sm">
         <summary class="cursor-pointer font-medium text-signal-700"><?= e(__('Change owner')) ?></summary>
