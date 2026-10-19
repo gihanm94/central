@@ -1,15 +1,18 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Modules\CRM\Support\Data;
+namespace App\Core\Support;
 
 /**
  * Minimal Excel (.xlsx) reader and writer — no library needed, only PHP's zip + xml extensions.
  * Reads every sheet into rows of strings (dates become 2026-10-06 / 2026-10-06 14:30).
- * Writes one or more sheets with a bold header row.
+ * Writes one or more sheets with a bold, frozen header row with filter buttons; every export of the system uses it.
+ * Text stays text (codes with leading zeros, phone numbers); plain numbers become real numbers. Cells are never
+ * formulas, so a value like "=cmd" cannot run anything (the old CSV risk).
  */
 final class Xlsx
 {
+    /** Reading Excel needs the zip and xml extensions; writing works everywhere (ZipLite). */
     public static function available(): bool { return class_exists(\ZipArchive::class) && class_exists(\XMLReader::class); }
 
     /* ------------------------------------------------------------------ read */
@@ -139,12 +142,43 @@ final class Xlsx
 
     /* ----------------------------------------------------------------- write */
 
+    /** Send one sheet as an .xlsx download and stop. */
+    public static function download(string $filename, array $header, iterable $rows, string $sheet = 'Data'): never
+    {
+        self::send($filename, [$sheet => [$header, $rows]]);
+    }
+
+    /** Send several sheets as one .xlsx download and stop. @param array<string, array{0: string[], 1: iterable}> $sheets */
+    public static function send(string $filename, array $sheets): never
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'xlsx');
+        try {
+            self::build($sheets, $tmp);
+            $base = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) preg_replace('/\.(csv|xlsx)$/i', '', $filename)), '-.');
+            $name = ($base !== '' ? $base : 'export').'.xlsx';                  // "KPIs & OKRs-2026…" → "KPIs-OKRs-2026…"
+            session_write_close();
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="'.addcslashes(preg_replace('/[^\x20-\x7e]/', '_', $name), '"\\').'"; filename*=UTF-8\'\''.rawurlencode($name));
+            header('Content-Length: '.filesize($tmp));
+            header('Cache-Control: no-store');
+            header('X-Content-Type-Options: nosniff');
+            readfile($tmp);
+        } finally {
+            @unlink($tmp);
+        }
+        exit;
+    }
+
     /** @param array<string, array{0: string[], 1: iterable}> $sheets sheet name => [header, rows] */
     public static function build(array $sheets, string $path): void
     {
-        $zip = new \ZipArchive();
-        if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-            throw new \RuntimeException('Cannot create the Excel file.');
+        if (class_exists(\ZipArchive::class)) {
+            $zip = new \ZipArchive();
+            if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                throw new \RuntimeException('Cannot create the Excel file.');
+            }
+        } else {
+            $zip = new ZipLite($path);                         // no zip extension on this server
         }
         $names = array_keys($sheets);
         $ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>';
@@ -160,17 +194,24 @@ final class Xlsx
         $rel .= '<Relationship Id="rId'.(count($names) + 1).'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
         $zip->addFromString('xl/workbook.xml', $wb.'</sheets></workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', $rel);
-        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>');
+        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>');
         $i = 0;
         foreach ($sheets as [$header, $rows]) {
             $i++;
             $tmp = tempnam(sys_get_temp_dir(), 'xl');
             $fh  = fopen($tmp, 'wb');
-            fwrite($fh, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>');
+            $header = array_values($header);
+            $cols = '';
+            foreach ($header as $c => $h) {                    // width from the header text (Excel widens on double-click)
+                $w = max(10, min(60, mb_strlen((string) $h) + 6));
+                $cols .= '<col min="'.($c + 1).'" max="'.($c + 1).'" width="'.$w.'" customWidth="1"/>';
+            }
+            fwrite($fh, '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+                .($cols !== '' ? '<cols>'.$cols.'</cols>' : '').'<sheetData>');
             fwrite($fh, self::rowXml(1, $header, 1));
             $n = 1;
             foreach ($rows as $row) { fwrite($fh, self::rowXml(++$n, array_values($row), 0)); }
-            fwrite($fh, '</sheetData></worksheet>');
+            fwrite($fh, '</sheetData>'.($header ? '<autoFilter ref="A1:'.self::colName(count($header) - 1).max(1, $n).'"/>' : '').'</worksheet>');
             fclose($fh);
             $zip->addFile($tmp, 'xl/worksheets/sheet'.$i.'.xml');
             $cleanup[] = $tmp;
@@ -192,6 +233,12 @@ final class Xlsx
         foreach ($cells as $i => $v) {
             if ($v === null || $v === '') { continue; }
             $ref = self::colName($i).$r;
+            if (! $style && is_string($v) && preg_match('/^-?(0|[1-9]\d{0,14})(\.\d{1,10})?$/', $v)) {
+                $v = str_contains($v, '.') ? (float) $v : (int) $v;    // "1250.50" → a number; "0812…" (leading 0) stays text
+            }
+            if (is_bool($v)) {
+                $v = $v ? 'Yes' : 'No';
+            }
             if (is_int($v) || is_float($v)) {
                 $x .= '<c r="'.$ref.'"'.($style ? ' s="'.$style.'"' : '').'><v>'.$v.'</v></c>';
             } else {

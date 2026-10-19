@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Core\Http\Controllers;
 
 use App\Core\Support\Activity;
-use App\Core\Support\Csv;
+use App\Core\Support\Xlsx;
 use App\Core\Support\DB;
 use App\Core\Support\Options;
 use App\Core\Support\Permission;
@@ -71,7 +71,7 @@ class ActivityController extends Controller
                               FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id WHERE {$w} ORDER BY l.created_at DESC LIMIT 50000", $p);
         Activity::log('export', 'activity', null, 'Activity log', ['Exported :count activity log entries', ['count' => count($rows)]], ['count' => count($rows), 'filters' => array_filter($_GET)]);
 
-        Csv::download('activity-log-'.date('Ymd-His').'.csv', [__('Time'), __('Person'), __('Module'), __('Action'), __('Description'), 'IP', __('Device')],
+        Xlsx::download('activity-log-'.date('Ymd-His').'.xlsx', [__('Time'), __('Person'), __('Module'), __('Action'), __('Description'), 'IP', __('Device')],
             array_map(fn ($r) => [$r['created_at'], $r['name'], $r['module'], self::actions()[$r['action']] ?? $r['action'], activity_text($r), $r['ip_address'], $r['user_agent']], $rows));
     }
 }

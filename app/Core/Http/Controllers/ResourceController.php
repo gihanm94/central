@@ -5,6 +5,7 @@ namespace App\Core\Http\Controllers;
 
 use App\Core\Support\Activity;
 use App\Core\Support\Csv;
+use App\Core\Support\Xlsx;
 use App\Core\Support\Html;
 use App\Core\Support\DB;
 use App\Core\Support\Permission;
@@ -333,7 +334,7 @@ abstract class ResourceController extends Controller
         Activity::log('export', $this->type, null, ucfirst($this->plural), ['Exported :count :type', ['count' => count($rows), 'type' => $this->plural]],
             ['count' => count($rows), 'filters' => array_filter($_GET)], module: $this->module);
 
-        Csv::download($this->plural.'-'.date('Ymd-His').'.csv', ['id', ...array_keys($fields)],
+        Xlsx::download($this->plural.'-'.date('Ymd-His').'.xlsx', ['id', ...array_keys($fields)],
             array_map(fn ($r) => [$r['id'], ...array_values($this->displayValues($fields, $r))], $rows));
     }
 
@@ -407,7 +408,7 @@ abstract class ResourceController extends Controller
         }
         $lines[] = [__('Downloaded by'), $this->user()->name.' · '.format_date(now(), 'd M Y H:i')];
 
-        Csv::download($this->type.'-'.$id.'.csv', [__('Field'), __('Value')], $lines);
+        Xlsx::download($this->type.'-'.$id.'.xlsx', [__('Field'), __('Value')], $lines);
     }
 
     /* ------------------------------------------------------------- helpers */

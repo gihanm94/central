@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Modules\Accounting\Controllers;
 
 use App\Core\Http\Controllers\ResourceController;
-use App\Core\Support\Csv;
+use App\Core\Support\Xlsx;
 
 /**
  * Read-only lists of data copied from the ERP (same table screen as everywhere: search, sort, columns, page size, export).
@@ -71,7 +71,7 @@ abstract class ErpListController extends ResourceController
         $this->authorize($this->resource, 'export');
         $rows = $this->query(false)['rows'];
         $cols = array_keys($this->detail());
-        Csv::download($this->plural.'-'.date('Ymd-His').'.csv', array_map(fn ($k) => $this->detail()[$k][0], $cols),
+        Xlsx::download($this->plural.'-'.date('Ymd-His').'.xlsx', array_map(fn ($k) => $this->detail()[$k][0], $cols),
             array_map(fn ($r) => array_map(fn ($k) => $r[$k] ?? '', $cols), $rows));
     }
 

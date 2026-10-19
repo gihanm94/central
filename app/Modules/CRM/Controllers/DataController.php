@@ -16,7 +16,7 @@ use App\Modules\CRM\Support\Data\Exporter;
 use App\Modules\CRM\Support\Data\Importer;
 use App\Modules\CRM\Support\Data\Schema;
 use App\Modules\CRM\Support\Data\Source;
-use App\Modules\CRM\Support\Data\Xlsx;
+use App\Core\Support\Xlsx;
 
 /**
  * Admin only: move CRM data in and out in bulk.
@@ -54,7 +54,6 @@ class DataController extends Controller
         $format = (string) Request::input('format', 'xlsx');
         if (! $picked) { throw new ValidationException(['tables' => __('Tick at least one table.')]); }
         if (! in_array($format, ['xlsx', 'csv', 'sql'], true)) { $format = 'xlsx'; }
-        if ($format === 'xlsx' && ! Xlsx::available()) { throw new ValidationException(['format' => __('Excel needs the PHP zip extension on this server. Use CSV or SQL.')]); }
         $opt = ['names' => (bool) Request::input('names'), 'department' => (int) Request::input('department'), 'from' => $this->day(Request::input('from')), 'to' => $this->day(Request::input('to'))];
 
         $data = [];

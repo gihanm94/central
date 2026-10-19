@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Modules\CRM\Support\Data;
 
+use App\Core\Support\Xlsx;
+
 /** An uploaded file (Excel, CSV or SQL) as named sheets of rows: ['Sheet' => ['header' => [...], 'rows' => [[...], ...]]]. */
 final class Source
 {

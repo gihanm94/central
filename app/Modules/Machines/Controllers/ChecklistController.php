@@ -116,7 +116,7 @@ class ChecklistController extends MachinesController
         $this->authorize($this->resource, 'export');
         $rows = $this->query(false)['rows'];
         Activity::log('export', $this->type, null, 'Checklists', ['Exported :count :type', ['count' => count($rows), 'type' => $this->plural]], ['count' => count($rows)], module: 'machines');
-        \App\Core\Support\Csv::download('checklists-'.date('Ymd-His').'.csv', ['id', 'date', 'machine_code', 'machine_name', 'kind', 'checked_by', 'machine_status', 'approval_status', 'supervisor', 'manager', 'note'],
+        \App\Core\Support\Xlsx::download('checklists-'.date('Ymd-His').'.xlsx', ['id', 'date', 'machine_code', 'machine_name', 'kind', 'checked_by', 'machine_status', 'approval_status', 'supervisor', 'manager', 'note'],
             array_map(fn ($r) => [$r['id'], $r['created_at'], $r['machine_code'], $r['machine_name'], $r['check_type'] === 'MAINTENANCE' ? 'maintenance' : ($r['recheck'] ? 'recheck' : 'general'), $r['user_name'], $r['machine_status'], $r['checklist_status'], $r['supervisor_name'] ?? '', $r['manager_name'] ?? '', $r['machine_note']], $rows));
     }
 

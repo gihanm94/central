@@ -6,7 +6,7 @@ namespace App\Modules\Management\Controllers;
 use App\Core\Http\Controllers\Controller;
 
 use App\Core\Support\Activity;
-use App\Core\Support\Csv;
+use App\Core\Support\Xlsx;
 use App\Core\Support\DB;
 use App\Modules\Management\Support\KpiScore as S;
 use App\Core\Support\KpiSubmissions as K;
@@ -142,7 +142,7 @@ class KpiCalculatorController extends Controller
         $this->authorize('kpi_calculator', 'export');
         $year = $this->year();
         Activity::log('export', 'kpi_score', null, null, ['Exported the :year KPI scores', ['year' => $year]], [], notify: false);
-        Csv::download('kpi-scores-'.$year.'.csv', ['Name', 'Department', 'Role', 'Year', 'Up to month', 'Group', 'Score', 'Calculated at', 'Calculated by'],
+        Xlsx::download('kpi-scores-'.$year.'.xlsx', ['Name', 'Department', 'Role', 'Year', 'Up to month', 'Group', 'Score', 'Calculated at', 'Calculated by'],
             (function () use ($year) {
                 foreach ($this->list($year, '') as $r) {
                     yield [$r['name'], $r['department_name'], $r['role_name'], $year, $r['month'], $r['emp_group'] ? S::GROUPS[$r['emp_group']] ?? $r['emp_group'] : '',

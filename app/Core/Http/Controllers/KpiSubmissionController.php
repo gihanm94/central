@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Core\Http\Controllers;
 
 use App\Core\Support\Activity;
-use App\Core\Support\Csv;
+use App\Core\Support\Xlsx;
 use App\Core\Support\DB;
 use App\Core\Support\KpiSubmissions as K;
 use App\Core\Support\Mailer;
@@ -358,7 +358,7 @@ class KpiSubmissionController extends Controller
         $this->authorize('kpi_submissions', 'export');
         $f = $this->filters();
         Activity::log('export', 'kpi_submission', null, null, ['Exported KPI submissions for :year', ['year' => $f['year']]], [], notify: false);
-        Csv::download('kpi-submissions-'.$f['year'].'.csv',
+        Xlsx::download('kpi-submissions-'.$f['year'].'.xlsx',
             ['Year', 'Month', 'Status', 'Days late', 'Percentage', 'Submitted by', 'Department', 'Type', 'KPI / OKR', 'Approver', 'Approved', 'Approved at', 'Finished', 'Total tasks', 'Criteria', 'Note', 'Related link', 'Submitted at'],
             (function () use ($f) {
                 foreach ($this->rows($f) as $r) {
