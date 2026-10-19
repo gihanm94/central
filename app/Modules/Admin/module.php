@@ -26,6 +26,7 @@ return [
         ['label' => 'Roles & access',   'url' => '/roles',            'icon' => 'shield', 'permission' => 'roles.view'],
         ['label' => 'Account requests', 'url' => '/members/requests', 'icon' => 'user',   'permission' => 'members.create', 'admin_only' => true],
         ['label' => 'Sessions',         'url' => '/sessions',         'icon' => 'lock',   'admin_only' => true],
+        ['heading' => 'Mobile'],
         ['label' => 'Mobile app & API', 'url' => '/api-access',       'icon' => 'key',    'admin_only' => true],
         ['heading' => 'System'],
         ['label' => 'Company settings', 'url' => '/settings',         'icon' => 'cog',    'permission' => 'settings.view'],
