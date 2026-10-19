@@ -23,10 +23,10 @@ class AuthController extends Controller
 
     public function login(): never
     {
-        $data  = $this->validate(['email' => 'required|email', 'password' => 'required'], ['email' => __('e-mail'), 'password' => __('password')]);
-        $error = Auth::attempt($data['email'], $data['password'], Request::boolean('remember'));
+        $data  = $this->validate(['username' => 'required|max:190', 'password' => 'required'], ['username' => __('username'), 'password' => __('password')]);
+        $error = Auth::attempt($data['username'], $data['password'], Request::boolean('remember'));
         if ($error) {
-            throw new ValidationException(['email' => $error]);
+            throw new ValidationException(['username' => $error]);
         }
 
         $to = $_SESSION['_intended'] ?? Auth::user()->homeUrl();

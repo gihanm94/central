@@ -45,12 +45,14 @@ Re-running the installer is safe (delete `storage/installed.lock` first); existi
 
 Password for all: `Password@123`
 
-| Role        | E-mail                     | Sees                                   |
-|-------------|----------------------------|----------------------------------------|
-| Management  | management@acmeinter.com   | Whole company, view and export only    |
-| BU Manager  | bu.manager@acmeinter.com   | Operations department                  |
-| Manager     | manager@acmeinter.com      | Maintenance team                       |
-| Member      | member@acmeinter.com       | Own tasks, KPIs and activity           |
+Sign in with the **username** (the e-mail address still works too).
+
+| Role        | Username     | E-mail                     | Sees                                   |
+|-------------|--------------|----------------------------|----------------------------------------|
+| Management  | management   | management@acmeinter.com   | Whole company, view and export only    |
+| BU Manager  | bu.manager   | bu.manager@acmeinter.com   | Operations department                  |
+| Manager     | manager      | manager@acmeinter.com      | Maintenance team                       |
+| Member      | member       | member@acmeinter.com       | Own tasks, KPIs and activity           |
 
 ## Updating an existing install
 

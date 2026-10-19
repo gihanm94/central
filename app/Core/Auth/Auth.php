@@ -96,8 +96,10 @@ final class Auth
      * Failures are logged; on success the hash is upgraded when needed.
      * @return array{0: ?int, 1: ?string, 2?: int} [user id, null] or [null, error message, seconds locked (when locked)]
      */
+    /** $email is the sign-in name: a username, or an e-mail address (still accepted). */
     public static function verify(string $email, string $password, string $method = 'password'): array
     {
+        $email = trim($email);
         $key  = strtolower($email).'|'.Request::ip();
         $lock = DB::first('SELECT attempts, locked_until FROM login_attempts WHERE key = ?', [$key]);
         if ($lock && $lock['locked_until'] && strtotime($lock['locked_until']) > time()) {
@@ -106,16 +108,18 @@ final class Auth
             return [null, __('Too many attempts. Try again in :seconds seconds.', ['seconds' => $wait]), $wait];
         }
 
-        // Per account, whatever the IP: 10 wrong passwords lock the account for 15 minutes (stops attacks spread over many IPs).
-        $acct = 'acct|'.strtolower($email);
+        $row = DB::first(str_contains($email, '@')
+            ? 'SELECT id, password, is_active FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL'
+            : 'SELECT id, password, is_active FROM users WHERE lower(username) = lower(?) AND deleted_at IS NULL', [$email]);
+
+        // Per account, whatever the IP or the name used (username or e-mail): 10 wrong passwords lock it for 15 minutes.
+        $acct = $row ? 'acct|#'.$row['id'] : 'acct|'.strtolower($email);
         $acctLock = DB::first('SELECT attempts, locked_until FROM login_attempts WHERE key = ?', [$acct]);
         if ($acctLock && $acctLock['locked_until'] && strtotime($acctLock['locked_until']) > time()) {
             $wait = max(1, strtotime($acctLock['locked_until']) - time());
 
             return [null, __('Too many attempts. Try again in :seconds seconds.', ['seconds' => $wait]), $wait];
         }
-
-        $row = DB::first('SELECT id, password, is_active FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL', [$email]);
         $ok  = password_verify($password, $row['password'] ?? '$2y$10$USo5amzlXOl..rh2CsA1O.CQLOjNh3Mn.SEy/SL1wgN/p1bMJC/by') && $row;  // same work for unknown e-mails
 
         if (! $ok || ! filter_var($row['is_active'], FILTER_VALIDATE_BOOL)) {
@@ -128,7 +132,7 @@ final class Auth
             DB::exec('INSERT INTO login_attempts (key, attempts, locked_until) VALUES (?, ?, ?)
                       ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until',
                 [$acct, $acctTries >= 10 ? 0 : $acctTries, $acctTries >= 10 ? date('c', time() + 900) : null]);
-            Activity::log('login_failed', null, null, null, ['Failed sign-in for :email', ['email' => $email]], ['email' => $email, 'method' => $method], null, $row['id'] ?? null, false);
+            Activity::log('login_failed', null, null, null, ['Failed sign-in for :name', ['name' => $email]], ['email' => $email, 'method' => $method], null, $row['id'] ?? null, false);
             SessionGuard::event($row['id'] ?? null, 'failed', $method, null, $email);
 
             return [null, $ok ? __('This account is deactivated. Contact your administrator.') : __('These details do not match an active account.')];

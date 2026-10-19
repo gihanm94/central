@@ -62,6 +62,7 @@ $v = [
     'pass'      => (string) ($_POST['pass'] ?? ''),            // passwords are never sent back into the page
     'admin'     => $_POST['admin'] ?? 'System Admin',
     'email'     => $_POST['email'] ?? 'admin@acmeinter.com',
+    'username'  => strtolower(trim((string) ($_POST['username'] ?? 'admin'))),
     'demo'      => isset($_POST['company']) ? isset($_POST['demo']) : true,
     'mail'      => $_POST['mail'] ?? $config['mail']['driver'],
     'smtp_host' => $_POST['smtp_host'] ?? $config['mail']['host'],
@@ -118,6 +119,7 @@ if (! is_file($lock) && $_SERVER['REQUEST_METHOD'] === 'POST' && $ready) {
     $password = (string) ($_POST['password'] ?? '');
     if (trim($v['company']) === '') { $errors[] = 'Enter your company name.'; }
     if (! filter_var($v['email'], FILTER_VALIDATE_EMAIL)) { $errors[] = 'Enter a valid admin e-mail.'; }
+    if (! preg_match('/^[a-z0-9._-]{3,60}$/', $v['username'])) { $errors[] = 'The admin username needs 3–60 letters, numbers, dots, dashes or underscores.'; }
     if (! preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/', $password)) { $errors[] = 'Admin password needs 8+ characters with upper and lower case letters and a number.'; }
     if ($password !== ($_POST['password_confirmation'] ?? '')) { $errors[] = 'The two admin passwords do not match.'; }
     foreach ($config['db']['databases'] as $key => $_) {
@@ -187,11 +189,14 @@ if (! is_file($lock) && $_SERVER['REQUEST_METHOD'] === 'POST' && $ready) {
             }
             $stmt = $core->prepare('UPDATE users SET name = ?, email = ?, password = ?, is_active = TRUE, deleted_at = NULL, updated_at = now() WHERE id = 1');
             $stmt->execute([trim($v['admin']) ?: 'System Admin', strtolower(trim($v['email'])), password_hash($password, PASSWORD_DEFAULT)]);
+            // the admin signs in with this username (another account may hold it in the demo data: that one gets a number)
+            $core->prepare('UPDATE users SET username = NULL WHERE lower(username) = ? AND id <> 1')->execute([$v['username']]);
+            $core->prepare('UPDATE users SET username = ? WHERE id = 1')->execute([$v['username']]);
             $core->prepare("UPDATE settings SET value = ? WHERE key = 'company_name'")->execute([trim($v['company'])]);
             $locale = in_array($v['locale'], ['en', 'th'], true) ? $v['locale'] : 'en';
             $core->prepare("INSERT INTO settings (key, value) VALUES ('default_locale', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value")->execute([$locale]);
             $core->exec("INSERT INTO employee_profiles (user_id) SELECT id FROM users u WHERE NOT EXISTS (SELECT 1 FROM employee_profiles p WHERE p.user_id = u.id)");
-            $log[] = 'Admin account '.h($v['email']).' ready';
+            $log[] = 'Admin account '.h($v['username']).' ('.h($v['email']).') ready';
 
             // 6. Config file
             $config['app']['name'] = trim($v['company']);
@@ -270,7 +275,7 @@ $css = 'assets/app.css?v='.(is_file(__DIR__.'/assets/app.css') ? filemtime(__DIR
         <?php if ($done && $v['demo']): ?>
             <div class="mt-6 rounded-md bg-mist p-4 text-sm">
                 <p class="font-medium">Demo accounts (password <code>Password@123</code>)</p>
-                <p class="mt-1 text-steel">management@acmeinter.com · bu.manager@acmeinter.com · manager@acmeinter.com · member@acmeinter.com</p>
+                <p class="mt-1 text-steel">Usernames: management · bu.manager · manager · member</p>
             </div>
         <?php endif ?>
         <p class="mt-6 text-sm text-steel">The installer is now locked. To run it again, delete <code>storage/installed.lock</code>. For a live server, also delete <code>public/install.php</code>.</p>
@@ -302,7 +307,8 @@ $css = 'assets/app.css?v='.(is_file(__DIR__.'/assets/app.css') ? filemtime(__DIR
                 <div><label class="label" for="locale">Default language</label><?= dropdown('locale', ['en' => 'English', 'th' => 'ไทย (Thai)'], (string) $v['locale'], 'locale') ?><p class="hint">People can choose their own later.</p></div>
                 <div><label class="label" for="app_url">Site address</label><input class="input" id="app_url" name="app_url" value="<?= h($v['app_url']) ?>" required><p class="hint">Used in e-mail links.</p></div>
                 <div><label class="label" for="admin">Admin name</label><input class="input" id="admin" name="admin" value="<?= h($v['admin']) ?>" required></div>
-                <div><label class="label" for="email">Admin e-mail (you sign in with this)</label><input class="input" id="email" name="email" type="email" value="<?= h($v['email']) ?>" required></div>
+                <div><label class="label" for="username">Admin username (you sign in with this)</label><input class="input" id="username" name="username" value="<?= h($v['username']) ?>" required autocomplete="off" autocapitalize="none"></div>
+                <div><label class="label" for="email">Admin e-mail</label><input class="input" id="email" name="email" type="email" value="<?= h($v['email']) ?>" required><p class="hint">For password resets and notifications.</p></div>
                 <div><label class="label" for="password">Admin password</label><input class="input" id="password" name="password" type="password" required autocomplete="new-password"><p class="hint">8+ characters, upper and lower case and a number.</p></div>
                 <div><label class="label" for="password_confirmation">Repeat password</label><input class="input" id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password"></div>
                 <label class="flex items-start gap-3 text-sm sm:col-span-2"><input type="checkbox" name="demo" value="1" class="mt-0.5 size-4 accent-signal-600" <?= $v['demo'] ? 'checked' : '' ?>><span><span class="font-medium">Add demo data</span><span class="block text-steel">Sample departments, teams, one person per role, tasks and KPIs, so you can see how each role works. Untick for a clean start.</span></span></label>

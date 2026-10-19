@@ -19,17 +19,17 @@ use App\Core\Support\ValidationException;
 /** Sign in, refresh, sign out (mobile app). */
 class AuthController extends Controller
 {
-    /** POST {email, password, device_name, device_id?, platform?} → token pair + who you are. */
+    /** POST {username (or email), password, device_name, device_id?, platform?} → token pair + who you are. */
     public function login(): array
     {
-        $in = $this->input(['email', 'password', 'device_name', 'device_id', 'platform']);
-        $email = mb_strtolower(trim((string) ($in['email'] ?? '')));
+        $in = $this->input(['username', 'email', 'password', 'device_name', 'device_id', 'platform']);
+        $email = mb_strtolower(trim((string) (($in['username'] ?? '') !== '' ? $in['username'] : ($in['email'] ?? ''))));   // sign-in name: username, or e-mail
         $password = (string) ($in['password'] ?? '');
         $name = trim((string) ($in['device_name'] ?? ''));
         $deviceKey = trim((string) ($in['device_id'] ?? '')) ?: null;
         $platform = in_array($in['platform'] ?? null, ['ios', 'android', 'web', 'other'], true) ? $in['platform'] : 'other';
         $errors = [];
-        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) { $errors['email'] = __('Enter your e-mail address.'); }
+        if ($email === '' || mb_strlen($email) > 190) { $errors['username'] = __('Enter your username.'); }
         if ($password === '' || strlen($password) > 200) { $errors['password'] = __('Enter your password.'); }
         if ($name === '' || mb_strlen($name) > 120) { $errors['device_name'] = __('Name this device (up to 120 characters).'); }
         if ($deviceKey !== null && ! preg_match('/^[A-Za-z0-9._-]{8,120}$/', $deviceKey)) { $errors['device_id'] = __('Invalid device id.'); }

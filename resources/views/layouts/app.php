@@ -1,8 +1,7 @@
 <?php
 $collapsed = ($_COOKIE['sidebar'] ?? '') === 'collapsed';
 $modules   = config('modules');
-$segment   = explode('/', trim(App\Core\Support\Request::path(), '/'))[0];
-$current   = isset($modules[$segment]) && $modules[$segment]['enabled'] ? $segment : 'core';
+$current   = App\Core\Support\Modules::forDisplay('/'.trim(App\Core\Support\Request::path(), '/'));
 ?>
 <!DOCTYPE html>
 <html lang="<?= e(locale()) ?>" class="h-full" data-sidebar="<?= $collapsed ? 'collapsed' : 'open' ?>" style="font-size: <?= (int) auth()->ui_scale ?>%">

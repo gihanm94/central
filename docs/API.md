@@ -56,7 +56,7 @@ Settings (`config/config.php`, all optional):
 ## Auth
 
 ```
-POST /auth/login     {"email", "password", "device_name": "Somchai's iPhone", "device_id": "<install id, optional>", "platform": "ios|android|other"}
+POST /auth/login     {"username" (or "email"), "password", "device_name": "Somchai's iPhone", "device_id": "<install id, optional>", "platform": "ios|android|other"}
   → {"token_type": "Bearer", "access_token", "expires_in", "refresh_token", "refresh_expires_in", "device_id", "user": {...profile...}}
 POST /auth/refresh   {"refresh_token"} → new pair (store both; the old refresh token is now dead)
 POST /auth/logout    → this device is signed out

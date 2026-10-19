@@ -61,6 +61,11 @@ final class Modules
         if (isset($m['home']) && ! str_starts_with($m['home'], '/')) {
             throw new \UnexpectedValueException('module.php: "home" must start with /.');
         }
+        foreach (['paths', 'permission_any'] as $k) {
+            if (isset($m[$k]) && (! is_array($m[$k]) || array_filter($m[$k], fn ($v) => ! is_string($v)))) {
+                throw new \UnexpectedValueException("module.php: \"{$k}\" must be a list of strings.");
+            }
+        }
         foreach ([...($m['menu'] ?? []), ...array_values($m['dashboards'] ?? [])] as $item) {
             if (! is_array($item) || (isset($item['url']) && ! is_string($item['url'])) || (! isset($item['heading']) && ! is_string($item['label'] ?? null))) {
                 throw new \UnexpectedValueException('module.php: every menu / dashboard entry needs a "label" (or "heading") and a string "url".');
@@ -87,16 +92,60 @@ final class Modules
     /** Enabled and not fenced off by a failure. */
     public static function usable(string $key): bool { return self::enabled($key) && ! self::problems($key); }
 
-    /** May this person open the module? A manifest can name a permission ('permission' => 'management.view'). */
+    /**
+     * May this person open the module? A manifest can name a permission ('permission' => 'management.view'),
+     * or several of which any one is enough ('permission_any' => [...]).
+     */
     public static function allowed(string $key): bool
     {
-        $perm = self::all()[$key]['permission'] ?? null;
-        if (! is_string($perm) || $perm === '') {
-            return true;
-        }
-        [$res, $act] = array_pad(explode('.', $perm, 2), 2, 'view');
+        $m = self::all()[$key] ?? [];
+        $check = function (string $perm): bool {
+            [$res, $act] = array_pad(explode('.', $perm, 2), 2, 'view');
 
-        return can($res, $act);
+            return $res === 'admin' ? (bool) auth()?->isAdmin() : can($res, $act);
+        };
+        if (! empty($m['permission']) && ! $check($m['permission'])) {
+            return false;
+        }
+        if (! empty($m['permission_any'])) {
+            foreach ($m['permission_any'] as $perm) {
+                if ($check($perm)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * The module a page belongs to for the menu and switcher: /<key>/… is that module; a module may also claim core
+     * pages ('paths' => ['/roles', '/settings']), so they show under it without changing their addresses. Longest match wins.
+     */
+    public static function forDisplay(string $path): string
+    {
+        $all = self::all();
+        $segment = explode('/', trim($path, '/'))[0];
+        if (isset($all[$segment]) && $all[$segment]['enabled']) {
+            return $segment;
+        }
+        $best = 'core';
+        $len = 0;
+        foreach ($all as $key => $m) {
+            if (! $m['enabled'] || ! self::allowed((string) $key)) {
+                continue;
+            }
+            foreach ($m['paths'] ?? [] as $p) {
+                $p = '/'.trim($p, '/');
+                if (($path === $p || str_starts_with($path, $p.'/')) && strlen($p) > $len) {
+                    [$best, $len] = [(string) $key, strlen($p)];
+                }
+            }
+        }
+
+        return $best;
     }
 
     /** The module a URL belongs to (/crm/leads → crm), or null for core pages. */

@@ -11,6 +11,7 @@ final class CurrentUser
     public int $id;
     public string $name;
     public string $email;
+    public ?string $username;
     public int $role_id;
     public string $role_slug;
     public string $role_name;
@@ -36,6 +37,7 @@ final class CurrentUser
         $this->id              = (int) $row['id'];
         $this->name            = $row['name'];
         $this->email           = $row['email'];
+        $this->username        = $row['username'] ?? null;
         $this->role_id         = (int) $row['role_id'];
         $this->role_slug       = $row['role_slug'];
         $this->role_name       = $row['role_name'];

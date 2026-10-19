@@ -53,6 +53,8 @@ class MemberController extends ResourceController
 
         return [
             'name'              => ['label' => __('Full name'), 'rules' => 'required|max:120', 'example' => 'Jane Perera'],
+            'username'          => ['label' => __('Username'), 'rules' => 'nullable|max:60', 'example' => 'jane.p',
+                                    'help' => __('Used to sign in. Letters, numbers, dot, dash, underscore. Leave empty to make one from the e-mail.')],
             'email'             => ['label' => __('Work e-mail'), 'type' => 'email', 'rules' => 'required|email|max:190|unique:users,email'.($id ? ','.$id : ''), 'example' => 'jane@acmeinter.com'],
             'password'          => ['label' => $row ? __('New password') : __('Password'), 'type' => 'password', 'import' => false, 'rules' => 'nullable|password',
                                     'help' => $row ? __('Leave empty to keep the current password.') : __('Leave empty to e-mail them a link to set their own.')],
@@ -86,7 +88,7 @@ class MemberController extends ResourceController
         return [
             'name'   => ['label' => __('Name'), 'primary' => true, 'render' => fn ($r) => '<a href="'.url('/members/'.$r['id']).'" class="flex items-center gap-3">'
                 .partial('partials/avatar', ['name' => $r['name'], 'avatar' => $r['avatar'], 'size' => 'size-8'])
-                .'<span class="min-w-0"><span class="block truncate font-medium hover:text-signal-700">'.e($r['name']).'</span><span class="block truncate text-xs text-steel">'.e($r['email']).'</span></span></a>'],
+                .'<span class="min-w-0"><span class="block truncate font-medium hover:text-signal-700">'.e($r['name']).'</span><span class="block truncate text-xs text-steel">'.e(($r['username'] ? '@'.$r['username'].' · ' : '').$r['email']).'</span></span></a>'],
             'role'   => ['label' => __('Role'), 'render' => fn ($r) => e(__($r['role_name'])).($r['data_scope'] ? ' <span class="badge ml-1 bg-amber-50 text-amber-800" title="'.e(__('Custom data scope')).'">'.e(__('custom')).'</span>' : '')],
             'where'  => ['label' => __('Department / team'), 'render' => fn ($r) => e($r['department_name'] ?? '—').($r['team_name'] ? '<span class="block text-xs text-steel">'.e($r['team_name']).'</span>' : '')],
             'job'    => ['label' => __('Job title'), 'render' => fn ($r) => e($r['job_title'] ?? '—').($r['employee_level'] ? ' <span class="badge ml-1 bg-graphite-900/6 text-graphite-800">'.e(enum_label('levels', $r['employee_level'])).'</span>' : '')],
@@ -97,7 +99,7 @@ class MemberController extends ResourceController
         ];
     }
 
-    protected function searchable(): array { return ['t.name', 't.email', 'p.employee_code', 'p.job_title']; }
+    protected function searchable(): array { return ['t.name', 't.username', 't.email', 'p.employee_code', 'p.job_title']; }
 
     protected function filters(): array
     {
@@ -124,6 +126,18 @@ class MemberController extends ResourceController
 
     protected function prepare(array $data, ?array $existing): array
     {
+        if (array_key_exists('username', $data)) {
+            $name = mb_strtolower(trim((string) $data['username']));
+            if ($name === '') {
+                if ($existing) { unset($data['username']); } else { $data['username'] = null; }   // new: made from the e-mail
+            } elseif (! preg_match('/^[a-z0-9._-]{3,60}$/', $name)) {
+                throw new ValidationException(['username' => __('Use 3–60 letters, numbers, dots, dashes or underscores (no spaces).')]);
+            } elseif (DB::scalar('SELECT 1 FROM users WHERE lower(username) = ? AND id <> ?', [$name, (int) ($existing['id'] ?? 0)])) {
+                throw new ValidationException(['username' => __('This username is already taken.')]);
+            } else {
+                $data['username'] = $name;
+            }
+        }
         if (! empty($data['password'])) {
             $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
         } elseif ($existing) {
@@ -175,13 +189,14 @@ class MemberController extends ResourceController
 
     private function sendInvite(int $id): void
     {
-        $u     = DB::first('SELECT name, email, locale FROM users WHERE id = ?', [$id]);
+        $u     = DB::first('SELECT name, email, username, locale FROM users WHERE id = ?', [$id]);
         $token = bin2hex(random_bytes(32));
         DB::exec('INSERT INTO password_resets (email, token_hash, created_at) VALUES (lower(?), ?, now())
                   ON CONFLICT (email) DO UPDATE SET token_hash = EXCLUDED.token_hash, created_at = now()', [$u['email'], hash('sha256', $token)]);
         $by = $this->user()->name;
         I18n::with($u['locale'] ?? null, fn () => Mailer::notify($u['email'], $u['name'], __('Your account is ready'), [
             __('An account was created for you by :name.', ['name' => e($by)]),
+            __('Your username for signing in: :u', ['u' => e((string) $u['username'])]),
             __('Choose your password with the button below. The link works for :minutes minutes; after that, use “Forgot password” on the sign-in page.', ['minutes' => (int) config('security.reset_minutes', 60)]),
         ], ['label' => __('Set my password'), 'url' => url('/reset-password', ['token' => $token, 'email' => $u['email']])]));
     }

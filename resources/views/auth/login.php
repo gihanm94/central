@@ -1,15 +1,15 @@
 <?php $layout = 'layouts/guest'; ?>
 <h1 class="font-display text-4xl font-semibold tracking-tight"><?= e(__('Sign in')) ?></h1>
-<p class="mt-2 text-sm text-graphite-400"><?= e(__('Use your work e-mail, or a passkey saved on this device.')) ?></p>
+<p class="mt-2 text-sm text-graphite-400"><?= e(__('Use your username, or a passkey saved on this device.')) ?></p>
 <?php include __DIR__.'/_messages.php' ?>
 
 <form method="POST" action="<?= url('/login') ?>" class="mt-8 space-y-5" novalidate>
     <?= csrf_field() ?>
     <div>
-        <label for="email" class="mb-1.5 block text-sm font-medium text-graphite-300"><?= e(__('Work e-mail')) ?></label>
-        <input id="email" name="email" type="email" value="<?= e(old('email')) ?>" required autofocus autocomplete="username webauthn" inputmode="email"
-               class="input-dark <?= error_for('email') ? 'ring-signal-500' : '' ?>">
-        <?php if ($m = error_for('email')): ?><p class="mt-1.5 text-xs font-medium text-signal-500"><?= e($m) ?></p><?php endif ?>
+        <label for="username" class="mb-1.5 block text-sm font-medium text-graphite-300"><?= e(__('Username')) ?></label>
+        <input id="username" name="username" type="text" value="<?= e(old('username')) ?>" required autofocus autocomplete="username webauthn" autocapitalize="none" spellcheck="false" maxlength="190"
+               class="input-dark <?= error_for('username') ? 'ring-signal-500' : '' ?>">
+        <?php if ($m = error_for('username')): ?><p class="mt-1.5 text-xs font-medium text-signal-500"><?= e($m) ?></p><?php endif ?>
     </div>
     <div>
         <div class="mb-1.5 flex items-center justify-between">
