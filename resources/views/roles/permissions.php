@@ -1,4 +1,5 @@
-<?php $crumbs = [[__('Roles & access'), '/roles']]; $actions = config('core.actions'); $isAdmin = $role['slug'] === 'admin'; ?>
+<?php $crumbs = [[__('Roles & access'), '/roles']]; $actions = config('core.actions'); $isAdmin = $role['slug'] === 'admin';
+if (! $isAdmin) { $actions = array_values(array_diff($actions, ['import'])); }    // importing data is for administrators only ?>
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0">
         <h1 class="page-title"><?= e($title) ?></h1>
@@ -11,7 +12,8 @@
         </div>
     <?php endif ?>
 </div>
-<?php if ($isAdmin): ?><p class="mt-6 rounded-md bg-graphite-900 px-4 py-3 text-sm text-white"><?= e(__('Admin always has every permission. This view is read-only.')) ?></p><?php endif ?>
+<?php if ($isAdmin): ?><p class="mt-6 rounded-md bg-graphite-900 px-4 py-3 text-sm text-white"><?= e(__('Admin always has every permission. This view is read-only.')) ?></p>
+<?php else: ?><p class="mt-6 rounded-md bg-mist px-4 py-2.5 text-xs text-steel"><?= e(__('Importing data is for administrators only, so it is not offered here.')) ?></p><?php endif ?>
 
 <form method="POST" action="<?= url('/roles/'.$role['id'].'/permissions') ?>" class="mt-6">
     <?= csrf_field() ?>

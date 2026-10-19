@@ -1794,4 +1794,6 @@ return [
     'Not saved: :reason' => 'ยังไม่บันทึก: :reason',
     'Sending failed. See Administrator → Mail log for the reason.' => 'ส่งไม่สำเร็จ ดูสาเหตุที่ ผู้ดูแลระบบ → บันทึกอีเมล',
     'Every e-mail the system sent or tried to send. Mail settings are in config/config.php (mail).' => 'อีเมลทั้งหมดที่ระบบส่งหรือพยายามส่ง การตั้งค่าอีเมลอยู่ใน config/config.php (mail)',
+    'Only an administrator can import data.' => 'เฉพาะผู้ดูแลระบบเท่านั้นที่นำเข้าข้อมูลได้',
+    'Importing data is for administrators only, so it is not offered here.' => 'การนำเข้าข้อมูลทำได้เฉพาะผู้ดูแลระบบ จึงไม่แสดงตัวเลือกนี้',
 ];

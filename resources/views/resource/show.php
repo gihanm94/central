@@ -6,6 +6,7 @@ $display = function (string $name, array $f) use ($row) {
     if ($type === 'password') { return null; }
     if ($type === 'checkbox') { return filter_var($v, FILTER_VALIDATE_BOOL) ? __('Yes') : __('No'); }
     if ($v === null || $v === '') { return '—'; }
+    if ($type === 'file') { return ['label' => '', 'img' => upload_url((string) $v)]; }      // a photo: show it
     if (isset($f['options'])) { return $f['options'][$v] ?? $f['all_options'][$v] ?? $v; }
     if ($type === 'date') { return format_date($v); }
     if ($type === 'datetime') { return format_date($v, 'd M Y H:i'); }
@@ -56,7 +57,7 @@ $singular = __($c['singular']);
             <div class="border-b border-graphite-900/6 px-5 py-3.5 <?= ($f['span'] ?? 1) === 2 ? 'sm:col-span-2' : '' ?>">
                 <dt class="text-xs text-steel"><?= e($f['label']) ?></dt>
                 <?php if (is_array($d)): /* a picture dropdown (person with photo) */ ?>
-                    <dd class="mt-1 flex items-center gap-2 text-sm font-medium"><?php if (! empty($d['img'])): ?><img src="<?= e($d['img']) ?>" alt="" class="size-7 rounded-full object-cover"><?php else: ?><span class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-700 text-[11px] font-semibold text-white"><?= e(initials((string) $d['label'])) ?></span><?php endif ?><?= e($d['label']) ?></dd>
+                    <dd class="mt-1 flex items-center gap-2 text-sm font-medium"><?php if (! empty($d['img'])): ?><img src="<?= e($d['img']) ?>" alt="" class="<?= $d['label'] === '' ? 'size-16 rounded-lg ring-1 ring-graphite-900/10' : 'size-7 rounded-full' ?> object-cover"><?php else: ?><span class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-700 text-[11px] font-semibold text-white"><?= e(initials((string) $d['label'])) ?></span><?php endif ?><?= e($d['label']) ?></dd>
                 <?php else: ?>
                 <dd class="mt-1 whitespace-pre-line break-words text-sm <?= $d === '—' ? 'text-graphite-400' : 'font-medium' ?>"><?= e($d) ?></dd>
                 <?php endif ?>

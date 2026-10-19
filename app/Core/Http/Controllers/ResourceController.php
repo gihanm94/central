@@ -338,9 +338,12 @@ abstract class ResourceController extends Controller
             array_map(fn ($r) => [$r['id'], ...array_values($this->displayValues($fields, $r))], $rows));
     }
 
+    /** Importing data is for administrators only, whatever the role's import box says. */
+    protected function mayImport(): bool { return $this->user()->isAdmin() && can($this->resource, 'import'); }
+
     public function template(): never
     {
-        $this->authorize($this->resource, 'import');
+        $this->mayImport() || abort(403, __('Only an administrator can import data.'));
         $fields = array_filter($this->real($this->fields(null)), fn ($f) => ($f['import'] ?? true) && empty($f['readonly']));
         Activity::log('download', $this->type, null, 'Import template', ['Downloaded the :type import template', ['type' => $this->plural]], [], null, null, false, $this->module);
 
@@ -351,7 +354,7 @@ abstract class ResourceController extends Controller
 
     public function import(): never
     {
-        $this->authorize($this->resource, 'import');
+        $this->mayImport() || abort(403, __('Only an administrator can import data.'));
         $file = Request::file('file') ?? throw new ValidationException(['file' => __('Choose a CSV file to import.')]);
         $rows = Csv::read($file);
 

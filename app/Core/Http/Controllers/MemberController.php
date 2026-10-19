@@ -11,6 +11,7 @@ use App\Core\Support\Options;
 use App\Core\Support\Permission;
 use App\Core\Support\Request;
 use App\Core\Support\Session;
+use App\Core\Support\Upload;
 use App\Core\Support\ValidationException;
 
 /**
@@ -53,6 +54,7 @@ class MemberController extends ResourceController
 
         return [
             'name'              => ['label' => __('Full name'), 'rules' => 'required|max:120', 'example' => 'Jane Perera'],
+            'avatar'            => ['label' => __('Photo'), 'type' => 'file', 'import' => false, 'rules' => 'nullable', 'help' => __('PNG, JPG or WebP, up to 2 MB.')],
             'username'          => ['label' => __('Username'), 'rules' => 'nullable|max:60', 'example' => 'jane.p',
                                     'help' => __('Used to sign in. Letters, numbers, dot, dash, underscore. Leave empty to make one from the e-mail.')],
             'email'             => ['label' => __('Work e-mail'), 'type' => 'email', 'rules' => 'required|email|max:190|unique:users,email'.($id ? ','.$id : ''), 'example' => 'jane@acmeinter.com'],
@@ -126,6 +128,15 @@ class MemberController extends ResourceController
 
     protected function prepare(array $data, ?array $existing): array
     {
+        // Photo: a new upload replaces the old one; no upload keeps it
+        if ($file = Request::file('avatar')) {
+            $data['avatar'] = Upload::image($file, 'avatars', 2048);
+            if ($existing && ! empty($existing['avatar'])) {
+                Upload::delete($existing['avatar']);
+            }
+        } else {
+            unset($data['avatar']);
+        }
         if (array_key_exists('username', $data)) {
             $name = mb_strtolower(trim((string) $data['username']));
             if ($name === '') {
