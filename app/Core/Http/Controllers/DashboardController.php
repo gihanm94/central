@@ -166,6 +166,12 @@ class DashboardController extends Controller
                                  WHERE l.action <> 'login_failed' AND ".($scope === 'all' ? 'TRUE' : "l.user_id IN (SELECT su.id FROM users su WHERE {$s['sql']})")."
                                  ORDER BY l.created_at DESC LIMIT 8", $scope === 'all' ? [] : $s['params']);
 
-        return view('dashboard/employee', ['title' => __('My workspace')] + compact('u', 'scope', 'myTasks', 'myKpis', 'figures', 'teammates', 'activity'));
+        // This year's appraisal score so far (saved by Management → KPI calculator); not calculated yet = 0
+        $kpiScore = DB::first('SELECT month, score, details, calculated_at FROM kpi_scores WHERE user_id = ? AND year = ?', [$u->id, (int) date('Y')]);
+        if ($kpiScore) {
+            $kpiScore['details'] = json_decode((string) $kpiScore['details'], true) ?: [];
+        }
+
+        return view('dashboard/employee', ['title' => __('My workspace')] + compact('u', 'scope', 'myTasks', 'myKpis', 'figures', 'teammates', 'activity', 'kpiScore'));
     }
 }

@@ -24,6 +24,45 @@ $statuses = App\Core\Http\Controllers\TaskController::statuses();
 </section>
 <?php endif ?>
 
+<?php
+// My KPI score this year (so far): saved by Management → KPI calculator, 0 until it is calculated
+$score    = $kpiScore ? (float) $kpiScore['score'] : 0.0;
+$sections = array_filter((array) ($kpiScore['details']['sections'] ?? []), fn ($s) => (int) ($s['points'] ?? 0) > 0);
+$secName  = ['kpi' => '1. KPI', 'ontime' => '2. KPI on time', 'qo' => '3. Department quality objective (QO)', 'sales' => '4. Sales performance',
+    'qms' => '5. QMS (NCR / CAR)', 'leader' => '6. Evaluation from leader', 'absence' => '7. Absence rate'];
+$sections = array_intersect_key(array_replace(array_fill_keys(array_keys($secName), null), $sections), $sections);   // 1–7 order (the database does not keep it)
+$tone     = $score >= 80 ? 'text-emerald-700' : ($score >= 60 ? 'text-graphite-900' : ($kpiScore ? 'text-signal-700' : 'text-graphite-400'));
+?>
+<section class="panel mt-6" aria-labelledby="my-kpi-score">
+    <div class="panel-head"><h2 class="panel-title" id="my-kpi-score"><?= e(__('My KPI score :year (so far)', ['year' => date('Y')])) ?></h2>
+        <?php if (can('kpi_submissions')): ?><a href="<?= url('/kpi-submissions') ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('My KPI submissions')) ?></a><?php endif ?></div>
+    <div class="grid gap-6 p-5 md:grid-cols-[14rem_1fr]">
+        <div>
+            <p class="figure text-5xl <?= $tone ?>"><?= e(number_format($score, 2)) ?><span class="ml-1 text-lg font-normal text-steel">/ 100</span></p>
+            <div class="mt-3"><?= partial('partials/progress', ['value' => (int) round($score)]) ?></div>
+            <p class="mt-2 text-xs text-steel"><?= e($kpiScore
+                ? __('Calculated up to :month · :date', ['month' => format_date(sprintf('%s-%02d-01', date('Y'), (int) $kpiScore['month']), 'F'), 'date' => format_date($kpiScore['calculated_at'], 'j M Y')])
+                : __('Not calculated yet. Your score shows here once management calculates it.')) ?></p>
+        </div>
+        <?php if ($sections): ?>
+        <ul class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            <?php foreach ($sections as $k => $s): $pts = (int) $s['points']; $got = (float) $s['earned']; ?>
+                <li>
+                    <div class="flex items-baseline justify-between gap-3 text-sm"><span class="min-w-0 truncate"><?= e(__($secName[$k] ?? $k)) ?></span>
+                        <span class="shrink-0 tabular-nums"><strong><?= e(number_clean(round($got, 2))) ?></strong><span class="text-steel"> / <?= $pts ?></span></span></div>
+                    <div class="mt-1.5"><?= partial('partials/progress', ['value' => $pts ? (int) round($got / $pts * 100) : 0]) ?></div>
+                </li>
+            <?php endforeach ?>
+            <?php if ((float) ($kpiScore['details']['deduction'] ?? 0) > 0): ?>
+                <li class="text-sm text-signal-700"><?= e(__('Warnings deducted: −:n', ['n' => number_clean((float) $kpiScore['details']['deduction'])])) ?></li>
+            <?php endif ?>
+        </ul>
+        <?php else: ?>
+        <p class="self-center text-sm text-steel"><?= e(__('The score is made of your KPIs, KPIs sent on time, quality objective, sales, QMS, your leader\'s evaluation and absence. Send your monthly KPI submissions on time to raise it.')) ?></p>
+        <?php endif ?>
+    </div>
+</section>
+
 <div class="mt-6 grid items-start gap-6 xl:grid-cols-5">
     <section class="panel xl:col-span-3">
         <div class="panel-head"><h2 class="panel-title"><?= e(__('My open tasks')) ?></h2><?php if (can('tasks')): ?><a href="<?= url('/tasks') ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('See all tasks')) ?></a><?php endif ?></div>

@@ -1833,4 +1833,11 @@ return [
     'Longest in this stage first' => 'เรียงจากที่ค้างนานที่สุด',
     'No opportunities in this stage for these filters.' => 'ไม่มีโอกาสการขายในขั้นตอนนี้ตามตัวกรองที่เลือก',
     'Showing the first 300. Narrow the dates to see the rest.' => 'แสดง 300 รายการแรก จำกัดช่วงวันที่เพื่อดูรายการที่เหลือ',
+    // My workspace → KPI score
+    'My KPI score :year (so far)' => 'คะแนน KPI ของฉัน ปี :year (ถึงปัจจุบัน)',
+    'My KPI submissions' => 'การส่ง KPI ของฉัน',
+    'Calculated up to :month · :date' => 'คำนวณถึงเดือน:month · :date',
+    'Not calculated yet. Your score shows here once management calculates it.' => 'ยังไม่ได้คำนวณ คะแนนจะแสดงที่นี่เมื่อผู้บริหารคำนวณแล้ว',
+    'Warnings deducted: −:n' => 'หักคะแนนจากใบเตือน: −:n',
+    'The score is made of your KPIs, KPIs sent on time, quality objective, sales, QMS, your leader\'s evaluation and absence. Send your monthly KPI submissions on time to raise it.' => 'คะแนนมาจาก KPI ของคุณ การส่ง KPI ตรงเวลา วัตถุประสงค์คุณภาพ ยอดขาย QMS การประเมินจากหัวหน้า และการขาดงาน ส่ง KPI รายเดือนให้ตรงเวลาเพื่อเพิ่มคะแนน',
 ];
