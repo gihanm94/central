@@ -8,14 +8,18 @@ use App\Core\Support\DB;
 use App\Core\Support\Options;
 use App\Core\Support\Request;
 use App\Core\Support\Session;
+use App\Core\Support\ValidationException;
 
 class TaskController extends ResourceController
 {
     public const STATUSES   = ['todo' => 'To do', 'in_progress' => 'In progress', 'review' => 'In review', 'done' => 'Done'];
     public const PRIORITIES = ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'urgent' => 'Urgent'];
+    /** A KPI or OKR task is what people submit a monthly result for (KPI submissions). */
+    public const KINDS      = ['task' => 'Task', 'kpi' => 'KPI', 'okr' => 'OKR'];
 
     public static function statuses(): array { return array_map(fn ($l) => __($l), self::STATUSES); }
     public static function priorities(): array { return array_map(fn ($l) => __($l), self::PRIORITIES); }
+    public static function kinds(): array { return array_map(fn ($l) => __($l), self::KINDS); }
 
     protected string $resource = 'tasks';
     protected string $table = 'tasks';
@@ -46,6 +50,10 @@ class TaskController extends ResourceController
             'title'       => ['label' => __('Title'), 'rules' => 'required|max:200', 'span' => 2, 'readonly' => $limited, 'example' => 'Inspect press guards'],
             'assigned_to' => ['label' => __('Assigned to'), 'type' => 'select', 'options' => $users, 'rules' => 'required', 'readonly' => $limited,
                               'all_options' => $row ? [$row['assigned_to'] => $row['assignee_name']] : []],
+            'kind'        => ['label' => __('Type'), 'type' => 'select', 'options' => self::kinds(), 'rules' => 'required', 'default' => 'task', 'readonly' => $limited, 'search' => false,
+                              'help' => __('KPI and OKR tasks are submitted every month in KPI submissions.')],
+            'criteria'    => ['label' => __('Criteria'), 'type' => 'number', 'rules' => 'nullable|numeric', 'readonly' => $limited, 'show_when' => 'kind=kpi,okr',
+                              'help' => __('Target or weight from 1 to 100, e.g. 90 for "at least 90%".')],
             'priority'    => ['label' => __('Priority'), 'type' => 'select', 'options' => self::priorities(), 'rules' => 'required', 'default' => 'medium', 'readonly' => $limited],
             'status'      => ['label' => __('Status'), 'type' => 'select', 'options' => self::statuses(), 'rules' => 'required', 'default' => 'todo'],
             'due_date'    => ['label' => __('Due date'), 'type' => 'date', 'rules' => 'nullable|date', 'readonly' => $limited],
@@ -62,6 +70,9 @@ class TaskController extends ResourceController
                 return '<a href="'.url('/tasks/'.$r['id']).'" class="font-medium hover:text-signal-700">'.e($r['title']).'</a>'
                     .($overdue ? ' <span class="badge ml-1 bg-signal-50 text-signal-800">'.__('Overdue').'</span>' : '');
             }],
+            'kind'     => ['label' => __('Type'), 'render' => fn ($r) => ($r['kind'] ?? 'task') === 'task' ? '<span class="text-steel">'.e(__('Task')).'</span>'
+                : '<span class="badge '.($r['kind'] === 'kpi' ? 'bg-sky-50 text-sky-800' : 'bg-violet-50 text-violet-800').'">'.e(__(self::KINDS[$r['kind']])).'</span>'
+                  .($r['criteria'] !== null ? ' <span class="text-xs tabular-nums text-steel">'.e(number_clean($r['criteria'])).'</span>' : '')],
             'assignee' => ['label' => __('Assigned to'), 'render' => fn ($r) => e($r['assignee_name'] ?? '—')],
             'priority' => ['label' => __('Priority'), 'render' => fn ($r) => partial('partials/priority', ['p' => $r['priority']])],
             'status'   => ['label' => __('Status'), 'render' => fn ($r) => partial('partials/status', ['s' => $r['status'], 'labels' => self::statuses()])],
@@ -74,6 +85,7 @@ class TaskController extends ResourceController
     protected function filters(): array
     {
         return [
+            'kind'     => ['label' => __('All types'), 'options' => self::kinds(), 'column' => 't.kind'],
             'status'   => ['label' => __('All statuses'), 'options' => self::statuses(), 'column' => 't.status'],
             'priority' => ['label' => __('All priorities'), 'options' => self::priorities(), 'column' => 't.priority'],
         ];
@@ -85,6 +97,16 @@ class TaskController extends ResourceController
     {
         if (! $existing) {
             $data['created_by'] = $this->user()->id;
+        }
+        if (isset($data['kind'])) {
+            if (! isset(self::KINDS[$data['kind']])) {
+                throw new ValidationException(['kind' => __('Choose a type.')]);
+            }
+            if ($data['kind'] === 'task') {
+                $data['criteria'] = null;
+            } elseif (($data['criteria'] ?? null) !== null && $data['criteria'] !== '' && ((float) $data['criteria'] < 1 || (float) $data['criteria'] > 100)) {
+                throw new ValidationException(['criteria' => __('Criteria must be between 1 and 100.')]);
+            }
         }
         if (! empty($data['assigned_to'])) {
             $a = DB::first('SELECT department_id, team_id FROM users WHERE id = ?', [$data['assigned_to']]);

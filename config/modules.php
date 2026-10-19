@@ -21,6 +21,7 @@ return [
             ['label' => 'Mail',             'url' => '/mail',        'icon' => 'mail'],
             ['label' => 'Tasks',            'url' => '/tasks',       'icon' => 'check',    'permission' => 'tasks.view'],
             ['label' => 'KPIs',             'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
+            ['label' => 'KPI submissions',  'url' => '/kpi-submissions', 'icon' => 'tick', 'permission' => 'kpi_submissions.view'],
             ['heading' => 'ERP'],
             ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
             ['heading' => 'Organization'],

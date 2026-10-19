@@ -10,6 +10,7 @@ use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
 use App\Core\Http\Controllers\ErpInvoiceController;
 use App\Core\Http\Controllers\KpiController;
+use App\Core\Http\Controllers\KpiSubmissionController;
 use App\Core\Http\Controllers\MemberController;
 use App\Core\Http\Controllers\ModuleController;
 use App\Core\Http\Controllers\NotificationController;
@@ -109,6 +110,16 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/passkeys/options', [PasskeyController::class, 'registerOptions']);
     $r->post('/passkeys', [PasskeyController::class, 'register']);
     $r->post('/passkeys/{id}/delete', [PasskeyController::class, 'destroy']);
+
+    // KPI submissions: monthly KPI / OKR results (before the standard screens so /kpi-submissions/create is not taken as an id)
+    $r->get('/kpi-submissions', [KpiSubmissionController::class, 'index']);
+    $r->get('/kpi-submissions/create', [KpiSubmissionController::class, 'create']);
+    $r->get('/kpi-submissions/export', [KpiSubmissionController::class, 'export']);
+    $r->post('/kpi-submissions', [KpiSubmissionController::class, 'store']);
+    $r->post('/kpi-submissions/approve-month', [KpiSubmissionController::class, 'approveMonth']);
+    $r->post('/kpi-submissions/{id}/approve', [KpiSubmissionController::class, 'approve']);
+    $r->post('/kpi-submissions/{id}/delete', [KpiSubmissionController::class, 'destroy']);
+    $r->get('/kpi-submissions/{id}/files/{file}', [KpiSubmissionController::class, 'file']);
 
     // Standard screens: list, new, detail, edit, delete, export, import, template, download
     $resources = [

@@ -146,5 +146,11 @@ SELECT setval(pg_get_serial_sequence('permissions','id'), GREATEST((SELECT MAX(i
 -- Mobile app & API (also added by migrations/core/2026_10_22_001_api.sql on existing installs). Granted to no role by default.
 INSERT INTO permissions (module, key, label, sort) VALUES ('core', 'api_access', 'Mobile app & API', 90) ON CONFLICT (key) DO NOTHING;
 INSERT INTO permissions (module, key, label, sort) VALUES ('core', 'erp_invoices', 'ERP invoices (own department)', 95) ON CONFLICT (key) DO NOTHING;
+INSERT INTO permissions (module, key, label, sort) VALUES ('core', 'kpi_submissions', 'KPI submissions', 65) ON CONFLICT (key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id, can_view, can_create, can_edit, can_delete, can_import, can_export, can_download)
+SELECT r.id, p.id, position('v' IN d.l) > 0, position('c' IN d.l) > 0, FALSE, FALSE, FALSE, position('x' IN d.l) > 0, position('w' IN d.l) > 0
+FROM (VALUES ('admin','vcxw'),('management','vxw'),('bu_manager','vcxw'),('manager','vcxw'),('member','vcw')) AS d(role, l)
+JOIN roles r ON r.slug = d.role JOIN permissions p ON p.key = 'kpi_submissions'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 SELECT setval(pg_get_serial_sequence('departments','id'), GREATEST((SELECT MAX(id) FROM departments), 1));
 SELECT setval(pg_get_serial_sequence('users','id'), GREATEST((SELECT MAX(id) FROM users), 1));

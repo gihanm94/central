@@ -21,9 +21,7 @@ $link = fn (array $extra = []) => url('/erp/invoices', array_filter(['q' => $f['
         <div><label class="label" for="f-to"><?= e(__('To')) ?></label><input id="f-to" type="date" name="to" value="<?= e($f['to']) ?>" class="input"></div>
         <?php if ($isAdmin): ?>
             <div><label class="label" for="f-dep"><?= e(__('Department')) ?></label>
-                <select id="f-dep" name="department" class="input"><option value=""><?= e(__('All departments')) ?></option>
-                    <?php foreach ($deps as $id => $name): ?><option value="<?= (int) $id ?>" <?= (int) $f['department'] === (int) $id ? 'selected' : '' ?>><?= e($name) ?></option><?php endforeach ?>
-                </select></div>
+                <div class="min-w-[12rem]"><?= select_field('department', $deps, $f['department'] ?: '', ['id' => 'f-dep', 'placeholder' => __('All departments')]) ?></div></div>
         <?php endif ?>
         <button class="btn-secondary"><?= e(__('Show')) ?></button>
         <span class="ml-auto self-center text-sm text-steel"><?= (int) $result['total'] ?> <?= e(__('invoices')) ?></span>
