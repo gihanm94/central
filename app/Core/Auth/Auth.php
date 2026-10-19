@@ -106,6 +106,15 @@ final class Auth
             return [null, __('Too many attempts. Try again in :seconds seconds.', ['seconds' => $wait]), $wait];
         }
 
+        // Per account, whatever the IP: 10 wrong passwords lock the account for 15 minutes (stops attacks spread over many IPs).
+        $acct = 'acct|'.strtolower($email);
+        $acctLock = DB::first('SELECT attempts, locked_until FROM login_attempts WHERE key = ?', [$acct]);
+        if ($acctLock && $acctLock['locked_until'] && strtotime($acctLock['locked_until']) > time()) {
+            $wait = max(1, strtotime($acctLock['locked_until']) - time());
+
+            return [null, __('Too many attempts. Try again in :seconds seconds.', ['seconds' => $wait]), $wait];
+        }
+
         $row = DB::first('SELECT id, password, is_active FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL', [$email]);
         $ok  = password_verify($password, $row['password'] ?? '$2y$10$USo5amzlXOl..rh2CsA1O.CQLOjNh3Mn.SEy/SL1wgN/p1bMJC/by') && $row;  // same work for unknown e-mails
 
@@ -115,13 +124,17 @@ final class Auth
             DB::exec('INSERT INTO login_attempts (key, attempts, locked_until) VALUES (?, ?, ?)
                       ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until',
                 [$key, $attempts >= $max ? 0 : $attempts, $attempts >= $max ? date('c', time() + 60 * (int) config('security.lockout_minutes', 1)) : null]);
+            $acctTries = ((int) ($acctLock['attempts'] ?? 0)) + 1;
+            DB::exec('INSERT INTO login_attempts (key, attempts, locked_until) VALUES (?, ?, ?)
+                      ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until',
+                [$acct, $acctTries >= 10 ? 0 : $acctTries, $acctTries >= 10 ? date('c', time() + 900) : null]);
             Activity::log('login_failed', null, null, null, ['Failed sign-in for :email', ['email' => $email]], ['email' => $email, 'method' => $method], null, $row['id'] ?? null, false);
             SessionGuard::event($row['id'] ?? null, 'failed', $method, null, $email);
 
             return [null, $ok ? __('This account is deactivated. Contact your administrator.') : __('These details do not match an active account.')];
         }
 
-        DB::exec('DELETE FROM login_attempts WHERE key = ?', [$key]);
+        DB::exec('DELETE FROM login_attempts WHERE key IN (?, ?)', [$key, $acct]);
         if (password_needs_rehash($row['password'], PASSWORD_DEFAULT)) {
             DB::exec('UPDATE users SET password = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $row['id']]);
         }

@@ -4,7 +4,8 @@
 return [
     'app' => [
         'name'     => 'Acme International',
-        'url'      => 'http://localhost:8000',
+        'url'      => 'http://localhost:8000',     // the address people use; links in e-mails are built from it
+        'hosts'    => [],                          // other names this site answers to, e.g. ['192.0.2.10:8000']
         'env'      => 'production',       // production hides error details; local shows them (only on your own computer)
         'timezone' => 'Asia/Bangkok',
         'key'      => 'change-me-run-installer',

@@ -106,6 +106,9 @@ class FileController extends Controller
         $root = $this->root();
         $path = Files::clean((string) Request::input('path', ''));
         try {
+            if (trim((string) Request::input('item', ''), '/ ') === '') {
+                throw new \RuntimeException(__('Choose a file or folder to rename.'));     // never the root folder itself
+            }
             $from = Files::abs($root, (string) Request::input('item', ''));
             $name = Files::name((string) Request::input('name', ''));
             $to = dirname($from).'/'.$name;

@@ -45,18 +45,24 @@ class AccessRequestController extends Controller
             'password_confirmation' => 'required|same:password',
         ], ['employee_code' => __('Employee ID'), 'name' => __('Full name'), 'email' => __('Work e-mail'), 'phone' => __('Phone'), 'gender' => __('Gender'), 'department_text' => __('Department'), 'password' => __('Password'), 'password_confirmation' => __('Confirm password')]);
 
-        $email = mb_strtolower($d['email']);
-        if (DB::scalar('SELECT 1 FROM users WHERE lower(email) = ? AND deleted_at IS NULL', [$email])) {
-            throw new ValidationException(['email' => __('This e-mail already has an account. Use "Forgot password" on the sign-in page.')]);
-        }
-        if (DB::scalar("SELECT 1 FROM access_requests WHERE lower(email) = ? AND status = 'pending'", [$email])) {
-            throw new ValidationException(['email' => __('A request for this e-mail is already waiting for the administrator.')]);
-        }
-        if (DB::scalar('SELECT 1 FROM employee_profiles WHERE lower(employee_code) = lower(?)', [$d['employee_code']])) {
-            throw new ValidationException(['employee_code' => __('This employee ID already belongs to a member.')]);
+        // Every try counts (not only stored ones), before anything is looked up.
+        try {
+            \App\Core\Api\RateLimit::hit('access-request:'.Request::ip(), 3);
+        } catch (\App\Core\Api\ApiException) {
+            throw new \App\Core\Support\HttpException(429, __('Too many requests from this network. Try again later.'));
         }
         if ((int) DB::scalar("SELECT count(*) FROM access_requests WHERE ip_address = ? AND created_at > now() - interval '1 hour'", [Request::ip()]) >= 5) {
             throw new \App\Core\Support\HttpException(429, __('Too many requests from this network. Try again later.'));
+        }
+        $thanks = __('Thank you. Your request was sent. An administrator will review it and e-mail you.');
+        $email = mb_strtolower($d['email']);
+        // An existing account, a waiting request or a taken employee ID get the same answer as a new request,
+        // so the form cannot be used to find out who works here. The administrator sees nothing new; the person
+        // with an account can use "Forgot password".
+        if (DB::scalar('SELECT 1 FROM users WHERE lower(email) = ? AND deleted_at IS NULL', [$email])
+            || DB::scalar("SELECT 1 FROM access_requests WHERE lower(email) = ? AND status = 'pending'", [$email])
+            || DB::scalar('SELECT 1 FROM employee_profiles WHERE lower(employee_code) = lower(?)', [$d['employee_code']])) {
+            json_response(['ok' => true, 'message' => $thanks]);
         }
 
         $id = (int) DB::insert('access_requests', [
@@ -75,7 +81,7 @@ class AccessRequestController extends Controller
                 error_log('[access-request] notify: '.$e->getMessage());
             }
         }
-        json_response(['ok' => true, 'message' => __('Thank you. Your request was sent. An administrator will review it and e-mail you.')]);
+        json_response(['ok' => true, 'message' => $thanks]);
     }
 
     /* ------------------------------------------------------------------ admin */

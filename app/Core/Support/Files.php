@@ -9,7 +9,8 @@ namespace App\Core\Support;
  */
 final class Files
 {
-    public const BLOCKED = ['php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phar', 'phps', 'htaccess', 'htpasswd', 'ini', 'cgi', 'pl', 'sh', 'bat', 'cmd', 'exe', 'dll', 'so'];
+    public const BLOCKED = ['php', 'php3', 'php4', 'php5', 'php7', 'php8', 'phtml', 'pht', 'phar', 'phps', 'htaccess', 'htpasswd', 'ini', 'cgi', 'pl', 'sh', 'bat', 'cmd', 'exe', 'dll', 'so',
+        'html', 'htm', 'xhtml', 'shtml', 'svg', 'svgz', 'js', 'mjs', 'xml'];   // could run script in the browser from public/uploads
 
     /** @return array<string, array{label: string, dir: string}> */
     public static function roots(): array

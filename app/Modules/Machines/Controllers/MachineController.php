@@ -86,7 +86,8 @@ class MachineController extends MachinesController
         $id = (int) Request::query('register', Request::input('register_id', 0));
         $this->reg = [];
         if ($id) {
-            $r = DB::first('SELECT * FROM register_request WHERE id = ? AND deleted_at IS NULL', [$id], 'machines');
+            $s = RegisterController::visibleSql($this->user());       // only a request this person may see
+            $r = DB::first("SELECT * FROM register_request t WHERE t.id = ? AND t.deleted_at IS NULL AND {$s['sql']}", [$id, ...$s['params']], 'machines');
             $this->reg = $r ?: [];
         }
 
@@ -224,7 +225,7 @@ class MachineController extends MachinesController
         if (! $data['supervisor_id'] && ! $data['manager_id']) {
             throw new ValidationException(['manager_id' => __('Pick a supervisor or a manager: somebody has to approve the checks.')]);
         }
-        $data['register_id'] = ! empty($data['register_id']) ? (int) $data['register_id'] : ($existing['register_id'] ?? null);
+        $data['register_id'] = ! empty($data['register_id']) && $this->register() ? (int) $this->register()['id'] : ($existing['register_id'] ?? null);
 
         if ($file = Request::file('image')) {
             $data['image'] = Upload::image($file, 'machines');

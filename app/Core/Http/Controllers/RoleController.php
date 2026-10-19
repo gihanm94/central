@@ -41,6 +41,7 @@ class RoleController extends Controller
     {
         $this->authorize('roles', 'create');
         $data = $this->validated(null);
+        $this->guardRank(null, isset($data['level']) ? (int) $data['level'] : null);
         $id   = (int) DB::insert('roles', $data + ['is_system' => false]);
         Activity::log('created', 'role', $id, $data['name'], ['Created :type ":label"', ['type' => 'role', 'label' => $data['name']]], ['attributes' => $data]);
         Session::flash('success', __('Role created. Now choose what it can do.'));
@@ -54,11 +55,31 @@ class RoleController extends Controller
         return view('roles/form', ['title' => __('Edit role'), 'role' => $this->find($id)]);
     }
 
+    /**
+     * Only an administrator may change their own role, a role ranked as high as theirs, or raise a role to their rank;
+     * otherwise "edit roles" would be a way to make yourself an administrator.
+     */
+    private function guardRank(?array $role, ?int $newLevel = null): void
+    {
+        $u = $this->user();
+        if ($u->isAdmin()) {
+            return;
+        }
+        if ($role && ((int) $role['id'] === $u->role_id || (int) $role['level'] >= $u->role_level)) {
+            abort(403, __('You can only change roles ranked below your own.'));
+        }
+        if ($newLevel !== null && $newLevel >= $u->role_level) {
+            throw new \App\Core\Support\ValidationException(['level' => __('Choose a level below your own (:n).', ['n' => $u->role_level])]);
+        }
+    }
+
     public function update(int $id): never
     {
         $this->authorize('roles', 'edit');
         $role = $this->find($id);
+        $this->guardRank($role);
         $data = $this->validated($role);
+        $this->guardRank(null, isset($data['level']) ? (int) $data['level'] : null);
         if ($role['slug'] === 'admin') {
             $data['data_scope'] = 'all';
             $data['level'] = 100;
@@ -77,6 +98,7 @@ class RoleController extends Controller
     {
         $this->authorize('roles', 'delete');
         $role = $this->find($id);
+        $this->guardRank($role);
         if (filter_var($role['is_system'], FILTER_VALIDATE_BOOL)) {
             throw new ValidationException(['role' => __('Built-in roles cannot be deleted.')]);
         }
@@ -109,6 +131,7 @@ class RoleController extends Controller
         if ($role['slug'] === 'admin') {
             abort(403, __('Admin always has full access.'));
         }
+        $this->guardRank($role);
 
         $input   = (array) Request::input('perm', []);
         $changes = [];

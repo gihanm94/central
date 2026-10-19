@@ -28,7 +28,12 @@ class RegisterController extends MachinesController
 
     protected function scopeSql(): array
     {
-        $u = $this->user();
+        return self::visibleSql($this->user());
+    }
+
+    /** Register requests a person may see (also used when a machine is made from one). */
+    public static function visibleSql(\App\Core\Auth\CurrentUser $u): array
+    {
         if ($u->scope() === 'all') {
             return ['sql' => 'TRUE', 'params' => []];
         }

@@ -13,14 +13,36 @@ function e(mixed $value): string { return htmlspecialchars((string) ($value ?? '
 
 function is_https(): bool
 {
-    return (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    if (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        return true;
+    }
+    // A proxy's "X-Forwarded-Proto" is believed only when the request comes from this machine or the private network
+    // (where such a proxy sits); a visitor on the internet cannot claim HTTPS.
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+
+    return ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' && $ip !== ''
+        && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+}
+
+/** Host names (with port) this site answers to: the one in app.url plus config app.hosts. */
+function allowed_hosts(): array
+{
+    static $hosts = null;
+    if ($hosts === null) {
+        $u = parse_url((string) config('app.url')) ?: [];
+        $hosts = array_map('strtolower', array_filter([($u['host'] ?? '').(isset($u['port']) ? ':'.$u['port'] : ''), ...(array) config('app.hosts', [])]));
+    }
+
+    return $hosts;
 }
 
 function base_url(): string
 {
     if (PHP_SAPI === 'cli' || empty($_SERVER['HTTP_HOST'])) {
         return rtrim((string) config('app.url'), '/');
+    }
+    if (! in_array(strtolower((string) $_SERVER['HTTP_HOST']), allowed_hosts(), true)) {
+        return rtrim((string) config('app.url'), '/');   // never build links (reset e-mails …) from a forged Host header
     }
     $script = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
     $prefix = $script === '/' || $script === '.' ? '' : rtrim($script, '/');
@@ -157,7 +179,13 @@ function redirect(string $to): never
     if (App\Core\Api\Kernel::$capturing) {
         throw new App\Core\Api\Captured(['redirect' => $to], 303);
     }
-    header('Location: '.(str_starts_with($to, 'http') ? $to : url($to)), true, 302);
+    if (preg_match('#^([a-z][a-z0-9+.\-]*:|//|\\\\)#i', $to)) {          // absolute: only to this site, never elsewhere
+        $base = base_url();
+        $to = $to === $base || str_starts_with($to, $base.'/') ? $to : url('/dashboard');
+    } else {
+        $to = url($to);
+    }
+    header('Location: '.$to, true, 302);
     exit;
 }
 
@@ -168,7 +196,7 @@ function back(?string $type = null, ?string $message = null): never
         App\Core\Support\Session::flash($type, $message);
     }
     $ref = $_SERVER['HTTP_REFERER'] ?? '';
-    redirect($ref && str_starts_with($ref, base_url()) ? $ref : '/dashboard');
+    redirect($ref && str_starts_with($ref, base_url().'/') ? $ref : '/dashboard');
 }
 
 function json_response(array $data, int $status = 200): never
