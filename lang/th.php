@@ -1882,4 +1882,12 @@ return [
     'Copy & edit' => 'คัดลอกและแก้ไข',
     'Copy this address into the custom address to edit it' => 'คัดลอกที่อยู่นี้ไปยังช่องที่อยู่กำหนดเองเพื่อแก้ไข',
     'Address copied. Edit it below.' => 'คัดลอกที่อยู่แล้ว แก้ไขได้ด้านล่าง',
+    // CRM opportunity: closed stages, duplicate
+    'Closed: the stage can no longer be changed. Duplicate it to start a new one.' => 'ปิดแล้ว: เปลี่ยนขั้นตอนไม่ได้อีก ทำสำเนาเพื่อเริ่มโอกาสใหม่',
+    'This opportunity is closed; its stage can no longer be changed. Duplicate it to start a new one.' => 'โอกาสการขายนี้ปิดแล้ว เปลี่ยนขั้นตอนไม่ได้อีก ทำสำเนาเพื่อเริ่มโอกาสใหม่',
+    'Duplicate' => 'ทำสำเนา',
+    'Make a copy of ":name" starting at Qualification?' => 'ทำสำเนา ":name" โดยเริ่มที่ขั้นตอนคัดกรองหรือไม่?',
+    'copy' => 'สำเนา',
+    'Duplicated opportunity ":label" from ":from"' => 'ทำสำเนาโอกาสการขาย ":label" จาก ":from"',
+    'Copy made at Qualification. Check the details and save.' => 'สร้างสำเนาที่ขั้นตอนคัดกรองแล้ว ตรวจสอบรายละเอียดแล้วบันทึก',
 ];

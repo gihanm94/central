@@ -9,6 +9,8 @@ $reached  = -1;
 foreach ($moves as $m) { $i = array_search($m['stage'], $pipeline, true); if ($i !== false) { $reached = max($reached, $i); } }
 $won      = $stage === 'CLOSED_WON';
 $closed   = in_array($stage, ['CLOSED_LOST', 'CANCEL', 'ON_HOLD'], true);
+$final    = in_array($stage, Catalog::FINAL, true);                    // won, lost or cancelled: no more stage moves
+$canEdit  = $canEdit && ! $final;
 $since    = $moves ? $moves[0]['created_at'] : $row['created_at'];
 $days     = max(0, (int) floor((time() - strtotime($since)) / 86400));
 $nodes    = [...array_map(fn ($s) => [$s, Catalog::stageLabel($s)], $pipeline), ['CLOSED_WON', Catalog::stageLabel('CLOSED_WON')]];
@@ -44,7 +46,8 @@ $options  = array_diff_key(App\Modules\CRM\Support\Stages::options(auth(), $stag
         <p><?= e(__('In this stage for :n', ['n' => $days === 0 ? __('less than a day') : __($days === 1 ? ':n day' : ':n days', ['n' => $days])])) ?>
             <?php if ($row['follow_at']): ?> · <?= e(__('Follow-up :date', ['date' => format_date($row['follow_at'], 'd M Y')])) ?><?php endif ?>
             <?php if ($row['close_at'] && ! $won && ! $closed): ?> · <?= e(__('Expected close :date', ['date' => format_date($row['close_at'], 'd M Y')])) ?><?php endif ?></p>
-        <?php if ($canEdit): ?><button type="button" class="btn-secondary py-1.5" data-toggle="#move-stage" aria-expanded="false"><?= icon('right', 'size-4') ?> <?= e(__('Move to another stage')) ?></button><?php endif ?>
+        <?php if ($canEdit): ?><button type="button" class="btn-secondary py-1.5" data-toggle="#move-stage" aria-expanded="false"><?= icon('right', 'size-4') ?> <?= e(__('Move to another stage')) ?></button>
+        <?php elseif ($final): ?><span class="inline-flex items-center gap-1.5 text-xs"><?= icon('lock', 'size-4') ?> <?= e(__('Closed: the stage can no longer be changed. Duplicate it to start a new one.')) ?></span><?php endif ?>
     </div>
 
     <?php if ($canEdit): ?>

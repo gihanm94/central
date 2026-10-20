@@ -90,6 +90,7 @@ $r->post('/crm/{kind}/{id}/shares/{sid}/delete', [RecordController::class, 'unsh
 
 // Opportunity progress
 $r->post('/crm/opportunities/{id}/stage', [OpportunityController::class, 'moveStage']);
+$r->post('/crm/opportunities/{id}/duplicate', [OpportunityController::class, 'duplicate']);
 $r->post('/crm/opportunities/{id}/steps', [OpportunityController::class, 'addStep']);
 $r->post('/crm/opportunities/{id}/steps/{sid}/done', [OpportunityController::class, 'doneStep']);
 $r->post('/crm/opportunities/{id}/steps/{sid}/delete', [OpportunityController::class, 'deleteStep']);

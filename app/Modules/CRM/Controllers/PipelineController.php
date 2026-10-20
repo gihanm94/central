@@ -147,6 +147,9 @@ class PipelineController extends Controller
         if ($stage === $row['opportunity_stage']) {
             json_response(['message' => __('It is already in this stage.')], 422);
         }
+        if (in_array($row['opportunity_stage'], Catalog::FINAL, true)) {
+            json_response(['message' => __('This opportunity is closed; its stage can no longer be changed. Duplicate it to start a new one.')], 422);
+        }
         try {
             $ctl->checkMove($stage, $note);
         } catch (ValidationException $e) {

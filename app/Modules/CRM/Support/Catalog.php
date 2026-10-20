@@ -19,6 +19,8 @@ final class Catalog
     ];
     public const PIPELINE = ['QUALIFICATION', 'SURVEY_PROPOSAL', 'EVALUATION_TESTING', 'NEGOTIATION'];
     public const OPEN     = ['QUALIFICATION', 'SURVEY_PROPOSAL', 'EVALUATION_TESTING', 'NEGOTIATION', 'ON_HOLD'];
+    /** closed for good: the stage can no longer be changed (duplicate the opportunity to start again) */
+    public const FINAL    = ['CLOSED_WON', 'CLOSED_LOST', 'CANCEL'];
     /** stages that need a written reason */
     public const NEEDS_REASON = ['CLOSED_LOST', 'CANCEL', 'ON_HOLD'];
 

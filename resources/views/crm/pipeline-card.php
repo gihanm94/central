@@ -4,7 +4,7 @@ use App\Modules\CRM\Support\Stages;
 use App\Modules\CRM\Support\Ui;
 /* One card of the board. $o (opportunity row + lead_*, owner_name, creator_name), $me (user id), $canEdit, $stages (codes the person may move to) */
 $mine    = (int) $o['created_by'] === (int) $me || (int) $o['owner_id'] === (int) $me;
-$movable = $canEdit && (int) $o['created_by'] === (int) $me;
+$movable = $canEdit && (int) $o['created_by'] === (int) $me && ! in_array($o['opportunity_stage'], Catalog::FINAL, true);
 $late    = $o['close_at'] && strtotime($o['close_at']) < strtotime('today') && in_array($o['opportunity_stage'], Catalog::OPEN, true);
 $color   = Stages::color($o['opportunity_stage']);
 ?>

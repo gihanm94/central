@@ -86,7 +86,7 @@
         teamSync(form);
     });
     document.addEventListener('click', function (e) {
-        var b = e.target.closest && e.target.closest('[data-confirm]');
+        var b = e.target.closest && e.target.closest('button[data-confirm], a[data-confirm]');   // a <form data-confirm> is asked by app.js
         if (b && !window.confirm(b.dataset.confirm)) e.preventDefault();
     });
 

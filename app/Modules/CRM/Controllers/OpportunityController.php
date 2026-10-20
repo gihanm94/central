@@ -63,7 +63,9 @@ class OpportunityController extends CrmController
                               'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
             'contact_id'  => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2,
                               'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null]),
-            'opportunity_stage' => ['label' => __('Stage'), 'type' => 'select', 'options' => Stages::options($this->user(), $row['opportunity_stage'] ?? null), 'rules' => 'required', 'default' => 'QUALIFICATION',
+            'opportunity_stage' => ['label' => __('Stage'), 'type' => 'select', 'rules' => 'required', 'default' => 'QUALIFICATION',
+                              'options' => $row && in_array($row['opportunity_stage'], Catalog::FINAL, true)     // closed for good: only its own stage
+                                  ? [$row['opportunity_stage'] => Catalog::stageLabel($row['opportunity_stage'])] : Stages::options($this->user(), $row['opportunity_stage'] ?? null),
                               'help' => __('After saving, use the stage tracker on the detail page to move it and keep a history.')],
             'priority'    => ['label' => __('Priority'), 'type' => 'select', 'options' => Catalog::tr(Catalog::PRIORITIES), 'rules' => 'required', 'default' => 'MEDIUM'],
             'cancel_reason' => ['label' => __('Reason'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:2000', 'show_when' => 'opportunity_stage=CLOSED_LOST,CANCEL,ON_HOLD',
@@ -119,6 +121,9 @@ class OpportunityController extends CrmController
     protected function prepareMore(array $data, ?array $existing): array
     {
         $stage = $data['opportunity_stage'] ?? $existing['opportunity_stage'] ?? 'QUALIFICATION';
+        if ($existing && in_array($existing['opportunity_stage'], Catalog::FINAL, true) && $stage !== $existing['opportunity_stage']) {
+            throw new ValidationException(['opportunity_stage' => __('This opportunity is closed; its stage can no longer be changed. Duplicate it to start a new one.')]);
+        }
 
         if (in_array($stage, Catalog::NEEDS_REASON, true) && ! trim((string) ($data['cancel_reason'] ?? $existing['cancel_reason'] ?? ''))) {
             throw new ValidationException(['cancel_reason' => __('Write the reason for this stage.')]);
@@ -192,6 +197,9 @@ class OpportunityController extends CrmController
         $note  = trim((string) Request::input('note'));
         if (isset(Catalog::STAGES[$stage]) && $stage === $row['opportunity_stage']) {
             back('error', __('It is already in this stage.'));
+        }
+        if (in_array($row['opportunity_stage'], Catalog::FINAL, true)) {
+            back('error', __('This opportunity is closed; its stage can no longer be changed. Duplicate it to start a new one.'));
         }
         $this->checkMove($stage, $note);
         $this->changeStage($row, $stage, $note);
@@ -291,7 +299,38 @@ class OpportunityController extends CrmController
     {
         $q = 'opportunity_id='.$row['id'].($row['lead_id'] ? '&lead_id='.$row['lead_id'] : '').($row['contact_id'] ? '&contact_id='.$row['contact_id'] : '');
 
-        return can('crm_activities', 'create') ? [['url' => '/crm/activities/create?'.$q, 'label' => __('Log activity'), 'icon' => 'clock']] : [];
+        $links = can('crm_activities', 'create') ? [['url' => '/crm/activities/create?'.$q, 'label' => __('Log activity'), 'icon' => 'clock']] : [];
+        if (can($this->resource, 'create')) {
+            $links[] = ['url' => '/crm/opportunities/'.$row['id'].'/duplicate', 'label' => __('Duplicate'), 'icon' => 'copy', 'post' => true,
+                'confirm' => __('Make a copy of ":name" starting at Qualification?', ['name' => $row['name']])];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Copy an opportunity as a new one at the first stage: same lead, contact, priority, amount, currency, products and
+     * notes; no code (numbered anew), dates, reason or history. The person copying it owns the copy.
+     */
+    public function duplicate(int $id): never
+    {
+        $this->authorize($this->resource, 'create');
+        $src    = $this->find($id);                                      // only a record this person can see
+        $fields = $this->fields(null);
+        $data   = $this->prepare([
+            'name' => mb_substr($src['name'].' ('.__('copy').')', 0, 200), 'lead_id' => $src['lead_id'], 'contact_id' => $src['contact_id'],
+            'opportunity_stage' => 'QUALIFICATION', 'priority' => $src['priority'], 'cancel_reason' => null, 'code' => null,
+            'amount' => $src['amount'], 'currency' => $src['currency'], 'probability' => null, 'follow_at' => null, 'close_at' => null,
+            'description' => $src['description'],
+            'products' => array_map(fn ($p) => ['product_id' => $p['product_id'], 'name' => $p['name'], 'quantity' => $p['quantity'], 'unit_price' => $p['unit_price'], 'note' => $p['note']], $src['product_list'] ?? []),
+        ], null);
+        $newId = (int) DB::insert($this->table, $this->tableData($fields, $data), $this->conn);
+        $this->saved($newId, $data, null);
+        $row = $this->find($newId);
+        Activity::log('created', $this->type, $newId, $this->label($row), ['Duplicated opportunity ":label" from ":from"', ['label' => $this->label($row), 'from' => $this->label($src)]],
+            ['attributes' => $this->displayValues($fields, $row), 'copied_from' => $id, '_url' => url($this->base.'/'.$newId)], $this->owner($row), module: $this->module);
+        Session::flash('success', __('Copy made at Qualification. Check the details and save.'));
+        redirect($this->base.'/'.$newId.'/edit');
     }
 
     private function steps(int $id): array
