@@ -377,7 +377,7 @@ abstract class ResourceController extends Controller
                 }
                 $raw   = $this->importDefaults($raw);
                 $clean = $this->validateFields($fields, $raw);
-                if ($this->duplicate($clean, null)) {
+                if ($this->alreadyStored($clean, null)) {
                     $skipped++;
                     continue;
                 }
@@ -404,7 +404,7 @@ abstract class ResourceController extends Controller
     protected function importDefaults(array $raw): array { return $raw; }
 
     /** True when this line is already stored: import skips it instead of adding it twice. */
-    protected function duplicate(array $data, ?array $existing): bool { return false; }
+    protected function alreadyStored(array $data, ?array $existing): bool { return false; }
 
     public function download(int $id): never
     {

@@ -173,7 +173,7 @@ class AccountReportController extends ResourceController
     }
 
     /** The same account, department, year, month, income / expenses and type is one line. */
-    protected function duplicate(array $data, ?array $existing): bool
+    protected function alreadyStored(array $data, ?array $existing): bool
     {
         return (bool) DB::scalar('SELECT 1 FROM account_reports WHERE deleted_at IS NULL AND account = ? AND department = ? AND year = ? AND month = ? AND kind = ? AND type = ? AND id <> ?',
             [trim((string) $data['account']), $this->appDepartment(trim((string) $data['department'])), (int) $data['year'], (int) $data['month'], $data['kind'], $data['type'], (int) ($existing['id'] ?? 0)], 'accounting');
@@ -189,7 +189,7 @@ class AccountReportController extends ResourceController
         if ($data['year'] < 2000 || $data['year'] > 2100) {
             throw new ValidationException(['year' => __('Enter a year between 2000 and 2100.')]);
         }
-        if ($this->duplicate($data, $existing)) {
+        if ($this->alreadyStored($data, $existing)) {
             throw new ValidationException(['account' => __('This line is already in the report (same account, department, year, month, income / expenses and type).')]);
         }
         $u = $this->user();
