@@ -10,6 +10,7 @@ use App\Core\Support\Request;
 
 /**
  * Management → Overview: revenue for a period, top customers, the seller ranking and the department ranking.
+ * Management → CRM overview: opportunities for the same periods (pipeline, won / lost, ranking), from CRM's 'management.crm' hook.
  * The figures come from Accounting through the 'revenue.ranking' hook; when Accounting is off or broken the page says so
  * and the rest of the module keeps working. Names, photos and departments come from the core database.
  */
@@ -63,5 +64,24 @@ class OverviewController extends Controller
 
         return view('management::overview', ['title' => __('Management overview'), 'from' => $from, 'to' => $to, 'period' => $period,
             'year' => (int) Request::query('year', date('Y')), 'data' => $data, 'departments' => $departments, 'people' => $people, 'kpi' => $kpi]);
+    }
+
+    public function crm(): string
+    {
+        $this->authorize('management', 'view');
+        [$from, $to, $period] = $this->range();
+        $data = Modules::usable('crm') ? (Modules::hook('management.crm', [$from, $to], 'crm')['crm'] ?? null) : null;
+
+        $departments = array_column(DB::select('SELECT id, name, color FROM departments WHERE deleted_at IS NULL'), null, 'id');
+        $people = [];
+        if ($data) {
+            $ids = array_values(array_unique(array_filter(array_merge(array_column($data['sellers'], 'id'), array_column($data['top'], 'owner_id')))));
+            if ($ids) {
+                $people = array_column(DB::select('SELECT id, name, avatar, department_id FROM users WHERE id IN ('.implode(',', array_map('intval', $ids)).')'), null, 'id');
+            }
+        }
+
+        return view('management::crm', ['title' => __('CRM overview'), 'from' => $from, 'to' => $to, 'period' => $period,
+            'year' => (int) Request::query('year', date('Y')), 'data' => $data, 'departments' => $departments, 'people' => $people]);
     }
 }

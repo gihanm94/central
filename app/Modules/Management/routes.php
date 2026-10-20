@@ -8,6 +8,7 @@ use App\Modules\Management\Controllers\OverviewController;
 
 $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
+    $r->get('/management/crm', [OverviewController::class, 'crm']);
 
     // KPI calculator: yearly appraisal score out of 100
     $r->get('/management/kpi-calculator', [KpiCalculatorController::class, 'index']);

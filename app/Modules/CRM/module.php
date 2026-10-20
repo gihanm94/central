@@ -41,5 +41,7 @@ return [
         'tick'            => fn () => Reminders::tick(),
         // Shared /calendar page: this person's visible CRM activities.
         'calendar.events' => fn ($user, string $from, string $to, bool $mine) => CalendarFeed::events($user, $from, $to, $mine),
+        // Management → CRM overview: whole-company opportunity figures for a period.
+        'management.crm'  => fn (string $from, string $to) => App\Modules\CRM\Support\ManagementOverview::data($from, $to),
     ],
 ];
