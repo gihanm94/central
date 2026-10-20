@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Modules\Accounting\Controllers\AccountingController;
+use App\Modules\Accounting\Controllers\AccountReportController;
 use App\Modules\Accounting\Controllers\BillingController;
 use App\Modules\Accounting\Controllers\CompanyController;
 use App\Modules\Accounting\Controllers\CustomerController;
@@ -82,3 +83,17 @@ $r->post('/accounting/billing/{id}/delete', [BillingController::class, 'destroy'
 $r->get('/accounting/notify', [NotifyController::class, 'edit']);
 $r->post('/accounting/notify', [NotifyController::class, 'save']);
 $r->post('/accounting/notify/send', [NotifyController::class, 'send']);
+
+// Management → Account report (lines added mainly by import; duplicates skipped)
+$r->get('/accounting/account-report', [AccountReportController::class, 'index']);
+$r->get('/accounting/account-report/create', [AccountReportController::class, 'create']);
+$r->post('/accounting/account-report', [AccountReportController::class, 'store']);
+$r->get('/accounting/account-report/export', [AccountReportController::class, 'export']);
+$r->get('/accounting/account-report/template', [AccountReportController::class, 'template']);
+$r->post('/accounting/account-report/import', [AccountReportController::class, 'import']);
+$r->post('/accounting/account-report/bulk-delete', [AccountReportController::class, 'bulkDestroy']);
+$r->get('/accounting/account-report/{id}', [AccountReportController::class, 'show']);
+$r->get('/accounting/account-report/{id}/edit', [AccountReportController::class, 'edit']);
+$r->post('/accounting/account-report/{id}', [AccountReportController::class, 'update']);
+$r->post('/accounting/account-report/{id}/delete', [AccountReportController::class, 'destroy']);
+$r->get('/accounting/account-report/{id}/download', [AccountReportController::class, 'download']);

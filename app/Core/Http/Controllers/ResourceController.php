@@ -360,6 +360,7 @@ abstract class ResourceController extends Controller
 
         $fields  = $this->real($this->fields(null));
         $created = 0;
+        $skipped = 0;
         $errors  = [];
 
         foreach ($rows as $i => $raw) {
@@ -374,8 +375,13 @@ abstract class ResourceController extends Controller
                         }
                     }
                 }
-                $raw  = $this->importDefaults($raw);
-                $data = $this->prepare($this->validateFields($fields, $raw), null);
+                $raw   = $this->importDefaults($raw);
+                $clean = $this->validateFields($fields, $raw);
+                if ($this->duplicate($clean, null)) {
+                    $skipped++;
+                    continue;
+                }
+                $data = $this->prepare($clean, null);
                 $id   = (int) DB::insert($this->table, $this->tableData($fields, $data), $this->conn);
                 $this->saved($id, $data, null);
                 $created++;
@@ -388,13 +394,17 @@ abstract class ResourceController extends Controller
 
         Activity::log('import', $this->type, null, ucfirst($this->plural),
             ['Imported :created of :total :type', ['created' => $created, 'total' => count($rows), 'type' => $this->plural]],
-            ['created' => $created, 'failed' => count($errors), 'errors' => array_slice($errors, 0, 20), 'file' => $file['name']], module: $this->module);
+            ['created' => $created, 'skipped' => $skipped, 'failed' => count($errors), 'errors' => array_slice($errors, 0, 20), 'file' => $file['name']], module: $this->module);
 
-        Session::flash($errors ? 'error' : 'success', __('Imported :created of :total rows.', ['created' => $created, 'total' => count($rows)]).($errors ? ' '.__('Problems').': '.implode(' | ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' …' : '') : ''));
+        Session::flash($errors ? 'error' : 'success', __('Imported :created of :total rows.', ['created' => $created, 'total' => count($rows)])
+            .($skipped ? ' '.__(':n already there, skipped.', ['n' => $skipped]) : '').($errors ? ' '.__('Problems').': '.implode(' | ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' …' : '') : ''));
         redirect($this->base);
     }
 
     protected function importDefaults(array $raw): array { return $raw; }
+
+    /** True when this line is already stored: import skips it instead of adding it twice. */
+    protected function duplicate(array $data, ?array $existing): bool { return false; }
 
     public function download(int $id): never
     {
@@ -420,7 +430,7 @@ abstract class ResourceController extends Controller
     {
         return [
             'resource' => $this->resource, 'base' => $this->base, 'singular' => $this->singular,
-            'plural' => $this->plural, 'icon' => $this->icon, 'wizard' => $this->wizard,
+            'plural' => $this->plural, 'icon' => $this->icon, 'wizard' => $this->wizard, 'import' => $this->mayImport(),
         ];
     }
 

@@ -27,6 +27,8 @@ return [
         ['label' => 'Inets',     'url' => '/accounting/inet',      'icon' => 'doc',   'permission' => 'accounting_inet.view'],
         ['heading' => 'Billing'],
         ['label' => 'Billing notes', 'url' => '/accounting/billing', 'icon' => 'doc', 'permission' => 'accounting_billing.view'],
+        ['heading' => 'Management'],
+        ['label' => 'Account report', 'url' => '/accounting/account-report', 'icon' => 'chart', 'permission' => 'accounting_reports.view'],
         ['heading' => 'Setup'],
         ['label' => 'Company',        'url' => '/accounting/company', 'icon' => 'building', 'admin_only' => true],
         ['label' => 'Notifications',  'url' => '/accounting/notify', 'icon' => 'bell', 'admin_only' => true],
@@ -50,6 +52,8 @@ return [
         'customer.quotes'   => fn (string $customerId) => App\Modules\Accounting\Support\CustomerLink::quotes($customerId),
         'erp.billing_pdf' => fn ($user, int $id) => App\Modules\Accounting\Support\DepartmentBilling::pdf($user, $id),
         // Management overview: revenue, top customers, sellers and departments between two dates
+        // Management → Account report: income / expenses by year, type, department and month
+        'account.report'  => fn (array $filters) => App\Modules\Accounting\Support\AccountReport::summary($filters),
         'revenue.ranking' => fn (string $from, string $to) => App\Modules\Accounting\Support\Ranking::get($from, $to),
     ],
 ];

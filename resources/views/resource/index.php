@@ -76,7 +76,7 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
         <div class="flex flex-wrap items-center gap-2">
             <?= $headerActions ?? '' ?>
             <?php if (! $ro && can($res, 'create')): ?><a href="<?= url($c['base'].'/create') ?>" class="btn-primary"><?= icon('plus', 'size-4') ?> <?= e(__('Add')) ?></a><?php endif ?>
-            <?php if (! $ro && auth()->isAdmin() && can($res, 'import')): ?><button type="button" class="btn-secondary" data-toggle="#import-panel" aria-expanded="false" title="<?= e(__('Import')) ?>"><?= icon('upload', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('Import')) ?></span></button><?php endif ?>
+            <?php if (! $ro && ! empty($c['import'])): ?><button type="button" class="btn-secondary" data-toggle="#import-panel" aria-expanded="false" title="<?= e(__('Import')) ?>"><?= icon('upload', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('Import')) ?></span></button><?php endif ?>
             <?php if (can($res, 'export')): ?><a href="<?= e(url($c['base'].'/export', $_GET)) ?>" class="btn-secondary" title="<?= e(__('Export')) ?>"><?= icon('download', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('Export')) ?></span></a><?php endif ?>
             <div class="relative">
                 <button type="button" class="btn-secondary" data-menu="#columns-menu" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" title="<?= e(__('Choose columns')) ?>"><?= icon('columns', 'size-4') ?><span class="hidden lg:inline"> <?= e(__('View')) ?></span></button>
@@ -94,12 +94,12 @@ $rowMenu = function (array $row, array $a, string $id) use ($c, $singular) { ob_
         </div>
     </div>
 
-    <?php if (! $ro && auth()->isAdmin() && can($res, 'import')): ?>
+    <?php if (! $ro && ! empty($c['import'])): ?>
     <form id="import-panel" hidden method="POST" action="<?= url($c['base'].'/import') ?>" enctype="multipart/form-data" class="flex flex-wrap items-end gap-4 border-b border-graphite-900/8 bg-mist/40 p-4">
         <?= csrf_field() ?>
         <div class="min-w-0 flex-1 basis-64">
-            <label for="file" class="label"><?= e(__('CSV file')) ?></label>
-            <input id="file" name="file" type="file" accept=".csv,text/csv" required class="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-graphite-900 file:px-3 file:py-1.5 file:text-sm file:text-white">
+            <label for="file" class="label"><?= e(__('CSV or Excel file')) ?></label>
+            <input id="file" name="file" type="file" accept=".csv,.xlsx,text/csv" required class="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-graphite-900 file:px-3 file:py-1.5 file:text-sm file:text-white">
             <p class="hint"><?= e(__('First row must be the column names. Drop-down columns accept the name shown in the app.')) ?> <a href="<?= url($c['base'].'/template') ?>" class="font-medium text-graphite-900 underline underline-offset-2"><?= e(__('Download the template')) ?></a></p>
         </div>
         <button class="btn-dark"><?= e(__('Import rows')) ?></button>

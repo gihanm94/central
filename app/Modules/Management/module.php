@@ -17,6 +17,7 @@ return [
         ['heading' => 'Overview'],
         ['label' => 'Overview',       'url' => '/management',                'icon' => 'chart', 'permission' => 'management.view'],
         ['label' => 'CRM overview',   'url' => '/management/crm',            'icon' => 'target', 'permission' => 'management.view'],
+        ['label' => 'Account report', 'url' => '/management/account-report', 'icon' => 'calc', 'permission' => 'management.view'],
         ['label' => 'Oil prices',     'url' => '/management/oil-prices',     'icon' => 'chart',  'permission' => 'management.view'],
         ['heading' => 'People'],
         ['label' => 'KPI calculator', 'url' => '/management/kpi-calculator', 'icon' => 'calc',  'permission' => 'kpi_calculator.view'],

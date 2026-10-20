@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use App\Modules\Management\Controllers\AccountReportController;
 use App\Modules\Management\Controllers\KpiCalculatorController;
 use App\Modules\Management\Controllers\EverbetterController;
 use App\Modules\Management\Controllers\OilPriceController;
@@ -13,6 +14,7 @@ use App\Core\Http\Controllers\PdfSignLogController;
 $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
+    $r->get('/management/account-report', [AccountReportController::class, 'index']);
     $r->get('/management/everbetter', [EverbetterController::class, 'index']);
     $r->get('/management/everbetter/projects/{id}', [EverbetterController::class, 'project']);
     $r->post('/management/everbetter/requests/{id}/acknowledge', [EverbetterController::class, 'acknowledge']);

@@ -27,8 +27,11 @@ final class Csv
         if (($file['error'] ?? 1) !== UPLOAD_ERR_OK) {
             throw new ValidationException(['file' => 'Upload failed.']);
         }
+        if (preg_match('/\.xlsx$/i', $file['name'])) {
+            return self::xlsx($file['tmp_name'], $maxRows);
+        }
         if (! preg_match('/\.(csv|txt)$/i', $file['name'])) {
-            throw new ValidationException(['file' => 'Upload a .csv file (in Excel: File > Save As > CSV UTF-8).']);
+            throw new ValidationException(['file' => 'Upload a .csv or .xlsx file.']);
         }
         $h      = fopen($file['tmp_name'], 'r');
         $header = fgetcsv($h) ?: [];
@@ -41,6 +44,28 @@ final class Csv
             $rows[] = array_combine($header, array_pad(array_slice($line, 0, count($header)), count($header), ''));
         }
         fclose($h);
+
+        return $rows;
+    }
+
+    /** The first sheet of an Excel file, read the same way as a CSV (first row = column names). */
+    private static function xlsx(string $path, int $maxRows): array
+    {
+        try {
+            $sheet = Xlsx::read($path, $maxRows + 1);
+        } catch (\RuntimeException $e) {
+            throw new ValidationException(['file' => $e->getMessage()]);
+        }
+        $lines  = (array) (reset($sheet) ?: []);
+        $header = array_map(fn ($c) => strtolower(trim((string) $c)), array_values((array) array_shift($lines)));
+        $rows   = [];
+        foreach ($lines as $line) {
+            $line = array_values(array_map(fn ($v) => (string) $v, (array) $line));
+            if (count(array_filter($line, fn ($v) => trim($v) !== '')) === 0) {
+                continue;
+            }
+            $rows[] = array_combine($header, array_pad(array_slice($line, 0, count($header)), count($header), ''));
+        }
 
         return $rows;
     }
