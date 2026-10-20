@@ -66,6 +66,7 @@
             $('[data-cust-name]', page).textContent = d.customer.name; $('[data-cust-name]', page).classList.remove('text-steel');
             $('[data-cust-code]', page).textContent = d.customer.code;
             $('[data-addr-text]', page).textContent = st.address || '—';
+            $('[data-addr-copy]', page).hidden = !st.address;
             var custom = $('input[name=addr][value=custom]', page); if (!st.address) { custom.checked = true; $('[data-addr-custom]', page).hidden = false; } else { $('input[name=addr][value=customer]', page).checked = true; $('[data-addr-custom]', page).hidden = true; }
             renderInvoices(); update();
         }).catch(function (e) { window.toast ? window.toast(e.message, 'error') : alert(e.message); });
@@ -90,6 +91,16 @@
         update();
     });
     page.addEventListener('input', function (e) { if (e.target.matches('[data-addr-custom], [data-bill-date], [data-remind-date]')) update(); });
+    // Copy & edit: the customer address goes into the custom address (and the clipboard), ready to change
+    page.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-addr-copy]'); if (!b || !st.address) return;
+        e.preventDefault();
+        var box = $('[data-addr-custom]', page), custom = $('input[name=addr][value=custom]', page);
+        box.value = st.address; custom.checked = true; box.hidden = false; update();
+        box.focus(); box.setSelectionRange(box.value.length, box.value.length);
+        if (navigator.clipboard) navigator.clipboard.writeText(st.address).catch(function () {});
+        if (window.toast) window.toast(L.lCopied, 'success');
+    });
     $$('[data-lang]', page).forEach(function (b) { b.addEventListener('click', function () {
         st.lang = b.dataset.lang;
         $$('[data-lang]', page).forEach(function (x) { var on = x === b; x.classList.toggle('bg-white', on); x.classList.toggle('shadow-sm', on); x.classList.toggle('text-steel', !on); });

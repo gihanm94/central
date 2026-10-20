@@ -1,6 +1,6 @@
 <?php /* $isAdmin, $notifyTime. All behaviour in public/assets/billing.js */ ?>
 <div id="bill-page" data-customers="<?= e(url('/accounting/billing/customers')) ?>" data-invoices="<?= e(url('/accounting/billing/invoices')) ?>" data-store="<?= e(url('/accounting/billing')) ?>"
-     data-l-inv="<?= e(__('inv')) ?>" data-l-items="<?= e(__('items')) ?>" data-l-working="<?= e(__('Generating…')) ?>" data-l-done="<?= e(__('Billing note created')) ?>" data-l-pick="<?= e(__('Select a customer')) ?>" data-l-none="<?= e(__('No invoices to bill for this customer.')) ?>" data-l-same="<?= e(__('same as billing')) ?>">
+     data-l-inv="<?= e(__('inv')) ?>" data-l-items="<?= e(__('items')) ?>" data-l-working="<?= e(__('Generating…')) ?>" data-l-done="<?= e(__('Billing note created')) ?>" data-l-pick="<?= e(__('Select a customer')) ?>" data-l-none="<?= e(__('No invoices to bill for this customer.')) ?>" data-l-same="<?= e(__('same as billing')) ?>" data-l-copied="<?= e(__('Address copied. Edit it below.')) ?>">
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div class="min-w-0">
             <p class="text-sm text-steel"><a href="<?= url('/accounting/billing') ?>" class="hover:text-signal-700"><?= e(__('Billing notes')) ?></a> › <?= e(__('Generate')) ?></p>
@@ -51,7 +51,8 @@
                 <div class="flex items-center gap-3"><span data-dot class="flex size-9 items-center justify-center rounded-full bg-graphite-900/8 text-sm font-semibold text-steel">3</span>
                     <div class="flex-1"><p class="text-[11px] font-semibold uppercase tracking-wider text-steel"><?= e(__('Step 3')) ?></p><p class="font-semibold"><?= e(__('Billing address')) ?></p></div></div>
                 <div class="mt-4 space-y-2 border-t border-graphite-900/8 pt-4">
-                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-graphite-900/15 p-3 has-[:checked]:border-signal-600 has-[:checked]:bg-signal-50/40"><input type="radio" name="addr" value="customer" checked class="mt-1 size-4 accent-signal-600"><span data-addr-text class="text-sm text-steel"><?= e(__('The customer address appears here.')) ?></span></label>
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-graphite-900/15 p-3 has-[:checked]:border-signal-600 has-[:checked]:bg-signal-50/40"><input type="radio" name="addr" value="customer" checked class="mt-1 size-4 accent-signal-600"><span data-addr-text class="min-w-0 flex-1 text-sm text-steel"><?= e(__('The customer address appears here.')) ?></span>
+                        <button type="button" data-addr-copy hidden class="btn-secondary -my-1 h-8 shrink-0 px-2.5 text-xs" title="<?= e(__('Copy this address into the custom address to edit it')) ?>"><?= icon('copy', 'size-4') ?> <?= e(__('Copy & edit')) ?></button></label>
                     <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-graphite-900/15 p-3 has-[:checked]:border-signal-600 has-[:checked]:bg-signal-50/40"><input type="radio" name="addr" value="custom" class="size-4 accent-signal-600"><span class="text-sm"><?= e(__('Enter a custom address')) ?></span></label>
                     <textarea data-addr-custom hidden rows="3" class="input" placeholder="<?= e(__('Company, street, district, province, postal code')) ?>"></textarea>
                 </div>

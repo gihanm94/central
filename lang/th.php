@@ -1878,4 +1878,8 @@ return [
     'top 8 by amount' => '8 อันดับตามมูลค่า',
     'No open opportunities.' => 'ไม่มีโอกาสการขายที่เปิดอยู่',
     'Deleted user' => 'ผู้ใช้ที่ถูกลบ',
+    // Billing note → copy address
+    'Copy & edit' => 'คัดลอกและแก้ไข',
+    'Copy this address into the custom address to edit it' => 'คัดลอกที่อยู่นี้ไปยังช่องที่อยู่กำหนดเองเพื่อแก้ไข',
+    'Address copied. Edit it below.' => 'คัดลอกที่อยู่แล้ว แก้ไขได้ด้านล่าง',
 ];
