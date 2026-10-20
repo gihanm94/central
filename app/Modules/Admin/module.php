@@ -11,7 +11,7 @@ return [
     'key' => 'admin',
     'name' => 'Administrator', 'icon' => 'shield', 'home' => '/admin', 'enabled' => true, 'db' => 'core',
     'permission_any' => ['admin', 'members.view', 'departments.view', 'teams.view', 'roles.view', 'activity_logs.view', 'settings.view'],
-    'paths' => ['/dashboard/admin', '/members', '/departments', '/teams', '/roles', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs', '/mail-log'],
+    'paths' => ['/dashboard/admin', '/members', '/departments', '/teams', '/roles', '/sessions', '/api-access', '/settings', '/modules', '/connectors', '/files', '/activity', '/system-logs', '/mail-log', '/pdf-sign-log'],
     'dashboards' => [
         'admin' => ['label' => 'Control room', 'url' => '/dashboard/admin', 'admin_only' => true],
     ],
@@ -37,6 +37,7 @@ return [
         ['label' => 'Activity log',     'url' => '/activity',         'icon' => 'clock',  'permission' => 'activity_logs.view'],
         ['label' => 'System logs',      'url' => '/system-logs',      'icon' => 'alert',  'admin_only' => true],
         ['label' => 'Mail log',         'url' => '/mail-log',         'icon' => 'mail',   'permission' => 'settings.view'],
+        ['label' => 'PDF signing log',  'url' => '/pdf-sign-log',     'icon' => 'doc',    'admin_only' => true],
     ],
     'hooks' => [],
 ];

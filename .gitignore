@@ -15,3 +15,5 @@
 
 # Server settings with passwords: never in git (the template is config/config.php.example)
 /config/config.php
+/storage/signatures/*
+/storage/pdf-signs/*

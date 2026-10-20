@@ -22,6 +22,7 @@ return [
             ['label' => 'Tasks',            'url' => '/tasks',       'icon' => 'check',    'permission' => 'tasks.view'],
             ['label' => 'KPIs & OKRs',      'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
             ['label' => 'KPI submissions',  'url' => '/kpi-submissions', 'icon' => 'tick', 'permission' => 'kpi_submissions.view'],
+            ['label' => 'Sign PDF',         'url' => '/sign-pdf',    'icon' => 'pencil',   'permission' => 'pdf_sign.view'],
             ['heading' => 'ERP'],
             ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
             ['label' => 'Billing notes',    'url' => '/erp/billing',  'icon' => 'doc',    'permission' => 'erp_billing.view'],

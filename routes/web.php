@@ -10,6 +10,8 @@ use App\Core\Http\Controllers\DepartmentController;
 use App\Core\Http\Controllers\EditorController;
 use App\Core\Http\Controllers\ErpInvoiceController;
 use App\Core\Http\Controllers\ErpBillingController;
+use App\Core\Http\Controllers\PdfSignController;
+use App\Core\Http\Controllers\PdfSignLogController;
 use App\Core\Http\Controllers\KpiController;
 use App\Core\Http\Controllers\KpiSubmissionController;
 use App\Core\Http\Controllers\MemberController;
@@ -81,6 +83,14 @@ $router->group(['auth'], function (Router $r) {
     $r->post('/files/delete', [FileController::class, 'delete']);
     $r->get('/erp/invoices', [ErpInvoiceController::class, 'index']);
     $r->get('/erp/invoices/{id}/pdf/{doc}', [ErpInvoiceController::class, 'pdf']);
+    $r->get('/sign-pdf', [PdfSignController::class, 'index']);
+    $r->get('/sign-pdf/new', [PdfSignController::class, 'create']);
+    $r->get('/sign-pdf/my-signature', [PdfSignController::class, 'mySignature']);
+    $r->post('/sign-pdf', [PdfSignController::class, 'store']);
+    $r->get('/sign-pdf/{id}', [PdfSignController::class, 'show']);
+    $r->get('/sign-pdf/{id}/file/{kind}', [PdfSignController::class, 'file']);
+    $r->get('/pdf-sign-log', [PdfSignLogController::class, 'index']);
+    $r->get('/pdf-sign-log/{id}', [PdfSignLogController::class, 'show']);
     $r->get('/erp/billing', [ErpBillingController::class, 'index']);
     $r->get('/erp/billing/{id}/pdf', [ErpBillingController::class, 'pdf']);
 

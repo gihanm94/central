@@ -196,3 +196,9 @@ UPDATE role_permissions rp SET can_view = FALSE, can_download = FALSE FROM roles
 WHERE rp.role_id = r.id AND rp.permission_id = p.id AND p.key IN ('erp_invoices', 'erp_billing') AND r.slug NOT IN ('admin', 'operation');
 UPDATE user_permissions up SET can_view = NULL, can_download = NULL FROM permissions p
 WHERE up.permission_id = p.id AND p.key IN ('erp_invoices', 'erp_billing');
+-- PDF signing (same as migrations/core/2026_11_03_001_pdf_signing.sql).
+INSERT INTO permissions (module, key, label, sort)
+SELECT 'core', 'pdf_sign', 'Sign PDF', 97 WHERE EXISTS (SELECT 1 FROM roles) ON CONFLICT (key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id, can_view, can_create, can_edit, can_delete, can_import, can_export, can_download)
+SELECT r.id, p.id, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE FROM roles r JOIN permissions p ON p.key = 'pdf_sign'
+ON CONFLICT (role_id, permission_id) DO NOTHING;

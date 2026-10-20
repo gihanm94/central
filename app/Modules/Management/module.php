@@ -19,6 +19,9 @@ return [
         ['label' => 'CRM overview',   'url' => '/management/crm',            'icon' => 'target', 'permission' => 'management.view'],
         ['heading' => 'People'],
         ['label' => 'KPI calculator', 'url' => '/management/kpi-calculator', 'icon' => 'calc',  'permission' => 'kpi_calculator.view'],
+        ['label' => 'Member signatures', 'url' => '/management/signatures',  'icon' => 'pencil', 'permission' => 'management.view'],
+        ['heading' => 'Audit'],
+        ['label' => 'PDF signing log', 'url' => '/management/pdf-signs',     'icon' => 'doc',   'permission' => 'management.view'],
     ],
     'hooks' => [],
 ];

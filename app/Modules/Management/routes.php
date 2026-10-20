@@ -3,12 +3,22 @@ declare(strict_types=1);
 
 use App\Modules\Management\Controllers\KpiCalculatorController;
 use App\Modules\Management\Controllers\OverviewController;
+use App\Modules\Management\Controllers\SignatureController;
+use App\Core\Http\Controllers\PdfSignLogController;
 
 /** @var App\Core\Support\Router $r  (signed-in users only; loaded only for /management/... URLs) */
 
 $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
+
+    // Member signatures (upload or draw) and the PDF signing log
+    $r->get('/management/signatures', [SignatureController::class, 'index']);
+    $r->get('/management/signatures/{id}/image', [SignatureController::class, 'image']);
+    $r->post('/management/signatures/{id}', [SignatureController::class, 'save']);
+    $r->post('/management/signatures/{id}/delete', [SignatureController::class, 'remove']);
+    $r->get('/management/pdf-signs', [PdfSignLogController::class, 'index']);
+    $r->get('/management/pdf-signs/{id}', [PdfSignLogController::class, 'show']);
 
     // KPI calculator: yearly appraisal score out of 100
     $r->get('/management/kpi-calculator', [KpiCalculatorController::class, 'index']);
