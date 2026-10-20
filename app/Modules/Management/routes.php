@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Modules\Management\Controllers\KpiCalculatorController;
+use App\Modules\Management\Controllers\EverbetterController;
 use App\Modules\Management\Controllers\OilPriceController;
 use App\Modules\Management\Controllers\OverviewController;
 use App\Modules\Management\Controllers\SignatureController;
@@ -12,6 +13,10 @@ use App\Core\Http\Controllers\PdfSignLogController;
 $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
+    $r->get('/management/everbetter', [EverbetterController::class, 'index']);
+    $r->post('/management/everbetter/requests/{id}/acknowledge', [EverbetterController::class, 'acknowledge']);
+    $r->post('/management/everbetter/requests/{id}/decide', [EverbetterController::class, 'decide']);
+    $r->post('/management/everbetter/days', [EverbetterController::class, 'sessions']);
     $r->get('/management/oil-prices', [OilPriceController::class, 'index']);
     $r->post('/management/oil-prices/sync', [OilPriceController::class, 'sync']);
     $r->post('/management/oil-prices/history', [OilPriceController::class, 'history']);

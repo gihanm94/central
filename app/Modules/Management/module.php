@@ -20,6 +20,7 @@ return [
         ['label' => 'Oil prices',     'url' => '/management/oil-prices',     'icon' => 'chart',  'permission' => 'management.view'],
         ['heading' => 'People'],
         ['label' => 'KPI calculator', 'url' => '/management/kpi-calculator', 'icon' => 'calc',  'permission' => 'kpi_calculator.view'],
+        ['label' => 'Everbetter',     'url' => '/management/everbetter',     'icon' => 'bolt',  'permission' => 'management.view'],
         ['label' => 'Member signatures', 'url' => '/management/signatures',  'icon' => 'pencil', 'permission' => 'management.view'],
         ['heading' => 'Audit'],
         ['label' => 'PDF signing log', 'url' => '/management/pdf-signs',     'icon' => 'doc',   'permission' => 'management.view'],

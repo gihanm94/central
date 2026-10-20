@@ -23,6 +23,7 @@ return [
             ['label' => 'KPIs & OKRs',      'url' => '/kpis',        'icon' => 'target',   'permission' => 'kpis.view'],
             ['label' => 'KPI submissions',  'url' => '/kpi-submissions', 'icon' => 'tick', 'permission' => 'kpi_submissions.view'],
             ['label' => 'Sign PDF',         'url' => '/sign-pdf',    'icon' => 'pencil',   'permission' => 'pdf_sign.view'],
+            ['label' => 'Everbetter',       'url' => '/everbetter',  'icon' => 'bolt',     'permission' => 'everbetter.view'],
             ['heading' => 'ERP'],
             ['label' => 'Invoices',         'url' => '/erp/invoices', 'icon' => 'doc',    'permission' => 'erp_invoices.view'],
             ['label' => 'Billing notes',    'url' => '/erp/billing',  'icon' => 'doc',    'permission' => 'erp_billing.view'],

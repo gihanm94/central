@@ -202,3 +202,9 @@ SELECT 'core', 'pdf_sign', 'Sign PDF', 97 WHERE EXISTS (SELECT 1 FROM roles) ON 
 INSERT INTO role_permissions (role_id, permission_id, can_view, can_create, can_edit, can_delete, can_import, can_export, can_download)
 SELECT r.id, p.id, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE FROM roles r JOIN permissions p ON p.key = 'pdf_sign'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
+-- Everbetter (same as migrations/core/2026_11_06_001_everbetter.sql).
+INSERT INTO permissions (module, key, label, sort)
+SELECT 'core', 'everbetter', 'Everbetter projects', 98 WHERE EXISTS (SELECT 1 FROM roles) ON CONFLICT (key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id, can_view, can_create, can_edit, can_delete, can_import, can_export, can_download)
+SELECT r.id, p.id, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE FROM roles r JOIN permissions p ON p.key = 'everbetter'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
