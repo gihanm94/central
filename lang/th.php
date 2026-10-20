@@ -2215,4 +2215,8 @@ return [
     'Congratulations to the team!' => 'ขอแสดงความยินดีกับทีม!',
     'Set the Everbetter ranking of :year' => 'กำหนดอันดับ Everbetter ปี :year',
     'Ranking of :year saved.' => 'บันทึกอันดับปี :year แล้ว',
+    'Project or owner' => 'โครงการหรือเจ้าของ',
+    'Any status' => 'ทุกสถานะ',
+    'Time used' => 'เวลาที่ใช้ไป',
+    'The team has not asked to present yet.' => 'ทีมยังไม่ได้ขอนำเสนอ',
 ];

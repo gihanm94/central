@@ -39,8 +39,8 @@ class EverbetterController extends Controller
         $thisQuarter = $session ? DB::select("SELECT x.*, p.title, p.owner_name, u.avatar FROM everbetter_presentations x JOIN everbetter_projects p ON p.id = x.project_id
             LEFT JOIN users u ON u.id = x.requested_by WHERE x.session_id = ? AND x.status <> 'withdrawn' AND p.deleted_at IS NULL ORDER BY x.kind, x.requested_at", [$session['id']]) : [];
 
-        $tab = (string) Request::query('tab', 'presentations');
-        $tab = in_array($tab, ['presentations', 'departments', 'ranking'], true) ? $tab : 'presentations';
+        $tab = (string) Request::query('tab', 'projects');
+        $tab = in_array($tab, ['projects', 'presentations', 'departments', 'ranking'], true) ? $tab : 'projects';
 
         return view('management::everbetter', [
             'tab' => $tab, 'byDepartment' => $tab === 'departments' ? $this->byDepartment($y) : null, 'ranking' => $tab === 'ranking' ? $this->ranking($y, $year) : null,
@@ -148,6 +148,15 @@ class EverbetterController extends Controller
         redirect('/management/everbetter?tab=ranking&year='.$year);
     }
 
+    /** One project in Management: details, team, every presentation, and the actions on a waiting request. */
+    public function project(int $id): string
+    {
+        $this->authorize('management', 'view');
+        $p = Everbetter::find($this->user(), $id) ?? abort(404, __('This project is not available.'));
+
+        return view('management::everbetter-project', ['title' => $p['title'], 'p' => $p, 'presentations' => Everbetter::presentations($id)]);
+    }
+
     public function acknowledge(int $id): never
     {
         $this->authorize('management', 'view');
@@ -194,6 +203,6 @@ class EverbetterController extends Controller
         }
         Activity::log('updated', 'everbetter', null, 'Everbetter', ['Set the Everbetter presentation days of :year', ['year' => $year]], [], null, notify: false, module: 'management');
         Session::flash('success', __('Presentation days of :year saved.', ['year' => $year]));
-        redirect('/management/everbetter?year='.$year.'#days');
+        redirect('/management/everbetter?tab=presentations&year='.$year.'#days');
     }
 }

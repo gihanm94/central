@@ -5,7 +5,7 @@ use App\Core\Support\Everbetter;
 $kinds = Everbetter::kinds();
 $kindTone = ['initiation' => 'bg-sky-50 text-sky-800', 'closure' => 'bg-emerald-50 text-emerald-800', 'extension' => 'bg-violet-50 text-violet-800'];
 $tabs = ['open' => __('Waiting'), 'submitted' => __('Not accepted yet'), 'decided' => __('Decided'), 'all' => __('All')];
-$link = fn (array $x) => url('/management/everbetter', array_filter(array_merge(['status' => $status, 'year' => $year], $x), fn ($v) => $v !== null && $v !== ''));
+$link = fn (array $x) => url('/management/everbetter', array_filter(array_merge(['tab' => 'presentations', 'status' => $status, 'year' => $year], $x), fn ($v) => $v !== null && $v !== ''));
 $actions = function (array $x) {
     ob_start(); ?>
     <div class="flex flex-wrap justify-end gap-1.5">
@@ -29,14 +29,49 @@ $actions = function (array $x) {
 </div>
 
 <nav class="mt-6 flex gap-7 overflow-x-auto rounded-xl bg-white px-6 shadow-sm ring-1 ring-graphite-900/8" aria-label="<?= e(__('Everbetter')) ?>">
-    <?php foreach (['presentations' => __('Presentations'), 'departments' => __('By department'), 'ranking' => __('Ranking')] as $k => $label): $on = $tab === $k; ?>
-        <a href="<?= e(url('/management/everbetter', array_filter(['tab' => $k === 'presentations' ? null : $k]))) ?>" <?= $on ? 'aria-current="page"' : '' ?>
+    <?php foreach (['projects' => __('All projects'), 'presentations' => __('Presentations'), 'departments' => __('By department'), 'ranking' => __('Ranking')] as $k => $label): $on = $tab === $k; ?>
+        <a href="<?= e(url('/management/everbetter', array_filter(['tab' => $k === 'projects' ? null : $k]))) ?>" <?= $on ? 'aria-current="page"' : '' ?>
            class="relative shrink-0 py-4 text-sm after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-full <?= $on ? 'font-semibold text-signal-700 after:bg-signal-600' : 'text-graphite-700 hover:text-graphite-900 after:bg-transparent' ?>"><?= e($label) ?></a>
     <?php endforeach ?>
 </nav>
 
-<?php if ($tab === 'presentations'): ?>
-<section class="panel mt-6 overflow-hidden" aria-labelledby="eb-quarter">
+<?php if ($tab === 'projects'): $pq = (string) App\Core\Support\Request::query('q', ''); $ps = (string) App\Core\Support\Request::query('pstatus', ''); ?>
+<section class="panel mt-4 overflow-hidden" aria-labelledby="eb-all">
+    <div class="panel-head flex-wrap gap-2">
+        <h2 class="panel-title" id="eb-all"><?= e(__('All projects')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count($projects) ?></span></h2>
+        <form method="GET" action="<?= url('/management/everbetter') ?>" class="flex flex-wrap items-center gap-2">
+            <input name="q" value="<?= e($pq) ?>" class="input !w-56" placeholder="<?= e(__('Project or owner')) ?>" aria-label="<?= e(__('Search')) ?>">
+            <div class="w-44"><?= select_field('pstatus', array_map(fn ($l) => __($l), Everbetter::PROJECT), $ps, ['placeholder' => __('Any status'), 'search' => false, 'aria' => __('Status')]) ?></div>
+            <button class="btn-secondary"><?= e(__('Show')) ?></button>
+        </form>
+    </div>
+    <?php if (! $projects): ?><p class="px-5 py-10 text-center text-sm text-steel"><?= e(__('No projects yet.')) ?></p><?php else: ?>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="px-5 py-2 font-medium"><?= e(__('Project')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Department')) ?></th>
+            <th class="px-3 py-2 font-medium"><?= e(__('Period')) ?></th><th class="px-3 py-2 font-medium"><?= e(__('Team')) ?></th>
+            <th class="px-3 py-2 font-medium"><?= e(__('Presented')) ?></th><th class="px-5 py-2 font-medium"><?= e(__('Status')) ?></th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        <?php foreach ($projects as $p): $last = $p['last_request']; ?>
+            <tr class="cursor-pointer hover:bg-mist/50" onclick="if (!event.target.closest('a')) location.href = this.querySelector('a').href">
+                <td class="max-w-[22rem] px-5 py-3"><a href="<?= url('/management/everbetter/projects/'.(int) $p['id']) ?>" class="font-medium hover:text-signal-700"><?= e($p['title']) ?></a>
+                    <span class="block text-xs text-steel"><?= e($p['owner_name']) ?></span></td>
+                <td class="px-3 py-3 text-steel"><?= e($p['department_name'] ?? '—') ?></td>
+                <td class="whitespace-nowrap px-3 py-3 text-steel"><?= e(format_date($p['start_date'], 'd M y').' – '.format_date($p['end_date'], 'd M y')) ?></td>
+                <td class="px-3 py-3"><div class="flex -space-x-2"><?php foreach (array_slice($p['members'], 0, 5) as $m): ?><?= partial('partials/avatar', ['name' => $m['name'], 'avatar' => $m['avatar'], 'size' => 'size-7', 'extra' => 'ring-2 ring-white']) ?><?php endforeach ?>
+                    <?php if (count($p['members']) > 5): ?><span class="flex size-7 items-center justify-center rounded-full bg-mist text-[11px] ring-2 ring-white">+<?= count($p['members']) - 5 ?></span><?php endif ?></div></td>
+                <td class="px-3 py-3"><span class="badge <?= (int) $p['presented'] ? 'bg-emerald-50 text-emerald-800' : 'bg-graphite-900/6 text-steel' ?>"><?= (int) $p['presented'] ? '✓ '.e(__('Presented')) : e(__('Not presented yet')) ?></span>
+                    <?php if ($last && $last['result'] === null): [$ll, $lt] = Everbetter::stateOf($last); ?><span class="mt-1 block text-xs text-steel"><?= e($kinds[$last['kind']].' · '.$ll) ?></span><?php endif ?></td>
+                <td class="px-5 py-3"><div class="flex flex-wrap gap-1"><?= partial('everbetter/status', ['p' => $p]) ?></div></td>
+            </tr>
+        <?php endforeach ?>
+        </tbody>
+    </table></div>
+    <?php endif ?>
+</section>
+
+<?php elseif ($tab === 'presentations'): ?>
+<section class="panel mt-4 overflow-hidden" aria-labelledby="eb-quarter">
     <div class="panel-head">
         <h2 class="panel-title" id="eb-quarter"><?= e(__('This quarter (Q:q :y)', ['q' => $q, 'y' => $y])) ?></h2>
         <span class="text-sm text-steel"><?= $session ? e(__('Presentation day :date', ['date' => format_date($session['present_on'], 'l d M Y')])).($session['place'] ? ' · '.e($session['place']) : '') : e(__('No presentation day set')) ?></span>
@@ -51,7 +86,7 @@ $actions = function (array $x) {
         <li class="flex flex-wrap items-center gap-3 px-5 py-3">
             <?= partial('partials/avatar', ['name' => $x['requested_name'], 'avatar' => $x['avatar'], 'size' => 'size-9']) ?>
             <div class="min-w-0 flex-1">
-                <a href="<?= url('/everbetter/'.(int) $x['project_id']) ?>" class="block truncate font-medium hover:text-signal-700"><?= e($x['title']) ?></a>
+                <a href="<?= url('/management/everbetter/projects/'.(int) $x['project_id']) ?>" class="block truncate font-medium hover:text-signal-700"><?= e($x['title']) ?></a>
                 <p class="truncate text-xs text-steel"><?= e($x['requested_name']) ?><?= $x['note'] ? ' · '.e(mb_substr($x['note'], 0, 120)) : '' ?></p>
             </div>
             <span class="badge <?= $kindTone[$x['kind']] ?>"><?= e($kinds[$x['kind']]) ?></span>
@@ -68,7 +103,7 @@ $actions = function (array $x) {
         <h2 class="panel-title" id="eb-requests"><?= e(__('Presentation requests')) ?></h2>
         <div class="flex flex-wrap items-center gap-2">
             <nav class="flex rounded-md bg-graphite-900/6 p-0.5 text-sm"><?php foreach ($tabs as $k => $t): ?><a href="<?= e($link(['status' => $k])) ?>" class="rounded px-3 py-1 <?= $status === $k ? 'bg-white font-medium shadow-sm' : 'text-steel hover:text-graphite-900' ?>"><?= e($t) ?></a><?php endforeach ?></nav>
-            <form method="GET" action="<?= url('/management/everbetter') ?>" class="w-56"><input type="hidden" name="status" value="<?= e($status) ?>">
+            <form method="GET" action="<?= url('/management/everbetter') ?>" class="w-56"><input type="hidden" name="tab" value="presentations"><input type="hidden" name="status" value="<?= e($status) ?>">
                 <?= select_field('session', $allSessions, (string) (int) App\Core\Support\Request::query('session', 0) ?: '', ['placeholder' => __('Every presentation day'), 'submit' => true, 'search' => false, 'aria' => __('Presentation day')]) ?></form>
         </div>
     </div>
@@ -80,7 +115,7 @@ $actions = function (array $x) {
         <tbody class="divide-y divide-graphite-900/6">
         <?php foreach ($requests as $x): [$l, $tone] = Everbetter::stateOf($x); ?>
             <tr class="align-top">
-                <td class="max-w-[22rem] px-5 py-3"><a href="<?= url('/everbetter/'.(int) $x['project_id']) ?>" class="font-medium hover:text-signal-700"><?= e($x['title']) ?></a>
+                <td class="max-w-[22rem] px-5 py-3"><a href="<?= url('/management/everbetter/projects/'.(int) $x['project_id']) ?>" class="font-medium hover:text-signal-700"><?= e($x['title']) ?></a>
                     <span class="block text-xs text-steel"><?= e($x['owner_name'].' · '.($x['department_name'] ?? '—').' · '.format_date($x['start_date'], 'd M y').' – '.format_date($x['end_date'], 'd M y')) ?></span>
                     <?php if ($x['note']): ?><span class="mt-1 block text-xs"><?= e(mb_substr($x['note'], 0, 200)) ?></span><?php endif ?></td>
                 <td class="px-3 py-3"><span class="badge <?= $kindTone[$x['kind']] ?>"><?= e($kinds[$x['kind']]) ?></span>
@@ -97,23 +132,8 @@ $actions = function (array $x) {
     <?php endif ?>
 </section>
 
-<div class="mt-4 grid items-start gap-4 xl:grid-cols-5">
-    <section class="panel overflow-hidden xl:col-span-3">
-        <div class="panel-head"><h2 class="panel-title"><?= e(__('All projects')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= count($projects) ?></span></h2></div>
-        <?php if (! $projects): ?><p class="px-5 py-8 text-center text-sm text-steel"><?= e(__('No projects yet.')) ?></p><?php endif ?>
-        <ul class="divide-y divide-graphite-900/6">
-            <?php foreach ($projects as $p): ?>
-            <li class="flex flex-wrap items-center gap-3 px-5 py-3">
-                <div class="min-w-0 flex-1"><a href="<?= url('/everbetter/'.(int) $p['id']) ?>" class="block truncate font-medium hover:text-signal-700"><?= e($p['title']) ?></a>
-                    <p class="truncate text-xs text-steel"><?= e($p['owner_name'].' · '.($p['department_name'] ?? '—').' · '.format_date($p['start_date'], 'd M y').' – '.format_date($p['end_date'], 'd M y').' · '.__(':n members', ['n' => count($p['members'])])) ?></p></div>
-                <span class="badge <?= (int) $p['presented'] ? 'bg-emerald-50 text-emerald-800' : 'bg-graphite-900/6 text-steel' ?>"><?= (int) $p['presented'] ? e(__('Presented')) : e(__('Not presented yet')) ?></span>
-                <?= partial('everbetter/status', ['p' => $p]) ?>
-            </li>
-            <?php endforeach ?>
-        </ul>
-    </section>
-
-    <section id="days" class="panel p-5 xl:col-span-2">
+<div class="mt-4 max-w-3xl">
+    <section id="days" class="panel p-5">
         <div class="flex items-center justify-between gap-2">
             <h2 class="panel-title"><?= e(__('Presentation days')) ?></h2>
             <div class="inline-flex items-center rounded-md bg-white ring-1 ring-graphite-900/15">
@@ -186,7 +206,7 @@ $actions = function (array $x) {
                     <?php foreach ([1, 2, 3] as $r): $p = $w[$r] ?? null; [$icon, $tone, $label] = $medal[$r]; ?>
                     <li class="rounded-lg p-3 ring-1 <?= $p ? $tone : 'bg-mist/40 ring-graphite-900/8' ?>">
                         <p class="text-xs font-semibold text-steel"><span class="text-lg"><?= $icon ?></span> <?= e($label) ?></p>
-                        <?php if ($p): ?><a href="<?= url('/everbetter/'.(int) $p['id']) ?>" class="mt-1 block font-medium leading-snug hover:text-signal-700"><?= e($p['title']) ?></a>
+                        <?php if ($p): ?><a href="<?= url('/management/everbetter/projects/'.(int) $p['id']) ?>" class="mt-1 block font-medium leading-snug hover:text-signal-700"><?= e($p['title']) ?></a>
                             <p class="mt-0.5 text-xs text-steel"><?= e($p['owner_name'].' · '.($p['department_name'] ?? '—')) ?></p>
                         <?php else: ?><p class="mt-1 text-sm text-steel">—</p><?php endif ?>
                     </li>
@@ -221,29 +241,4 @@ $actions = function (array $x) {
 </div>
 <?php endif ?>
 
-<dialog id="eb-decide" data-light-dismiss class="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-labelledby="eb-decide-title">
-    <form method="POST" action="" data-eb-decide-form>
-        <?= csrf_field() ?>
-        <div class="border-b border-graphite-900/8 px-5 py-3.5"><h2 id="eb-decide-title" class="text-base font-semibold"><?= e(__('Result of the presentation')) ?></h2>
-            <p class="mt-0.5 text-sm text-steel"><span data-eb-d-title></span> · <span data-eb-d-kind></span></p></div>
-        <div class="space-y-4 px-5 py-4">
-            <div class="grid grid-cols-2 gap-2">
-                <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-graphite-900/15 p-3 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50"><input type="radio" name="result" value="approved" checked class="size-4 accent-emerald-600"> <?= e(__('Approved')) ?></label>
-                <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-graphite-900/15 p-3 has-[:checked]:border-signal-600 has-[:checked]:bg-signal-50"><input type="radio" name="result" value="rejected" class="size-4 accent-signal-600"> <?= e(__('Not approved')) ?></label>
-            </div>
-            <div><label class="label" for="eb-d-note"><?= e(__('Comment for the team')) ?> <span class="font-normal text-steel">(<?= e(__('optional')) ?>)</span></label><textarea id="eb-d-note" name="note" rows="3" class="input"></textarea></div>
-            <p class="text-xs text-steel"><?= e(__('Approved initiation approves the project; approved closure closes it; approved extension moves its end date. The team is told.')) ?></p>
-        </div>
-        <div class="flex justify-end gap-2 rounded-b-xl bg-mist/60 px-5 py-3"><button type="button" class="btn-secondary" data-close-dialog><?= e(__('Cancel')) ?></button><button class="btn-primary"><?= e(__('Save result')) ?></button></div>
-    </form>
-</dialog>
-<script>
-document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-eb-decide]'); if (!b) return;
-    var f = document.querySelector('[data-eb-decide-form]');
-    f.action = <?= json_encode(url('/management/everbetter/requests')) ?> + '/' + b.dataset.ebDecide + '/decide';
-    f.querySelector('[data-eb-d-title]').textContent = b.dataset.ebTitle;
-    f.querySelector('[data-eb-d-kind]').textContent = b.dataset.ebKind;
-    f.reset();
-});
-</script>
+<?= partial('management::everbetter-decide') ?>

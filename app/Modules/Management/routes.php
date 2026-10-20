@@ -14,6 +14,7 @@ $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
     $r->get('/management/everbetter', [EverbetterController::class, 'index']);
+    $r->get('/management/everbetter/projects/{id}', [EverbetterController::class, 'project']);
     $r->post('/management/everbetter/requests/{id}/acknowledge', [EverbetterController::class, 'acknowledge']);
     $r->post('/management/everbetter/requests/{id}/decide', [EverbetterController::class, 'decide']);
     $r->post('/management/everbetter/days', [EverbetterController::class, 'sessions']);
