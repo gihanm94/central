@@ -8,14 +8,13 @@ $movable = $canEdit && (int) $o['created_by'] === (int) $me;
 $late    = $o['close_at'] && strtotime($o['close_at']) < strtotime('today') && in_array($o['opportunity_stage'], Catalog::OPEN, true);
 $color   = Stages::color($o['opportunity_stage']);
 ?>
-<article class="kb-card group relative rounded-lg bg-white p-3 text-sm shadow-sm <?= $mine ? 'ring-2 ring-signal-600/70' : 'ring-1 ring-graphite-900/10' ?> <?= $movable ? 'cursor-grab active:cursor-grabbing' : '' ?>"
+<article class="kb-card group relative rounded-lg bg-white p-3 text-sm shadow-sm <?= $mine ? 'ring-2 ring-signal-600' : 'ring-1 ring-graphite-900/10' ?> <?= $movable ? 'cursor-grab active:cursor-grabbing' : '' ?>"
          data-id="<?= (int) $o['id'] ?>" data-stage="<?= e($o['opportunity_stage']) ?>" data-mine="<?= $mine ? '1' : '0' ?>" <?= $movable ? 'draggable="true"' : '' ?>
-         <?= ! $movable ? 'title="'.e(__('Only :name, who created this, can move it.', ['name' => $o['creator_name'] ?? '—'])).'"' : '' ?>
-         style="<?= $mine ? 'box-shadow: inset 4px 0 0 var(--color-brand)' : '' ?>">
+         <?= ! $movable ? 'title="'.e(__('Only :name, who created this, can move it.', ['name' => $o['creator_name'] ?? '—'])).'"' : '' ?>>
     <div class="flex items-start justify-between gap-2">
         <a href="<?= url('/crm/opportunities/'.$o['id']) ?>" class="min-w-0 font-medium leading-snug hover:text-signal-700" draggable="false"><?= e($o['name']) ?></a>
         <span class="flex shrink-0 items-center gap-1">
-            <?php if ($mine): ?><span class="rounded bg-signal-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-signal-700"><?= e(__('Mine')) ?></span><?php endif ?>
+            <?php if ($mine): ?><span class="sr-only"><?= e(__('Mine')) ?></span><?php endif ?>
             <?php if ($movable): ?>
             <span class="relative">
                 <button type="button" class="btn-ghost size-6 px-0" data-menu="#cm-<?= (int) $o['id'] ?>" data-placement="bottom-end" aria-haspopup="menu" aria-expanded="false" aria-label="<?= e(__('Move :name to…', ['name' => $o['name']])) ?>"><?= icon('dots', 'size-4') ?></button>
