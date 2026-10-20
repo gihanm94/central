@@ -44,8 +44,7 @@
         if (!tabs.some(function (t) { return t.dataset.tab === key; })) return false;
         tabs.forEach(function (t) {
             var on = t.dataset.tab === key;
-            t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1;
-            t.classList.toggle('border-signal-600', on); t.classList.toggle('border-transparent', !on); t.classList.toggle('text-steel', !on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1;   // the look follows aria-selected
         });
         panels.forEach(function (p) { p.hidden = p.dataset.tabPanel !== key; });
         return true;

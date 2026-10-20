@@ -61,11 +61,13 @@ $sectionsShown = [];
 <div class="mt-6 grid gap-6 lg:grid-cols-3">
     <div class="min-w-0 space-y-6 lg:col-span-2" <?= ! empty($tabs) ? 'data-tabs' : '' ?>>
         <?php if (! empty($tabs)): ?>
-        <nav class="-mb-2 flex gap-1 overflow-x-auto border-b border-graphite-900/10" role="tablist" aria-label="<?= e(__('Sections')) ?>">
+        <nav class="flex gap-7 overflow-x-auto rounded-xl bg-white px-6 shadow-sm ring-1 ring-graphite-900/8" role="tablist" aria-label="<?= e(__('Sections')) ?>">
             <?php foreach (['details' => ['label' => __('Details'), 'count' => null]] + $tabs as $k => $t): ?>
                 <button type="button" role="tab" id="tab-<?= e($k) ?>" aria-controls="panel-<?= e($k) ?>" aria-selected="<?= $k === 'details' ? 'true' : 'false' ?>" data-tab="<?= e($k) ?>"
-                    class="-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors aria-selected:border-signal-600 aria-selected:text-graphite-900 <?= $k === 'details' ? 'border-signal-600' : 'border-transparent text-steel hover:text-graphite-900' ?>">
-                    <?= e($t['label']) ?><?php if ($t['count'] !== null): ?><span class="rounded-full bg-graphite-900/6 px-1.5 text-xs tabular-nums text-steel"><?= (int) $t['count'] ?></span><?php endif ?>
+                    class="group relative flex shrink-0 items-center gap-1.5 py-4 text-sm text-graphite-700 hover:text-graphite-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-600/40
+                           after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-full after:bg-transparent
+                           aria-selected:font-semibold aria-selected:text-signal-700 aria-selected:after:bg-signal-600">
+                    <?= e($t['label']) ?><?php if ($t['count'] !== null): ?><span class="rounded-full bg-graphite-900/6 px-1.5 text-xs font-medium tabular-nums text-steel group-aria-selected:bg-signal-50 group-aria-selected:text-signal-700"><?= (int) $t['count'] ?></span><?php endif ?>
                 </button>
             <?php endforeach ?>
         </nav>
