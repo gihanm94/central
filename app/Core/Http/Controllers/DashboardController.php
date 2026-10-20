@@ -173,7 +173,8 @@ class DashboardController extends Controller
         }
 
         $oil = \App\Core\Support\OilPrices::current();
+        $oilSync = $oil ? \App\Core\Support\OilPrices::lastSync() : null;
 
-        return view('dashboard/employee', ['title' => __('My workspace')] + compact('u', 'scope', 'myTasks', 'myKpis', 'figures', 'teammates', 'activity', 'kpiScore', 'oil'));
+        return view('dashboard/employee', ['title' => __('My workspace')] + compact('u', 'scope', 'myTasks', 'myKpis', 'figures', 'teammates', 'activity', 'kpiScore', 'oil', 'oilSync'));
     }
 }

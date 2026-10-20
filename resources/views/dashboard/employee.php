@@ -67,7 +67,7 @@ $tone     = $score >= 80 ? 'text-emerald-700' : ($score >= 60 ? 'text-graphite-9
 <section class="panel mt-6" aria-labelledby="oil-prices">
     <div class="panel-head">
         <h2 class="panel-title" id="oil-prices"><?= e(__('Oil prices today')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= e(__('PTT · baht per litre')) ?></span></h2>
-        <?php if (can('management')): ?><a href="<?= url('/management/oil-prices') ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('History')) ?></a><?php endif ?>
+        <?php if ($oilSync): ?><span class="flex items-center gap-1.5 text-xs text-steel"><?= icon('refresh', 'size-3.5') ?><?= e(__('Last synced :t', ['t' => format_date($oilSync['run_at'], 'd M Y H:i')])) ?></span><?php endif ?>
     </div>
     <?= partial('partials/oil-prices', ['oil' => $oil]) ?>
 </section>
