@@ -46,10 +46,22 @@ class NotificationController extends Controller
             echo json_encode($answer);
             fastcgi_finish_request();
             \App\Core\Support\Modules::hook('tick');
+            self::coreTick();
             exit;
         }
         \App\Core\Support\Modules::hook('tick');      // module background work (CRM reminders, machine jobs …); one failing never stops the others
+        self::coreTick();
         json_response($answer);
+    }
+
+    /** Core background work: the morning oil price sync when cron does not run it. Never breaks the bell. */
+    private static function coreTick(): void
+    {
+        try {
+            \App\Core\Support\OilPrices::tick();
+        } catch (\Throwable $e) {
+            error_log('[oil-prices] '.$e->getMessage());
+        }
     }
 
     public function open(int $id): never

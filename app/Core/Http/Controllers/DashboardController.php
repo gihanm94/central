@@ -172,6 +172,8 @@ class DashboardController extends Controller
             $kpiScore['details'] = json_decode((string) $kpiScore['details'], true) ?: [];
         }
 
-        return view('dashboard/employee', ['title' => __('My workspace')] + compact('u', 'scope', 'myTasks', 'myKpis', 'figures', 'teammates', 'activity', 'kpiScore'));
+        $oil = \App\Core\Support\OilPrices::current();
+
+        return view('dashboard/employee', ['title' => __('My workspace')] + compact('u', 'scope', 'myTasks', 'myKpis', 'figures', 'teammates', 'activity', 'kpiScore', 'oil'));
     }
 }

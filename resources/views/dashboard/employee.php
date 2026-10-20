@@ -63,6 +63,16 @@ $tone     = $score >= 80 ? 'text-emerald-700' : ($score >= 60 ? 'text-graphite-9
     </div>
 </section>
 
+<?php if ($oil): ?>
+<section class="panel mt-6" aria-labelledby="oil-prices">
+    <div class="panel-head">
+        <h2 class="panel-title" id="oil-prices"><?= e(__('Oil prices today')) ?> <span class="ml-1 text-sm font-normal text-steel"><?= e(__('PTT · baht per litre')) ?></span></h2>
+        <?php if (can('management')): ?><a href="<?= url('/management/oil-prices') ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('History')) ?></a><?php endif ?>
+    </div>
+    <?= partial('partials/oil-prices', ['oil' => $oil]) ?>
+</section>
+<?php endif ?>
+
 <div class="mt-6 grid gap-6 xl:grid-cols-5">
     <section class="panel flex flex-col xl:col-span-3">
         <div class="panel-head"><h2 class="panel-title"><?= e(__('My open tasks')) ?></h2><?php if (can('tasks')): ?><a href="<?= url('/tasks') ?>" class="text-sm text-steel hover:text-graphite-900"><?= e(__('See all tasks')) ?></a><?php endif ?></div>

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Modules\Management\Controllers\KpiCalculatorController;
+use App\Modules\Management\Controllers\OilPriceController;
 use App\Modules\Management\Controllers\OverviewController;
 use App\Modules\Management\Controllers\SignatureController;
 use App\Core\Http\Controllers\PdfSignLogController;
@@ -11,6 +12,10 @@ use App\Core\Http\Controllers\PdfSignLogController;
 $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
+    $r->get('/management/oil-prices', [OilPriceController::class, 'index']);
+    $r->post('/management/oil-prices/sync', [OilPriceController::class, 'sync']);
+    $r->post('/management/oil-prices/history', [OilPriceController::class, 'history']);
+    $r->post('/management/oil-prices/times', [OilPriceController::class, 'times']);
 
     // Member signatures (upload or draw) and the PDF signing log
     $r->get('/management/signatures', [SignatureController::class, 'index']);
