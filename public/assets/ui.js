@@ -8,6 +8,7 @@
  |   forms              [data-form]: required-field counter + dialog, wizard steps, full screen
  |   rich text          [data-richtext]: Quill, loaded on demand, images uploaded to the server and resizable
  |   pop-up cards       [data-open-dialog="id"] opens <dialog id>; [data-close-dialog] or a click outside closes it
+ |   tabs               [data-tabs]: [data-tab="k"] buttons show [data-tab-panel="k"]; the open tab is kept in the address (#k)
  */
 (function () {
     'use strict';
@@ -35,6 +36,31 @@
         $$('[data-scale-label]').forEach(function (l) { l.textContent = pct + '%'; });
         if (menu) postJson(menu.dataset.url, { scale: pct });
     });
+
+    /* ------------------------------------------------------------- tabs */
+
+    function showTab(box, key) {
+        var tabs = $$('[data-tab]', box), panels = $$('[data-tab-panel]', box);
+        if (!tabs.some(function (t) { return t.dataset.tab === key; })) return false;
+        tabs.forEach(function (t) {
+            var on = t.dataset.tab === key;
+            t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1;
+            t.classList.toggle('border-signal-600', on); t.classList.toggle('border-transparent', !on); t.classList.toggle('text-steel', !on);
+        });
+        panels.forEach(function (p) { p.hidden = p.dataset.tabPanel !== key; });
+        return true;
+    }
+    document.addEventListener('click', function (e) {
+        var t = e.target.closest('[data-tabs] [data-tab]'); if (!t) return;
+        showTab(t.closest('[data-tabs]'), t.dataset.tab);
+        history.replaceState(null, '', t.dataset.tab === 'details' ? location.pathname + location.search : '#' + t.dataset.tab);
+    });
+    document.addEventListener('keydown', function (e) {                       // arrow keys move between tabs
+        var t = e.target.closest && e.target.closest('[data-tabs] [data-tab]'); if (!t || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+        var all = $$('[data-tab]', t.closest('[data-tabs]')), i = all.indexOf(t) + (e.key === 'ArrowRight' ? 1 : -1);
+        var n = all[(i + all.length) % all.length]; n.focus(); n.click();
+    });
+    $$('[data-tabs]').forEach(function (box) { if (location.hash) showTab(box, location.hash.slice(1)); });
 
     /* ---------------------------------------------------- pop-up cards */
 

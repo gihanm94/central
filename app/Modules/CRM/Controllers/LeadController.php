@@ -182,7 +182,8 @@ class LeadController extends CrmController
         return $links;
     }
 
-    protected function showMain(array $row): string
+    /** Lead page: Details, Opportunities, Contacts and Activities as tabs. */
+    protected function showTabs(array $row): array
     {
         $id = (int) $row['id'];
 
@@ -194,9 +195,14 @@ class LeadController extends CrmController
             'badge' => Ui::badge(__(Catalog::ACTIVITY_STATUSES[$a['status']] ?? $a['status']), $a['status'] === 'DONE' ? 'success' : ($a['status'] === 'CANCELLED' ? 'neutral' : 'info'))],
             $this->visibleRows('activity', 't.id, t.topic, t.activity_type, t.start_at, t.status', 't.lead_id = ?', [$id], 't.start_at DESC NULLS LAST, t.id DESC'));
 
-        return $this->relatedPanel(__('Contacts'), $contacts, can('crm_contacts', 'create') ? '/crm/contacts/create?lead_id='.$id : null, __('No contacts yet.'), __('Add contact'))
-            .$this->relatedPanel(__('Opportunities'), $opps, can('crm_opportunities', 'create') ? '/crm/opportunities/create?lead_id='.$id : null, __('No opportunities yet.'), __('Add opportunity'))
-            .$this->relatedPanel(__('Activities'), $acts, can('crm_activities', 'create') ? '/crm/activities/create?lead_id='.$id : null, __('No activities yet.'), __('Log activity'));
+        return [
+            'opportunities' => ['label' => __('Opportunities'), 'count' => count($opps),
+                'html' => $this->relatedPanel(__('Opportunities'), $opps, can('crm_opportunities', 'create') ? '/crm/opportunities/create?lead_id='.$id : null, __('No opportunities yet.'), __('Add opportunity'))],
+            'contacts' => ['label' => __('Contacts'), 'count' => count($contacts),
+                'html' => $this->relatedPanel(__('Contacts'), $contacts, can('crm_contacts', 'create') ? '/crm/contacts/create?lead_id='.$id : null, __('No contacts yet.'), __('Add contact'))],
+            'activities' => ['label' => __('Activities'), 'count' => count($acts),
+                'html' => $this->relatedPanel(__('Activities'), $acts, can('crm_activities', 'create') ? '/crm/activities/create?lead_id='.$id : null, __('No activities yet.'), __('Log activity'))],
+        ];
     }
 
     protected function statCards(): array

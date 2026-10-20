@@ -312,6 +312,8 @@ abstract class CrmController extends ResourceController
 
     protected function showTop(array $row): string { return ''; }
     protected function showMain(array $row): string { return ''; }
+    /** Extra tabs next to "Details" on the record page: [key => ['label' => …, 'count' => ?int, 'html' => …]] */
+    protected function showTabs(array $row): array { return []; }
     protected function showSide(array $row): string { return ''; }
     protected function badges(array $row): array { return []; }
     protected function subtitleFor(array $row): string { return ''; }
@@ -346,7 +348,7 @@ abstract class CrmController extends ResourceController
             'canDelete'   => can($this->resource, 'delete') && $this->canModify($row, 'delete'),
             'canDownload' => can($this->resource, 'download'),
             'links' => $this->rowLinks($row), 'badges' => $this->badges($row), 'subtitle' => $this->subtitleFor($row), 'media' => $this->headerMedia($row),
-            'top' => $this->showTop($row), 'main' => $main, 'side' => $side,
+            'top' => $this->showTop($row), 'main' => $main, 'side' => $side, 'tabs' => $this->showTabs($row),
         ]);
     }
 

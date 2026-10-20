@@ -52,8 +52,18 @@ $sectionsShown = [];
 <?= $top ?>
 
 <div class="mt-6 grid gap-6 lg:grid-cols-3">
-    <div class="min-w-0 space-y-6 lg:col-span-2">
-        <section class="panel overflow-hidden">
+    <div class="min-w-0 space-y-6 lg:col-span-2" <?= ! empty($tabs) ? 'data-tabs' : '' ?>>
+        <?php if (! empty($tabs)): ?>
+        <nav class="-mb-2 flex gap-1 overflow-x-auto border-b border-graphite-900/10" role="tablist" aria-label="<?= e(__('Sections')) ?>">
+            <?php foreach (['details' => ['label' => __('Details'), 'count' => null]] + $tabs as $k => $t): ?>
+                <button type="button" role="tab" id="tab-<?= e($k) ?>" aria-controls="panel-<?= e($k) ?>" aria-selected="<?= $k === 'details' ? 'true' : 'false' ?>" data-tab="<?= e($k) ?>"
+                    class="-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors aria-selected:border-signal-600 aria-selected:text-graphite-900 <?= $k === 'details' ? 'border-signal-600' : 'border-transparent text-steel hover:text-graphite-900' ?>">
+                    <?= e($t['label']) ?><?php if ($t['count'] !== null): ?><span class="rounded-full bg-graphite-900/6 px-1.5 text-xs tabular-nums text-steel"><?= (int) $t['count'] ?></span><?php endif ?>
+                </button>
+            <?php endforeach ?>
+        </nav>
+        <?php endif ?>
+        <section class="panel overflow-hidden" <?= ! empty($tabs) ? 'role="tabpanel" id="panel-details" aria-labelledby="tab-details" data-tab-panel="details"' : '' ?>>
             <div class="panel-head"><h2 class="panel-title"><?= e(__('Details')) ?></h2></div>
             <?php if (! $rows): ?>
                 <p class="px-5 py-8 text-center text-sm text-steel"><?= e(__('Nothing more has been filled in yet.')) ?></p>
@@ -75,6 +85,9 @@ $sectionsShown = [];
             </dl>
             <?php endif ?>
         </section>
+        <?php foreach ($tabs ?? [] as $k => $t): ?>
+            <div role="tabpanel" id="panel-<?= e($k) ?>" aria-labelledby="tab-<?= e($k) ?>" data-tab-panel="<?= e($k) ?>" hidden><?= $t['html'] ?></div>
+        <?php endforeach ?>
         <?= $main ?>
     </div>
     <aside class="min-w-0 space-y-6"><?= $side ?></aside>
