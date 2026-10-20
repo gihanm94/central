@@ -1,7 +1,8 @@
 <?php
 use App\Core\Support\Session;
-// success / status / error messages are shown as toasts (public/assets/toast.js), not as a banner at the top of the page
-foreach (['success' => 'success', 'status' => 'info', 'error' => 'error'] as $key => $type):
+// success / status / warning / error messages are shown as toasts (public/assets/toast.js), not as a banner at the top of the page;
+// a line break in the message splits it into a title and a description
+foreach (['success' => 'success', 'status' => 'info', 'warning' => 'warning', 'error' => 'error'] as $key => $type):
     if ($msg = Session::get($key)): ?>
     <div data-toast data-type="<?= $type ?>" hidden><?= e($msg) ?></div>
 <?php endif; endforeach;

@@ -74,6 +74,10 @@ try {
     I18n::set(I18n::resolve(Auth::user()?->locale));
     View::share('branding', Settings::branding());
 
+    // export / download links add ?_dl=<token>: the cookie tells the page the file has arrived (toast "Download started")
+    if (isset($_GET['_dl']) && is_string($_GET['_dl']) && preg_match('/^[a-z0-9]{6,20}$/', $_GET['_dl'])) {
+        setcookie('dl_'.$_GET['_dl'], '1', ['expires' => time() + 120, 'path' => '/', 'samesite' => 'Lax', 'secure' => is_https()]);
+    }
     $router = new Router();
     require BASE_PATH.'/routes/web.php';
     if ($module = Modules::forPath($path)) {

@@ -252,7 +252,7 @@ abstract class ResourceController extends Controller
                 ['changes' => $changes, '_url' => url($this->base.'/'.$id)], $this->owner($after), module: $this->module);
         }
 
-        Session::flash('success', $changes ? __(':Item saved.', ['Item' => __(ucfirst($this->singular))]) : __('Nothing changed.'));
+        $changes ? Session::flash('success', __(':Item saved.', ['Item' => __(ucfirst($this->singular))])) : Session::flash('status', __('Nothing changed.'));
         $this->finish($id);
     }
 
@@ -319,7 +319,7 @@ abstract class ResourceController extends Controller
             Activity::log('deleted', $this->type, $id, $this->label($row), ['Deleted :type ":label"', ['type' => $this->singular, 'label' => $this->label($row)]], [], $this->owner($row), module: $this->module);
             $done++;
         }
-        Session::flash($done ? 'success' : 'error', __(':n deleted.', ['n' => $done]).($skipped ? ' '.__(':n skipped (not yours to delete).', ['n' => $skipped]) : ''));
+        Session::flash($done ? ($skipped ? 'warning' : 'success') : 'error', __(':n deleted.', ['n' => $done]).($skipped ? "\n".__(':n skipped (not yours to delete).', ['n' => $skipped]) : ''));
         redirect($this->base);
     }
 
@@ -396,8 +396,14 @@ abstract class ResourceController extends Controller
             ['Imported :created of :total :type', ['created' => $created, 'total' => count($rows), 'type' => $this->plural]],
             ['created' => $created, 'skipped' => $skipped, 'failed' => count($errors), 'errors' => array_slice($errors, 0, 20), 'file' => $file['name']], module: $this->module);
 
-        Session::flash($errors ? 'error' : 'success', __('Imported :created of :total rows.', ['created' => $created, 'total' => count($rows)])
-            .($skipped ? ' '.__(':n already there, skipped.', ['n' => $skipped]) : '').($errors ? ' '.__('Problems').': '.implode(' | ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' …' : '') : ''));
+        // all fine → success; some skipped or failed → warning; nothing saved and problems → error
+        $title  = __('Imported :created of :total rows.', ['created' => $created, 'total' => count($rows)]);
+        $detail = array_filter([
+            $skipped ? __(':n already there, skipped.', ['n' => $skipped]) : '',
+            $errors ? __('Problems').': '.implode(' | ', array_slice($errors, 0, 5)).(count($errors) > 5 ? ' …' : '') : '',
+        ]);
+        $tone = $errors ? ($created ? 'warning' : 'error') : ($created || ! $skipped ? 'success' : 'warning');
+        Session::flash($tone, $title.($detail ? "\n".implode("\n", $detail) : ''));
         redirect($this->base);
     }
 
