@@ -43,6 +43,11 @@ return [
         'erp.invoice_pdf' => fn ($user, int $id, string $doc) => DepartmentInvoices::pdf($user, $id, $doc),
         // ERP → Billing notes in User Management: billing notes of the person's department
         'erp.billing'     => fn ($user, array $filters) => App\Modules\Accounting\Support\DepartmentBilling::list($user, $filters),
+        // CRM lead page: ERP customers, invoices and quotes by tax ID (the CRM checks who may see the lead)
+        'customer.by_tax'   => fn (string $taxId) => App\Modules\Accounting\Support\CustomerLink::byTax($taxId),
+        'customer.get'      => fn (string $id) => App\Modules\Accounting\Support\CustomerLink::customer($id),
+        'customer.invoices' => fn (string $taxId) => App\Modules\Accounting\Support\CustomerLink::invoices($taxId),
+        'customer.quotes'   => fn (string $customerId) => App\Modules\Accounting\Support\CustomerLink::quotes($customerId),
         'erp.billing_pdf' => fn ($user, int $id) => App\Modules\Accounting\Support\DepartmentBilling::pdf($user, $id),
         // Management overview: revenue, top customers, sellers and departments between two dates
         'revenue.ranking' => fn (string $from, string $to) => App\Modules\Accounting\Support\Ranking::get($from, $to),

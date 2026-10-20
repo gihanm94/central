@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace App\Modules\CRM\Controllers;
 
+use App\Core\Support\Activity;
 use App\Core\Support\DB;
+use App\Core\Support\Modules;
 use App\Core\Support\Request;
+use App\Core\Support\Session;
 use App\Core\Support\Upload;
 use App\Modules\CRM\Support\Catalog;
 use App\Modules\CRM\Support\Ui;
@@ -195,7 +198,7 @@ class LeadController extends CrmController
             'badge' => Ui::badge(__(Catalog::ACTIVITY_STATUSES[$a['status']] ?? $a['status']), $a['status'] === 'DONE' ? 'success' : ($a['status'] === 'CANCELLED' ? 'neutral' : 'info'))],
             $this->visibleRows('activity', 't.id, t.topic, t.activity_type, t.start_at, t.status', 't.lead_id = ?', [$id], 't.start_at DESC NULLS LAST, t.id DESC'));
 
-        return [
+        $tabs = [
             'opportunities' => ['label' => __('Opportunities'), 'count' => count($opps),
                 'html' => $this->relatedPanel(__('Opportunities'), $opps, can('crm_opportunities', 'create') ? '/crm/opportunities/create?lead_id='.$id : null, __('No opportunities yet.'), __('Add opportunity'))],
             'contacts' => ['label' => __('Contacts'), 'count' => count($contacts),
@@ -203,6 +206,65 @@ class LeadController extends CrmController
             'activities' => ['label' => __('Activities'), 'count' => count($acts),
                 'html' => $this->relatedPanel(__('Activities'), $acts, can('crm_activities', 'create') ? '/crm/activities/create?lead_id='.$id : null, __('No activities yet.'), __('Log activity'))],
         ];
+
+        // With a tax ID: the ERP invoices with that tax ID, and the quotes of the connected ERP customer (data from Accounting)
+        if (preg_replace('/\D/', '', (string) $row['tax_id']) !== '') {
+            $erp = Modules::usable('accounting');
+            $inv = $erp ? (Modules::hook('customer.invoices', [(string) $row['tax_id']], 'accounting')['accounting'] ?? null) : null;
+            $tabs['invoices'] = ['label' => __('Invoices'), 'count' => $inv['total'] ?? null,
+                'html' => partial('crm/panels/lead-invoices', ['row' => $row, 'data' => $inv])];
+            $cid = $row['erp_customer_id'] ? (string) $row['erp_customer_id'] : null;
+            $quotes = $erp && $cid ? (Modules::hook('customer.quotes', [$cid], 'accounting')['accounting'] ?? null) : null;
+            $choices = $erp && ! $cid && Request::query('pick') === '1' ? (Modules::hook('customer.by_tax', [(string) $row['tax_id']], 'accounting')['accounting'] ?? []) : [];
+            $tabs['quotes'] = ['label' => __('Quotes'), 'count' => $quotes !== null ? count($quotes) : null,
+                'html' => partial('crm/panels/lead-quotes', ['row' => $row, 'quotes' => $quotes, 'erp' => $erp, 'choices' => $choices,
+                    'canEdit' => can($this->resource, 'edit') && $this->canModify($row, 'edit')])];
+        }
+
+        return $tabs;
+    }
+
+    /**
+     * Quotes tab → Connect: find the ERP customer with the lead's tax ID and keep its CustomerId on the lead.
+     * One match connects at once; several open a list to choose from (customer_id then says which).
+     */
+    public function erpConnect(int $id): never
+    {
+        $row  = $this->findForChange($id, 'edit');
+        $back = '/crm/leads/'.$id;
+        if (! Modules::usable('accounting')) {
+            back('error', __('The ERP data is not available right now (the Accounting module is off or unavailable).'));
+        }
+        if (preg_replace('/\D/', '', (string) $row['tax_id']) === '') {
+            back('error', __('Add the tax ID to this lead first.'));
+        }
+        $found = Modules::hook('customer.by_tax', [(string) $row['tax_id']], 'accounting')['accounting'] ?? [];
+        $pick  = (string) Request::input('customer_id', '');
+        if ($pick !== '') {
+            $found = array_values(array_filter($found, fn ($c) => $c['id'] === $pick));   // only a customer with this tax ID
+        }
+        if (! $found) {
+            back('error', __('No ERP customer has the tax ID :tax.', ['tax' => $row['tax_id']]));
+        }
+        if (count($found) > 1) {
+            redirect($back.'?pick=1#quotes');
+        }
+        $c = $found[0];
+        DB::update('leads', ['erp_customer_id' => $c['id'], 'erp_customer_name' => $c['name'], 'erp_connected_at' => now(), 'erp_connected_by' => $this->user()->id, 'updated_at' => now()], ['id' => $id], 'crm');
+        Activity::log('updated', 'lead', $id, $this->label($row), ['Connected lead ":label" to ERP customer :customer', ['label' => $this->label($row), 'customer' => trim(($c['code'] ? $c['code'].' ' : '').$c['name'])]],
+            ['changes' => ['erp_customer' => ['from' => (string) ($row['erp_customer_name'] ?? ''), 'to' => $c['name'].' (#'.$c['id'].')']], '_url' => url($back)], $this->owner($row), notify: false, module: 'crm');
+        Session::flash('success', __('Connected to :name. Its quotes are shown below.', ['name' => $c['name']]));
+        redirect($back.'#quotes');
+    }
+
+    public function erpDisconnect(int $id): never
+    {
+        $row = $this->findForChange($id, 'edit');
+        DB::update('leads', ['erp_customer_id' => null, 'erp_customer_name' => null, 'erp_connected_at' => null, 'erp_connected_by' => null, 'updated_at' => now()], ['id' => $id], 'crm');
+        Activity::log('updated', 'lead', $id, $this->label($row), ['Disconnected lead ":label" from its ERP customer', ['label' => $this->label($row)]],
+            ['changes' => ['erp_customer' => ['from' => (string) ($row['erp_customer_name'] ?? ''), 'to' => '']]], $this->owner($row), notify: false, module: 'crm');
+        Session::flash('success', __('Disconnected from the ERP customer.'));
+        redirect('/crm/leads/'.$id.'#quotes');
     }
 
     protected function statCards(): array
