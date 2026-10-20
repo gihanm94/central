@@ -1,5 +1,5 @@
 <?php
-/* $session (this quarter's day), $y, $q, $thisQuarter, $requests, $status, $projects, $year, $sessions [quarter => row], $allSessions [id => label], $counts {waiting, accepted} */
+/* $tab (presentations | departments | ranking), $byDepartment, $ranking, $session (this quarter's day), $y, $q, $thisQuarter, $requests, $status, $projects, $year, $sessions [quarter => row], $allSessions [id => label], $counts {waiting, accepted} */
 use App\Core\Support\Everbetter;
 
 $kinds = Everbetter::kinds();
@@ -28,6 +28,14 @@ $actions = function (array $x) {
     </div>
 </div>
 
+<nav class="mt-6 flex gap-7 overflow-x-auto rounded-xl bg-white px-6 shadow-sm ring-1 ring-graphite-900/8" aria-label="<?= e(__('Everbetter')) ?>">
+    <?php foreach (['presentations' => __('Presentations'), 'departments' => __('By department'), 'ranking' => __('Ranking')] as $k => $label): $on = $tab === $k; ?>
+        <a href="<?= e(url('/management/everbetter', array_filter(['tab' => $k === 'presentations' ? null : $k]))) ?>" <?= $on ? 'aria-current="page"' : '' ?>
+           class="relative shrink-0 py-4 text-sm after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-full <?= $on ? 'font-semibold text-signal-700 after:bg-signal-600' : 'text-graphite-700 hover:text-graphite-900 after:bg-transparent' ?>"><?= e($label) ?></a>
+    <?php endforeach ?>
+</nav>
+
+<?php if ($tab === 'presentations'): ?>
 <section class="panel mt-6 overflow-hidden" aria-labelledby="eb-quarter">
     <div class="panel-head">
         <h2 class="panel-title" id="eb-quarter"><?= e(__('This quarter (Q:q :y)', ['q' => $q, 'y' => $y])) ?></h2>
@@ -131,6 +139,87 @@ $actions = function (array $x) {
         </form>
     </section>
 </div>
+
+<?php elseif ($tab === 'departments'): $bd = $byDepartment; $maxCell = max([1, ...array_map(fn ($r) => max([0, ...array_column($r['years'], 'submitted')]), $bd['rows'])]); ?>
+<section class="panel mt-4 overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title"><?= e(__('Projects submitted by department')) ?></h2>
+        <span class="text-xs text-steel"><?= e(__('A project counts in the year it first asked to present.')) ?><?= $bd['drafts'] ? ' '.e(__(':n not submitted yet.', ['n' => $bd['drafts']])) : '' ?></span></div>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-xs text-steel"><tr>
+            <th class="px-5 py-2 text-left font-medium"><?= e(__('Department')) ?></th>
+            <?php foreach ($bd['years'] as $yr): ?><th class="px-4 py-2 text-center font-medium <?= $yr === $y ? 'text-graphite-900' : '' ?>"><?= $yr ?><?= $yr === $y ? ' <span class="font-normal text-steel">('.e(__('this year')).')</span>' : '' ?></th><?php endforeach ?>
+            <th class="px-5 py-2 text-right font-medium"><?= e(__('Total')) ?></th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        <?php foreach ($bd['rows'] as $r): $sum = array_sum(array_column($r['years'], 'submitted')); ?>
+            <tr>
+                <td class="px-5 py-2.5"><span class="inline-flex items-center gap-2 font-medium"><span class="size-2.5 rounded-full" style="background: <?= e($r['color']) ?>"></span><?= e($r['name']) ?></span></td>
+                <?php foreach ($bd['years'] as $yr): $c = $r['years'][$yr] ?? null; $n = $c['submitted'] ?? 0; ?>
+                    <td class="px-4 py-2.5 text-center">
+                        <?php if ($n): ?>
+                            <span class="inline-flex min-w-10 justify-center rounded-md px-2 py-1 font-semibold tabular-nums" style="background: rgba(209,26,42,<?= round(0.08 + 0.5 * $n / $maxCell, 2) ?>); color: <?= $n / $maxCell > 0.6 ? '#fff' : '#7f1d1d' ?>"><?= $n ?></span>
+                            <span class="mt-0.5 block text-[11px] text-steel"><?= e(__(':a approved', ['a' => $c['approved']])) ?></span>
+                        <?php else: ?><span class="text-graphite-300">0</span><?php endif ?>
+                    </td>
+                <?php endforeach ?>
+                <td class="px-5 py-2.5 text-right font-semibold tabular-nums"><?= $sum ?></td>
+            </tr>
+        <?php endforeach ?>
+        </tbody>
+        <tfoot class="border-t-2 border-graphite-900/10 bg-mist/40 font-semibold"><tr>
+            <td class="px-5 py-2.5"><?= e(__('All departments')) ?></td>
+            <?php foreach ($bd['years'] as $yr): ?><td class="px-4 py-2.5 text-center tabular-nums"><?= (int) ($bd['totals'][$yr] ?? 0) ?></td><?php endforeach ?>
+            <td class="px-5 py-2.5 text-right tabular-nums"><?= array_sum($bd['totals']) ?></td></tr></tfoot>
+    </table></div>
+</section>
+
+<?php else: $rk = $ranking; $medal = [1 => ['🥇', 'bg-amber-50 ring-amber-400/60', __('1st')], 2 => ['🥈', 'bg-slate-50 ring-slate-300', __('2nd')], 3 => ['🥉', 'bg-orange-50 ring-orange-300/70', __('3rd')]]; ?>
+<div class="mt-4 grid items-start gap-4 xl:grid-cols-5">
+    <section class="panel overflow-hidden xl:col-span-3">
+        <div class="panel-head"><h2 class="panel-title"><?= e(__('Top projects by year')) ?></h2></div>
+        <div class="divide-y divide-graphite-900/6">
+            <?php foreach ($rk['years'] as $yr): $w = $rk['winners'][$yr] ?? []; ?>
+            <div class="px-5 py-4">
+                <div class="flex items-center justify-between gap-2"><h3 class="font-display text-xl font-semibold"><?= $yr ?></h3>
+                    <a href="<?= e(url('/management/everbetter', ['tab' => 'ranking', 'year' => $yr])) ?>#rank-form" class="text-xs text-steel hover:text-graphite-900"><?= e($w ? __('Change') : __('Set the ranking')) ?></a></div>
+                <?php if (! $w): ?><p class="mt-2 text-sm text-steel"><?= e(__('No ranking yet.')) ?></p><?php else: ?>
+                <ol class="mt-3 grid gap-2 sm:grid-cols-3">
+                    <?php foreach ([1, 2, 3] as $r): $p = $w[$r] ?? null; [$icon, $tone, $label] = $medal[$r]; ?>
+                    <li class="rounded-lg p-3 ring-1 <?= $p ? $tone : 'bg-mist/40 ring-graphite-900/8' ?>">
+                        <p class="text-xs font-semibold text-steel"><span class="text-lg"><?= $icon ?></span> <?= e($label) ?></p>
+                        <?php if ($p): ?><a href="<?= url('/everbetter/'.(int) $p['id']) ?>" class="mt-1 block font-medium leading-snug hover:text-signal-700"><?= e($p['title']) ?></a>
+                            <p class="mt-0.5 text-xs text-steel"><?= e($p['owner_name'].' · '.($p['department_name'] ?? '—')) ?></p>
+                        <?php else: ?><p class="mt-1 text-sm text-steel">—</p><?php endif ?>
+                    </li>
+                    <?php endforeach ?>
+                </ol>
+                <?php endif ?>
+            </div>
+            <?php endforeach ?>
+        </div>
+    </section>
+    <section id="rank-form" class="panel p-5 xl:col-span-2">
+        <div class="flex items-center justify-between gap-2">
+            <h2 class="panel-title"><?= e(__('Ranking of :y', ['y' => $rk['year']])) ?></h2>
+            <div class="inline-flex items-center rounded-md bg-white ring-1 ring-graphite-900/15">
+                <a href="<?= e(url('/management/everbetter', ['tab' => 'ranking', 'year' => $rk['year'] - 1])) ?>#rank-form" class="btn-ghost px-2" aria-label="<?= e(__('Previous year')) ?>"><?= icon('arrowleft', 'size-4') ?></a>
+                <span class="px-2 text-sm font-semibold tabular-nums"><?= (int) $rk['year'] ?></span>
+                <a href="<?= e(url('/management/everbetter', ['tab' => 'ranking', 'year' => $rk['year'] + 1])) ?>#rank-form" class="btn-ghost px-2" aria-label="<?= e(__('Next year')) ?>"><?= icon('right', 'size-4') ?></a>
+            </div>
+        </div>
+        <p class="mt-1 text-xs text-steel"><?= e(__('Choose from the projects that presented on one of :y\'s days. The teams are told.', ['y' => $rk['year']])) ?></p>
+        <?php if (! $rk['candidates']): ?><p class="mt-4 rounded-lg bg-mist px-3 py-3 text-sm text-steel"><?= e(__('No project presented in :y.', ['y' => $rk['year']])) ?></p><?php else: $opts = array_column(array_map(fn ($c) => ['id' => $c['id'], 'l' => $c['title'].' · '.($c['department_name'] ?? '—')], $rk['candidates']), 'l', 'id'); $cur = $rk['winners'][$rk['year']] ?? []; ?>
+        <form method="POST" action="<?= url('/management/everbetter/ranking') ?>" class="mt-4 space-y-3">
+            <?= csrf_field() ?><input type="hidden" name="year" value="<?= (int) $rk['year'] ?>">
+            <?php foreach ([1, 2, 3] as $r): [$icon, , $label] = $medal[$r]; ?>
+            <div><label class="label"><span class="text-base"><?= $icon ?></span> <?= e($label) ?></label>
+                <?= select_field('rank_'.$r, $opts, isset($cur[$r]) ? (string) $cur[$r]['id'] : '', ['placeholder' => __('Nobody'), 'search' => true, 'aria' => $label]) ?><?= field_error('rank_'.$r) ?></div>
+            <?php endforeach ?>
+            <div class="flex justify-end"><button class="btn-primary"><?= e(__('Save ranking')) ?></button></div>
+        </form>
+        <?php endif ?>
+    </section>
+</div>
+<?php endif ?>
 
 <dialog id="eb-decide" data-light-dismiss class="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-labelledby="eb-decide-title">
     <form method="POST" action="" data-eb-decide-form>

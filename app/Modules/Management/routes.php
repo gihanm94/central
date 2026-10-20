@@ -17,6 +17,7 @@ $r->group(['perm:management,view'], function ($r) {
     $r->post('/management/everbetter/requests/{id}/acknowledge', [EverbetterController::class, 'acknowledge']);
     $r->post('/management/everbetter/requests/{id}/decide', [EverbetterController::class, 'decide']);
     $r->post('/management/everbetter/days', [EverbetterController::class, 'sessions']);
+    $r->post('/management/everbetter/ranking', [EverbetterController::class, 'saveRanking']);
     $r->get('/management/oil-prices', [OilPriceController::class, 'index']);
     $r->post('/management/oil-prices/sync', [OilPriceController::class, 'sync']);
     $r->post('/management/oil-prices/history', [OilPriceController::class, 'history']);

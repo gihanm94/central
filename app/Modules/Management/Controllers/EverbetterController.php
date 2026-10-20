@@ -39,7 +39,11 @@ class EverbetterController extends Controller
         $thisQuarter = $session ? DB::select("SELECT x.*, p.title, p.owner_name, u.avatar FROM everbetter_presentations x JOIN everbetter_projects p ON p.id = x.project_id
             LEFT JOIN users u ON u.id = x.requested_by WHERE x.session_id = ? AND x.status <> 'withdrawn' AND p.deleted_at IS NULL ORDER BY x.kind, x.requested_at", [$session['id']]) : [];
 
+        $tab = (string) Request::query('tab', 'presentations');
+        $tab = in_array($tab, ['presentations', 'departments', 'ranking'], true) ? $tab : 'presentations';
+
         return view('management::everbetter', [
+            'tab' => $tab, 'byDepartment' => $tab === 'departments' ? $this->byDepartment($y) : null, 'ranking' => $tab === 'ranking' ? $this->ranking($y, $year) : null,
             'title' => __('Everbetter'), 'session' => $session, 'y' => $y, 'q' => $q, 'thisQuarter' => $thisQuarter, 'requests' => $requests, 'status' => $status,
             'projects' => Everbetter::projects($u, ['q' => Request::query('q', ''), 'status' => Request::query('pstatus', '')]),
             'year' => $year, 'sessions' => array_column(DB::select('SELECT * FROM everbetter_sessions WHERE year = ?', [$year]), null, 'quarter'),
@@ -47,6 +51,101 @@ class EverbetterController extends Controller
             'counts' => DB::first("SELECT count(*) FILTER (WHERE x.status = 'submitted') AS waiting, count(*) FILTER (WHERE x.status = 'acknowledged' AND x.result IS NULL) AS accepted
                 FROM everbetter_presentations x JOIN everbetter_projects p ON p.id = x.project_id WHERE p.deleted_at IS NULL"),
         ]);
+    }
+
+    /** Years shown in the department table and the ranking: this year back to the first year with a project (at most 6). */
+    private function years(int $thisYear): array
+    {
+        $first = (int) (DB::scalar("SELECT min(EXTRACT(YEAR FROM requested_at))::int FROM everbetter_presentations WHERE status <> 'withdrawn'") ?: $thisYear);
+
+        return range($thisYear, max($first, $thisYear - 5));
+    }
+
+    /**
+     * Projects submitted per department and year. A project counts in the year it first asked to present
+     * (its first request that was not withdrawn), in the department it belongs to.
+     * @return array{years: list<int>, rows: list<array>, totals: array, drafts: int}
+     */
+    private function byDepartment(int $thisYear): array
+    {
+        $years = $this->years($thisYear);
+        $data = DB::select("SELECT p.department_id, EXTRACT(YEAR FROM f.first_at)::int AS yr, count(*) AS submitted,
+                count(*) FILTER (WHERE p.status IN ('approved', 'closed')) AS approved, count(*) FILTER (WHERE p.status = 'closed') AS closed
+            FROM everbetter_projects p
+            JOIN LATERAL (SELECT min(x.requested_at) AS first_at FROM everbetter_presentations x WHERE x.project_id = p.id AND x.status <> 'withdrawn') f ON f.first_at IS NOT NULL
+            WHERE p.deleted_at IS NULL GROUP BY 1, 2");
+        $deps = array_column(DB::select('SELECT id, name, color FROM departments WHERE deleted_at IS NULL ORDER BY name'), null, 'id');
+        $rows = []; $totals = [];
+        foreach ($data as $r) {
+            $d = (int) $r['department_id'];
+            $rows[$d] ??= ['id' => $d, 'name' => $deps[$d]['name'] ?? __('No department'), 'color' => $deps[$d]['color'] ?? '#9ca3af', 'years' => []];
+            $rows[$d]['years'][(int) $r['yr']] = ['submitted' => (int) $r['submitted'], 'approved' => (int) $r['approved'], 'closed' => (int) $r['closed']];
+            $totals[(int) $r['yr']] = ($totals[(int) $r['yr']] ?? 0) + (int) $r['submitted'];
+        }
+        foreach ($deps as $id => $d) {          // departments without a project yet show as zero
+            $rows[$id] ??= ['id' => $id, 'name' => $d['name'], 'color' => $d['color'] ?? '#9ca3af', 'years' => []];
+        }
+        uasort($rows, fn ($a, $b) => [($b['years'][$thisYear]['submitted'] ?? 0), array_sum(array_column($b['years'], 'submitted'))] <=> [($a['years'][$thisYear]['submitted'] ?? 0), array_sum(array_column($a['years'], 'submitted'))] ?: strcmp($a['name'], $b['name']));
+        $drafts = (int) DB::scalar("SELECT count(*) FROM everbetter_projects p WHERE p.deleted_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM everbetter_presentations x WHERE x.project_id = p.id AND x.status <> 'withdrawn')");
+
+        return ['years' => $years, 'rows' => array_values($rows), 'totals' => $totals, 'drafts' => $drafts];
+    }
+
+    /**
+     * The 1st, 2nd and 3rd project of every year, and the projects that can be ranked in the chosen year
+     * (those that presented, or asked to present, on one of that year's days).
+     */
+    private function ranking(int $thisYear, int $year): array
+    {
+        $winners = [];
+        foreach (DB::select('SELECT p.id, p.title, p.owner_name, p.award_year, p.award_rank, p.status, d.name AS department_name, u.avatar
+                FROM everbetter_projects p LEFT JOIN departments d ON d.id = p.department_id LEFT JOIN users u ON u.id = p.owner_id
+                WHERE p.award_rank IS NOT NULL AND p.deleted_at IS NULL ORDER BY p.award_year DESC, p.award_rank') as $w) {
+            $winners[(int) $w['award_year']][(int) $w['award_rank']] = $w;
+        }
+        $candidates = DB::select("SELECT DISTINCT p.id, p.title, p.owner_name, d.name AS department_name FROM everbetter_projects p
+            JOIN everbetter_presentations x ON x.project_id = p.id AND x.status <> 'withdrawn' JOIN everbetter_sessions s ON s.id = x.session_id
+            LEFT JOIN departments d ON d.id = p.department_id WHERE s.year = ? AND p.deleted_at IS NULL ORDER BY p.title", [$year]);
+
+        return ['years' => array_values(array_unique(array_merge($this->years($thisYear), array_keys($winners)))), 'winners' => $winners, 'candidates' => $candidates, 'year' => $year];
+    }
+
+    /** Save the 1st, 2nd and 3rd project of a year (empty = nobody in that place). */
+    public function saveRanking(): never
+    {
+        $this->authorize('management', 'view');
+        $year = (int) Request::input('year');
+        if ($year < 2020 || $year > 2100) {
+            throw new ValidationException(['year' => __('Choose a year.')]);
+        }
+        $ok = array_map('intval', array_column(DB::select("SELECT DISTINCT p.id FROM everbetter_projects p JOIN everbetter_presentations x ON x.project_id = p.id AND x.status <> 'withdrawn'
+            JOIN everbetter_sessions s ON s.id = x.session_id WHERE s.year = ? AND p.deleted_at IS NULL", [$year]), 'id'));
+        $pick = [];
+        foreach ([1, 2, 3] as $r) {
+            $id = (int) Request::input('rank_'.$r, 0);
+            if (! $id) { continue; }
+            if (! in_array($id, $ok, true)) { throw new ValidationException(['rank_'.$r => __('Choose a project that presented in :y.', ['y' => $year])]); }
+            if (in_array($id, $pick, true)) { throw new ValidationException(['rank_'.$r => __('A project can only have one place.')]); }
+            $pick[$r] = $id;
+        }
+        DB::exec('UPDATE everbetter_projects SET award_year = NULL, award_rank = NULL WHERE award_year = ?', [$year]);
+        foreach ($pick as $r => $id) {
+            DB::exec('UPDATE everbetter_projects SET award_year = ?, award_rank = ? WHERE id = ?', [$year, $r, $id]);
+        }
+        $titles = $pick ? array_column(DB::select('SELECT id, title FROM everbetter_projects WHERE id IN ('.implode(',', $pick).')'), 'title', 'id') : [];
+        foreach ($pick as $r => $id) {             // tell the winning teams
+            foreach (array_unique(array_merge([(int) DB::scalar('SELECT owner_id FROM everbetter_projects WHERE id = ?', [$id])],
+                array_map('intval', array_column(DB::select('SELECT user_id FROM everbetter_members WHERE project_id = ?', [$id]), 'user_id')))) as $uid) {
+                if ($uid && $uid !== $this->user()->id) {
+                    \App\Core\Support\Notifier::deliver('core', 'updated', $uid, ['key' => 'Everbetter :y: ":title" is ranked #:r', 'params' => ['y' => $year, 'title' => $titles[$id] ?? '', 'r' => $r]],
+                        ['key' => 'Congratulations to the team!', 'params' => []], url('/everbetter/'.$id), $this->user()->id);
+                }
+            }
+        }
+        Activity::log('updated', 'everbetter', null, 'Everbetter', ['Set the Everbetter ranking of :year', ['year' => $year]], ['ranking' => array_map(fn ($id) => $titles[$id] ?? $id, $pick)], null, notify: false, module: 'management');
+        Session::flash('success', __('Ranking of :year saved.', ['year' => $year]));
+        redirect('/management/everbetter?tab=ranking&year='.$year);
     }
 
     public function acknowledge(int $id): never
