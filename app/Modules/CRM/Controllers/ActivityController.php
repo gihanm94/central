@@ -87,7 +87,8 @@ class ActivityController extends CrmController
             'meeting_type'     => ['label' => __('Meeting type'), 'type' => 'select', 'options' => Catalog::tr(Catalog::MEETING_TYPES), 'rules' => 'nullable', 'show_when' => 'activity_type=MEETING', 'placeholder' => __('Select type'), 'search' => false],
             'meeting_location' => ['label' => __('Meeting location'), 'rules' => 'nullable|max:255', 'show_when' => 'activity_type=MEETING', 'placeholder' => __('e.g. Office / Zoom link')],
             'call_direction'   => ['label' => __('Call direction'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CALL_DIRECTIONS), 'rules' => 'nullable', 'show_when' => 'activity_type=CALL', 'span' => 2, 'placeholder' => __('Select direction'), 'search' => false],
-            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED', 'search' => false],
+            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED', 'search' => false,
+                             'wide_when' => 'activity_type=EMAIL,TASK'],     // e-mail and task have no fields beside it
             'meeting_duration' => ['label' => __('Meeting duration (min)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=MEETING', 'placeholder' => '60'],
             'call_duration'    => ['label' => __('Call duration (min)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=CALL', 'placeholder' => '0'],
             'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the activity is created (import may give one)

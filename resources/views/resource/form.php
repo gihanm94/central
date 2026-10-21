@@ -175,7 +175,7 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
             <div class="mt-4 grid gap-x-6 gap-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-graphite-900/8 md:grid-cols-2">
             <?php foreach ($st['fields'] as $name => $f):
                 $req  = str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox'; ?>
-                <div class="min-w-0 <?= ($f['span'] ?? 1) === 2 ? 'md:col-span-2' : '' ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $reqAttr($name, $f, $req) ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
+                <div class="min-w-0 <?= ($f['span'] ?? 1) === 2 ? 'md:col-span-2' : '' ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $reqAttr($name, $f, $req) ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?> <?= ! empty($f['wide_when']) ? 'data-crm-wide="'.e($f['wide_when']).'"' : '' ?>>
                     <?= $renderField($name, $f) ?>
                 </div>
             <?php endforeach ?>
@@ -223,7 +223,7 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
                 <?php foreach ($st['fields'] as $name => $f):
                     $req  = str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox';
                     $full = ($f['span'] ?? 1) === 2 ? ($embed ? 'md:col-span-2' : 'md:col-span-2 2xl:col-span-3') : ''; ?>
-                    <div class="min-w-0 <?= $full ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $reqAttr($name, $f, $req) ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
+                    <div class="min-w-0 <?= $full ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $reqAttr($name, $f, $req) ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?> <?= ! empty($f['wide_when']) ? 'data-crm-wide="'.e($f['wide_when']).'"' : '' ?>>
                         <?= $renderField($name, $f) ?>
                     </div>
                 <?php endforeach ?>

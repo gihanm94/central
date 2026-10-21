@@ -27,6 +27,12 @@
             if (v === null) return;
             el.hidden = p[1].split(',').indexOf(v) === -1;
         });
+        // full width while another field has one of these values ('wide_when' => 'activity_type=EMAIL,TASK')
+        $$('[data-crm-wide]').forEach(function (el) {
+            var p = el.dataset.crmWide.split('='), v = valueOf(p[0]);
+            if (v === null) return;
+            el.classList.toggle('md:col-span-2', p[1].split(',').indexOf(v) !== -1);
+        });
     }
 
     function addRow(box) {
