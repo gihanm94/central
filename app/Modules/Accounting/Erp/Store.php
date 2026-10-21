@@ -20,13 +20,19 @@ final class Store
         $lower  = array_change_key_case($raw, CASE_LOWER);
         $row    = [];
         foreach ($fields as $col => $f) {
-            $row[$col] = self::value($f['type'], $lower[strtolower($f['json'])] ?? null);
+            $row[$col] = $f['json'] === '*' ? self::raw($raw) : self::value($f['type'], $lower[strtolower($f['json'])] ?? null);
         }
         foreach ($stamp as $col => $v) {
             if (array_key_exists($col, $row)) { $row[$col] = $v; }
         }
 
         return $row['id'] === null ? null : $row;
+    }
+
+    /** The ERP object as JSON, without the expanded objects inside it (they are saved in their own tables). */
+    private static function raw(array $raw): string
+    {
+        return json_encode(array_filter($raw, fn ($v) => ! is_array($v)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private static function value(string $type, mixed $v): mixed

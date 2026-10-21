@@ -1,5 +1,6 @@
 <?php
-// Generated from the former Java entities: ERP JSON field => local column. Do not edit by hand.
+// Generated from the former Java entities: ERP JSON field => local column. Fields added later are at the end of an entity;
+// 'json' => '*' (type raw) keeps the whole ERP object (its plain values) as JSON.
 return [
     'Address' => [
         'table' => 'erp_addresses',
@@ -1040,6 +1041,10 @@ return [
                 'json' => 'BusinessContactId',
                 'type' => 'int',
             ],
+            'raw' => [
+                'json' => '*',
+                'type' => 'raw',
+            ],
         ],
     ],
     'PaymentTerm' => [
@@ -1849,6 +1854,30 @@ return [
                 'json' => 'CorrectionBookingId',
                 'type' => 'int',
             ],
+            'accounting_year_id' => [
+                'json' => 'AccountingYearId',
+                'type' => 'int',
+            ],
+            'reverse_connection_voucher_id' => [
+                'json' => 'ReverseConnectionVoucherId',
+                'type' => 'int',
+            ],
+            'reverse_connection_type' => [
+                'json' => 'ReverseConnectionType',
+                'type' => 'text',
+            ],
+            'invoice_log_ledger_id' => [
+                'json' => 'InvoiceLogLedgerId',
+                'type' => 'int',
+            ],
+            'accounts_receivable_id' => [
+                'json' => 'AccountsReceivableId',
+                'type' => 'int',
+            ],
+            'raw' => [
+                'json' => '*',
+                'type' => 'raw',
+            ],
         ],
     ],
     'VoucherRow' => [
@@ -1913,6 +1942,10 @@ return [
             'balance_id' => [
                 'json' => 'BalanceId',
                 'type' => 'int',
+            ],
+            'raw' => [
+                'json' => '*',
+                'type' => 'raw',
             ],
         ],
     ],

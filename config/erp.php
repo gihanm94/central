@@ -115,7 +115,12 @@ return [
         'supplier'         => ['label' => 'Suppliers',            'entity' => 'Supplier',        'api' => 'supplierUrl',         'group' => 'full', 'size' => 5000],
         'payable'          => ['label' => 'Accounts payable',     'entity' => 'Payable',         'api' => 'payableUrl',          'group' => 'full', 'size' => 10000],
         'purchase_order'   => ['label' => 'Purchase orders',      'entity' => 'PurchaseOrder',   'api' => 'purchaseOrderUrl',    'group' => 'full', 'size' => 10000],
-        'voucher'          => ['label' => 'Vouchers',             'entity' => 'Voucher',         'api' => 'voucherUrl',          'group' => 'full', 'size' => 10000],
+        'voucher'          => ['label' => 'Vouchers',             'entity' => 'Voucher',         'api' => 'voucherUrl',          'group' => 'full', 'size' => 10000,
+            'expand' => ['Comment', 'Rows', 'AccountsPayable'],
+            'children' => [
+                ['path' => 'Comment', 'entity' => 'Comment'], ['path' => 'Rows', 'entity' => 'VoucherRow', 'many' => true, 'stamp' => ['voucher_id' => 'id']],
+                ['path' => 'AccountsPayable', 'entity' => 'Payable'],
+            ]],
         'voucher_row'      => ['label' => 'Voucher rows',         'entity' => 'VoucherRow',      'api' => 'voucherRowUrl',       'group' => 'full', 'size' => 20000],
         'quote'            => ['label' => 'Quotes',               'entity' => 'Quotes',          'api' => 'quotesUrl',           'group' => 'full', 'size' => 5000],
         'product_record'   => ['label' => 'Product records',      'entity' => 'ProductRecord',   'api' => 'productRecordUrl',    'group' => 'full', 'size' => 10000,
