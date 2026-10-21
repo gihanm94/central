@@ -5,6 +5,7 @@ use App\Modules\Management\Controllers\AccountReportController;
 use App\Modules\Management\Controllers\KpiCalculatorController;
 use App\Modules\Management\Controllers\EverbetterController;
 use App\Modules\Management\Controllers\OilPriceController;
+use App\Modules\Management\Controllers\PowerBiController;
 use App\Modules\Management\Controllers\OverviewController;
 use App\Modules\Management\Controllers\SignatureController;
 use App\Core\Http\Controllers\PdfSignLogController;
@@ -15,6 +16,10 @@ $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
     $r->get('/management/account-report', [AccountReportController::class, 'index']);
+    // Power BI report in an iframe; its link is set by an administrator
+    $r->get('/management/powerbi', [PowerBiController::class, 'index']);
+    $r->get('/management/powerbi/settings', [PowerBiController::class, 'edit']);
+    $r->post('/management/powerbi/settings', [PowerBiController::class, 'save']);
     $r->get('/management/everbetter', [EverbetterController::class, 'index']);
     $r->get('/management/everbetter/projects/{id}', [EverbetterController::class, 'project']);
     $r->post('/management/everbetter/requests/{id}/acknowledge', [EverbetterController::class, 'acknowledge']);
