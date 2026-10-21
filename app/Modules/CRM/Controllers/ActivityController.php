@@ -79,15 +79,15 @@ class ActivityController extends CrmController
 
         return [
             '_basic'     => ['section' => __('Basic info'), 'icon' => 'pulse', 'help' => __('Type, topic, timing and references')],
-            'activity_type' => ['label' => __('Activity type'), 'type' => 'select', 'options' => $types, 'rules' => 'required', 'default' => isset($types[$want]) ? $want : 'CALL', 'search' => false],
+            'activity_type' => ['label' => __('Activity type'), 'type' => 'select', 'options' => $types, 'rules' => 'required', 'default' => isset($types[$want]) ? $want : 'MEETING', 'search' => false],
             'start_at'   => ['label' => __('Start date'), 'type' => 'datetime', 'rules' => $must.'|date', 'placeholder' => __('Select start date/time'),
                              'default' => preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?$/', (string) Request::query('start')) ? str_replace(' ', 'T', (string) Request::query('start')) : null],
             'topic'      => ['label' => __('Topic'), 'rules' => 'required|max:200', 'span' => 2, 'placeholder' => __('e.g. Product demo call with Acme'), 'example' => 'Follow-up call about the quotation'],
-            // meeting: type | status, location | duration — call: direction | status, duration
+            // meeting: type | location, status | duration — call: direction (full width), status | duration
             'meeting_type'     => ['label' => __('Meeting type'), 'type' => 'select', 'options' => Catalog::tr(Catalog::MEETING_TYPES), 'rules' => 'nullable', 'show_when' => 'activity_type=MEETING', 'placeholder' => __('Select type'), 'search' => false],
-            'call_direction'   => ['label' => __('Call direction'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CALL_DIRECTIONS), 'rules' => 'nullable', 'show_when' => 'activity_type=CALL', 'placeholder' => __('Select direction'), 'search' => false],
-            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED', 'search' => false],
             'meeting_location' => ['label' => __('Meeting location'), 'rules' => 'nullable|max:255', 'show_when' => 'activity_type=MEETING', 'placeholder' => __('e.g. Office / Zoom link')],
+            'call_direction'   => ['label' => __('Call direction'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CALL_DIRECTIONS), 'rules' => 'nullable', 'show_when' => 'activity_type=CALL', 'span' => 2, 'placeholder' => __('Select direction'), 'search' => false],
+            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED', 'search' => false],
             'meeting_duration' => ['label' => __('Meeting duration (min)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=MEETING', 'placeholder' => '60'],
             'call_duration'    => ['label' => __('Call duration (min)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=CALL', 'placeholder' => '0'],
             'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the activity is created (import may give one)
@@ -99,7 +99,7 @@ class ActivityController extends CrmController
             'opportunity_id' => $this->remoteField('opportunity_id', $row, ['label' => __('Opportunity'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2, 'placeholder' => __('Select opportunity'),
                              'display' => fn ($r) => $r['opportunity_name'] ?? null, 'href' => fn ($r) => $r['opportunity_id'] ? '/crm/opportunities/'.$r['opportunity_id'] : null]),
             'notify_me'  => ['label' => __('Notify me'), 'type' => 'checkbox', 'help' => __('The reminder shows on your CRM dashboard.')],
-            'notify_before' => ['label' => __('Notify before'), 'type' => 'select', 'rules' => 'nullable', 'default' => '15', 'search' => false, 'placeholder' => __('Select time'),
+            'notify_before' => ['label' => __('Notify before'), 'type' => 'select', 'rules' => 'nullable', 'default' => '15', 'search' => false, 'placeholder' => __('Select time'), 'show_when' => 'notify_me=1',
                              'options' => ['0' => __('At the start'), '5' => __('5 minutes'), '15' => __('15 minutes'), '30' => __('30 minutes'), '60' => __('1 hour'), '1440' => __('1 day')],
                              'display' => fn ($r) => $r['notify_me'] ? ($r['notify_before'] ? $r['notify_before'].' min' : __('At the start')) : null],
 

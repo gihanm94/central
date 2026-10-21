@@ -17,6 +17,7 @@
         var els = $$('[name="' + name + '"]');
         if (!els.length) return null;
         if (els[0].type === 'radio') { var on = els.filter(function (e) { return e.checked; })[0]; return on ? on.value : ''; }
+        if (els[0].type === 'checkbox') return els[0].checked ? els[0].value : '';      // show_when 'notify_me=1': only while ticked
         return els[0].value;
     }
 
