@@ -126,6 +126,9 @@
 .ql-toolbar.ql-snow { @apply rounded-t-md border-0 bg-mist/60 px-2 py-1 ring-1 ring-graphite-900/15; }
 .ql-container.ql-snow { @apply rounded-b-md border-0 bg-white font-sans text-sm ring-1 ring-graphite-900/15; }
 .ql-container.ql-snow:focus-within { @apply ring-2 ring-signal-600; }
+/* quill.snow.css is loaded after this file and draws 1px #ccc borders: the rings above replace them */
+.ql-toolbar.ql-snow, .ql-container.ql-snow { border: 0 !important; }
+.rt-editor.ql-container.ql-snow { border-radius: 0 !important; }
 .ql-editor { min-height: 10rem; max-height: 28rem; overflow-y: auto; font-family: inherit; line-height: 1.6; }
 .ql-editor img { max-width: 100%; cursor: pointer; display: inline-block; }
 .rt-frame { position: absolute; z-index: 5; pointer-events: none; outline: 2px solid var(--color-signal-600); }
