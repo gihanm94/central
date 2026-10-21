@@ -109,7 +109,8 @@ return [
         'payment_term'     => ['label' => 'Payment terms',        'entity' => 'PaymentTerm',     'api' => 'paymentTermUrl',      'group' => 'cold', 'size' => 500],
         'business_contact' => ['label' => 'Business contacts',    'entity' => 'BusinessContact', 'api' => 'contactRefUrl',       'group' => 'cold', 'size' => 5000],
         'extra_field'      => ['label' => 'Extra fields',         'entity' => 'ExtraField',      'api' => 'extraFieldUrl',       'group' => 'cold', 'size' => 10000,
-            'columns' => ['Id', 'ParentId', 'Identifier', 'Type', 'StringValue', 'CommentId'], 'expand' => ['Comment']],
+            'columns' => ['Id', 'ParentId', 'Identifier', 'Type', 'StringValue', 'CommentId'], 'expand' => ['Comment'],
+            'children' => [['path' => 'Comment', 'entity' => 'Comment']]],              // the comment's text: a customer's extra field comment is its payment remark
 
         'receivable'       => ['label' => 'Accounts receivable',  'entity' => 'Receivable',      'api' => 'receivableUrl',       'group' => 'full', 'size' => 10000],
         'supplier'         => ['label' => 'Suppliers',            'entity' => 'Supplier',        'api' => 'supplierUrl',         'group' => 'full', 'size' => 5000],

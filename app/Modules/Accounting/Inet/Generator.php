@@ -51,6 +51,7 @@ final class Generator
                 Log::info('inet', "{$no}: generate start", ['auto_pdf' => $auto, 'by' => $by]);
                 ['doc' => $doc, 'lines' => $lines] = DocumentData::load($no);
                 InetBuilder::save($no, $auto, $by);                                       // header row (customer, seller, amounts …)
+                DB::exec('UPDATE inets SET payment_remark = ? WHERE no_invoice = ? AND is_credit = ?', [$doc['payment_remark'], $no, $doc['is_credit'] ? 'true' : 'false'], self::C);
                 $credit = $doc['is_credit'] ? DocumentData::creditInfo($doc) : null;
                 $types  = $doc['is_credit'] ? ['81'] : ['388', 'T01'];
                 Log::info('inet', "{$no}: ".($doc['is_credit'] ? 'credit note' : 'invoice').' read from the ERP copy', ['lines' => count($lines), 'documents' => $types, 'reference' => $credit['reference'] ?? null]);

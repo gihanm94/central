@@ -75,7 +75,7 @@ final class DocumentData
             'seller_department_code' => $dept ? (string) ($dept['code'] ?: ($dept['name'] ?: $dept['description'])) : '', 'grace_days' => $term ? $term['grace_period_in_days'] : null,
             'due_date' => $order && $order['order_date'] && $term && $term['grace_period_in_days'] !== null ? date('d-m-Y', strtotime((string) $order['order_date'].' +'.(int) $term['grace_period_in_days'].' days')) : null,
             'delivery_by' => $dm ? ($dm['description'] ?: $dm['code']) : null, 'delivery_note_number' => $note !== null ? (string) $note : null,
-            'external_comment' => $ext, 'payment_remark' => self::paymentRemark($cust),
+            'external_comment' => $ext, 'payment_remark' => self::paymentRemark($cust['id'] ?? $f['customer_id'] ?? $order['customer_id'] ?? null),
         ];
 
         $out = [];
@@ -91,11 +91,15 @@ final class DocumentData
         return ['doc' => $doc, 'lines' => $out];
     }
 
-    /** The customer's own comment in the ERP ("send the invoice with the receipt every month-end …"). */
-    public static function paymentRemark(?array $cust): ?string
+    /**
+     * Payment remark: the comment of the customer's extra field (erp_extra_fields.parent_id = customer id → comment_id →
+     * erp_comments.raw_text). The customer is the invoice's, else the order's; several such comments are joined.
+     */
+    public static function paymentRemark(int|string|null $customerId): ?string
     {
-        if (! $cust || empty($cust['comment_id'])) { return null; }
-        $t = trim((string) DB::scalar('SELECT raw_text FROM erp_comments WHERE id = ?', [$cust['comment_id']], self::C));
+        if (! $customerId) { return null; }
+        $t = trim((string) DB::scalar("SELECT string_agg(trim(c.raw_text), E'\n' ORDER BY ef.id) FROM erp_extra_fields ef JOIN erp_comments c ON c.id = ef.comment_id
+                                        WHERE ef.parent_id = ? AND trim(coalesce(c.raw_text, '')) <> ''", [(int) $customerId], self::C));
 
         return $t !== '' ? $t : null;
     }

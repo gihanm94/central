@@ -21,7 +21,7 @@
                     <th class="w-12 px-3 py-2.5"><input type="checkbox" data-inet-all class="size-4 accent-signal-600" aria-label="<?= e(__('Tick all on this page')) ?>"></th>
                     <th class="px-3 py-2.5 font-semibold"><?= e(__('Invoice no')) ?></th><th class="px-3 py-2.5 font-semibold"><?= e(__('Auto PDF')) ?></th>
                     <th class="px-3 py-2.5 font-semibold"><?= e(__('Order no')) ?></th><th class="px-3 py-2.5 font-semibold"><?= e(__('Delivery no')) ?></th>
-                    <th class="px-3 py-2.5 font-semibold"><?= e(__('VAT no')) ?></th><th class="px-3 py-2.5 text-left font-semibold"><?= e(__('Payment remark')) ?></th><th class="px-3 py-2.5 text-left font-semibold"><?= e(__('Remark')) ?></th>
+                    <th class="px-3 py-2.5 font-semibold"><?= e(__('VAT no')) ?></th><th class="px-3 py-2.5 text-left font-semibold"><?= e(__('Payment remark')) ?></th>
                 </tr></thead>
                 <tbody data-inet-rows class="divide-y divide-graphite-900/8"></tbody>
             </table>
