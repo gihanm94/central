@@ -32,8 +32,8 @@ $card = function (string $kind) use ($units) { ob_start(); ?>
             <label><span class="label"><?= e(__('Product no.')) ?></span><input data-l="part_number" maxlength="80" class="input" placeholder="<?= e(__('e.g. SKU-001')) ?>"></label>
             <label><span class="label"><?= e(__('Qty')) ?></span><input data-l="quantity" value="1" inputmode="decimal" class="input"></label>
             <label><span class="label"><?= e(__('Unit price')) ?></span><input data-l="unit_price" inputmode="decimal" class="input" placeholder="0.00"></label>
-            <label><span class="label"><?= e(__('Unit')) ?></span>
-                <select data-l="unit" class="input"><?php foreach ($units as $u): ?><option value="<?= e($u) ?>"><?= e($u) ?></option><?php endforeach ?></select></label>
+            <div data-l-unit data-first="<?= e($units[0]) ?>"><span class="label"><?= e(__('Unit')) ?></span>
+                <?= select_field('_unit_'.$kind, array_combine($units, $units), $units[0], ['id' => 'unit-'.$kind, 'aria' => __('Unit'), 'search' => false]) ?></div>
         </div>
         <p data-l-error hidden class="error"></p>
         <div class="mt-3 flex justify-end gap-2">

@@ -116,7 +116,9 @@
         var out = box.querySelector('[data-lines-total]'); if (out) out.textContent = money(t);
     }
     function lineCardReset(card) {
-        card.querySelectorAll('[data-l]').forEach(function (i) { i.value = i.dataset.l === 'quantity' ? '1' : (i.tagName === 'SELECT' ? i.options[0].value : ''); });
+        card.querySelectorAll('[data-l]').forEach(function (i) { i.value = i.dataset.l === 'quantity' ? '1' : ''; });
+        var u = card.querySelector('[data-l-unit]');               // unit dropdown back to the first unit
+        if (u) { u.querySelector('[data-select-input]').value = u.dataset.first; u.querySelector('[data-select-label]').textContent = u.dataset.first; }
         var pick = card.querySelector('[data-remote-select]');
         if (pick) { var h = pick.querySelector('[data-select-input]'), lb = pick.querySelector('[data-select-label]'); h.value = ''; lb.textContent = pick.dataset.placeholder || ''; lb.classList.add('text-graphite-400'); }
         var er = card.querySelector('[data-l-error]'); er.hidden = true;
@@ -145,6 +147,7 @@
         } else if ((t = e.target.closest('[data-line-add]'))) {
             var card2 = t.closest('[data-line-form]'), kind = card2.dataset.lineForm, v = {}, er = card2.querySelector('[data-l-error]');
             card2.querySelectorAll('[data-l]').forEach(function (i) { v[i.dataset.l] = i.value.trim(); });
+            var uu = card2.querySelector('[data-l-unit] [data-select-input]'); if (uu) v.unit = uu.value;
             var q = num(v.quantity), pr = num(v.unit_price), msg = '';
             if (!v.name) msg = box.dataset.msgName; else if (q === null || isNaN(q) || q <= 0) msg = box.dataset.msgQty; else if (isNaN(pr)) msg = box.dataset.msgPrice;
             if (msg) { er.textContent = msg; er.hidden = false; return; }
