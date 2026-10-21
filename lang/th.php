@@ -2339,4 +2339,7 @@ return [
     'Only an administrator can change the Power BI report.' => 'เฉพาะผู้ดูแลระบบเท่านั้นที่เปลี่ยนรายงาน Power BI ได้',
     'Paste the Power BI embed code (<iframe …>) or the report link.' => 'วางโค้ดฝัง Power BI (<iframe …>) หรือลิงก์รายงาน',
     'Use a Power BI report link (https://app.powerbi.com/…).' => 'ใช้ลิงก์รายงาน Power BI (https://app.powerbi.com/…)',
+    'Power BI overview report' => 'รายงานภาพรวม Power BI',
+    'Shown full page on Management → Power BI → Overview. Only administrators can change it.' => 'แสดงเต็มหน้าที่ ฝ่ายบริหาร → Power BI → ภาพรวม เฉพาะผู้ดูแลระบบเท่านั้นที่เปลี่ยนได้',
+    'Open the report' => 'เปิดรายงาน',
 ];

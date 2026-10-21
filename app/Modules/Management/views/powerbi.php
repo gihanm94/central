@@ -6,14 +6,14 @@
             <button type="button" class="btn-secondary" data-pbi-full><?= icon('expand', 'size-4') ?> <?= e(__('Full screen')) ?></button>
             <a href="<?= e($url) ?>" target="_blank" rel="noopener noreferrer" class="btn-secondary" title="<?= e(__('Open in Power BI')) ?>"><?= icon('link', 'size-4') ?><span class="hidden sm:inline"> <?= e(__('Open in Power BI')) ?></span></a>
         <?php endif ?>
-        <?php if ($isAdmin): ?><a href="<?= url('/management/powerbi/settings') ?>" class="btn-secondary" title="<?= e(__('Settings')) ?>"><?= icon('cog', 'size-4') ?><span class="hidden sm:inline"> <?= e(__('Settings')) ?></span></a><?php endif ?>
+        <?php if ($isAdmin): ?><a href="<?= url('/settings/powerbi') ?>" class="btn-secondary" title="<?= e(__('Settings')) ?>"><?= icon('cog', 'size-4') ?><span class="hidden sm:inline"> <?= e(__('Settings')) ?></span></a><?php endif ?>
     </div>
 </div>
 
 <?php if (! $url): ?>
     <section class="panel mt-4 px-5 py-16 text-center">
         <p class="text-sm text-steel"><?= e(__('No Power BI report has been set yet.')) ?></p>
-        <?php if ($isAdmin): ?><a href="<?= url('/management/powerbi/settings') ?>" class="btn-primary mt-4"><?= icon('cog', 'size-4') ?> <?= e(__('Add the report')) ?></a>
+        <?php if ($isAdmin): ?><a href="<?= url('/settings/powerbi') ?>" class="btn-primary mt-4"><?= icon('cog', 'size-4') ?> <?= e(__('Add the report')) ?></a>
         <?php else: ?><p class="mt-1 text-sm text-steel"><?= e(__('Ask an administrator to add it.')) ?></p><?php endif ?>
     </section>
 <?php else: ?>

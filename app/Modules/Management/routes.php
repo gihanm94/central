@@ -16,10 +16,8 @@ $r->group(['perm:management,view'], function ($r) {
     $r->get('/management', [OverviewController::class, 'index']);
     $r->get('/management/crm', [OverviewController::class, 'crm']);
     $r->get('/management/account-report', [AccountReportController::class, 'index']);
-    // Power BI report in an iframe; its link is set by an administrator
+    // Power BI report in an iframe; its link is set by an administrator (Admin → Company settings → Power BI)
     $r->get('/management/powerbi', [PowerBiController::class, 'index']);
-    $r->get('/management/powerbi/settings', [PowerBiController::class, 'edit']);
-    $r->post('/management/powerbi/settings', [PowerBiController::class, 'save']);
     $r->get('/management/everbetter', [EverbetterController::class, 'index']);
     $r->get('/management/everbetter/projects/{id}', [EverbetterController::class, 'project']);
     $r->post('/management/everbetter/requests/{id}/acknowledge', [EverbetterController::class, 'acknowledge']);

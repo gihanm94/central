@@ -21,7 +21,6 @@ return [
         ['label' => 'Oil prices',     'url' => '/management/oil-prices',     'icon' => 'chart',  'permission' => 'management.view'],
         ['heading' => 'Power BI'],
         ['label' => 'Overview',       'url' => '/management/powerbi',          'icon' => 'chart', 'permission' => 'management.view'],
-        ['label' => 'Settings',       'url' => '/management/powerbi/settings', 'icon' => 'cog', 'admin_only' => true],
         ['heading' => 'People'],
         ['label' => 'KPI calculator', 'url' => '/management/kpi-calculator', 'icon' => 'calc',  'permission' => 'kpi_calculator.view'],
         ['label' => 'Everbetter',     'url' => '/management/everbetter',     'icon' => 'bolt',  'permission' => 'management.view'],

@@ -204,6 +204,8 @@ $router->group(['auth'], function (Router $r) {
     $r->get('/settings/notifications', [SettingsController::class, 'notifications']);
     $r->post('/settings/notifications', [SettingsController::class, 'saveNotifications']);
     $r->post('/settings/test-lark', [SettingsController::class, 'testLark']);
+    $r->get('/settings/powerbi', [SettingsController::class, 'powerbi']);
+    $r->post('/settings/powerbi', [SettingsController::class, 'savePowerbi']);
 
     // Module routes: only the module this URL belongs to is loaded, so a broken module cannot break other pages.
     App\Core\Support\Modules::routes($r, App\Core\Support\Request::path());

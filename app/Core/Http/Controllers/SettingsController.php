@@ -9,6 +9,8 @@ use App\Core\Support\Lark;
 use App\Core\Support\DB;
 use App\Core\Support\Mailer;
 use App\Core\Support\Notifier;
+use App\Core\Support\PowerBi;
+use App\Core\Support\Session;
 use App\Core\Support\Request;
 use App\Core\Support\Settings;
 use App\Core\Support\Upload;
@@ -155,6 +157,26 @@ class SettingsController extends Controller
         $rows = DB::select('SELECT * FROM mail_log ORDER BY id DESC LIMIT 100');
 
         return view('settings/mail-log', ['title' => __('Mail log'), 'rows' => $rows, 'driver' => config('mail.driver'), 'host' => config('mail.host'), 'from' => config('mail.from_address')]);
+    }
+
+    /** Power BI report of Management → Power BI → Overview — administrators only. */
+    public function powerbi(): string
+    {
+        $this->user()->isAdmin() || abort(403, __('Only an administrator can change the Power BI report.'));
+
+        return view('settings/powerbi', ['title' => __('Company settings'), 'url' => PowerBi::url()]);
+    }
+
+    public function savePowerbi(): never
+    {
+        $this->user()->isAdmin() || abort(403, __('Only an administrator can change the Power BI report.'));
+        $before = PowerBi::url();
+        $url = PowerBi::link((string) Request::input('embed', ''));
+        Settings::put(PowerBi::KEY, $url !== '' ? $url : null);
+        Activity::log('updated', 'powerbi', null, 'Power BI overview', [$url !== '' ? 'Set the Power BI overview report' : 'Removed the Power BI overview report', []],
+            ['changes' => ['report' => ['from' => $before !== '' ? parse_url($before, PHP_URL_HOST) : '—', 'to' => $url !== '' ? parse_url($url, PHP_URL_HOST) : '—']]], null, notify: false);
+        Session::flash('success', $url !== '' ? __('Power BI report saved.') : __('Power BI report removed.'));
+        redirect('/settings/powerbi');
     }
 
     /** The mail log used to be a tab of Company settings. */
