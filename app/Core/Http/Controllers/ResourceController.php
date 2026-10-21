@@ -8,6 +8,7 @@ use App\Core\Support\Csv;
 use App\Core\Support\Xlsx;
 use App\Core\Support\Html;
 use App\Core\Support\DB;
+use App\Core\Support\EditorImages;
 use App\Core\Support\Permission;
 use App\Core\Support\Request;
 use App\Core\Support\Session;
@@ -199,6 +200,7 @@ abstract class ResourceController extends Controller
         $data   = $this->prepare($this->validateFields($fields, Request::all()), null);
         $id     = (int) DB::insert($this->table, $this->tableData($fields, $data), $this->conn);
         $this->saved($id, $data, null);
+        $this->editorImages($fields, $id, $data, null);
 
         $row = $this->find($id);
         Activity::log('created', $this->type, $id, $this->label($row), ['Created :type ":label"', ['type' => $this->singular, 'label' => $this->label($row)]],
@@ -241,6 +243,7 @@ abstract class ResourceController extends Controller
             DB::update($this->table, $table, ['id' => $id], $this->conn);
         }
         $this->saved($id, $data, $row);
+        $this->editorImages($fields, $id, $data, $row);
 
         $after   = $this->find($id);
         $changes = Activity::diff($this->displayValues($fields, $row), $this->displayValues($fields, $after), array_keys($this->real($fields)));
@@ -254,6 +257,22 @@ abstract class ResourceController extends Controller
 
         $changes ? Session::flash('success', __(':Item saved.', ['Item' => __(ucfirst($this->singular))])) : Session::flash('status', __('Nothing changed.'));
         $this->finish($id);
+    }
+
+    /** Pictures in rich-text fields: note them against this record; delete the ones taken out (and their files). */
+    protected function editorImages(array $fields, int $id, array $data, ?array $existing): void
+    {
+        foreach ($this->real($fields) as $name => $f) {
+            if (($f['type'] ?? '') !== 'richtext' || ($f['table'] ?? true) === false || ! array_key_exists($name, $data)) {
+                continue;
+            }
+            try {
+                EditorImages::saved("{$this->conn}.{$this->table}.{$id}.{$name}", $data[$name], $existing[$name] ?? null,
+                    fn (string $file) => (bool) DB::scalar("SELECT 1 FROM {$this->table} WHERE {$name} LIKE ? AND id <> ? LIMIT 1", ['%'.basename($file).'%', $id], $this->conn));
+            } catch (\Throwable) {
+                // never stops the save; at worst a picture file stays on disk
+            }
+        }
     }
 
     /** The same form is also shown inside a side sheet (?embed=1): only the form, no page around it. */
@@ -449,14 +468,6 @@ abstract class ResourceController extends Controller
     protected function validateFields(array $fields, array $input, ?array $existing = null): array
     {
         $fields = $this->real($fields);
-        // phone fields: the country code picked next to the number goes in front of it (081 234 5678 + +66 → +66 81 234 5678)
-        foreach ($fields as $name => $f) {
-            if (($f['type'] ?? '') === 'phone' && isset($input[$name.'__cc'], $input[$name]) && is_string($input[$name]) && trim($input[$name]) !== '') {
-                $num = trim($input[$name]);
-                $cc  = (string) $input[$name.'__cc'];
-                if ($num[0] !== '+' && preg_match('/^\+\d{1,4}$/', $cc)) { $input[$name] = $cc.' '.ltrim($num, '0'); }
-            }
-        }
         $rules  = [];
         $labels = [];
         foreach ($fields as $name => $f) {

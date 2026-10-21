@@ -64,13 +64,6 @@ function asset(string $path): string
     return url($path).(is_file($file) ? '?v='.filemtime($file) : '');
 }
 
-/** Flag emoji of a two-letter country code (TH → 🇹🇭). */
-function phone_flag(string $country): string
-{
-    $c = strtoupper($country);
-    return preg_match('/^[A-Z]{2}$/', $c) ? mb_chr(0x1F1E6 + ord($c[0]) - 65).mb_chr(0x1F1E6 + ord($c[1]) - 65) : '';
-}
-
 function upload_url(?string $path): ?string { return $path ? url('uploads/'.$path) : null; }
 
 function csrf_token(): string { return Session::csrf(); }

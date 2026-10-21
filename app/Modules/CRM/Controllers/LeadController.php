@@ -80,13 +80,15 @@ class LeadController extends CrmController
             'name_th'    => ['label' => __('Name (Thai)'), 'rules' => $must.'|max:200', 'placeholder' => __('e.g. บริษัท ACME จำกัด')],
             'tax_id'     => ['label' => __('Tax ID'), 'rules' => 'nullable|max:30', 'placeholder' => __('13-digit tax number')],
             'revenue'    => ['label' => __('Annual revenue'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => __('e.g. 10,000,000')],
-            'phone'      => ['label' => __('Phone'), 'type' => 'phone', 'rules' => 'nullable|max:40'],
-            'mobile'     => ['label' => __('Mobile'), 'type' => 'phone', 'rules' => 'nullable|max:40'],
+            'phone'      => ['label' => __('Phone'), 'type' => 'tel', 'rules' => 'nullable|max:40', 'placeholder' => __('e.g. 02 123 4567')],
+            'mobile'     => ['label' => __('Mobile'), 'type' => 'tel', 'rules' => 'nullable|max:40', 'placeholder' => __('e.g. 081 234 5678')],
             'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40', 'placeholder' => '+66 2 xxx xxxx'],
             'sector'     => ['label' => __('Sector'), 'type' => 'select', 'options' => ['private' => __('Private'), 'government' => __('Government')], 'rules' => $must, 'default' => 'private', 'table' => false,
                              'display' => fn ($r) => filter_var($r['is_government'] ?? false, FILTER_VALIDATE_BOOL) ? __('Government') : __('Private')],
-            'company_id' => $this->remoteField('company_id', $row, ['label' => __('Parent company'), 'rules' => 'nullable', 'placeholder' => __('Parent company reference'),
-                             'display' => fn ($r) => $r['company_name'] ?? null, 'href' => fn ($r) => $r['company_id'] ? '/crm/leads/'.$r['company_id'] : null]),
+            // typed; when it is the name of a lead you can see, the lead page links to it
+            'parent_company' => ['label' => __('Parent company'), 'rules' => 'nullable|max:200', 'placeholder' => __('Parent company reference'),
+                             'href' => fn ($r) => $r['company_id'] ? '/crm/leads/'.$r['company_id'] : null],
+            'company_id' => $this->remoteField('company_id', $row, ['label' => __('Parent company (link)'), 'rules' => 'nullable', 'hide_form' => true, 'hide_show' => true]),
             'registration' => ['label' => __('Registration status'), 'type' => 'select', 'options' => ['not_registered' => __('Not registered'), 'registered' => __('Registered')], 'rules' => $must, 'default' => 'not_registered', 'table' => false,
                              'help' => __('Registered with the Department of Business Development.'),
                              'display' => fn ($r) => filter_var($r['is_register'] ?? false, FILTER_VALIDATE_BOOL) ? __('Registered') : __('Not registered')],
@@ -172,6 +174,20 @@ class LeadController extends CrmController
             if (count($data[$key]) > self::PICK_MAX) {
                 throw new \App\Core\Support\ValidationException([$key => __('Pick up to :n for :field.', ['n' => self::PICK_MAX, 'field' => $label])]);
             }
+        }
+        // Parent company typed in the form: linked to the lead of that name when there is exactly one the person can see
+        if (array_key_exists('parent_company', $data)) {
+            $name = trim((string) $data['parent_company']);
+            $data['parent_company'] = $name !== '' ? $name : null;
+            $data['company_id'] = null;
+            if ($name !== '') {
+                $v   = \App\Modules\CRM\Support\Access::visible($this->user(), 'l', 'lead');
+                $ids = array_column(DB::select('SELECT l.id FROM leads l WHERE lower(l.name_en) = lower(?) AND l.deleted_at IS NULL AND '.$v['sql'].($existing ? ' AND l.id <> ?' : '').' LIMIT 2',
+                    [$name, ...$v['params'], ...($existing ? [(int) $existing['id']] : [])], 'crm'), 'id');
+                $data['company_id'] = count($ids) === 1 ? (int) $ids[0] : null;
+            }
+        } elseif (! empty($data['company_id']) && empty($data['parent_company'])) {
+            $data['parent_company'] = DB::scalar('SELECT name_en FROM leads WHERE id = ?', [(int) $data['company_id']], 'crm') ?: null;   // import by parent id / name
         }
         // Sector and registration status are two choices in the form, two yes / no columns in the table
         if (($data['sector'] ?? null) !== null) { $data['is_government'] = $data['sector'] === 'government'; }

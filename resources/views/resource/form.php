@@ -54,21 +54,6 @@ $renderField = function (string $name, array $f) use ($value, $row) {
         <?= partial('partials/picker', ['name' => $name, 'f' => $f, 'picked' => array_map('strval', (array) old($name, $row[$name.'_ids'] ?? [])), 'err' => $err]) ?>
     <?php elseif ($type === 'logo'): ?>
         <?= partial('partials/logo-drop', ['name' => $name, 'f' => $f, 'current' => $row[$name] ?? null, 'err' => $err]) ?>
-    <?php elseif ($type === 'phone'):
-        $codes = config('core.phone_codes', ['+66' => 'TH']);
-        $cc = $f['default_code'] ?? array_key_first($codes); $num = (string) $v;
-        if (preg_match('/^(\+\d{1,4})\s*(.*)$/', $num, $pm) && isset($codes[$pm[1]])) { [$cc, $num] = [$pm[1], $pm[2]]; }
-        $cc = (string) old($name.'__cc', $cc); ?>
-        <label for="f-<?= e($name) ?>" class="label"><?= $lbl() ?></label>
-        <div class="flex">
-            <select name="<?= e($name) ?>__cc" aria-label="<?= e(__('Country code')) ?>" class="input !w-28 shrink-0 rounded-r-none" <?= $ro ? 'disabled' : '' ?>>
-                <?php foreach ($codes as $code => $cty): ?><option value="<?= e($code) ?>" <?= $code === $cc ? 'selected' : '' ?>><?= e(phone_flag($cty).' '.$code) ?></option><?php endforeach ?>
-            </select>
-            <input id="f-<?= e($name) ?>" name="<?= e($name) ?>" type="tel" inputmode="tel" value="<?= e($num) ?>" placeholder="<?= e($f['placeholder'] ?? __('Enter phone number')) ?>"
-                   class="input -ml-px min-w-0 flex-1 rounded-l-none <?= $err ? 'input-error' : '' ?>" <?= $ro ? 'disabled' : '' ?>>
-        </div>
-        <?php if (! empty($f['help'])): ?><p class="hint"><?= e($f['help']) ?></p><?php endif ?>
-        <?php if ($err): ?><p class="error"><?= e($err) ?></p><?php endif ?>
     <?php elseif ($type === 'file'): ?>
         <span class="label"><?= $lbl() ?></span>
         <div class="flex items-center gap-4">

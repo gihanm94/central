@@ -2389,4 +2389,7 @@ return [
     ':n required' => 'ต้องกรอก :n ช่อง',
     'This field is required.' => 'ต้องกรอกช่องนี้',
     'Fill in the fields marked in red.' => 'กรุณากรอกช่องที่เป็นสีแดง',
+    'e.g. 02 123 4567' => 'เช่น 02 123 4567',
+    'e.g. 081 234 5678' => 'เช่น 081 234 5678',
+    'Parent company (link)' => 'บริษัทแม่ (ลิงก์)',
 ];
