@@ -6,6 +6,7 @@ use App\Modules\Accounting\Controllers\AccountReportController;
 use App\Modules\Accounting\Controllers\BillingController;
 use App\Modules\Accounting\Controllers\CompanyController;
 use App\Modules\Accounting\Controllers\CustomerController;
+use App\Modules\Accounting\Controllers\DepartmentController;
 use App\Modules\Accounting\Controllers\ErpController;
 use App\Modules\Accounting\Controllers\InetController;
 use App\Modules\Accounting\Controllers\InvoiceController;
@@ -30,14 +31,14 @@ $r->get('/accounting/erp/status', [ErpController::class, 'status']);
 $r->get('/accounting/erp/runs', [ErpController::class, 'runs']);
 
 // Copies of ERP data (read only) and the e-tax page
-foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class, 'inet' => InetController::class] as $path => $controller) {
+foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class, 'departments' => DepartmentController::class, 'inet' => InetController::class] as $path => $controller) {
     $r->get("/accounting/{$path}", [$controller, 'index']);
     $r->get("/accounting/{$path}/export", [$controller, 'export']);
     $r->get("/accounting/{$path}/{id}", [$controller, 'show']);
     $r->get("/accounting/{$path}/{id}/download", [$controller, 'download']);
 }
 // one record from the ERP again (admins) and the hand-filled seller fields
-foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class] as $path => $controller) {
+foreach (['customers' => CustomerController::class, 'orders' => OrderController::class, 'invoices' => InvoiceController::class, 'products' => ProductController::class, 'sellers' => SellerController::class, 'departments' => DepartmentController::class] as $path => $controller) {
     $r->post("/accounting/{$path}/{id}/sync", [$controller, 'syncRow']);
 }
 $r->get('/accounting/sellers/{id}/edit', [SellerController::class, 'edit']);
