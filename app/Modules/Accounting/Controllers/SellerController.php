@@ -25,7 +25,7 @@ class SellerController extends ErpListController
     protected function select(): string
     {
         return "SELECT t.*, trim(coalesce(t.first_name, '') || ' ' || coalesce(t.last_name, '')) AS name, coalesce(t.email, t.email_address) AS mail_shown,
-                       d.name AS department
+                       coalesce(t.department_name, d.name) AS department, coalesce(t.department_code, d.code) AS dept_code
                 FROM erp_sellers t LEFT JOIN erp_departments d ON d.id = t.department_id";
     }
 
@@ -43,11 +43,21 @@ class SellerController extends ErpListController
         return $rows;
     }
 
+    /** Sellers synced before their ERP department code was copied onto them get it the first time the list is opened. */
+    public function index(): string
+    {
+        if (DB::scalar("SELECT 1 FROM erp_sellers s JOIN erp_departments d ON d.id = s.department_id WHERE s.department_code IS DISTINCT FROM nullif(trim(d.code), '') LIMIT 1", [], $this->conn)) {
+            \App\Modules\Accounting\Support\SellerStamp::quietly();
+        }
+
+        return parent::index();
+    }
+
     /** the e-mail, the person's account and the Lark id are the only things edited here */
     protected function canModify(array $row, string $action): bool { return $action === 'edit'; }
 
     protected function label(array $row): string { return (string) ($row['name'] ?: '#'.$row['id']); }
-    protected function searchable(): array { return ["trim(coalesce(t.first_name, '') || ' ' || coalesce(t.last_name, ''))", 't.employee_number', 't.email', 't.email_address', 't.lark_id', 't.phone_number']; }
+    protected function searchable(): array { return ["trim(coalesce(t.first_name, '') || ' ' || coalesce(t.last_name, ''))", 't.employee_number', 't.email', 't.email_address', 't.lark_id', 't.phone_number', 't.department_code', 't.department_name']; }
 
     /** @return array<string,string> departments of this app (core database) */
     private static function departments(): array
@@ -84,6 +94,7 @@ class SellerController extends ErpListController
             'employee_number' => ['label' => __('Employee number'), 'type' => 'text', 'readonly' => true],
             'phone_number'    => ['label' => __('Phone'), 'type' => 'text', 'readonly' => true],
             'email_address'   => ['label' => __('E-mail in the ERP'), 'type' => 'text', 'readonly' => true],
+            'dept_code'       => ['label' => __('Department code'), 'type' => 'text', 'readonly' => true, 'table' => false],
             'department'      => ['label' => __('Department'), 'type' => 'text', 'readonly' => true, 'table' => false],
             'sec_manual'      => ['section' => __('Filled in here')],
             'email'           => ['label' => __('E-mail'), 'type' => 'email', 'rules' => 'nullable|email|max:190', 'help' => __('Used to reach the seller. Never overwritten by a sync.')],
@@ -97,14 +108,16 @@ class SellerController extends ErpListController
     protected function detail(): array
     {
         return ['name' => ['Name', 'text'], 'employee_number' => ['Employee number', 'text'], 'phone_number' => ['Phone', 'text'], 'email_address' => ['E-mail in the ERP', 'text'],
-            'department' => ['Department', 'text'], 'email' => ['E-mail', 'text'], 'user_name' => ['User', 'text'], 'app_department' => ['Department (this app)', 'text'], 'lark_id' => ['Lark ID', 'text']];
+            'dept_code' => ['Department code', 'text'], 'department' => ['Department', 'text'], 'email' => ['E-mail', 'text'], 'user_name' => ['User', 'text'], 'app_department' => ['Department (this app)', 'text'], 'lark_id' => ['Lark ID', 'text']];
     }
 
     protected function columns(): array
     {
         return [
             'name'  => ['label' => __('Seller'), 'primary' => true, 'sort' => 'name', 'render' => fn ($r) => Ui::person((string) $r['name'], (string) $r['employee_number'], null, '/accounting/sellers/'.$r['id'])],
-            'dept'  => ['label' => __('Department'), 'render' => fn ($r) => e($r['department'] ?: '—')],
+            'dept'  => ['label' => __('Department'), 'sort' => 'dept_code', 'render' => fn ($r) => $r['dept_code']
+                ? Ui::badge((string) $r['dept_code'], 'neutral').($r['department'] ? ' <span class="text-xs text-steel">'.e($r['department']).'</span>' : '')
+                : e($r['department'] ?: '—')],
             'app_dept' => ['label' => __('Department (this app)'), 'render' => fn ($r) => $r['app_department'] ? e($r['app_department']) : '<span class="text-graphite-400">—</span>'],
             'email' => ['label' => __('E-mail'), 'sort' => 'mail_shown', 'render' => fn ($r) => e($r['mail_shown'] ?: '—')],
             'user'  => ['label' => __('User'), 'render' => fn ($r) => $r['user_name'] ? e($r['user_name']) : '<span class="text-graphite-400">—</span>'],

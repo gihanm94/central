@@ -2278,4 +2278,5 @@ return [
     'Department (this app)' => 'แผนก (ในระบบนี้)',
     'Departments' => 'แผนก',
     'Description' => 'รายละเอียด',
+    'Department code' => 'รหัสแผนก',
 ];
