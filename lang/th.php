@@ -2315,4 +2315,11 @@ return [
     'Reverse connection voucher' => 'ใบสำคัญกลับรายการ',
     'Reverse connection type' => 'ประเภทการกลับรายการ',
     'Invoice log ledger' => 'บัญชีแยกประเภทใบแจ้งหนี้',
+    'Invoiced' => 'ออกใบแจ้งหนี้แล้ว',
+    'Order type' => 'ประเภทคำสั่งซื้อ',
+    ':kind orders' => 'คำสั่งซื้อ :kind',
+    'Showing these' => 'กำลังแสดง',
+    'Click to show' => 'คลิกเพื่อแสดง',
+    'No invoice' => 'ยังไม่ออกใบแจ้งหนี้',
+    'of :n orders' => 'จาก :n คำสั่งซื้อ',
 ];
