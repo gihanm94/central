@@ -31,6 +31,12 @@ class TaskController extends CrmController
     protected bool $comments = true;
     protected bool $files = true;
 
+    /** PREFIX-yyyyMMddHHmmss + 3 digits, like leads */
+    protected function newCode(int $id): string { return $this->dateCode(); }
+
+    /** The form in steps with tabs and dots, like the lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
     protected function select(): string
     {
         return 'SELECT t.*, p.name AS project_name, p.code AS project_code FROM tasks t JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL';
@@ -53,24 +59,23 @@ class TaskController extends CrmController
     protected function fields(?array $row): array
     {
         $f = [
-            '_task'    => ['section' => __('Task')],
-            'project_id' => $this->remoteField('project_id', $row, ['label' => __('Project'), 'rules' => 'required', 'span' => 2,
+            '_task'    => ['section' => __('Basic info'), 'icon' => 'tasks', 'help' => __('Project, name, status and dates')],
+            'project_id' => $this->remoteField('project_id', $row, ['label' => __('Project'), 'rules' => 'required', 'span' => 2, 'placeholder' => __('Select project'),
                              'display' => fn ($r) => $r['project_name'] ?? null, 'href' => fn ($r) => '/crm/projects/'.$r['project_id']]),
-            'name'     => ['label' => __('Name'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Order the sensors'],
-            'status'   => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::TASK_STATUSES), 'rules' => 'required', 'default' => 'TODO', 'search' => false],
-            'code'     => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
-            'start_date' => ['label' => __('Starts'), 'type' => 'date', 'rules' => 'nullable|date'],
-            'end_date'   => ['label' => __('Ends'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'name'     => ['label' => __('Task name'), 'rules' => 'required|max:200', 'span' => 2, 'placeholder' => __('e.g. Order the sensors'), 'example' => 'Order the sensors'],
+            'status'   => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::TASK_STATUSES), 'rules' => 'required', 'default' => 'TODO', 'search' => false, 'span' => 2],
+            'start_date' => ['label' => __('Start date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'end_date'   => ['label' => __('Due date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'code'     => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the task is created (import may give one)
 
-            '_people'  => ['section' => __('Responsible')],
+            '_people'  => ['section' => __('Responsible'), 'icon' => 'users', 'help' => __('Who does the task')],
             'assignees' => ['label' => __('People responsible'), 'type' => 'custom', 'partial' => 'crm/fields/people', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
                            'people' => Access::people(), 'selected' => $row ? Responsible::ids('task', (int) $row['id']) : [$this->user()->id],
                            'help' => __('Everyone ticked here sees the task and can update it.')],
 
-            '_more'    => ['section' => __('Details and files')],
-            'description' => ['label' => __('Details'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
-            'files'    => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/files', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable'],
-        ];
+            '_more'    => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this task')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
+        ] + $this->filesFields($row);
         if ($row) {                                // a task stays in its project
             unset($f['project_id']);
         }
@@ -93,7 +98,7 @@ class TaskController extends CrmController
     protected function columns(): array
     {
         return [
-            'name'    => ['label' => __('Task'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::person($r['name'], $r['code'], null, '/crm/tasks/'.$r['id'])],
+            'name'    => ['label' => __('Task'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::title($r['name'], $r['code'], '/crm/tasks/'.$r['id'])],
             'project' => ['label' => __('Project'), 'sort' => 'p.name', 'render' => fn ($r) => Ui::link('/crm/projects/'.$r['project_id'], $r['project_name'])],
             'people'  => ['label' => __('Responsible'), 'render' => fn ($r) => Ui::avatars($r['assignee_names'] ?? [])],
             'period'  => ['label' => __('Period'), 'sort' => 't.end_date', 'render' => function ($r) {

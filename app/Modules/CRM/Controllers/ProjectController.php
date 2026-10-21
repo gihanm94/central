@@ -26,6 +26,12 @@ class ProjectController extends CrmController
     protected bool $comments = true;
     protected bool $files = true;
 
+    /** PREFIX-yyyyMMddHHmmss + 3 digits, like leads */
+    protected function newCode(int $id): string { return $this->dateCode(); }
+
+    /** The form in steps with tabs and dots, like the lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
     protected function select(): string
     {
         return "SELECT t.*,
@@ -50,22 +56,21 @@ class ProjectController extends CrmController
     protected function fields(?array $row): array
     {
         return [
-            '_project' => ['section' => __('Project')],
-            'name'     => ['label' => __('Name'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Factory line upgrade'],
-            'status'   => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::PROJECT_STATUSES), 'rules' => 'required', 'default' => 'PLANNING', 'search' => false],
-            'code'     => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
-            'start_date' => ['label' => __('Starts'), 'type' => 'date', 'rules' => 'nullable|date'],
-            'end_date'   => ['label' => __('Ends'), 'type' => 'date', 'rules' => 'nullable|date'],
+            '_project' => ['section' => __('Basic info'), 'icon' => 'folder', 'help' => __('Name, status and dates')],
+            'name'     => ['label' => __('Project name'), 'rules' => 'required|max:200', 'span' => 2, 'placeholder' => __('e.g. Factory line upgrade'), 'example' => 'Factory line upgrade'],
+            'status'   => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::PROJECT_STATUSES), 'rules' => 'required', 'default' => 'PLANNING', 'search' => false, 'span' => 2],
+            'start_date' => ['label' => __('Start date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'end_date'   => ['label' => __('End date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'code'     => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the project is created (import may give one)
 
-            '_people'  => ['section' => __('Responsible')],
+            '_people'  => ['section' => __('Responsible'), 'icon' => 'users', 'help' => __('Who works on the project')],
             'members'  => ['label' => __('People responsible'), 'type' => 'custom', 'partial' => 'crm/fields/people', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
                            'people' => Access::people(), 'selected' => $row ? Responsible::ids('project', (int) $row['id']) : [$this->user()->id],
                            'help' => __('Everyone ticked here sees the project and its tasks and can update them.')],
 
-            '_more'    => ['section' => __('Details and files')],
-            'description' => ['label' => __('Details'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
-            'files'    => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/files', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable'],
-        ] + $this->ownershipFields($row);
+            '_more'    => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this project')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
+        ] + $this->filesFields($row) + $this->ownershipFields($row);
     }
 
     protected function hydrateMore(array $rows): array
@@ -83,7 +88,7 @@ class ProjectController extends CrmController
     protected function columns(): array
     {
         return [
-            'name'   => ['label' => __('Project'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::person($r['name'], $r['code'], null, '/crm/projects/'.$r['id'])],
+            'name'   => ['label' => __('Project'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::title($r['name'], $r['code'], '/crm/projects/'.$r['id'])],
             'status' => ['label' => __('Status'), 'sort' => 't.status', 'render' => fn ($r) => Ui::badge(__(Catalog::PROJECT_STATUSES[$r['status']] ?? $r['status']), Catalog::PROJECT_TONES[$r['status']] ?? 'neutral')],
             'period' => ['label' => __('Period'), 'sort' => 't.start_date', 'render' => fn ($r) => $r['start_date'] || $r['end_date'] ? '<span class="tabular-nums text-steel">'.e(format_date($r['start_date'], 'd M').' → '.format_date($r['end_date'], 'd M Y')).'</span>' : Ui::dash()],
             'people' => ['label' => __('Responsible'), 'render' => fn ($r) => Ui::avatars($r['member_names'] ?? [])],

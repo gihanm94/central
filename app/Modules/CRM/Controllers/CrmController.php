@@ -24,6 +24,19 @@ abstract class CrmController extends ResourceController
     protected string $codePrefix = 'CRM';
     protected bool $comments = false;
     protected bool $files = false;
+
+    /** Files a record may have in all (the forms' drop zone counts the ones already attached). */
+    public const MAX_FILES = 5;
+
+    /** The Attachments step of a form: a drop zone, MAX_FILES in all. */
+    protected function filesFields(?array $row): array
+    {
+        return [
+            '_files' => ['section' => __('Attachments'), 'icon' => 'clip', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
+            'files'  => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/dropfiles', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
+                         'max' => self::MAX_FILES, 'existing' => $row ? Attachments::forRecord($this->entity, (int) $row['id']) : []],
+        ];
+    }
     protected bool $wizard = true;
 
     protected function scopeSql(): array { return Access::visible($this->user(), 't', $this->entity); }
@@ -235,6 +248,10 @@ abstract class CrmController extends ResourceController
         }
 
         if ($this->files) {
+            $had = $existing ? count(Attachments::forRecord($this->entity, (int) $existing['id'])) : 0;      // at most MAX_FILES in all
+            if ($had + count(Attachments::incoming('files')) > self::MAX_FILES) {
+                throw new ValidationException(['files' => __('You can attach up to :n files.', ['n' => self::MAX_FILES])]);
+            }
             foreach (Attachments::incoming('files') as $file) {
                 Attachments::check($file);
             }

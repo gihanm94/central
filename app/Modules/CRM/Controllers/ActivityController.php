@@ -29,8 +29,6 @@ class ActivityController extends CrmController
     protected bool $comments = true;
     protected bool $files = true;
 
-    /** Files an activity may have in all. */
-    private const MAX_FILES = 5;
 
     /** AC-yyyyMMddHHmmss + 3 digits, like leads */
     protected function newCode(int $id): string { return $this->dateCode(); }
@@ -107,10 +105,7 @@ class ActivityController extends CrmController
             '_more'      => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this activity')],
             'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
 
-            '_files'     => ['section' => __('Attachments'), 'icon' => 'clip', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
-            'files'      => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/dropfiles', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
-                             'max' => self::MAX_FILES, 'existing' => $row ? \App\Modules\CRM\Support\Attachments::forRecord('activity', (int) $row['id']) : []],
-        ] + $this->ownershipFields($row);
+        ] + $this->filesFields($row) + $this->ownershipFields($row);
     }
 
     protected function columns(): array
@@ -141,10 +136,6 @@ class ActivityController extends CrmController
             $data['meeting_type'] = $data['meeting_duration'] = $data['meeting_location'] = null;
         }
         $data['notify_before'] = (int) ($data['notify_before'] ?? 0);
-        $had = $existing ? count(\App\Modules\CRM\Support\Attachments::forRecord('activity', (int) $existing['id'])) : 0;      // at most MAX_FILES files in all
-        if ($had + count(\App\Modules\CRM\Support\Attachments::incoming('files')) > self::MAX_FILES) {
-            throw new ValidationException(['files' => __('You can attach up to :n files.', ['n' => self::MAX_FILES])]);
-        }
         // a changed time or reminder setting means the reminder has not been sent yet
         $same = $existing
             && ($existing['start_at'] ? strtotime((string) $existing['start_at']) : null) === (! empty($data['start_at']) ? strtotime((string) $data['start_at']) : null)

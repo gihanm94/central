@@ -21,6 +21,12 @@ class CampaignController extends CrmController
     protected string $orderBy = "CASE t.status WHEN 'ACTIVE' THEN 0 WHEN 'PLANNED' THEN 1 WHEN 'DRAFT' THEN 2 ELSE 3 END, t.start_date DESC NULLS LAST, t.id DESC";
     protected bool $files = true;
 
+    /** PREFIX-yyyyMMddHHmmss + 3 digits, like leads */
+    protected function newCode(int $id): string { return $this->dateCode(); }
+
+    /** The form in steps with tabs and dots, like the lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
     protected function label(array $row): string { return (string) $row['name']; }
 
     protected function searchable(): array { return ['t.name', 't.code', 't.description']; }
@@ -36,25 +42,24 @@ class CampaignController extends CrmController
     protected function fields(?array $row): array
     {
         return [
-            '_campaign'  => ['section' => __('Campaign')],
-            'name'       => ['label' => __('Name'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Spring packaging expo'],
-            'type'       => ['label' => __('Type'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CAMPAIGN_TYPES), 'rules' => 'required', 'default' => 'EMAIL'],
-            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CAMPAIGN_STATUSES), 'rules' => 'required', 'default' => 'DRAFT'],
-            'start_date' => ['label' => __('Starts'), 'type' => 'date', 'rules' => 'nullable|date'],
-            'end_date'   => ['label' => __('Ends'), 'type' => 'date', 'rules' => 'nullable|date'],
-            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
+            '_campaign'  => ['section' => __('Basic info'), 'icon' => 'chat', 'help' => __('Name, type, status and dates')],
+            'name'       => ['label' => __('Campaign name'), 'rules' => 'required|max:200', 'span' => 2, 'placeholder' => __('e.g. Spring packaging expo'), 'example' => 'Spring packaging expo'],
+            'type'       => ['label' => __('Campaign type'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CAMPAIGN_TYPES), 'rules' => 'required', 'default' => 'EMAIL', 'search' => false],
+            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CAMPAIGN_STATUSES), 'rules' => 'required', 'default' => 'DRAFT', 'search' => false],
+            'start_date' => ['label' => __('Start date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'end_date'   => ['label' => __('End date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the campaign is created (import may give one)
 
-            '_money'     => ['section' => __('Budget and results')],
-            'budget'           => ['label' => __('Budget'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'actual_cost'      => ['label' => __('Actual cost'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'expected_revenue' => ['label' => __('Expected revenue'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'expected_response_rate' => ['label' => __('Expected response rate (%)'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'actual_response_rate'   => ['label' => __('Actual response rate (%)'), 'type' => 'number', 'rules' => 'nullable|numeric'],
+            '_money'     => ['section' => __('Budget and results'), 'icon' => 'calc', 'help' => __('What it costs and what it brings')],
+            'budget'           => ['label' => __('Budget'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => '0.00'],
+            'actual_cost'      => ['label' => __('Actual cost'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => '0.00'],
+            'expected_revenue' => ['label' => __('Expected revenue'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => '0.00', 'span' => 2],
+            'expected_response_rate' => ['label' => __('Expected response rate (%)'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => __('e.g. 5')],
+            'actual_response_rate'   => ['label' => __('Actual response rate (%)'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => __('e.g. 4.2')],
 
-            '_more'      => ['section' => __('Notes and files')],
-            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
-            'files'      => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/files', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable'],
-        ] + $this->ownershipFields($row);
+            '_more'      => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this campaign')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
+        ] + $this->filesFields($row) + $this->ownershipFields($row);
     }
 
     private function tone(string $s): string
@@ -65,7 +70,7 @@ class CampaignController extends CrmController
     protected function columns(): array
     {
         return [
-            'name'   => ['label' => __('Campaign'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::person($r['name'], __(Catalog::CAMPAIGN_TYPES[$r['type']] ?? ($r['type'] ?? '')).' · '.($r['code'] ?? ''), null, '/crm/campaigns/'.$r['id'])],
+            'name'   => ['label' => __('Campaign'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::title($r['name'], trim(__(Catalog::CAMPAIGN_TYPES[$r['type']] ?? ($r['type'] ?? '')).' · '.($r['code'] ?? ''), ' ·'), '/crm/campaigns/'.$r['id'])],
             'status' => ['label' => __('Status'), 'sort' => 't.status', 'render' => fn ($r) => Ui::badge(__(Catalog::CAMPAIGN_STATUSES[$r['status']] ?? $r['status']), $this->tone($r['status']))],
             'period' => ['label' => __('Period'), 'sort' => 't.start_date', 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.e(format_date($r['start_date'], 'd M').' → '.format_date($r['end_date'], 'd M Y')).'</span>'],
             'budget' => ['label' => __('Budget'), 'sort' => 't.budget', 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['budget']).'</span>'],

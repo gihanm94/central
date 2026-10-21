@@ -28,8 +28,6 @@ class OpportunityController extends CrmController
     protected string $codePrefix = 'OP';
     protected bool $files = true;
 
-    /** Files an opportunity may have in all (the form's drop zone counts the ones already attached). */
-    private const MAX_FILES = 5;
     private const UNITS = ['pcs', 'set', 'unit', 'box', 'pack', 'lot', 'kg', 'm', 'm²', 'litre', 'hour', 'day', 'month', 'year', 'job', 'licence'];
 
     /** OP-yyyyMMddHHmmss + 3 digits, like leads and contacts */
@@ -108,10 +106,7 @@ class OpportunityController extends CrmController
             '_more'       => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this opportunity')],
             'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
 
-            '_files'      => ['section' => __('Attachments'), 'icon' => 'clip', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
-            'files'       => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/dropfiles', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
-                              'max' => self::MAX_FILES, 'existing' => $row ? \App\Modules\CRM\Support\Attachments::forRecord('opportunity', (int) $row['id']) : []],
-        ] + $this->ownershipFields($row);
+        ] + $this->filesFields($row) + $this->ownershipFields($row);
     }
 
     protected function columns(): array
@@ -205,11 +200,6 @@ class OpportunityController extends CrmController
         $dep = (string) Request::input('department_id', '');
         if ($dep !== '' && isset(self::departments()[$dep])) { $data['department_id'] = (int) $dep; }
 
-        // attachments: at most MAX_FILES in all
-        $had = $existing ? count(\App\Modules\CRM\Support\Attachments::forRecord('opportunity', (int) $existing['id'])) : 0;
-        if ($had + count(\App\Modules\CRM\Support\Attachments::incoming('files')) > self::MAX_FILES) {
-            throw new ValidationException(['files' => __('You can attach up to :n files.', ['n' => self::MAX_FILES])]);
-        }
 
         return $data;
     }
