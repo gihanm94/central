@@ -27,12 +27,14 @@ body{width:210mm;background:#fff;color:var(--text);font-family:'Sarabun',sans-se
 .c-text{color:var(--text)}.c-head{color:var(--header-text)}.bg-band{background:var(--bg)}.bg-white{background:#fff}
 .bd{border:1px solid var(--border)}.bd-r{border-right:1px solid var(--border)}.bd-b{border-bottom:1px solid var(--border)}.bd-dash{border:2px dashed var(--border)}
 .h-16{height:110px}.w-16{width:110px}.border-collapse{border-collapse:collapse}
-@page{size:A4;margin:0}
+@page{size:A4;margin:0 0 6mm 0;
+  @bottom-left{content:"<?= addslashes($footerText) ?>";width:174mm;padding-left:18mm;text-align:center;vertical-align:middle;font-family:'Sarabun',sans-serif;font-size:10px;color:<?= $e($theme['head']) ?>;background:<?= $e($theme['bg']) ?>}
+  @bottom-right{content:counter(page) "/" counter(pages);width:18mm;padding-right:18px;text-align:right;vertical-align:middle;font-family:'Sarabun',sans-serif;font-size:10px;color:<?= $e($theme['head']) ?>;background:<?= $e($theme['bg']) ?>}}
 .avoid-break{page-break-inside:avoid;break-inside:avoid}
 tr{page-break-inside:avoid}
 </style></head>
 <body style="--header-text:<?= $e($theme['head']) ?>;--text:<?= $e($theme['text']) ?>;--border:<?= $e($theme['border']) ?>;--bg:<?= $e($theme['bg']) ?>;">
-<div style="display:flex;flex-direction:column;min-height:297mm;">
+<div style="display:flex;flex-direction:column;min-height:291mm;">
 
 <!-- header -->
 <div class="flex" style="min-height:108px;background:#fff;align-items:flex-start;margin-top:5mm;">
@@ -75,7 +77,9 @@ tr{page-break-inside:avoid}
 </div>
 <div class="bg-band" style="height:3px;"></div>
 
-<div class="px-5 py-3 mt-2" style="display:flex;flex-direction:column;gap:7px;flex:1;padding-bottom:82mm;">
+<!-- the empty table footer repeats on every printed page, so rows never run under the fixed bottom block -->
+<table style="width:100%;border-collapse:collapse;"><tbody><tr style="page-break-inside:auto;break-inside:auto;"><td style="padding:0;">
+<div class="px-5 py-3 mt-2" style="display:flex;flex-direction:column;gap:7px;">
   <!-- customer -->
   <div class="bd" style="display:flex;border-radius:6px;overflow:hidden;font-size:10px;">
     <?php foreach ([[$p('รหัสลูกค้า', 'Customer Code'), $d['customer_code'], 0], [$p('ชื่อลูกค้า', 'Customer Name'), $d['customer_name'], 1], [$p('สาขา', 'Branch'), $p('สำนักงานใหญ่', 'Head Office'), 0], [$p('เลขประจำตัวผู้เสียภาษี', 'Tax No'), $d['customer_vat_no'], 2]] as [$l, $v, $k]): ?>
@@ -84,12 +88,19 @@ tr{page-break-inside:avoid}
   </div>
   <!-- addresses: bill to | ship to (always both, like the old documents) -->
   <div class="grid-2">
-    <div class="bd" style="border-radius:6px;overflow:hidden;display:flex;flex-direction:column;"><div class="bg-band" style="padding:4px 10px;"><p class="c-head font-semibold text-10px uppercase tracking-widest"><?= $p('ที่อยู่', 'BILL TO') ?></p></div>
-      <div class="px-3 py-2 bg-white" style="min-height:48px;flex:1;"><p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($d['customer_name']."\n".$d['mailing_address']) ?></p></div>
-      <div class="bg-white" style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border);padding:3px 10px;"><p class="text-10px c-text"><?= $p('โทรศัพท์', 'Tel') ?> : <?= $e($d['phone'] ?: '-') ?></p><p class="text-10px c-text"><?= $p('โทรสาร', 'Fax') ?> : <?= $e($d['fax'] ?: '-') ?></p></div></div>
-    <div class="bd" style="border-radius:6px;overflow:hidden;display:flex;flex-direction:column;"><div class="bg-band" style="padding:4px 10px;"><p class="c-head font-semibold text-10px uppercase tracking-widest"><?= $p('ที่อยู่จัดส่ง', 'SHIP TO') ?></p></div>
-      <div class="px-3 py-2 bg-white" style="min-height:48px;flex:1;"><p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($d['customer_name']."\n".($d['delivery_address'] ?: $d['mailing_address'])) ?></p></div>
-      <div class="bg-white" style="border-top:1px solid var(--border);padding:3px 10px;"><p class="text-10px c-text"><?= $p('เลขที่ใบส่งของ', 'Delivery No.') ?> : <?= $e($d['delivery_note_number'] ?: '-') ?></p></div></div>
+    <?php foreach ([[$p('ที่อยู่', 'Address'), $d['mailing_address'], [[$p('โทรศัพท์', 'Tel'), $d['phone']], [$p('โทรสาร', 'Fax'), $d['fax']]]],
+                    [$p('ที่อยู่จัดส่ง', 'Delivery Address'), $d['delivery_address'] ?: $d['mailing_address'], [[$p('เลขที่ใบส่งสินค้า', 'Delivery Note No.'), $d['delivery_note_number']]]]] as [$l, $addr, $foot]): ?>
+    <div class="bd" style="border-radius:6px;overflow:hidden;display:flex;flex-direction:column;">
+      <p class="bg-band c-head font-semibold text-11px" style="padding:4px 10px;"><?= $e($l) ?></p>
+      <div class="bg-white" style="padding:5px 10px 4px;flex:1;min-height:54px;">
+        <p class="text-11px font-medium leading-relaxed c-text"><?= $e($d['customer_name']) ?></p>
+        <p class="text-11px whitespace-pre leading-relaxed c-text"><?= $e($addr) ?></p>
+      </div>
+      <div class="bg-white" style="display:flex;gap:28px;padding:2px 10px 5px;">
+        <?php foreach ($foot as [$fl, $fv]): ?><p class="text-11px c-text"><?= $e($fl) ?> : <?= $e(trim((string) $fv) !== '' ? $fv : '-') ?></p><?php endforeach ?>
+      </div>
+    </div>
+    <?php endforeach ?>
   </div>
   <!-- order info -->
   <div class="bd" style="display:grid;grid-template-columns:minmax(90px,1.4fr) minmax(80px,1fr) minmax(60px,.8fr) minmax(60px,.8fr) minmax(50px,.7fr) minmax(70px,.9fr) minmax(70px,.9fr) minmax(90px,1.4fr);border-radius:6px;overflow:hidden;">
@@ -142,26 +153,33 @@ tr{page-break-inside:avoid}
   </div>
   <?php endif ?>
 
-  <!-- footer: notes + signature | totals -->
-  <div class="avoid-break" style="position:fixed;left:0;right:0;bottom:10mm;background:#fff;padding:0 18px 4px;display:grid;grid-template-columns:11fr 9fr;gap:10px;align-items:stretch;">
-    <div class="bd-dash" style="border-radius:6px;padding:14px;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;">
-      <?php if (trim((string) $d['payment_remark']) !== ''): ?><p class="text-11px leading-relaxed mb-1 c-text" style="white-space:pre-line;text-align:left;"><?= $e($d['payment_remark']) ?></p><?php endif ?>
-      <?php if (trim((string) ($note ?? '')) !== ''): ?><p class="text-11px leading-relaxed mb-1 c-text" style="white-space:pre-line;text-align:left;"><?= $e($note) ?></p><?php endif ?>
-      <div style="display:flex;gap:28px;margin-top:auto;"><div class="text-center">
-        <div style="width:100px;display:flex;flex-direction:column;align-items:center;"><?php if ($signature): ?><img src="<?= $signature ?>" alt="" style="width:80px;height:40px;object-fit:contain;"><?php endif ?><div style="width:100px;border-bottom:1px solid var(--border);"></div></div>
-        <p class="text-11px mt-1 c-text"><?= $p('ผู้มีอำนาจลงนาม', 'Authorized Signature') ?></p></div></div>
-    </div>
-    <div style="display:flex;flex-direction:column;">
-      <div class="bd" style="border-radius:6px;overflow:hidden;"><table class="border-collapse w-full">
-        <tr class="bg-white"><td class="bd-b" style="padding:5px 10px;font-size:13px;"><span class="text-11px c-text"><?= $p('รวมจำนวนเงิน', 'Subtotal') ?> (THB)</span></td><td class="bd-b text-right c-text" style="padding:5px 10px;font-size:13px;"><?= $fmt($t['basis']) ?></td></tr>
-        <tr><td class="bd-b" style="padding:5px 10px;font-size:13px;"><span class="text-11px c-text">VAT <?= rtrim(rtrim(number_format($vatRate, 2, '.', ''), '0'), '.') ?>% (THB)</span></td><td class="bd-b text-right c-text" style="padding:5px 10px;font-size:13px;"><?= $fmt($t['tax']) ?></td></tr>
-        <tr><td class="bd-b" style="padding:5px 10px;font-size:13px;"><span class="text-11px c-text"><?= $p('รวมเงินทั้งสิ้น', 'Total') ?> (THB)</span></td><td class="bd-b text-right c-text" style="padding:5px 10px;font-size:13px;"><?= $fmt($t['grand']) ?></td></tr>
-        <tr><td colspan="2" style="padding:5px 10px;font-size:10px;"><span class="text-11px c-text"><?= $e($words) ?></span></td></tr>
-      </table></div>
-      <div class="bd-dash" style="margin-top:8px;flex:1;border-radius:6px;padding:12px;min-height:48px;"></div>
+</div>
+</td></tr></tbody><tfoot><tr><td style="padding:0;height:<?= $interest !== '' ? 60 : 51 ?>mm;"></td></tr></tfoot></table>
+
+  <!-- bottom: interest notice (invoice) | remark + signature | totals; the footer bar with the page number is the @page margin box -->
+  <div class="avoid-break" style="position:fixed;left:0;right:0;bottom:3mm;background:#fff;padding:0 18px;">
+    <?php if ($interest !== ''): ?>
+    <p class="text-11px font-medium text-center" style="border:1.5px solid #d32f2f;color:#c62828;border-radius:4px;padding:4px 10px;margin-bottom:7px;"><?= $e($interest) ?></p>
+    <?php endif ?>
+    <div style="display:grid;grid-template-columns:11fr 9fr;gap:10px;align-items:stretch;">
+      <div class="bd-dash" style="border-radius:6px;padding:10px 14px;min-height:150px;display:flex;flex-direction:column;">
+        <?php if (trim((string) $d['payment_remark']) !== ''): ?><p class="text-11px leading-relaxed c-text" style="white-space:pre-line;text-align:left;"><?= $e($d['payment_remark']) ?></p><?php endif ?>
+        <?php if (trim((string) ($note ?? '')) !== ''): ?><p class="text-11px leading-relaxed c-text" style="white-space:pre-line;text-align:left;margin-top:4px;"><?= $e($note) ?></p><?php endif ?>
+        <div style="margin-top:auto;padding-top:8px;width:150px;text-align:center;">
+          <div style="height:46px;display:flex;align-items:flex-end;justify-content:center;"><?php if ($signature): ?><img src="<?= $signature ?>" alt="" style="max-width:110px;height:44px;object-fit:contain;"><?php endif ?></div>
+          <div style="border-bottom:1px solid var(--text);margin-top:2px;"></div>
+          <p class="text-11px c-text" style="margin-top:3px;"><?= $p('ผู้มีอำนาจลงนาม', 'Authorized Signature') ?></p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="bd" style="border-radius:6px;overflow:hidden;"><table class="border-collapse w-full">
+          <?php foreach ([[$p('รวมจำนวนเงิน', 'Subtotal').' (THB)', $t['basis']], ['VAT '.rtrim(rtrim(number_format($vatRate, 2, '.', ''), '0'), '.').'% (THB)', $t['tax']], [$p('รวมเงินทั้งสิ้น', 'Grand Total').' (THB)', $t['grand']]] as $i => [$l, $v]): ?>
+          <tr class="bg-white"><td class="<?= $i < 2 ? 'bd-b' : '' ?> text-11px c-text <?= $i === 2 ? 'font-semibold' : '' ?>" style="padding:6px 10px;"><?= $e($l) ?></td><td class="<?= $i < 2 ? 'bd-b' : '' ?> text-right c-text <?= $i === 2 ? 'font-semibold' : '' ?>" style="padding:6px 10px;font-size:13px;"><?= $fmt($v) ?></td></tr>
+          <?php endforeach ?>
+        </table></div>
+        <div class="bd bg-band text-center" style="border-radius:6px;padding:7px 10px;"><p class="text-11px font-medium c-head"><?= $e($words) ?></p></div>
+      </div>
     </div>
   </div>
-</div>
-<div style="position:fixed;left:0;right:0;bottom:0;background:var(--bg);padding:3px 18px;text-align:center;font-size:10px;color:var(--header-text);"><?= $e($footerText) ?></div>
 </div>
 </body></html>

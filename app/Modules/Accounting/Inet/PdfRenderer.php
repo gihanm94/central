@@ -93,6 +93,18 @@ final class PdfRenderer
             }
         }
         $note = match ($docType) { 'T01' => $thai ? $company['receipt_note_th'] : $company['receipt_note_en'], '81' => $thai ? $company['credit_note_th'] : $company['credit_note_en'], default => '' };
+        if ($docType === 'T01' && trim((string) $note) === '') {
+            $note = $thai ? 'ใบเสร็จจะสมบูรณ์ก็ต่อเมื่อบริษัทฯ ได้รับชำระตามเอกสารเรียบร้อยแล้ว' : 'This receipt is complete only once the company has received payment as stated in this document.';
+        }
+        // the red interest notice above the totals: tax invoice only (the company's billing interest note, else the usual text)
+        $interest = '';
+        if ($docType === '388') {
+            $interest = trim((string) ($thai ? $company['payment_note_th'] : $company['payment_note_en']));
+            if ($interest === '') {
+                $interest = $thai ? '***บริษัทฯ สงวนสิทธิ์ที่จะคิดดอกเบี้ยจากเงินที่ค้างชำระในอัตราร้อยละ 1.50 ต่อเดือน ตลอดไปจนกว่าจะได้รับการชำระเสร็จสิ้น***'
+                                  : '***The company reserves the right to charge interest of 1.50% per month on overdue amounts until they are paid in full.***';
+            }
+        }
         $title = self::TITLES[$docType][0];
         $number = (string) $doc['invoice_no'];
         $refDate = $credit && ! empty($credit['reference_date']) ? date('d/m/y', strtotime((string) $credit['reference_date'])) : '';
@@ -101,7 +113,7 @@ final class PdfRenderer
             'd' => $doc, 'company' => $company, 'items' => $items, 't' => $totals, 'thai' => $thai, 'docType' => $docType, 'number' => $number, 'date' => self::dmy($doc['invoice_date'], 'd-m-Y'),
             'titles' => $title, 'theme' => self::THEME[$docType], 'showShip' => $docType === '388', 'vatRate' => $vat['rate'], 'words' => Money::words($totals['grand'], 'THB', $thai),
             'credit' => $docType === '81' && $credit ? $credit + ['ref_date' => $refDate] : null, 'fonts' => self::fonts(), 'logo' => self::data('logo.jpg', 'image/jpeg'),
-            'signature' => self::data('signature.jpeg', 'image/jpeg'), 'footerText' => $footer, 'note' => (string) $note,
+            'signature' => self::data('signature.jpeg', 'image/jpeg'), 'footerText' => $footer, 'note' => (string) $note, 'interest' => $interest,
         ]);
 
     }
