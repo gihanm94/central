@@ -17,7 +17,7 @@ $value = function (string $name, array $f) use ($row) {
 $steps = []; $cur = ['title' => __('Details'), 'fields' => []];
 foreach ($fields as $name => $f) {
     if (isset($f['section'])) { if ($cur['fields']) { $steps[] = $cur; } $cur = ['title' => $f['section'], 'icon' => $f['icon'] ?? null, 'help' => $f['help'] ?? null, 'fields' => []]; continue; }
-    $cur['fields'][$name] = $f;
+    if (empty($f['hide_form'])) { $cur['fields'][$name] = $f; }
 }
 if ($cur['fields']) { $steps[] = $cur; }
 $wizard = ! empty($c['wizard']) && count($steps) > 1;
@@ -124,7 +124,7 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
 ?>
 <div id="form-shell" class="[&:fullscreen]:overflow-auto [&:fullscreen]:bg-mist [&:fullscreen]:p-6">
 <form method="POST" action="<?= url($isEdit ? $c['base'].'/'.$row['id'] : $c['base']) ?>" enctype="multipart/form-data" novalidate data-no-busy <?= $embed ? 'data-sheet-form' : '' ?>
-      data-form data-msg-discard="<?= e(__('Discard what you typed?')) ?>" data-msg-missing="<?= e(__('required missing')) ?>" data-msg-done="<?= e(__('Complete')) ?>" data-msg-optional="<?= e(__('Optional')) ?>" <?= $wizard ? 'data-wizard data-start="'.(int) $errStep.'"' : '' ?> <?= $dots ? 'data-dots' : '' ?>>
+      data-form data-msg-discard="<?= e(__('Discard what you typed?')) ?>" data-msg-missing="<?= e(__('required missing')) ?>" data-msg-done="<?= e(__('Complete')) ?>" data-msg-optional="<?= e(__('Optional')) ?>" data-msg-required="<?= e(__(':n required')) ?>" data-msg-field-required="<?= e(__('This field is required.')) ?>" data-msg-fix="<?= e(__('Fill in the fields marked in red.')) ?>" <?= $wizard ? 'data-wizard data-start="'.(int) $errStep.'"' : '' ?> <?= $dots ? 'data-dots' : '' ?>>
     <?= csrf_field() ?>
 
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -145,6 +145,15 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
     <?php if ($dots): ?>
     <!-- one card per step: icon, title and what the step is for; Previous · dots · Next (named after the next step) under it -->
     <div class="<?= $embed ? 'mt-4' : 'mt-6' ?> mx-auto max-w-4xl">
+        <!-- the steps by name: jump to any of them; each says how many required fields it has, or that it is optional -->
+        <nav class="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-graphite-900/8" aria-label="<?= e(__('Steps')) ?>">
+            <?php foreach ($steps as $i => $st): ?>
+            <button type="button" data-go="<?= $i ?>" data-tab-style class="flex min-w-fit flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left">
+                <span data-dot class="flex size-6 shrink-0 items-center justify-center rounded-full bg-graphite-900/8 text-xs font-semibold"><?= $i + 1 ?></span>
+                <span class="min-w-0"><span class="block truncate text-sm font-medium"><?= e($st['title']) ?></span><span class="block text-xs text-steel" data-step-note>&nbsp;</span></span>
+            </button>
+            <?php endforeach ?>
+        </nav>
         <?php foreach ($steps as $i => $st):
             $stepReq = (bool) array_filter($st['fields'], fn ($f) => str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox'); ?>
         <section data-step="<?= $i ?>" <?= $i !== $errStep ? 'hidden' : '' ?> aria-labelledby="step-title-<?= $i ?>">

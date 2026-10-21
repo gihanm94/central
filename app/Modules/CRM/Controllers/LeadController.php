@@ -55,6 +55,15 @@ class LeadController extends CrmController
         parent::import();
     }
 
+    /** LD-yyyyMMddHHmmss + 3 digits (milliseconds), e.g. LD-20261016061037142; the next free one if two leads are made at the same moment. */
+    protected function newCode(int $id): string
+    {
+        $n = (int) (new \DateTimeImmutable())->format('YmdHisv');
+        while (DB::scalar('SELECT 1 FROM leads WHERE code = ?', ['LD-'.$n], 'crm')) { $n++; }
+
+        return 'LD-'.$n;
+    }
+
     /** The form: four steps with dots (Basic info · Industry & source · Address · Description), like the old lead form. */
     protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
 
@@ -81,7 +90,7 @@ class LeadController extends CrmController
             'registration' => ['label' => __('Registration status'), 'type' => 'select', 'options' => ['not_registered' => __('Not registered'), 'registered' => __('Registered')], 'rules' => $must, 'default' => 'not_registered', 'table' => false,
                              'help' => __('Registered with the Department of Business Development.'),
                              'display' => fn ($r) => filter_var($r['is_register'] ?? false, FILTER_VALIDATE_BOOL) ? __('Registered') : __('Not registered')],
-            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'placeholder' => __('Automatic'), 'help' => __('Leave empty to number it automatically.')],
+            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the lead is created (import may give one)
 
             '_class'     => ['section' => __('Industry & source'), 'icon' => 'cart', 'help' => __('Industry type and lead source')],
             'industries'   => ['label' => __('Industry'), 'type' => 'picker', 'choices' => $pick('industries'), 'max' => self::PICK_MAX, 'span' => 2, 'table' => false, 'import' => false, 'rules' => $must,

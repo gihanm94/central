@@ -269,6 +269,14 @@
         var save = $('[data-save]', form), next = $('[data-next]', form), prev = $('[data-prev]', form), summary = form.hasAttribute('data-dots') ? null : $('[data-req-summary]', form);
         var reqDlg = $('#required-dialog', form), list = $('[data-req-list]', form), dots = $$('[data-go]', form);
 
+        var dotsForm = form.hasAttribute('data-dots');
+        // a required field left empty after pressing Save: red, with a short message under it
+        function markMissing(f, on) {
+            f.classList.toggle('is-missing', on);
+            var m = $('[data-missing-msg]', f);
+            if (on && !m) { m = document.createElement('p'); m.className = 'error'; m.setAttribute('data-missing-msg', ''); m.textContent = form.dataset.msgFieldRequired || 'This field is required.'; f.appendChild(m); }
+            if (!on && m) m.remove();
+        }
         function active(f) { var h = f.closest('[data-crm-show]'); return !(h && h.hidden); }
         function filled(f) {
             var pk = $('[data-picker]', f);
@@ -291,13 +299,26 @@
             if (bar) { bar.style.width = pct + '%'; bar.classList.toggle('bg-emerald-600', pct === 100); bar.classList.toggle('bg-signal-600', pct < 100); }
             var pr = $('[data-req-progress]', form); if (pr) pr.setAttribute('aria-valuenow', pct);
             if (summary) summary.hidden = total === 0;
-            if (save) save.disabled = missing.length > 0;
+            if (save) save.disabled = !dotsForm && missing.length > 0;      // the dots form lets you press Save and shows what is missing in red
 
             var perStep = steps.map(function (st, i) { return missing.filter(function (f) { return stepOf(f) === i; }).length; });
-            dots.forEach(function (b, i) {
-                var n = perStep[i], isCur = i === cur, dot = $('[data-dot]', b), note = $('[data-step-note]', b);
+            var tried = form.dataset.tried === '1';
+            if (tried) live.forEach(function (f) { markMissing(f, !filled(f)); });
+            dots.forEach(function (b) {
+                var i = parseInt(b.dataset.go, 10), n = perStep[i], isCur = i === cur, dot = $('[data-dot]', b), note = $('[data-step-note]', b);
+                if (b.hasAttribute('data-tab-style')) {           // the dots form's tabs at the top
+                    var total = req.filter(function (f) { return stepOf(f) === i && active(f); }).length, bad = tried && n > 0;
+                    b.className = 'flex min-w-fit flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ' + (isCur ? (bad ? 'bg-signal-50 ring-1 ring-signal-600' : 'bg-graphite-900/6') : (bad ? 'bg-signal-50/60 hover:bg-signal-50' : 'hover:bg-graphite-900/5'));
+                    b.setAttribute('aria-current', isCur ? 'step' : 'false');
+                    dot.textContent = total && !n ? '✓' : (i + 1);
+                    dot.className = 'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ' +
+                        (bad ? 'bg-signal-600 text-white' : (total && !n ? 'bg-emerald-600 text-white' : (isCur ? 'bg-graphite-900 text-white' : 'bg-graphite-900/8 text-graphite-800')));
+                    note.textContent = !total ? (form.dataset.msgOptional || 'Optional') : (n ? (form.dataset.msgRequired || ':n required').replace(':n', n) : (form.dataset.msgDone || 'Complete'));
+                    note.className = 'block text-xs ' + (bad ? 'font-medium text-signal-700' : (total && !n ? 'text-emerald-700' : 'text-steel'));
+                    return;
+                }
                 if (b.hasAttribute('data-dot-style')) {           // the dots form: a wide red pill for this step, small dots for the others
-                    b.className = 'h-1.5 rounded-full transition-all ' + (isCur ? 'w-5 bg-signal-600' : (n > 0 && visited[i] ? 'w-1.5 bg-signal-600/40 hover:bg-signal-600/60' : 'w-1.5 bg-graphite-900/20 hover:bg-graphite-900/40'));
+                    b.className = 'h-1.5 rounded-full transition-all ' + (isCur ? 'w-5 bg-signal-600' : (n > 0 && (visited[i] || tried) ? 'w-1.5 bg-signal-600/50 hover:bg-signal-600/70' : 'w-1.5 bg-graphite-900/20 hover:bg-graphite-900/40'));
                     b.setAttribute('aria-current', isCur ? 'step' : 'false');
                     return;
                 }
@@ -366,6 +387,13 @@
         form.addEventListener('submit', function (e) {
             $$('[data-richtext]', form).forEach(function (b) { if (b._sync) b._sync(); });
             var missing = req.filter(active).filter(function (f) { return !filled(f); });
+            if (missing.length && dotsForm) {
+                e.preventDefault(); form.dataset.tried = '1';
+                show(stepOf(missing[0])); recompute();
+                var c = ctl(missing[0]); if (c && c.focus) c.focus(); missing[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+                if (window.toast) window.toast(form.dataset.msgFix || 'Fill in the fields marked in red.', 'error');
+                return;
+            }
             if (missing.length) { e.preventDefault(); buildList(req.filter(active)); reqDlg.showModal(); return; }
             if (save) setTimeout(function () { save.disabled = true; }, 0);
         });

@@ -473,6 +473,9 @@ abstract class ResourceController extends Controller
             $labels[$name] = locale() === 'en' ? mb_strtolower($f['label']) : $f['label'];
         }
 
+        foreach ($fields as $name => $f) {               // a field the form does not show keeps its value unless it is sent (an import)
+            if (! empty($f['hide_form']) && ! array_key_exists($name, $input)) { unset($rules[$name], $labels[$name]); }
+        }
         $clean = Validator::validate($input, $rules, $labels);
         foreach ($fields as $name => $f) {
             if (($f['type'] ?? '') === 'richtext' && array_key_exists($name, $clean)) {

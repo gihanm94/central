@@ -94,6 +94,10 @@
     .hint  { @apply mt-1.5 text-xs text-steel; }
     .input { @apply block h-8 w-full rounded-md border-0 bg-white px-3 py-0 text-sm text-graphite-900 ring-1 ring-graphite-900/15 placeholder:text-graphite-400 focus:ring-2 focus:ring-signal-600 focus:outline-none; }
     .input-error { @apply ring-signal-600; }
+    /* a required field left empty after pressing Save (forms with data-dots) */
+    [data-field].is-missing .input, [data-field].is-missing [data-picker-chips], [data-field].is-missing [data-picker-empty],
+    [data-field].is-missing .ql-toolbar, [data-field].is-missing .ql-container { @apply bg-signal-50/40 ring-2 ring-signal-600; }
+    [data-field].is-missing .label { @apply text-signal-700; }
     .error { @apply mt-1 text-xs font-medium text-signal-700; }
 
     /* Login screen inputs sit on graphite */

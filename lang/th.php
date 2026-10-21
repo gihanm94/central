@@ -2386,4 +2386,7 @@ return [
     'Click or drop' => 'คลิกหรือลากไฟล์มาวาง',
     'PNG, JPG or WEBP' => 'PNG, JPG หรือ WEBP',
     'Click the picture to change it.' => 'คลิกที่รูปเพื่อเปลี่ยน',
+    ':n required' => 'ต้องกรอก :n ช่อง',
+    'This field is required.' => 'ต้องกรอกช่องนี้',
+    'Fill in the fields marked in red.' => 'กรุณากรอกช่องที่เป็นสีแดง',
 ];

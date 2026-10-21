@@ -267,10 +267,13 @@ abstract class CrmController extends ResourceController
         return $raw;
     }
 
+    /** Code given to a new record that has none: PREFIX-00042 (leads use a date-time code). */
+    protected function newCode(int $id): string { return $this->codePrefix.'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT); }
+
     protected function saved(int $id, array $data, ?array $existing): void
     {
         if (! $existing) {
-            DB::exec("UPDATE {$this->table} SET code = ? WHERE id = ? AND (code IS NULL OR code = '')", [$this->codePrefix.'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT), $id], 'crm');
+            DB::exec("UPDATE {$this->table} SET code = ? WHERE id = ? AND (code IS NULL OR code = '')", [$this->newCode($id), $id], 'crm');
         }
         if ($this->files) {
             foreach (Attachments::incoming('files') as $file) {
