@@ -44,7 +44,7 @@ final class Syncer
             while (true) {
                 $top = $limit !== null ? min(self::PAGE, $limit - $skip) : self::PAGE;
                 if ($top <= 0) { break; }
-                $q = ['top' => $top, 'skip' => $skip, 'orderby' => $mode === 'latest' ? 'Id desc' : 'Id'];
+                $q = ['top' => $top, 'skip' => $skip, 'orderby' => 'Id desc'];             // newest first, always
                 if (! empty($def['expand'])) { $q['expand'] = $def['expand']; }
                 elseif (! empty($def['columns'])) { $q['select'] = $def['columns']; }      // nested columns are only safe with a plain select
                 if ($filter !== null) { $q['filter'] = $filter; }

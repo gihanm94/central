@@ -72,7 +72,7 @@ final class Client
     /* ------------------------------------------------------------- reading */
 
     /**
-     * One page of an endpoint. $q: filter, select[], expand[], top, skip, orderby.
+     * One page of an endpoint. $q: filter, select[], expand[], top, skip, orderby (default "Id desc": every request asks newest first).
      * @return array{status: int, rows: array, error: ?string}
      */
     public function page(string $endpointKey, array $q): array
@@ -81,7 +81,7 @@ final class Client
         if (! empty($q['filter']))  { $params['$filter']  = $q['filter']; }
         if (! empty($q['select']))  { $params['$select']  = implode(',', str_replace('.', '/', $q['select'])); }
         if (! empty($q['expand']))  { $params['$expand']  = implode(',', $q['expand']); }
-        if (! empty($q['orderby'])) { $params['$orderby'] = $q['orderby']; }
+        $params['$orderby'] = ! empty($q['orderby']) ? $q['orderby'] : 'Id desc';
         $params['$top']  = (string) ($q['top'] ?? 1000);
         $params['$skip'] = (string) ($q['skip'] ?? 0);
         $path = ErpSettings::endpoint($endpointKey).'?'.http_build_query($params, '', '&', PHP_QUERY_RFC3986);
