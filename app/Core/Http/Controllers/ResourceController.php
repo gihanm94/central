@@ -477,13 +477,16 @@ abstract class ResourceController extends Controller
             $r = $f['rules'] ?? 'nullable';
             if (($f['type'] ?? '') === 'checkbox') {
                 $r = 'boolean';
-            } elseif (isset($f['options']) && ! str_contains($r, 'in:')) {
+            } elseif (isset($f['options']) && empty($f['other']) && ! str_contains($r, 'in:')) {
                 $r .= '|in:'.implode(',', array_map('strval', array_keys($f['options'])));
             }
             $rules[$name]  = $r;
             $labels[$name] = locale() === 'en' ? mb_strtolower($f['label']) : $f['label'];
         }
 
+        foreach ($fields as $name => $f) {               // a select with "Other…": what was typed is the value
+            if (! empty($f['other']) && ($input[$name] ?? null) === '__other') { $input[$name] = trim((string) ($input[$name.'__other'] ?? '')); }
+        }
         foreach ($fields as $name => $f) {               // a field the form does not show keeps its value unless it is sent (an import)
             if (! empty($f['hide_form']) && ! array_key_exists($name, $input)) { unset($rules[$name], $labels[$name]); }
         }

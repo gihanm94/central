@@ -92,8 +92,19 @@ $renderField = function (string $name, array $f) use ($value, $row) {
             <?= partial('partials/remote-select', ['name' => $name, 'value' => (string) $v, 'current' => $f['current'] ?? null, 'kind' => $f['remote'], 'o' => ['id' => 'f-'.$name, 'placeholder' => $f['placeholder'] ?? __('Search and choose…'), 'required' => $req, 'depends' => $f['depends'] ?? null]]) ?>
         <?php elseif ($type === 'select'):
             $opts = $f['options'];
+            $other = ''; $otherOn = false;
+            if (! empty($f['other'])) {                          // the list plus "Other…", which opens a box to type in
+                $other = (string) old($name.'__other', ($v !== '' && $v !== null && ! isset($opts[$v])) ? $v : '');
+                $otherOn = $v === '__other' || $other !== '';
+                if ($otherOn) { $v = '__other'; }
+                $opts += ['__other' => __('Other…')];
+            }
             if ($v !== '' && $v !== null && ! isset($opts[$v])) { $opts = ($f['all_options'] ?? []) + $opts; } ?>
             <?= select_field($name, $opts, $v, ['id' => 'f-'.$name, 'placeholder' => $f['placeholder'] ?? __('Choose…'), 'disabled' => $ro, 'class' => ($f['rich'] ?? false) ? null : 'input'.($err ? ' input-error' : ''), 'required' => $req, 'search' => $f['search'] ?? null]) ?>
+            <?php if (! empty($f['other'])): ?>
+                <input name="<?= e($name) ?>__other" value="<?= e($other) ?>" data-other-for="<?= e($name) ?>" <?= $otherOn ? '' : 'hidden' ?> maxlength="<?= (int) ($f['other_max'] ?? 60) ?>"
+                       placeholder="<?= e($f['other_placeholder'] ?? __('Type your own')) ?>" aria-label="<?= e($f['label'].' · '.__('Other')) ?>" class="input mt-2">
+            <?php endif ?>
         <?php else: ?>
             <input id="f-<?= e($name) ?>" name="<?= e($name) ?>" type="<?= e($type === 'datetime' ? 'datetime-local' : $type) ?>" <?= $type === 'number' ? 'step="any" inputmode="decimal"' : '' ?>
                    value="<?= $type === 'password' ? '' : e($v) ?>" <?= $type === 'password' ? 'autocomplete="new-password"' : '' ?> <?= ! empty($f['placeholder']) ? 'placeholder="'.e($f['placeholder']).'"' : '' ?>
@@ -104,6 +115,15 @@ $renderField = function (string $name, array $f) use ($value, $row) {
         <?php if ($err): ?><p class="error"><?= e($err) ?></p><?php endif ?>
     <?php endif ?>
     <?php return ob_get_clean();
+};
+// Required marks: a field, or a group ('one_of' => 'reach') where one filled field is enough — its first field carries the mark
+$seenOne = [];
+$reqAttr = function (string $name, array $f, bool $req) use (&$seenOne): string {
+    if (! empty($f['one_of'])) {
+        $g = (string) $f['one_of']; $first = ! isset($seenOne[$g]); $seenOne[$g] = true;
+        return 'data-one-of="'.e($g).'"'.($first ? ' data-required data-missing-text="'.e($f['one_of_msg'] ?? __('Fill in at least one of these.')).'"' : '');
+    }
+    return $req ? 'data-required' : '';
 };
 $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c['singular'])]);
 ?>
@@ -140,7 +160,7 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
             <?php endforeach ?>
         </nav>
         <?php foreach ($steps as $i => $st):
-            $stepReq = (bool) array_filter($st['fields'], fn ($f) => str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox'); ?>
+            $stepReq = (bool) array_filter($st['fields'], fn ($f) => ! empty($f['one_of']) || (str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox')); ?>
         <section data-step="<?= $i ?>" <?= $i !== $errStep ? 'hidden' : '' ?> aria-labelledby="step-title-<?= $i ?>">
             <div class="flex items-start gap-3">
                 <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-signal-50 text-signal-700"><?= icon($st['icon'] ?: 'doc', 'size-6') ?></span>
@@ -155,7 +175,7 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
             <div class="mt-4 grid gap-x-6 gap-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-graphite-900/8 md:grid-cols-2">
             <?php foreach ($st['fields'] as $name => $f):
                 $req  = str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox'; ?>
-                <div class="min-w-0 <?= ($f['span'] ?? 1) === 2 ? 'md:col-span-2' : '' ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $req ? 'data-required' : '' ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
+                <div class="min-w-0 <?= ($f['span'] ?? 1) === 2 ? 'md:col-span-2' : '' ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $reqAttr($name, $f, $req) ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
                     <?= $renderField($name, $f) ?>
                 </div>
             <?php endforeach ?>
@@ -203,7 +223,7 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
                 <?php foreach ($st['fields'] as $name => $f):
                     $req  = str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox';
                     $full = ($f['span'] ?? 1) === 2 ? ($embed ? 'md:col-span-2' : 'md:col-span-2 2xl:col-span-3') : ''; ?>
-                    <div class="min-w-0 <?= $full ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $req ? 'data-required' : '' ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
+                    <div class="min-w-0 <?= $full ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $reqAttr($name, $f, $req) ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
                         <?= $renderField($name, $f) ?>
                     </div>
                 <?php endforeach ?>

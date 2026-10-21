@@ -272,13 +272,18 @@
         var dotsForm = form.hasAttribute('data-dots');
         // a required field left empty after pressing Save: red, with a short message under it
         function markMissing(f, on) {
-            f.classList.toggle('is-missing', on);
+            var g = f.getAttribute('data-one-of');
+            (g ? $$('[data-one-of="' + g + '"]', form) : [f]).forEach(function (x) { x.classList.toggle('is-missing', on); });
             var m = $('[data-missing-msg]', f);
-            if (on && !m) { m = document.createElement('p'); m.className = 'error'; m.setAttribute('data-missing-msg', ''); m.textContent = form.dataset.msgFieldRequired || 'This field is required.'; f.appendChild(m); }
+            if (on && !m) { m = document.createElement('p'); m.className = 'error'; m.setAttribute('data-missing-msg', ''); m.textContent = f.dataset.missingText || form.dataset.msgFieldRequired || 'This field is required.'; f.appendChild(m); }
             if (!on && m) m.remove();
         }
         function active(f) { var h = f.closest('[data-crm-show]'); return !(h && h.hidden); }
-        function filled(f) {
+        function filled(f) {                              // a 'one of' group is filled when any of its fields is
+            var g = f.getAttribute('data-one-of');
+            return g ? $$('[data-one-of="' + g + '"]', form).some(fieldFilled) : fieldFilled(f);
+        }
+        function fieldFilled(f) {
             var pk = $('[data-picker]', f);
             if (pk) return !!$('[data-picker-values] input', pk);
             var sel = $('[data-select-input]', f);
@@ -593,6 +598,14 @@
         bootPickers(pk.parentNode);
         if (e.target.closest('[data-chip-x]')) { var id = e.target.closest('[data-chip]').getAttribute('data-chip'); pickerApply(pk, pickerIds(pk).filter(function (x) { return x !== id; })); }
         else if (e.target.closest('[data-picker-open]')) pickerOpen(pk);
+    });
+
+    /* ------------------------------------------------- select with "Other…": show the box to type in */
+    document.addEventListener('change', function (e) {
+        var t = e.target; if (!t.matches || !t.matches('[data-select-input]') || !t.name) return;
+        var box = t.form && t.form.querySelector('[data-other-for="' + t.name + '"]'); if (!box) return;
+        box.hidden = t.value !== '__other';
+        if (!box.hidden) box.focus(); else box.value = '';
     });
 
     /* ------------------------------------------------- round logo drop zone [data-logo-drop] */

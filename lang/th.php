@@ -2403,4 +2403,13 @@ return [
     'e.g. LINE: @somsak' => 'เช่น LINE: @somsak',
     'e.g. 123 Sukhumvit Road' => 'เช่น 123 ถนนสุขุมวิท',
     'Rich text notes about this contact' => 'บันทึกเกี่ยวกับผู้ติดต่อนี้',
+    'Other…' => 'อื่น ๆ…',
+    'Type your own' => 'พิมพ์เอง',
+    'Other' => 'อื่น ๆ',
+    'e.g. Prof.' => 'เช่น ศ.',
+    'Contact name, job and the lead they belong to' => 'ชื่อ ตำแหน่ง และลีดที่ผู้ติดต่อสังกัด',
+    'Contact details' => 'ข้อมูลการติดต่อ',
+    'How to reach them: fill in at least one' => 'ช่องทางติดต่อ: กรอกอย่างน้อยหนึ่งช่อง',
+    'Fill in at least one way to reach them: email, phone, mobile, fax or other.' => 'กรอกช่องทางติดต่ออย่างน้อยหนึ่งช่อง: อีเมล โทรศัพท์ มือถือ แฟกซ์ หรืออื่น ๆ',
+    'Fill in at least one of these.' => 'กรอกอย่างน้อยหนึ่งช่อง',
 ];

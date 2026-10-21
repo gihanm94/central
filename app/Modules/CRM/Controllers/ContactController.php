@@ -59,26 +59,31 @@ class ContactController extends CrmController
         $must = $this->importing ? 'nullable' : 'required';     // asked for in the form, optional in an import
 
         return [
-            '_basic'     => ['section' => __('Basic info'), 'icon' => 'phone', 'help' => __('Contact name, email, phone and job details')],
+            '_basic'     => ['section' => __('Basic info'), 'icon' => 'user', 'help' => __('Contact name, job and the lead they belong to')],
             'avatar'     => ['label' => __('Photo'), 'type' => 'logo', 'shape' => 'square', 'import' => false, 'hide_show' => true, 'span' => 2, 'rules' => 'nullable',
                              'help' => __('PNG, JPG or WEBP · max 2 MB'), 'recommend' => __('Recommended: 256 × 256 px')],
+            'salutation' => ['label' => __('Salutation'), 'type' => 'select', 'options' => Catalog::salutations(), 'other' => true, 'other_max' => 20, 'other_placeholder' => __('e.g. Prof.'),
+                             'rules' => 'nullable|max:20', 'search' => false, 'span' => 2],
             'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:160', 'placeholder' => __('e.g. John Smith'), 'example' => 'Somsak Rattanakul'],
             'name_th'    => ['label' => __('Name (Thai)'), 'rules' => $must.'|max:160', 'placeholder' => __('e.g. จอห์น สมิธ')],
-            'email'      => ['label' => __('Email'), 'type' => 'email', 'rules' => 'nullable|email|max:190', 'placeholder' => __('e.g. john@example.com')],
             'job_title'  => ['label' => __('Job title'), 'rules' => 'nullable|max:120', 'placeholder' => __('e.g. Sales Manager')],
             'department' => ['label' => __('Department'), 'rules' => 'nullable|max:120', 'placeholder' => __('e.g. Sales'), 'help' => __('The department this person works in at their own company.')],
-            'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40', 'placeholder' => '+66 2 xxx xxxx'],
-            'phone'      => ['label' => __('Phone'), 'type' => 'tel', 'rules' => 'nullable|max:40', 'placeholder' => __('e.g. 02 123 4567')],
-            'phone_ext'  => ['label' => __('Phone ext.'), 'rules' => 'nullable|max:10', 'placeholder' => __('e.g. 205')],
-            'mobiles'    => ['label' => __('Mobile'), 'type' => 'custom', 'partial' => 'crm/fields/mobiles', 'span' => 2, 'table' => false, 'rules' => 'nullable',
-                             'example' => '0812345678; 0898765432', 'help' => __('Add as many as you need; mark the main one.')],
             'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2, 'placeholder' => __('Select lead'),
                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
-            'salutation' => ['label' => __('Salutation'), 'type' => 'select', 'options' => Catalog::salutations(), 'rules' => 'nullable', 'search' => false],
+            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the contact is created (import may give one)
+
+            // at least one way to reach them (checked in the form and again in prepareMore)
+            '_reach'     => ['section' => __('Contact details'), 'icon' => 'phone', 'help' => __('How to reach them: fill in at least one')],
+            'email'      => ['label' => __('Email'), 'type' => 'email', 'rules' => 'nullable|email|max:190', 'placeholder' => __('e.g. john@example.com'), 'one_of' => 'reach', 'span' => 2,
+                             'one_of_msg' => __('Fill in at least one way to reach them: email, phone, mobile, fax or other.')],
+            'phone'      => ['label' => __('Phone'), 'type' => 'tel', 'rules' => 'nullable|max:40', 'placeholder' => __('e.g. 02 123 4567'), 'one_of' => 'reach'],
+            'phone_ext'  => ['label' => __('Phone ext.'), 'rules' => 'nullable|max:10', 'placeholder' => __('e.g. 205')],
+            'mobiles'    => ['label' => __('Mobile'), 'type' => 'custom', 'partial' => 'crm/fields/mobiles', 'span' => 2, 'table' => false, 'rules' => 'nullable', 'one_of' => 'reach',
+                             'example' => '0812345678; 0898765432', 'help' => __('Add as many as you need; mark the main one.')],
+            'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40', 'placeholder' => '+66 2 xxx xxxx', 'one_of' => 'reach'],
             'lead_source_id' => ['label' => __('Lead source'), 'type' => 'select', 'options' => $sources, 'rules' => 'nullable',
                              'display' => fn ($r) => $r['source_name'] ?? null],
-            'additional_contact' => ['label' => __('Other ways to contact (LINE, WeChat …)'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. LINE: @somsak')],
-            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the contact is created (import may give one)
+            'additional_contact' => ['label' => __('Other ways to contact (LINE, WeChat …)'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. LINE: @somsak'), 'one_of' => 'reach'],
 
             '_address'   => ['section' => __('Address'), 'icon' => 'pin', 'help' => __('Location, city, province, country and postal code')],
             'address'    => ['label' => __('Street address'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. 123 Sukhumvit Road')],
@@ -167,6 +172,11 @@ class ContactController extends CrmController
         unset($m);
         $list = array_values($list);
         $data['mobiles'] = $list;
+
+        // at least one way to reach them (the form asks for it; an import may leave it out)
+        if (! $this->importing && ! $list && ! array_filter(array_map(fn ($k) => trim((string) ($data[$k] ?? '')), ['email', 'phone', 'fax', 'additional_contact']))) {
+            throw new ValidationException(['email' => __('Fill in at least one way to reach them: email, phone, mobile, fax or other.')]);
+        }
 
         if ($file = Request::file('avatar')) {
             $data['avatar'] = Upload::image($file, 'crm');
