@@ -284,6 +284,8 @@
             return g ? $$('[data-one-of="' + g + '"]', form).some(fieldFilled) : fieldFilled(f);
         }
         function fieldFilled(f) {
+            var fc = $('[data-fill-check]', f);             // a field made of several controls says which one must be filled
+            if (fc) return fc.value.trim() !== '';
             var dp = $('input[data-dp]', f);                 // date picker: the real input is hidden, a button shows the date
             if (dp) return dp.value.trim() !== '';
             var pk = $('[data-picker]', f);
@@ -295,7 +297,7 @@
             return t.type === 'checkbox' ? t.checked : t.value.trim() !== '';
         }
         function stepOf(f) { var s = f.closest('[data-step]'); return s ? steps.indexOf(s) : 0; }
-        function ctl(f) { return $('[data-select-button]', f) || $('[data-dp-btn]', f) || $('input:not([type=hidden]):not([type=file]), textarea, .ql-editor', f); }
+        function ctl(f) { return $('[data-fill-check]', f) || $('[data-select-button]', f) || $('[data-dp-btn]', f) || $('input:not([type=hidden]):not([type=file]), textarea, .ql-editor', f); }
 
         function recompute() {
             var live = req.filter(active), missing = live.filter(function (f) { return !filled(f); });
