@@ -55,9 +55,13 @@ class SellerController extends ErpListController
         return array_column(DB::select('SELECT id::text AS id, name FROM departments WHERE deleted_at IS NULL ORDER BY name', [], 'core'), 'name', 'id');
     }
 
-    /** A seller got a department: its Inets that have none yet take it (newer ones get it when generated). */
+    /** A seller got a department: its Inets that have none yet take it (newer ones get it when generated);
+        the department's name is kept on the seller and the seller's invoices take both. */
     protected function saved(int $id, array $data, ?array $existing): void
     {
+        $name = ! empty($data['app_department_id']) ? (self::departments()[(string) $data['app_department_id']] ?? null) : null;
+        DB::exec('UPDATE erp_sellers SET app_department_name = ? WHERE id = ?', [$name, $id], 'accounting');
+        \App\Modules\Accounting\Support\SellerStamp::quietly();
         if (! empty($data['app_department_id'])) {
             DB::exec('UPDATE inets i SET app_department_id = ? FROM erp_orders o WHERE o.id = i.order_id AND o.seller_id = ? AND i.app_department_id IS NULL',
                 [(int) $data['app_department_id'], $id], 'accounting');
@@ -85,7 +89,7 @@ class SellerController extends ErpListController
             'email'           => ['label' => __('E-mail'), 'type' => 'email', 'rules' => 'nullable|email|max:190', 'help' => __('Used to reach the seller. Never overwritten by a sync.')],
             'user_id'         => ['label' => __('User (system account)'), 'type' => 'select', 'options' => $this->users(), 'rules' => 'nullable'],
             'app_department_id' => ['label' => __('Department (this app)'), 'type' => 'select', 'options' => ['' => '—'] + self::departments(), 'rules' => 'nullable',
-                'help' => __('Inets of this seller get this department when they are generated; people of that department see the stamped ones under ERP → Invoices. Never overwritten by a sync.')],
+                'help' => __('Inets of this seller get this department when they are generated; people of that department see the stamped ones under ERP → Invoices. Invoices of this seller (by employee number) show it too. Never overwritten by a sync.')],
             'lark_id'         => ['label' => __('Lark ID'), 'type' => 'text', 'rules' => 'nullable|max:120'],
         ];
     }

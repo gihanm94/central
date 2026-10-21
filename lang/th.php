@@ -2271,4 +2271,5 @@ return [
     'darker = larger amount' => 'สีเข้ม = ยอดมาก',
     'Biggest income accounts' => 'บัญชีรายได้สูงสุด',
     'Biggest expense accounts' => 'บัญชีค่าใช้จ่ายสูงสุด',
+    'Inets of this seller get this department when they are generated; people of that department see the stamped ones under ERP → Invoices. Invoices of this seller (by employee number) show it too. Never overwritten by a sync.' => 'Inet ของผู้ขายนี้จะได้แผนกนี้เมื่อสร้าง คนในแผนกนั้นจะเห็นรายการที่ประทับแล้วใน ERP → ใบแจ้งหนี้ ใบแจ้งหนี้ของผู้ขายนี้ (ตามรหัสพนักงาน) จะแสดงแผนกนี้ด้วย การซิงค์จะไม่เขียนทับ',
 ];
