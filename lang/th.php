@@ -2493,4 +2493,7 @@ return [
     'e.g. 5' => 'เช่น 5',
     'e.g. 4.2' => 'เช่น 4.2',
     'Rich text notes about this campaign' => 'บันทึกเกี่ยวกับแคมเปญนี้',
+    'The PDF file is missing' => 'ไม่พบไฟล์ PDF',
+    'The invoice says it has a PDF, but the file is not on the server. Generate it again, or upload a PDF.' => 'ระบบบันทึกว่ามี PDF แต่ไม่พบไฟล์บนเซิร์ฟเวอร์ กรุณาสร้างใหม่อีกครั้ง หรืออัปโหลดไฟล์ PDF',
+    'This document has no PDF yet. Generate it with Auto PDF, or upload a PDF.' => 'เอกสารนี้ยังไม่มี PDF สร้างด้วย Auto PDF หรืออัปโหลดไฟล์ PDF',
 ];

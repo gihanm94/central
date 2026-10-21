@@ -88,7 +88,7 @@ class InetController extends ErpListController
         $flag = fn (string $k) => filter_var($r[$k] ?? false, FILTER_VALIDATE_BOOL);
         $gen  = $flag("is_{$c}_generate");
         $sent = $flag("is_{$c}_send");
-        $hasPdf  = ! empty($r["pdf_{$c}"]);
+        $hasPdf  = Generator::exists($r["pdf_{$c}"] ?? null);          // the file itself, not only its name in the table
         $signed  = ! empty($r["inet_pdf_{$c}"]);
         $msg     = (string) ($r["message_{$c}"] ?? '');
         $canEdit = can($this->resource, 'edit');
@@ -314,7 +314,17 @@ class InetController extends ErpListController
             echo $t;
             exit;
         }
-        $bytes = Generator::read($row[$kind === 'signed' ? "inet_pdf_{$c}" : "pdf_{$c}"] ?? null) ?? abort(404);
+        $key   = $row[$kind === 'signed' ? "inet_pdf_{$c}" : "pdf_{$c}"] ?? null;
+        $bytes = Generator::read($key);
+        if ($bytes === null) {          // shown in the Send window's preview: say what is wrong, not a whole 404 page
+            \App\Modules\Accounting\Support\Log::info('inet', "{$row['no_invoice']} {$doc}: {$kind} PDF asked for but the file is missing", ['key' => $key]);
+            http_response_code(404);
+            header('Content-Type: text/html; charset=UTF-8');
+            echo '<!doctype html><meta charset="utf-8"><body style="margin:0;display:grid;place-items:center;height:100vh;font:14px/1.5 system-ui,sans-serif;color:#3d4149;background:#f6f7f8">'
+                .'<div style="max-width:28rem;text-align:center;padding:1.5rem"><p style="font-weight:600;color:#17181b;margin:0 0 .5rem">'.e(__('The PDF file is missing')).'</p>'
+                .'<p style="margin:0">'.e($key ? __('The invoice says it has a PDF, but the file is not on the server. Generate it again, or upload a PDF.') : __('This document has no PDF yet. Generate it with Auto PDF, or upload a PDF.')).'</p></div></body>';
+            exit;
+        }
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="'.$row['no_invoice'].'_'.strtoupper($doc).($kind === 'signed' ? '_signed' : '').'.pdf"');
         echo $bytes;

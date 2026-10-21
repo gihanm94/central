@@ -90,7 +90,11 @@ final class Generator
                 if ($pdf instanceof \Throwable) { $pdfError = $pdf; $pdf = null; }                  // keep the JSON; only the PDF is missing
                 try {
                     $c = self::col($type);
-                    $path = $pdf !== null ? self::store($no, $type, $pdf) : null;
+                    $path = null;
+                    if ($pdf !== null) {
+                        try { $path = self::store($no, $type, $pdf); }
+                        catch (\Throwable $e) { $pdfError = $e; $pdf = null; }               // keep the JSON; say why the PDF is missing
+                    }
                     $sets = ["text_{$c} = ?", "is_{$c}_generate = TRUE", "message_{$c} = NULL", "modify_{$c}_by = ?", 'auto_pdf = ?', 'updated_at = now()',
                              "is_{$c}_send = FALSE", "is_{$c}_fetch = FALSE", "is_{$c}_download = FALSE"];                    // a new text invalidates what was sent before
                     $par  = [$p['built']['json'], $by, $pdf !== null ? 'true' : 'false'];
@@ -126,10 +130,18 @@ final class Generator
     {
         $key = 'inet/'.$invoiceNumber.'/'.$invoiceNumber.'_'.$type.($kind === 'signed' ? '_signed' : '').'.pdf';
         $abs = BASE_PATH.'/storage/'.$key;
-        is_dir(dirname($abs)) || @mkdir(dirname($abs), 0775, true);
-        file_put_contents($abs, $bytes);
+        // a PDF that cannot be written must not be recorded as there (the Send window would show a 404)
+        if ((! is_dir(dirname($abs)) && ! @mkdir(dirname($abs), 0775, true) && ! is_dir(dirname($abs))) || @file_put_contents($abs, $bytes) !== strlen($bytes)) {
+            throw new \RuntimeException('The PDF could not be saved in storage/'.dirname($key).': the web server cannot write there (check the folder\'s owner and permissions).');
+        }
 
         return $key;
+    }
+
+    /** Is the stored PDF really there? */
+    public static function exists(?string $key): bool
+    {
+        return $key && ! str_contains($key, '..') && str_starts_with($key, 'inet/') && is_file(BASE_PATH.'/storage/'.$key);
     }
 
     public static function read(?string $key): ?string
