@@ -46,23 +46,8 @@ class LeadController extends CrmController
     /** Industries and lead sources a lead can have at most (the picker stops there). */
     private const PICK_MAX = 5;
 
-    /** true while a CSV / Excel import runs: the form's extra required fields are not required there */
-    private bool $importing = false;
-
-    public function import(): never
-    {
-        $this->importing = true;
-        parent::import();
-    }
-
-    /** LD-yyyyMMddHHmmss + 3 digits (milliseconds), e.g. LD-20261016061037142; the next free one if two leads are made at the same moment. */
-    protected function newCode(int $id): string
-    {
-        $n = (int) (new \DateTimeImmutable())->format('YmdHisv');
-        while (DB::scalar('SELECT 1 FROM leads WHERE code = ?', ['LD-'.$n], 'crm')) { $n++; }
-
-        return 'LD-'.$n;
-    }
+    /** LD-yyyyMMddHHmmss + 3 digits, e.g. LD-20261016061037142 */
+    protected function newCode(int $id): string { return $this->dateCode(); }
 
     /** The form: four steps with dots (Basic info · Industry & source · Address · Description), like the old lead form. */
     protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
@@ -102,7 +87,7 @@ class LeadController extends CrmController
                                'search' => __('Search lead sources'), 'group' => __('Lead sources'), 'add' => __('Add lead source'), 'empty' => __('Click to add lead source'),
                                'none' => __('Add lead sources under CRM → Settings.'), 'display' => fn ($r) => $r['lead_sources'] ?? null],
 
-            '_address'   => ['section' => __('Address'), 'icon' => 'globe', 'help' => __('Location, city, province, country and postal code')],
+            '_address'   => ['section' => __('Address'), 'icon' => 'pin', 'help' => __('Location, city, province, country and postal code')],
             'address'    => ['label' => __('Street address'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. Sukhumvit Road')],
             'city'       => ['label' => __('City'), 'rules' => $must.'|max:80', 'placeholder' => __('e.g. Bangkok')],
             'province'   => ['label' => __('Province / State'), 'rules' => 'nullable|max:80', 'placeholder' => __('e.g. Bangkok')],

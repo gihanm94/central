@@ -79,8 +79,9 @@
         panel._home = sel; document.body.appendChild(panel); panel._select = sel;
         open(panel, button, 'bottom-start');
         var search = $('[data-select-search]', panel);
-        if (search) { search.value = ''; filter(panel, ''); search.focus(); }
-        else { (panel.querySelector('[aria-selected=true]') || panel.querySelector('[role=option]')).focus(); }
+        // focus without scrolling: a scroll closes open panels, so a dropdown near the bottom of the screen would shut at once
+        if (search) { search.value = ''; filter(panel, ''); search.focus({ preventScroll: true }); }
+        else { (panel.querySelector('[aria-selected=true]') || panel.querySelector('[role=option]')).focus({ preventScroll: true }); }
     }
 
     function filter(panel, q) {

@@ -47,42 +47,48 @@ class ContactController extends CrmController
         return ['source' => ['label' => __('All sources'), 'options' => $sources, 'column' => 't.lead_source_id']] + $this->commonFilters();
     }
 
+    /** CT-yyyyMMddHHmmss + 3 digits, like leads */
+    protected function newCode(int $id): string { return $this->dateCode(); }
+
+    /** The form: Basic info · Address · Description with dots, like the lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
     protected function fields(?array $row): array
     {
         $sources = array_column(DB::select('SELECT id, name FROM lead_sources ORDER BY name', [], 'crm'), 'name', 'id');
+        $must = $this->importing ? 'nullable' : 'required';     // asked for in the form, optional in an import
 
         return [
-            '_person'    => ['section' => __('Person')],
-            'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2,
+            '_basic'     => ['section' => __('Basic info'), 'icon' => 'phone', 'help' => __('Contact name, email, phone and job details')],
+            'avatar'     => ['label' => __('Photo'), 'type' => 'logo', 'shape' => 'square', 'import' => false, 'hide_show' => true, 'span' => 2, 'rules' => 'nullable',
+                             'help' => __('PNG, JPG or WEBP · max 2 MB'), 'recommend' => __('Recommended: 256 × 256 px')],
+            'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:160', 'placeholder' => __('e.g. John Smith'), 'example' => 'Somsak Rattanakul'],
+            'name_th'    => ['label' => __('Name (Thai)'), 'rules' => $must.'|max:160', 'placeholder' => __('e.g. จอห์น สมิธ')],
+            'email'      => ['label' => __('Email'), 'type' => 'email', 'rules' => 'nullable|email|max:190', 'placeholder' => __('e.g. john@example.com')],
+            'job_title'  => ['label' => __('Job title'), 'rules' => 'nullable|max:120', 'placeholder' => __('e.g. Sales Manager')],
+            'department' => ['label' => __('Department'), 'rules' => 'nullable|max:120', 'placeholder' => __('e.g. Sales'), 'help' => __('The department this person works in at their own company.')],
+            'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40', 'placeholder' => '+66 2 xxx xxxx'],
+            'phone'      => ['label' => __('Phone'), 'type' => 'tel', 'rules' => 'nullable|max:40', 'placeholder' => __('e.g. 02 123 4567')],
+            'phone_ext'  => ['label' => __('Phone ext.'), 'rules' => 'nullable|max:10', 'placeholder' => __('e.g. 205')],
+            'mobiles'    => ['label' => __('Mobile'), 'type' => 'custom', 'partial' => 'crm/fields/mobiles', 'span' => 2, 'table' => false, 'rules' => 'nullable',
+                             'example' => '0812345678; 0898765432', 'help' => __('Add as many as you need; mark the main one.')],
+            'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2, 'placeholder' => __('Select lead'),
                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
             'salutation' => ['label' => __('Salutation'), 'type' => 'select', 'options' => Catalog::salutations(), 'rules' => 'nullable', 'search' => false],
-            'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:160', 'example' => 'Somsak Rattanakul'],
-            'name_th'    => ['label' => __('Name (Thai)'), 'rules' => 'nullable|max:160'],
-            'job_title'  => ['label' => __('Job title'), 'rules' => 'nullable|max:120'],
-            'department' => ['label' => __('Their department'), 'rules' => 'nullable|max:120', 'help' => __('The department this person works in at their own company.')],
-            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
             'lead_source_id' => ['label' => __('Lead source'), 'type' => 'select', 'options' => $sources, 'rules' => 'nullable',
                              'display' => fn ($r) => $r['source_name'] ?? null],
+            'additional_contact' => ['label' => __('Other ways to contact (LINE, WeChat …)'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. LINE: @somsak')],
+            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the contact is created (import may give one)
 
-            '_reach'     => ['section' => __('How to reach them')],
-            'email'      => ['label' => __('E-mail'), 'type' => 'email', 'rules' => 'nullable|email|max:190'],
-            'phone'      => ['label' => __('Phone'), 'rules' => 'nullable|max:40'],
-            'phone_ext'  => ['label' => __('Phone ext.'), 'rules' => 'nullable|max:10'],
-            'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40'],
-            'mobiles'    => ['label' => __('Mobile numbers'), 'type' => 'custom', 'partial' => 'crm/fields/mobiles', 'span' => 2, 'table' => false, 'rules' => 'nullable',
-                             'example' => '0812345678; 0898765432', 'help' => __('Add as many as you need; mark the main one.')],
-            'additional_contact' => ['label' => __('Other ways to contact (LINE, WeChat …)'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:1000'],
+            '_address'   => ['section' => __('Address'), 'icon' => 'pin', 'help' => __('Location, city, province, country and postal code')],
+            'address'    => ['label' => __('Street address'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. 123 Sukhumvit Road')],
+            'city'       => ['label' => __('City'), 'rules' => 'nullable|max:80', 'placeholder' => __('e.g. Bangkok')],
+            'province'   => ['label' => __('Province / State'), 'rules' => 'nullable|max:80', 'placeholder' => __('e.g. Bangkok')],
+            'country'    => ['label' => __('Country'), 'rules' => $must.'|max:80', 'default' => 'Thailand', 'placeholder' => __('e.g. Thailand')],
+            'zipcode'    => ['label' => __('Postal code'), 'rules' => 'nullable|max:20', 'placeholder' => __('e.g. 10110')],
 
-            '_address'   => ['section' => __('Address')],
-            'address'    => ['label' => __('Address'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:1000'],
-            'city'       => ['label' => __('City'), 'rules' => 'nullable|max:80'],
-            'province'   => ['label' => __('Province'), 'rules' => 'nullable|max:80'],
-            'country'    => ['label' => __('Country'), 'rules' => 'nullable|max:80', 'default' => 'Thailand'],
-            'zipcode'    => ['label' => __('Postal code'), 'rules' => 'nullable|max:20'],
-
-            '_more'      => ['section' => __('More')],
-            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
-            'avatar'     => ['label' => __('Photo'), 'type' => 'file', 'import' => false, 'span' => 2, 'rules' => 'nullable', 'help' => __('PNG, JPG or WebP, up to 2 MB.')],
+            '_more'      => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this contact')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
         ] + $this->ownershipFields($row);
     }
 

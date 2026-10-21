@@ -267,8 +267,26 @@ abstract class CrmController extends ResourceController
         return $raw;
     }
 
-    /** Code given to a new record that has none: PREFIX-00042 (leads use a date-time code). */
+    /** Code given to a new record that has none: PREFIX-00042 (leads and contacts use dateCode()). */
     protected function newCode(int $id): string { return $this->codePrefix.'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT); }
+
+    /** PREFIX-yyyyMMddHHmmss + 3 digits (milliseconds), e.g. LD-20261016061037142; the next free one if two are made at the same moment. */
+    protected function dateCode(): string
+    {
+        $n = (int) (new \DateTimeImmutable())->format('YmdHisv');
+        while (DB::scalar("SELECT 1 FROM {$this->table} WHERE code = ?", [$this->codePrefix.'-'.$n], 'crm')) { $n++; }
+
+        return $this->codePrefix.'-'.$n;
+    }
+
+    /** true while a CSV / Excel import runs: fields the form asks for may be optional there */
+    protected bool $importing = false;
+
+    public function import(): never
+    {
+        $this->importing = true;
+        parent::import();
+    }
 
     protected function saved(int $id, array $data, ?array $existing): void
     {
