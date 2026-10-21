@@ -16,11 +16,12 @@ $value = function (string $name, array $f) use ($row) {
 // Sections become steps. Fields before the first section go into a first, untitled step.
 $steps = []; $cur = ['title' => __('Details'), 'fields' => []];
 foreach ($fields as $name => $f) {
-    if (isset($f['section'])) { if ($cur['fields']) { $steps[] = $cur; } $cur = ['title' => $f['section'], 'fields' => []]; continue; }
+    if (isset($f['section'])) { if ($cur['fields']) { $steps[] = $cur; } $cur = ['title' => $f['section'], 'icon' => $f['icon'] ?? null, 'help' => $f['help'] ?? null, 'fields' => []]; continue; }
     $cur['fields'][$name] = $f;
 }
 if ($cur['fields']) { $steps[] = $cur; }
 $wizard = ! empty($c['wizard']) && count($steps) > 1;
+$dots   = $wizard && ($c['wizard_style'] ?? '') === 'dots';   // one card per step, dots and Previous / Next under it (the lead form)
 $errStep = 0;
 foreach ($steps as $i => $st) { foreach ($st['fields'] as $n => $_) { if (error_for($n)) { $errStep = $i; break 2; } } }
 
@@ -48,6 +49,26 @@ $renderField = function (string $name, array $f) use ($value, $row) {
             <?php if (! $f['choices']): ?><span class="text-sm text-steel"><?= e($f['empty'] ?? __('Nothing to choose from yet.')) ?></span><?php endif ?>
         </div>
         <?php if (! empty($f['help'])): ?><p class="hint"><?= e($f['help']) ?></p><?php endif ?>
+    <?php elseif ($type === 'picker'): ?>
+        <span class="label" id="lbl-<?= e($name) ?>"><?= $lbl() ?></span>
+        <?= partial('partials/picker', ['name' => $name, 'f' => $f, 'picked' => array_map('strval', (array) old($name, $row[$name.'_ids'] ?? [])), 'err' => $err]) ?>
+    <?php elseif ($type === 'logo'): ?>
+        <?= partial('partials/logo-drop', ['name' => $name, 'f' => $f, 'current' => $row[$name] ?? null, 'err' => $err]) ?>
+    <?php elseif ($type === 'phone'):
+        $codes = config('core.phone_codes', ['+66' => 'TH']);
+        $cc = $f['default_code'] ?? array_key_first($codes); $num = (string) $v;
+        if (preg_match('/^(\+\d{1,4})\s*(.*)$/', $num, $pm) && isset($codes[$pm[1]])) { [$cc, $num] = [$pm[1], $pm[2]]; }
+        $cc = (string) old($name.'__cc', $cc); ?>
+        <label for="f-<?= e($name) ?>" class="label"><?= $lbl() ?></label>
+        <div class="flex">
+            <select name="<?= e($name) ?>__cc" aria-label="<?= e(__('Country code')) ?>" class="input !w-28 shrink-0 rounded-r-none" <?= $ro ? 'disabled' : '' ?>>
+                <?php foreach ($codes as $code => $cty): ?><option value="<?= e($code) ?>" <?= $code === $cc ? 'selected' : '' ?>><?= e(phone_flag($cty).' '.$code) ?></option><?php endforeach ?>
+            </select>
+            <input id="f-<?= e($name) ?>" name="<?= e($name) ?>" type="tel" inputmode="tel" value="<?= e($num) ?>" placeholder="<?= e($f['placeholder'] ?? __('Enter phone number')) ?>"
+                   class="input -ml-px min-w-0 flex-1 rounded-l-none <?= $err ? 'input-error' : '' ?>" <?= $ro ? 'disabled' : '' ?>>
+        </div>
+        <?php if (! empty($f['help'])): ?><p class="hint"><?= e($f['help']) ?></p><?php endif ?>
+        <?php if ($err): ?><p class="error"><?= e($err) ?></p><?php endif ?>
     <?php elseif ($type === 'file'): ?>
         <span class="label"><?= $lbl() ?></span>
         <div class="flex items-center gap-4">
@@ -65,6 +86,11 @@ $renderField = function (string $name, array $f) use ($value, $row) {
         <div data-richtext data-upload="<?= e(url('/editor/image')) ?>" data-assets="<?= e(url('assets/vendor/quill')) ?>" data-labelledby="lbl-<?= e($name) ?>">
             <textarea hidden name="<?= e($name) ?>"><?= e(Html::render((string) $v)) ?></textarea>
             <div data-rt-editor class="rt-editor"></div>
+            <?php if (! empty($f['counter'])): ?>
+            <div class="flex justify-between rounded-b-md border-t border-graphite-900/10 bg-mist/40 px-3 py-1.5 text-xs text-steel ring-1 ring-graphite-900/15">
+                <span><?= e(__('Characters')) ?>: <span class="tabular-nums" data-rt-chars>0</span></span><span><?= e(__('Words')) ?>: <span class="tabular-nums" data-rt-words>0</span></span>
+            </div>
+            <?php endif ?>
         </div>
         <?php if (! empty($f['help'])): ?><p class="hint"><?= e($f['help']) ?></p><?php endif ?>
         <?php if ($err): ?><p class="error"><?= e($err) ?></p><?php endif ?>
@@ -76,7 +102,7 @@ $renderField = function (string $name, array $f) use ($value, $row) {
     <?php else: ?>
         <label for="f-<?= e($name) ?>" class="label"><?= $lbl() ?></label>
         <?php if ($type === 'textarea'): ?>
-            <textarea id="f-<?= e($name) ?>" name="<?= e($name) ?>" rows="4" class="input <?= $err ? 'input-error' : '' ?>" <?= $ro ? 'disabled' : '' ?>><?= e($v) ?></textarea>
+            <textarea id="f-<?= e($name) ?>" name="<?= e($name) ?>" rows="<?= (int) ($f['rows'] ?? 4) ?>" <?= ! empty($f['placeholder']) ? 'placeholder="'.e($f['placeholder']).'"' : '' ?> class="input <?= $err ? 'input-error' : '' ?>" <?= $ro ? 'disabled' : '' ?>><?= e($v) ?></textarea>
         <?php elseif ($type === 'select' && ! empty($f['remote'])): ?>
             <?= partial('partials/remote-select', ['name' => $name, 'value' => (string) $v, 'current' => $f['current'] ?? null, 'kind' => $f['remote'], 'o' => ['id' => 'f-'.$name, 'placeholder' => $f['placeholder'] ?? __('Search and choose…'), 'required' => $req, 'depends' => $f['depends'] ?? null]]) ?>
         <?php elseif ($type === 'select'):
@@ -85,7 +111,7 @@ $renderField = function (string $name, array $f) use ($value, $row) {
             <?= select_field($name, $opts, $v, ['id' => 'f-'.$name, 'placeholder' => $f['placeholder'] ?? __('Choose…'), 'disabled' => $ro, 'class' => ($f['rich'] ?? false) ? null : 'input'.($err ? ' input-error' : ''), 'required' => $req, 'search' => $f['search'] ?? null]) ?>
         <?php else: ?>
             <input id="f-<?= e($name) ?>" name="<?= e($name) ?>" type="<?= e($type === 'datetime' ? 'datetime-local' : $type) ?>" <?= $type === 'number' ? 'step="any" inputmode="decimal"' : '' ?>
-                   value="<?= $type === 'password' ? '' : e($v) ?>" <?= $type === 'password' ? 'autocomplete="new-password"' : '' ?>
+                   value="<?= $type === 'password' ? '' : e($v) ?>" <?= $type === 'password' ? 'autocomplete="new-password"' : '' ?> <?= ! empty($f['placeholder']) ? 'placeholder="'.e($f['placeholder']).'"' : '' ?>
                    class="input <?= $err ? 'input-error' : '' ?> <?= $type === 'color' ? '!w-20 p-1' : '' ?>" <?= $ro ? 'disabled' : '' ?>>
         <?php endif ?>
         <?php if (! empty($f['help'])): ?><p class="hint"><?= e($f['help']) ?></p><?php endif ?>
@@ -98,14 +124,14 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
 ?>
 <div id="form-shell" class="[&:fullscreen]:overflow-auto [&:fullscreen]:bg-mist [&:fullscreen]:p-6">
 <form method="POST" action="<?= url($isEdit ? $c['base'].'/'.$row['id'] : $c['base']) ?>" enctype="multipart/form-data" novalidate data-no-busy <?= $embed ? 'data-sheet-form' : '' ?>
-      data-form data-msg-discard="<?= e(__('Discard what you typed?')) ?>" data-msg-missing="<?= e(__('required missing')) ?>" data-msg-done="<?= e(__('Complete')) ?>" data-msg-optional="<?= e(__('Optional')) ?>" <?= $wizard ? 'data-wizard data-start="'.(int) $errStep.'"' : '' ?>>
+      data-form data-msg-discard="<?= e(__('Discard what you typed?')) ?>" data-msg-missing="<?= e(__('required missing')) ?>" data-msg-done="<?= e(__('Complete')) ?>" data-msg-optional="<?= e(__('Optional')) ?>" <?= $wizard ? 'data-wizard data-start="'.(int) $errStep.'"' : '' ?> <?= $dots ? 'data-dots' : '' ?>>
     <?= csrf_field() ?>
 
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
             <?php if (! $embed): ?><h1 class="page-title"><?= e($title) ?></h1><?php endif ?>
-            <!-- Required fields: how many are filled -->
-            <div data-req-summary hidden class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <!-- Required fields: how many are filled (the dots form says it on each step instead) -->
+            <div data-req-summary hidden <?= $dots ? 'data-off' : '' ?> class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <div class="flex items-center gap-2.5">
                     <div class="h-1.5 w-36 overflow-hidden rounded-full bg-graphite-900/10" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-req-progress><div data-req-bar class="h-full rounded-full bg-signal-600 transition-all" style="width:0%"></div></div>
                     <span class="tabular-nums text-steel"><span class="font-semibold text-graphite-900" data-req-filled>0</span> <?= e(__('of')) ?> <span data-req-total>0</span> <?= e(__('required fields filled')) ?></span>
@@ -116,6 +142,46 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
         <?php if (! $embed): ?><button type="button" class="btn-secondary" data-fullscreen title="<?= e(__('Full screen')) ?>"><?= icon('expand', 'size-4') ?><span class="hidden sm:inline"> <?= e(__('Full screen')) ?></span></button><?php endif ?>
     </div>
 
+    <?php if ($dots): ?>
+    <!-- one card per step: icon, title and what the step is for; Previous · dots · Next (named after the next step) under it -->
+    <div class="<?= $embed ? 'mt-4' : 'mt-6' ?> mx-auto max-w-4xl">
+        <?php foreach ($steps as $i => $st):
+            $stepReq = (bool) array_filter($st['fields'], fn ($f) => str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox'); ?>
+        <section data-step="<?= $i ?>" <?= $i !== $errStep ? 'hidden' : '' ?> aria-labelledby="step-title-<?= $i ?>">
+            <div class="flex items-start gap-3">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-signal-50 text-signal-700"><?= icon($st['icon'] ?: 'doc', 'size-6') ?></span>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-base font-semibold" id="step-title-<?= $i ?>" data-step-title><?= e($st['title']) ?></h2>
+                        <?php if ($stepReq): ?><span class="rounded border border-graphite-900/15 px-1.5 py-0.5 text-xs text-steel"><?= __('Fields marked <span class="text-signal-600">*</span> are required') ?></span><?php endif ?>
+                    </div>
+                    <?php if ($st['help']): ?><p class="mt-0.5 text-sm text-steel"><?= e($st['help']) ?></p><?php endif ?>
+                </div>
+            </div>
+            <div class="mt-4 grid gap-x-6 gap-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-graphite-900/8 md:grid-cols-2">
+            <?php foreach ($st['fields'] as $name => $f):
+                $req  = str_contains($f['rules'] ?? '', 'required') && empty($f['readonly']) && ($f['type'] ?? '') !== 'checkbox'; ?>
+                <div class="min-w-0 <?= ($f['span'] ?? 1) === 2 ? 'md:col-span-2' : '' ?>" data-field="<?= e($name) ?>" data-label="<?= e($f['label']) ?>" <?= $req ? 'data-required' : '' ?> <?= ! empty($f['show_when']) ? 'data-crm-show="'.e($f['show_when']).'"' : '' ?>>
+                    <?= $renderField($name, $f) ?>
+                </div>
+            <?php endforeach ?>
+            </div>
+        </section>
+        <?php endforeach ?>
+
+        <div class="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div><button type="button" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-steel hover:text-graphite-900 disabled:pointer-events-none disabled:opacity-40" data-prev><?= icon('arrowleft', 'size-4') ?> <?= e(__('Previous')) ?></button></div>
+            <div class="flex items-center gap-1.5" data-stepper>
+                <?php foreach ($steps as $i => $st): ?><button type="button" data-go="<?= $i ?>" data-dot-style aria-label="<?= e(__('Step :n of :t', ['n' => $i + 1, 't' => count($steps)]).': '.$st['title']) ?>" class="h-1.5 w-1.5 rounded-full bg-graphite-900/20"></button><?php endforeach ?>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+                <?php if ($embed): ?><button type="button" class="btn-ghost" data-sheet-close><?= e(__('Cancel')) ?></button><?php endif ?>
+                <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3 text-sm font-medium text-signal-700 ring-1 ring-signal-600/40 hover:bg-signal-50" data-next><span data-next-label><?= e(__('Next')) ?></span> <?= icon('right', 'size-4') ?></button>
+                <button type="submit" class="btn-primary" data-save disabled title="<?= e(__('Fill in all required fields first')) ?>"><?= icon('check', 'size-4') ?> <?= e($saveLabel) ?></button>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
     <div class="<?= $embed ? 'mt-4' : 'mt-6' ?> grid items-start gap-5 <?= $wizard && ! $embed ? 'lg:grid-cols-[15.5rem_minmax(0,1fr)]' : '' ?>">
         <?php if ($wizard): ?>
         <nav class="<?= $embed ? '' : 'lg:sticky lg:top-20' ?>" aria-label="<?= e(__('Steps')) ?>">
@@ -162,6 +228,8 @@ $saveLabel = $isEdit ? __('Save changes') : __('Create :item', ['item' => __($c[
             </div>
         </div>
     </div>
+
+    <?php endif ?>
 
     <dialog id="required-dialog" class="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-labelledby="required-title">
         <div class="p-5">

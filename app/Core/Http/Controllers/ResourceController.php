@@ -449,6 +449,14 @@ abstract class ResourceController extends Controller
     protected function validateFields(array $fields, array $input, ?array $existing = null): array
     {
         $fields = $this->real($fields);
+        // phone fields: the country code picked next to the number goes in front of it (081 234 5678 + +66 → +66 81 234 5678)
+        foreach ($fields as $name => $f) {
+            if (($f['type'] ?? '') === 'phone' && isset($input[$name.'__cc'], $input[$name]) && is_string($input[$name]) && trim($input[$name]) !== '') {
+                $num = trim($input[$name]);
+                $cc  = (string) $input[$name.'__cc'];
+                if ($num[0] !== '+' && preg_match('/^\+\d{1,4}$/', $cc)) { $input[$name] = $cc.' '.ltrim($num, '0'); }
+            }
+        }
         $rules  = [];
         $labels = [];
         foreach ($fields as $name => $f) {

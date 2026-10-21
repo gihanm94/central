@@ -10,7 +10,8 @@ namespace App\Core\Support;
  */
 final class Html
 {
-    private const TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'pre', 'code', 'span', 'img', 'sub', 'sup', 'div'];
+    private const TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'pre', 'code', 'span', 'img', 'sub', 'sup', 'div',
+                          'mark', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col'];     // the last ones: descriptions written in the old TipTap editor
     private const DROP = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'svg', 'math', 'link', 'meta', 'base', 'noscript', 'template'];
     private const STYLE_OK = ['text-align', 'width', 'height', 'color', 'background-color'];
 
@@ -50,7 +51,7 @@ final class Html
 
     public static function text(?string $stored): string
     {
-        return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '</li>', '</h1>', '</h2>', '</h3>'], ' ', (string) $stored)), ENT_QUOTES, 'UTF-8')) ?? '');
+        return trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '</li>', '</h1>', '</h2>', '</h3>', '</h4>', '</td>', '</th>'], ' ', (string) $stored)), ENT_QUOTES, 'UTF-8')) ?? '');
     }
 
     private static function walk(\DOMNode $node): void

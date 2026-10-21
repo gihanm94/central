@@ -34,6 +34,10 @@ return [
     ],
 
     // Record events that can notify people, per module, by e-mail and/or Lark.
+    // phone fields (type 'phone'): country code => country, first one is the default
+    'phone_codes' => ['+66' => 'TH', '+95' => 'MM', '+855' => 'KH', '+856' => 'LA', '+60' => 'MY', '+65' => 'SG', '+62' => 'ID', '+63' => 'PH', '+84' => 'VN',
+                      '+86' => 'CN', '+852' => 'HK', '+886' => 'TW', '+81' => 'JP', '+82' => 'KR', '+91' => 'IN', '+94' => 'LK', '+971' => 'AE', '+61' => 'AU',
+                      '+44' => 'GB', '+49' => 'DE', '+33' => 'FR', '+39' => 'IT', '+1' => 'US'],
     'notify_actions' => ['created' => 'Create', 'updated' => 'Edit', 'deleted' => 'Delete', 'import' => 'Import', 'export' => 'Export', 'download' => 'Download', 'commented' => 'Comment', 'shared' => 'Share', 'reminder' => 'Reminder', 'assigned' => 'Assign'],
     'notify_channels' => ['app' => 'In-app (bell)', 'email' => 'E-mail', 'lark' => 'Lark'],
     'security_events' => ['login' => 'New sign-in', 'password' => 'Password changed or reset'],

@@ -43,44 +43,63 @@ class LeadController extends CrmController
         ] + $this->commonFilters();
     }
 
+    /** Industries and lead sources a lead can have at most (the picker stops there). */
+    private const PICK_MAX = 5;
+
+    /** true while a CSV / Excel import runs: the form's extra required fields are not required there */
+    private bool $importing = false;
+
+    public function import(): never
+    {
+        $this->importing = true;
+        parent::import();
+    }
+
+    /** The form: four steps with dots (Basic info · Industry & source · Address · Description), like the old lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
     protected function fields(?array $row): array
     {
-        $industries = array_column(DB::select('SELECT id, name FROM industries ORDER BY name', [], 'crm'), 'name', 'id');
-        $sources    = array_column(DB::select('SELECT id, name FROM lead_sources ORDER BY name', [], 'crm'), 'name', 'id');
+        $pick = fn (string $table) => array_map(fn ($r) => ['label' => $r['name'], 'color' => $r['color']],
+            array_column(DB::select("SELECT id, name, color FROM {$table} ORDER BY name", [], 'crm'), null, 'id'));
+        $must = $this->importing ? 'nullable' : 'required';     // asked for in the form, optional in an import
 
         return [
-            '_company'   => ['section' => __('Company')],
-            'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:200', 'example' => 'Siam Packaging Co., Ltd.'],
-            'name_th'    => ['label' => __('Name (Thai)'), 'rules' => 'nullable|max:200'],
-            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
-            'tax_id'     => ['label' => __('Tax ID'), 'rules' => 'nullable|max:30'],
-            'revenue'    => ['label' => __('Annual revenue'), 'type' => 'number', 'rules' => 'nullable|numeric'],
-            'company_id' => $this->remoteField('company_id', $row, ['label' => __('Parent company'), 'rules' => 'nullable',
+            '_basic'     => ['section' => __('Basic info'), 'icon' => 'building', 'help' => __('Company name, contact details and registration status')],
+            'image'      => ['label' => __('Logo'), 'type' => 'logo', 'import' => false, 'hide_show' => true, 'span' => 2, 'rules' => 'nullable', 'help' => __('PNG, JPG or WEBP · max 2 MB'), 'recommend' => __('Recommended: 256 × 256 px')],
+            'name_en'    => ['label' => __('Name (English)'), 'rules' => 'required|max:200', 'placeholder' => __('e.g. ACME Corporation'), 'example' => 'Siam Packaging Co., Ltd.'],
+            'name_th'    => ['label' => __('Name (Thai)'), 'rules' => $must.'|max:200', 'placeholder' => __('e.g. บริษัท ACME จำกัด')],
+            'tax_id'     => ['label' => __('Tax ID'), 'rules' => 'nullable|max:30', 'placeholder' => __('13-digit tax number')],
+            'revenue'    => ['label' => __('Annual revenue'), 'type' => 'number', 'rules' => 'nullable|numeric', 'placeholder' => __('e.g. 10,000,000')],
+            'phone'      => ['label' => __('Phone'), 'type' => 'phone', 'rules' => 'nullable|max:40'],
+            'mobile'     => ['label' => __('Mobile'), 'type' => 'phone', 'rules' => 'nullable|max:40'],
+            'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40', 'placeholder' => '+66 2 xxx xxxx'],
+            'sector'     => ['label' => __('Sector'), 'type' => 'select', 'options' => ['private' => __('Private'), 'government' => __('Government')], 'rules' => $must, 'default' => 'private', 'table' => false,
+                             'display' => fn ($r) => filter_var($r['is_government'] ?? false, FILTER_VALIDATE_BOOL) ? __('Government') : __('Private')],
+            'company_id' => $this->remoteField('company_id', $row, ['label' => __('Parent company'), 'rules' => 'nullable', 'placeholder' => __('Parent company reference'),
                              'display' => fn ($r) => $r['company_name'] ?? null, 'href' => fn ($r) => $r['company_id'] ? '/crm/leads/'.$r['company_id'] : null]),
-            'is_register'   => ['label' => __('Registered company'), 'type' => 'checkbox', 'help' => __('Registered with the Department of Business Development.')],
-            'is_government' => ['label' => __('Government organization'), 'type' => 'checkbox'],
+            'registration' => ['label' => __('Registration status'), 'type' => 'select', 'options' => ['not_registered' => __('Not registered'), 'registered' => __('Registered')], 'rules' => $must, 'default' => 'not_registered', 'table' => false,
+                             'help' => __('Registered with the Department of Business Development.'),
+                             'display' => fn ($r) => filter_var($r['is_register'] ?? false, FILTER_VALIDATE_BOOL) ? __('Registered') : __('Not registered')],
+            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'placeholder' => __('Automatic'), 'help' => __('Leave empty to number it automatically.')],
 
-            '_class'     => ['section' => __('Industry and source')],
-            'industries'    => ['label' => __('Industries'), 'type' => 'multi', 'choices' => $industries, 'span' => 2, 'table' => false, 'import' => false, 'rules' => 'nullable',
-                                'empty' => __('Add industries under CRM → Settings.'), 'display' => fn ($r) => $r['industries'] ?? null],
-            'lead_sources'  => ['label' => __('Lead sources'), 'type' => 'multi', 'choices' => $sources, 'span' => 2, 'table' => false, 'import' => false, 'rules' => 'nullable',
-                                'empty' => __('Add lead sources under CRM → Settings.'), 'display' => fn ($r) => $r['lead_sources'] ?? null],
+            '_class'     => ['section' => __('Industry & source'), 'icon' => 'cart', 'help' => __('Industry type and lead source')],
+            'industries'   => ['label' => __('Industry'), 'type' => 'picker', 'choices' => $pick('industries'), 'max' => self::PICK_MAX, 'span' => 2, 'table' => false, 'import' => false, 'rules' => $must,
+                               'search' => __('Search industries name'), 'group' => __('Industries'), 'add' => __('Add industry'), 'empty' => __('Click to add industry'),
+                               'none' => __('Add industries under CRM → Settings.'), 'display' => fn ($r) => $r['industries'] ?? null],
+            'lead_sources' => ['label' => __('Lead source'), 'type' => 'picker', 'choices' => $pick('lead_sources'), 'max' => self::PICK_MAX, 'span' => 2, 'table' => false, 'import' => false, 'rules' => $must,
+                               'search' => __('Search lead sources'), 'group' => __('Lead sources'), 'add' => __('Add lead source'), 'empty' => __('Click to add lead source'),
+                               'none' => __('Add lead sources under CRM → Settings.'), 'display' => fn ($r) => $r['lead_sources'] ?? null],
 
-            '_numbers'   => ['section' => __('Phone numbers')],
-            'phone'      => ['label' => __('Phone'), 'rules' => 'nullable|max:40'],
-            'mobile'     => ['label' => __('Mobile'), 'rules' => 'nullable|max:40'],
-            'fax'        => ['label' => __('Fax'), 'rules' => 'nullable|max:40'],
+            '_address'   => ['section' => __('Address'), 'icon' => 'globe', 'help' => __('Location, city, province, country and postal code')],
+            'address'    => ['label' => __('Street address'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:1000', 'placeholder' => __('e.g. Sukhumvit Road')],
+            'city'       => ['label' => __('City'), 'rules' => $must.'|max:80', 'placeholder' => __('e.g. Bangkok')],
+            'province'   => ['label' => __('Province / State'), 'rules' => 'nullable|max:80', 'placeholder' => __('e.g. Bangkok')],
+            'country'    => ['label' => __('Country'), 'rules' => $must.'|max:80', 'default' => 'Thailand', 'placeholder' => __('e.g. Thailand')],
+            'zipcode'    => ['label' => __('Postal code'), 'rules' => 'nullable|max:20', 'placeholder' => __('e.g. 10110')],
 
-            '_address'   => ['section' => __('Address')],
-            'address'    => ['label' => __('Address'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:1000'],
-            'city'       => ['label' => __('City'), 'rules' => 'nullable|max:80'],
-            'province'   => ['label' => __('Province'), 'rules' => 'nullable|max:80'],
-            'country'    => ['label' => __('Country'), 'rules' => 'nullable|max:80', 'default' => 'Thailand'],
-            'zipcode'    => ['label' => __('Postal code'), 'rules' => 'nullable|max:20'],
-
-            '_more'      => ['section' => __('More')],
-            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
-            'image'      => ['label' => __('Logo'), 'type' => 'file', 'import' => false, 'span' => 2, 'rules' => 'nullable', 'help' => __('PNG, JPG or WebP, up to 2 MB.')],
+            '_more'      => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this lead')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
         ] + $this->ownershipFields($row);
     }
 
@@ -118,6 +137,10 @@ class LeadController extends CrmController
             $r['source_list']   = array_values(array_filter($src, fn ($x) => (int) $x['lead_id'] === (int) $r['id']));
             $r['industry_ids']     = array_column($r['industry_list'], 'id');
             $r['lead_source_ids']  = array_column($r['source_list'], 'id');
+            $r['industries_ids']   = $r['industry_ids'];          // what the form's industries / lead_sources pickers read
+            $r['lead_sources_ids'] = $r['lead_source_ids'];
+            $r['sector']        = filter_var($r['is_government'] ?? false, FILTER_VALIDATE_BOOL) ? 'government' : 'private';
+            $r['registration']  = filter_var($r['is_register'] ?? false, FILTER_VALIDATE_BOOL) ? 'registered' : 'not_registered';
             $r['industries']    = implode(', ', array_column($r['industry_list'], 'name'));
             $r['lead_sources']  = implode(', ', array_column($r['source_list'], 'name'));
             $r['company_name']  = $parents[$r['company_id'] ?? 0] ?? null;
@@ -136,6 +159,15 @@ class LeadController extends CrmController
             $valid      = array_map('intval', array_column(DB::select("SELECT id FROM {$table}", [], 'crm'), 'id'));
             $data[$key] = array_values(array_intersect(array_map('intval', (array) ($data[$key] ?? [])), $valid));
         }
+        foreach (['industries' => __('Industry'), 'lead_sources' => __('Lead source')] as $key => $label) {
+            if (count($data[$key]) > self::PICK_MAX) {
+                throw new \App\Core\Support\ValidationException([$key => __('Pick up to :n for :field.', ['n' => self::PICK_MAX, 'field' => $label])]);
+            }
+        }
+        // Sector and registration status are two choices in the form, two yes / no columns in the table
+        if (($data['sector'] ?? null) !== null) { $data['is_government'] = $data['sector'] === 'government'; }
+        if (($data['registration'] ?? null) !== null) { $data['is_register'] = $data['registration'] === 'registered'; }
+        unset($data['sector'], $data['registration']);
         if ($file = Request::file('image')) {
             $data['image'] = Upload::image($file, 'crm');
             if ($existing && $existing['image']) {

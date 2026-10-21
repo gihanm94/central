@@ -266,11 +266,13 @@
         var fields = $$('[data-field]', form), req = fields.filter(function (f) { return f.hasAttribute('data-required'); });
         var visited = {};
         var steps = $$('[data-step]', form), wizard = form.hasAttribute('data-wizard') && steps.length > 1, cur = 0;
-        var save = $('[data-save]', form), next = $('[data-next]', form), prev = $('[data-prev]', form), summary = $('[data-req-summary]', form);
+        var save = $('[data-save]', form), next = $('[data-next]', form), prev = $('[data-prev]', form), summary = form.hasAttribute('data-dots') ? null : $('[data-req-summary]', form);
         var reqDlg = $('#required-dialog', form), list = $('[data-req-list]', form), dots = $$('[data-go]', form);
 
         function active(f) { var h = f.closest('[data-crm-show]'); return !(h && h.hidden); }
         function filled(f) {
+            var pk = $('[data-picker]', f);
+            if (pk) return !!$('[data-picker-values] input', pk);
             var sel = $('[data-select-input]', f);
             if (sel) return sel.value !== '';
             var t = $('input:not([type=hidden]):not([type=file]), textarea', f);
@@ -294,6 +296,11 @@
             var perStep = steps.map(function (st, i) { return missing.filter(function (f) { return stepOf(f) === i; }).length; });
             dots.forEach(function (b, i) {
                 var n = perStep[i], isCur = i === cur, dot = $('[data-dot]', b), note = $('[data-step-note]', b);
+                if (b.hasAttribute('data-dot-style')) {           // the dots form: a wide red pill for this step, small dots for the others
+                    b.className = 'h-1.5 rounded-full transition-all ' + (isCur ? 'w-5 bg-signal-600' : (n > 0 && visited[i] ? 'w-1.5 bg-signal-600/40 hover:bg-signal-600/60' : 'w-1.5 bg-graphite-900/20 hover:bg-graphite-900/40'));
+                    b.setAttribute('aria-current', isCur ? 'step' : 'false');
+                    return;
+                }
                 var done = n === 0 && !isCur && (visited[i] || stepHasReq(i));
                 b.className = 'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ' + (isCur ? 'bg-graphite-900 text-white' : 'hover:bg-graphite-900/5');
                 b.setAttribute('aria-current', isCur ? 'step' : 'false');
@@ -303,7 +310,12 @@
                 note.textContent = n > 0 ? n + ' ' + (form.dataset.msgMissing || 'required missing') : (stepHasReq(i) ? (form.dataset.msgDone || 'Complete') : (form.dataset.msgOptional || 'Optional'));
                 note.className = 'block text-xs ' + (isCur ? 'text-white/70' : (n > 0 ? 'text-signal-700' : (stepHasReq(i) ? 'text-emerald-700' : 'text-steel')));
             });
-            if (next) { next.hidden = cur >= steps.length - 1; }
+            if (next) {
+                next.hidden = cur >= steps.length - 1;
+                var nl = $('[data-next-label]', next), nt = steps[cur + 1] && $('[data-step-title]', steps[cur + 1]);
+                if (nl && nt) nl.textContent = nt.textContent;      // "Address →": the button says where it goes
+            }
+            if (save && form.hasAttribute('data-dots')) save.hidden = wizard && cur < steps.length - 1;   // Save only on the last step
             if (prev) { prev.disabled = cur === 0; }
             if (reqDlg && reqDlg.open) buildList(live);
         }
@@ -382,17 +394,25 @@
         var ta = $('textarea', box), host = $('[data-rt-editor]', box);
         var q = new window.Quill(host, {
             theme: 'snow',
-            modules: { toolbar: { container: [[{ header: [2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ list: 'ordered' }, { list: 'bullet' }], [{ align: [] }], ['blockquote', 'link', 'image'], ['clean']], handlers: { image: pickImage } } }
+            modules: { toolbar: { container: [[{ header: [1, 2, 3, 4, false] }], ['bold', 'italic', 'underline', 'strike'], [{ color: [] }, { background: [] }], [{ list: 'ordered' }, { list: 'bullet' }], [{ align: [] }], ['blockquote', 'link', 'image'], ['clean']], handlers: { image: pickImage } } }
         });
         var label = box.dataset.labelledby; if (label) q.root.setAttribute('aria-labelledby', label);
         if (ta.value.trim()) q.setContents(q.clipboard.convert({ html: ta.value }), 'silent');
+        var chars = $('[data-rt-chars]', box), words = $('[data-rt-words]', box);
+        function count() {
+            if (!chars) return;
+            var t = q.getText().replace(/\s+$/, '');
+            chars.textContent = t.length; words.textContent = t.trim() ? t.trim().split(/\s+/).length : 0;
+        }
         function sync() {
+            count();
             var empty = q.getText().trim() === '' && !q.root.querySelector('img');
             ta.value = empty ? '' : q.getSemanticHTML().replace(/&nbsp;/g, ' ');   // Quill writes every space as a non-breaking one
             ta.dispatchEvent(new Event('input', { bubbles: true }));
         }
         box._sync = sync;
         q.on('text-change', sync);
+        count();
 
         // pictures are uploaded, never pasted in as huge inline data
         var Delta = window.Quill.import('delta');
@@ -467,6 +487,109 @@
         if (boxes.length) loadQuill(boxes[0].dataset.assets, function () { boxes.forEach(function (b) { if (!b._sync) initRichtext(b); }); });
     }
     bootRich(document);
+
+    /* ------------------------------------------------- picker
+       [data-picker]: chips of what is picked; "Add" opens a dialog with search, a "Selected" group and the rest,
+       up to data-max items. The picked ids are hidden inputs name[] in [data-picker-values]. */
+
+    function pickerApply(pk, ids) {
+        var name = pk.dataset.name, vals = $('[data-picker-values]', pk), chips = $('[data-picker-chips]', pk), opts = pk._opts;
+        vals.innerHTML = '';
+        ids.forEach(function (id) { var i = document.createElement('input'); i.type = 'hidden'; i.name = name + '[]'; i.value = id; vals.appendChild(i); });
+        $$('[data-chip]', chips).forEach(function (c) { c.remove(); });
+        var add = $('[data-picker-add]', chips);
+        ids.forEach(function (id) {
+            var o = opts[id]; if (!o) return;
+            var c = document.createElement('span');
+            c.setAttribute('data-chip', id);
+            c.className = 'inline-flex h-7 items-center gap-1.5 rounded-md pl-2 pr-1 text-sm font-medium';
+            c.style.cssText = 'background:' + o.color + '1f;color:color-mix(in srgb,' + o.color + ' 78%,#000);box-shadow:inset 0 0 0 1px ' + o.color + '59';
+            c.innerHTML = '<span class="size-1.5 rounded-full" style="background:' + o.color + '"></span><span></span><button type="button" class="ml-0.5 inline-flex size-5 items-center justify-center rounded opacity-70 hover:opacity-100" data-chip-x>&times;</button>';
+            c.children[1].textContent = o.label;
+            c.lastChild.setAttribute('aria-label', (pk.dataset.msgRemove || 'Remove') + ' ' + o.label);
+            chips.insertBefore(c, add);
+        });
+        $('[data-picker-empty]', pk).hidden = ids.length > 0;
+        chips.hidden = ids.length === 0;
+        var form = pk.closest('form'); if (form) { form.dataset.dirty = '1'; form.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+    function pickerIds(pk) { return $$('[data-picker-values] input', pk).map(function (i) { return i.value; }); }
+    function pickerOpen(pk) {
+        var dlg = $('[data-picker-dialog]', pk), search = $('[data-picker-search]', dlg), max = parseInt(pk.dataset.max || '0', 10);
+        var temp = pickerIds(pk), order = null;
+        function render() {
+            var q = search.value.trim().toLowerCase(), ids = Object.keys(pk._opts);
+            if (!order) order = temp.slice();                   // "Selected" keeps what was picked when the dialog opened, in place while ticking
+            var sel = $('[data-picker-group="selected"]', dlg), rest = $('[data-picker-group="rest"]', dlg);
+            sel.innerHTML = ''; rest.innerHTML = '';
+            var full = max && temp.length >= max;
+            ids.forEach(function (id) {
+                var o = pk._opts[id]; if (q && o.label.toLowerCase().indexOf(q) < 0) return;
+                var on = temp.indexOf(id) >= 0, b = document.createElement('button');
+                b.type = 'button'; b.dataset.pick = id; b.setAttribute('role', 'checkbox'); b.setAttribute('aria-checked', on ? 'true' : 'false');
+                b.disabled = !on && full;
+                b.className = 'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-mist disabled:cursor-not-allowed disabled:opacity-40 ' + (on ? 'font-medium' : '');
+                b.innerHTML = '<span class="size-2 shrink-0 rounded-full" style="background:' + o.color + '"></span><span class="min-w-0 flex-1 truncate"></span>' +
+                    '<span class="flex size-[18px] shrink-0 items-center justify-center rounded ' + (on ? 'bg-signal-600 text-white' : 'ring-1 ring-graphite-900/25 bg-white') + '">' +
+                    (on ? '<svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>' : '') + '</span>';
+                b.children[1].textContent = o.label;
+                (order.indexOf(id) >= 0 ? sel : rest).appendChild(b);
+            });
+            $('[data-picker-sel-head]', dlg).hidden = !sel.children.length;
+            $('[data-picker-rest-head]', dlg).hidden = !rest.children.length;
+            $('[data-picker-none]', dlg).hidden = sel.children.length + rest.children.length > 0;
+            $('[data-picker-count]', dlg).textContent = temp.length + (max ? ' / ' + max : '');
+        }
+        dlg._render = render; dlg._temp = temp;
+        search.value = ''; render();
+        dlg.showModal(); search.focus();
+        dlg.oninput = function (e) { if (e.target === search) render(); };
+        dlg.onclick = function (e) {
+            var t;
+            if (e.target === dlg || e.target.closest('[data-picker-cancel]')) { dlg.close(); return; }
+            if ((t = e.target.closest('[data-pick]'))) {
+                var id = t.dataset.pick, k = temp.indexOf(id);
+                if (k >= 0) temp.splice(k, 1); else if (!max || temp.length < max) temp.push(id);
+                render();
+            } else if (e.target.closest('[data-picker-done]')) { pickerApply(pk, temp); dlg.close(); }
+        };
+    }
+    function bootPickers(root) {
+        $$('[data-picker]', root).forEach(function (pk) {
+            if (pk._opts) return;
+            try { pk._opts = JSON.parse($('[data-picker-options]', pk).textContent); } catch (e) { pk._opts = {}; }
+        });
+    }
+    document.addEventListener('click', function (e) {
+        var pk = e.target.closest && e.target.closest('[data-picker]'); if (!pk) return;
+        bootPickers(pk.parentNode);
+        if (e.target.closest('[data-chip-x]')) { var id = e.target.closest('[data-chip]').getAttribute('data-chip'); pickerApply(pk, pickerIds(pk).filter(function (x) { return x !== id; })); }
+        else if (e.target.closest('[data-picker-open]')) pickerOpen(pk);
+    });
+
+    /* ------------------------------------------------- round logo drop zone [data-logo-drop] */
+    function logoShow(zone, file) {
+        var img = $('[data-logo-img]', zone), ph = $('[data-logo-ph]', zone);
+        if (!file) return;
+        img.src = URL.createObjectURL(file); img.hidden = false; ph.hidden = true;
+    }
+    document.addEventListener('change', function (e) {
+        var inp = e.target.closest && e.target.closest('[data-logo-input]'); if (!inp) return;
+        logoShow(inp.closest('[data-logo-drop]'), inp.files[0]);
+    });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) { var z = e.target.closest && e.target.closest('[data-logo-drop]'); if (!z) return; e.preventDefault(); z.classList.add('!border-signal-600', 'bg-signal-50'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) {
+            var z = e.target.closest && e.target.closest('[data-logo-drop]'); if (!z) return;
+            e.preventDefault(); z.classList.remove('!border-signal-600', 'bg-signal-50');
+            if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files[0] && /^image\//.test(e.dataTransfer.files[0].type)) {
+                var inp = $('[data-logo-input]', z), dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); inp.files = dt.files;
+                inp.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    });
 
     /* ------------------------------------------------- side sheet
        The very same form page, fetched with ?embed=1 and shown in a slide-over. Saving posts it back as JSON

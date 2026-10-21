@@ -102,7 +102,7 @@ abstract class CrmController extends ResourceController
         }
 
         return [
-            '_access' => ['section' => __('Access')],
+            '_access' => ['section' => __('Access'), 'icon' => 'users', 'help' => __('Who else can see and work on this record')],
             'access'  => ['label' => __('Share with'), 'type' => 'custom', 'partial' => 'crm/fields/access', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true,
                           'rules' => 'nullable', 'targets' => $targets, 'dept' => $u->department_name],
         ];
