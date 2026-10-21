@@ -31,6 +31,9 @@ class SearchController extends Controller
 
     public function find(string $kind): never
     {
+        if ($kind === 'erp-products') {
+            $this->erpProducts();
+        }
         [$perm, $type] = $this->kind($kind);
         $this->authorize($perm, 'view');
 
@@ -93,5 +96,17 @@ class SearchController extends Controller
         $items = array_map(fn ($r) => ['id' => (int) $r['id'], 'label' => (string) $r['label'], 'sub' => $r['sub'] ?: null, 'img' => upload_url($r['img'])], array_slice($rows, 0, self::PER_PAGE));
 
         json_response(['items' => $items, 'more' => $more]);
+    }
+
+    /** Products of Accounting (copied from the ERP) for the opportunity form; nothing when Accounting is off. */
+    private function erpProducts(): never
+    {
+        $this->authorize('crm_opportunities', 'view');
+        $r = \App\Core\Support\Modules::usable('accounting')
+            ? (\App\Core\Support\Modules::hook('product.search', [trim((string) Request::query('q', '')), max(1, (int) Request::query('page', 1)), self::PER_PAGE], 'accounting')['accounting'] ?? null) : null;
+        $items = array_map(fn ($p) => ['id' => $p['id'], 'label' => $p['name'], 'sub' => trim(($p['part_number'] ?? '').($p['price'] !== null ? ' · '.number_format($p['price'], 2) : ''), ' ·') ?: null, 'img' => null,
+            'extra' => ['no' => $p['part_number'], 'name' => $p['name'], 'price' => $p['price']]], $r['items'] ?? []);
+
+        json_response(['items' => $items, 'more' => (bool) ($r['more'] ?? false)]);
     }
 }

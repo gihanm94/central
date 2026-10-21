@@ -54,6 +54,8 @@ return [
         'customer.quotes'   => fn (string $customerId) => App\Modules\Accounting\Support\CustomerLink::quotes($customerId),
         'erp.billing_pdf' => fn ($user, int $id) => App\Modules\Accounting\Support\DepartmentBilling::pdf($user, $id),
         // Management overview: revenue, top customers, sellers and departments between two dates
+        // CRM opportunity form: pick a product copied from the ERP
+        'product.search'  => fn (string $q, int $page, int $per) => App\Modules\Accounting\Support\ProductSearch::find($q, $page, $per),
         // Management → Account report: income / expenses by year, type, department and month
         'account.report'  => fn (array $filters) => App\Modules\Accounting\Support\AccountReport::summary($filters),
         'revenue.ranking' => fn (string $from, string $to) => App\Modules\Accounting\Support\Ranking::get($from, $to),

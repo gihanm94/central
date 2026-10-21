@@ -26,6 +26,23 @@ class OpportunityController extends CrmController
     protected string $type = 'opportunity';
     protected string $entity = 'opportunity';
     protected string $codePrefix = 'OP';
+    protected bool $files = true;
+
+    /** Files an opportunity may have in all (the form's drop zone counts the ones already attached). */
+    private const MAX_FILES = 5;
+    private const UNITS = ['pcs', 'set', 'unit', 'box', 'pack', 'lot', 'kg', 'm', 'm²', 'litre', 'hour', 'day', 'month', 'year', 'job', 'licence'];
+
+    /** OP-yyyyMMddHHmmss + 3 digits, like leads and contacts */
+    protected function newCode(int $id): string { return $this->dateCode(); }
+
+    /** The form: Basic info · Products · Next steps · Description · Attachments with dots, like the lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
+    /** Departments of this app: the seller's department of the deal. */
+    private static function departments(): array
+    {
+        return array_column(DB::select('SELECT id::text AS id, name FROM departments WHERE deleted_at IS NULL ORDER BY name', [], 'core'), 'name', 'id');
+    }
     protected string $singular = 'opportunity';
     protected string $plural = 'opportunities';
     protected string $base = '/crm/opportunities';
@@ -54,37 +71,46 @@ class OpportunityController extends CrmController
 
     protected function fields(?array $row): array
     {
-        $products = array_column(DB::select('SELECT id, name, unit_price FROM products WHERE is_active ORDER BY name', [], 'crm'), null, 'id');
+        $must = $this->importing ? 'nullable' : 'required';     // asked for in the form, optional in an import
+        $steps = $row ? DB::select("SELECT title, note, due_at, is_done FROM opportunity_steps WHERE opportunity_id = ? AND kind = 'step' ORDER BY is_done, due_at NULLS LAST, id", [(int) $row['id']], 'crm') : [];
 
         return [
-            '_deal'       => ['section' => __('Opportunity')],
-            'name'        => ['label' => __('Name'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Packaging line upgrade'],
-            'lead_id'     => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2,
-                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
-            'contact_id'  => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2,
-                              'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null]),
-            'opportunity_stage' => ['label' => __('Stage'), 'type' => 'select', 'rules' => 'required', 'default' => 'QUALIFICATION',
+            '_basic'      => ['section' => __('Basic info'), 'icon' => 'target', 'help' => __('Name, stage, priority and references')],
+            'name'        => ['label' => __('Opportunity name'), 'rules' => 'required|max:200', 'span' => 2, 'placeholder' => __('e.g. Packaging line upgrade Q4'), 'example' => 'Packaging line upgrade'],
+            'opportunity_stage' => ['label' => __('Stage'), 'type' => 'select', 'rules' => 'required', 'default' => 'QUALIFICATION', 'placeholder' => __('Select stage'),
                               'options' => $row && in_array($row['opportunity_stage'], Catalog::FINAL, true)     // closed for good: only its own stage
-                                  ? [$row['opportunity_stage'] => Catalog::stageLabel($row['opportunity_stage'])] : Stages::options($this->user(), $row['opportunity_stage'] ?? null),
-                              'help' => __('After saving, use the stage tracker on the detail page to move it and keep a history.')],
-            'priority'    => ['label' => __('Priority'), 'type' => 'select', 'options' => Catalog::tr(Catalog::PRIORITIES), 'rules' => 'required', 'default' => 'MEDIUM'],
-            'cancel_reason' => ['label' => __('Reason'), 'type' => 'textarea', 'span' => 2, 'rules' => 'nullable|max:2000', 'show_when' => 'opportunity_stage=CLOSED_LOST,CANCEL,ON_HOLD',
+                                  ? [$row['opportunity_stage'] => Catalog::stageLabel($row['opportunity_stage'])] : Stages::options($this->user(), $row['opportunity_stage'] ?? null)],
+            'priority'    => ['label' => __('Priority'), 'type' => 'select', 'options' => Catalog::tr(Catalog::PRIORITIES), 'rules' => 'required', 'default' => 'MEDIUM', 'placeholder' => __('Select priority')],
+            'cancel_reason' => ['label' => __('Reason'), 'type' => 'textarea', 'rows' => 2, 'span' => 2, 'rules' => 'nullable|max:2000', 'show_when' => 'opportunity_stage=CLOSED_LOST,CANCEL,ON_HOLD',
                               'help' => __('Why was it lost, cancelled or put on hold?')],
-            'code'        => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
+            'amount'      => ['label' => __('Deal amount'), 'type' => 'custom', 'partial' => 'crm/fields/money', 'rules' => $must.'|numeric', 'currencies' => $this->currencyOptions(), 'currency' => 'THB',
+                              'display' => fn ($r) => $r['amount'] !== null ? Ui::money($r['amount'], $r['currency']) : null],
+            'currency'    => ['label' => __('Currency'), 'type' => 'select', 'options' => $this->currencyOptions(), 'rules' => 'required', 'default' => 'THB', 'hide_form' => true, 'hide_show' => true],
+            'department_id' => ['label' => __('Department'), 'type' => 'select', 'options' => self::departments(), 'rules' => $must, 'placeholder' => __('Seller department'),
+                              'default' => (string) ($this->user()->department_id ?? ''), 'help' => __('The seller\'s department; its people see the opportunity.')],
+            'close_at'    => ['label' => __('Expected close date'), 'type' => 'date', 'rules' => $must.'|date'],
+            'follow_at'   => ['label' => __('Follow-up date'), 'type' => 'date', 'rules' => $must.'|date', 'help' => __('Next check-in date')],
+            'lead_id'     => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2, 'placeholder' => __('Reference lead'),
+                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
+            'contact_id'  => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2, 'placeholder' => __('Reference contact'),
+                              'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null]),
+            'code'        => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the opportunity is created (import may give one)
+            'probability' => ['label' => __('Probability (%)'), 'type' => 'number', 'rules' => 'nullable|numeric', 'hide_form' => true],             // from the stage
 
-            '_value'      => ['section' => __('Value and dates')],
-            'amount'      => ['label' => __('Amount'), 'type' => 'number', 'rules' => 'nullable|numeric', 'help' => __('Leave empty to add up the products below.')],
-            'currency'    => ['label' => __('Currency'), 'type' => 'select', 'options' => $this->currencyOptions(), 'rules' => 'required', 'default' => 'THB', 'search' => false],
-            'probability' => ['label' => __('Probability (%)'), 'type' => 'number', 'rules' => 'nullable|numeric', 'help' => __('Leave empty to use the stage default.')],
-            'follow_at'   => ['label' => __('Next follow-up'), 'type' => 'date', 'rules' => 'nullable|date'],
-            'close_at'    => ['label' => __('Expected close date'), 'type' => 'date', 'rules' => 'nullable|date'],
+            '_products'   => ['section' => __('Products'), 'icon' => 'box', 'help' => __('Products of Accounting and new products')],
+            'products'    => ['label' => __('Products'), 'type' => 'custom', 'partial' => 'crm/fields/product-lines', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
+                              'units' => self::UNITS],
 
-            '_products'   => ['section' => __('Products')],
-            'products'    => ['label' => __('Products'), 'type' => 'custom', 'partial' => 'crm/fields/products', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
-                              'catalog' => $products],
+            '_steps'      => ['section' => __('Next steps'), 'icon' => 'tasks', 'help' => __('Action items and follow-up tasks')],
+            'next_steps'  => ['label' => __('Next steps'), 'type' => 'custom', 'partial' => 'crm/fields/next-steps', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
+                              'existing' => $steps],
 
-            '_more'       => ['section' => __('More')],
-            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
+            '_more'       => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this opportunity')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
+
+            '_files'      => ['section' => __('Attachments'), 'icon' => 'link', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
+            'files'       => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/dropfiles', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
+                              'max' => self::MAX_FILES, 'existing' => $row ? \App\Modules\CRM\Support\Attachments::forRecord('opportunity', (int) $row['id']) : []],
         ] + $this->ownershipFields($row);
     }
 
@@ -96,7 +122,6 @@ class OpportunityController extends CrmController
             'contact' => ['label' => __('Contact'), 'sort' => 'c.name_en', 'render' => fn ($r) => e($r['contact_name'] ?: '—')],
             'stage' => ['label' => __('Stage'), 'sort' => 't.opportunity_stage', 'render' => fn ($r) => Ui::stageBadge($r['opportunity_stage'])],
             'amount' => ['label' => __('Amount'), 'sort' => 't.amount', 'render' => fn ($r) => '<span class="tabular-nums">'.Ui::money($r['amount'], $r['currency']).'</span>'],
-            'probability' => ['label' => __('Chance'), 'sort' => 't.probability', 'render' => fn ($r) => $r['probability'] === null ? Ui::dash() : partial('crm/meter', ['value' => (float) $r['probability'], 'label' => number_clean($r['probability']).'%'])],
             'close' => ['label' => __('Close'), 'sort' => 't.close_at', 'render' => fn ($r) => '<span class="tabular-nums text-steel">'.format_date($r['close_at'], 'd M Y').'</span>'],
             'created' => $this->createdColumn(),
         ];
@@ -147,22 +172,43 @@ class OpportunityController extends CrmController
             $data['close_at'] = now();
         }
 
-        // products: registered (product_id) or "other" typed by hand
-        $catalog = array_column(DB::select('SELECT id, name, unit_price FROM products', [], 'crm'), null, 'id');
+        // products: a product of Accounting (erp_product_id), an older CRM catalogue product (product_id) or a new one typed by hand
+        $catalog = array_column(DB::select('SELECT id, name FROM products', [], 'crm'), 'name', 'id');
         $lines   = [];
         foreach ((array) ($data['products'] ?? []) as $p) {
+            $name = trim((string) ($p['name'] ?? ''));
             $pid  = (int) ($p['product_id'] ?? 0);
-            $name = $pid && isset($catalog[$pid]) ? $catalog[$pid]['name'] : trim((string) ($p['name'] ?? ''));
+            if ($name === '' && $pid && isset($catalog[$pid])) { $name = $catalog[$pid]; }
             if ($name === '') {
                 continue;
             }
+            $erp   = ($p['kind'] ?? '') === 'catalog' && ctype_digit((string) ($p['erp_product_id'] ?? '')) ? (int) $p['erp_product_id'] : null;
             $qty   = is_numeric($p['quantity'] ?? null) && (float) $p['quantity'] > 0 ? (float) $p['quantity'] : 1.0;
             $price = isset($p['unit_price']) && $p['unit_price'] !== '' && is_numeric($p['unit_price']) ? (float) $p['unit_price'] : null;
-            $lines[] = ['product_id' => $pid && isset($catalog[$pid]) ? $pid : null, 'name' => mb_substr($name, 0, 200), 'quantity' => $qty, 'unit_price' => $price, 'note' => mb_substr(trim((string) ($p['note'] ?? '')), 0, 250) ?: null];
+            $lines[] = ['product_id' => $pid && isset($catalog[$pid]) ? $pid : null, 'erp_product_id' => $erp, 'name' => mb_substr($name, 0, 200),
+                'part_number' => mb_substr(trim((string) ($p['part_number'] ?? '')), 0, 80) ?: null, 'unit' => mb_substr(trim((string) ($p['unit'] ?? '')), 0, 30) ?: null,
+                'quantity' => $qty, 'unit_price' => $price, 'note' => mb_substr(trim((string) ($p['note'] ?? '')), 0, 250) ?: null];
         }
         $data['products'] = $lines;
         if (($data['amount'] ?? null) === null && $lines && ! in_array(null, array_column($lines, 'unit_price'), true)) {
             $data['amount'] = array_sum(array_map(fn ($l) => $l['quantity'] * $l['unit_price'], $lines));
+        }
+
+        // next steps typed in the form
+        $data['next_steps'] = array_values(array_filter(array_map(fn ($st) => [
+            'title' => mb_substr(trim((string) ($st['title'] ?? '')), 0, 200),
+            'due_at' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($st['due_at'] ?? '')) ? $st['due_at'] : null,
+            'note' => trim((string) ($st['note'] ?? '')) ?: null,
+        ], (array) ($data['next_steps'] ?? [])), fn ($st) => $st['title'] !== ''));
+
+        // the seller's department (the base form never changes department_id; here it is a choice)
+        $dep = (string) Request::input('department_id', '');
+        if ($dep !== '' && isset(self::departments()[$dep])) { $data['department_id'] = (int) $dep; }
+
+        // attachments: at most MAX_FILES in all
+        $had = $existing ? count(\App\Modules\CRM\Support\Attachments::forRecord('opportunity', (int) $existing['id'])) : 0;
+        if ($had + count(\App\Modules\CRM\Support\Attachments::incoming('files')) > self::MAX_FILES) {
+            throw new ValidationException(['files' => __('You can attach up to :n files.', ['n' => self::MAX_FILES])]);
         }
 
         return $data;
@@ -173,6 +219,10 @@ class OpportunityController extends CrmController
         DB::exec('DELETE FROM opportunity_products WHERE opportunity_id = ?', [$id], 'crm');
         foreach ($data['products'] as $i => $l) {
             DB::insert('opportunity_products', $l + ['opportunity_id' => $id, 'sort' => $i], 'crm', '');
+        }
+        foreach ($data['next_steps'] ?? [] as $st) {
+            DB::insert('opportunity_steps', ['opportunity_id' => $id, 'kind' => 'step', 'stage' => $data['opportunity_stage'] ?? $existing['opportunity_stage'] ?? 'QUALIFICATION',
+                'title' => $st['title'], 'note' => $st['note'], 'due_at' => $st['due_at'], 'created_by' => $this->user()->id], 'crm', '');
         }
         $stage = $data['opportunity_stage'] ?? null;
         if ($stage && (! $existing || $existing['opportunity_stage'] !== $stage)) {

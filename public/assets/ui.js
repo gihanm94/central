@@ -195,7 +195,7 @@
                 if (my !== st.seq) return;
                 d.items.forEach(function (it) {
                     var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'option');
-                    b.dataset.value = it.id; b.dataset.label = it.label; b.setAttribute('aria-selected', String(String(hidden.value) === String(it.id)));
+                    b.dataset.value = it.id; b.dataset.label = it.label; if (it.extra) b.dataset.extra = JSON.stringify(it.extra); b.setAttribute('aria-selected', String(String(hidden.value) === String(it.id)));
                     b.className = 'group flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-mist focus:bg-mist focus:outline-none aria-selected:font-medium';
                     var r = document.createElement('span'); r.className = 'min-w-0'; r.setAttribute('data-rich', ''); r.appendChild(richNode(it)); b.appendChild(r);
                     items.appendChild(b);
@@ -284,6 +284,8 @@
             return g ? $$('[data-one-of="' + g + '"]', form).some(fieldFilled) : fieldFilled(f);
         }
         function fieldFilled(f) {
+            var dp = $('input[data-dp]', f);                 // date picker: the real input is hidden, a button shows the date
+            if (dp) return dp.value.trim() !== '';
             var pk = $('[data-picker]', f);
             if (pk) return !!$('[data-picker-values] input', pk);
             var sel = $('[data-select-input]', f);
@@ -293,7 +295,7 @@
             return t.type === 'checkbox' ? t.checked : t.value.trim() !== '';
         }
         function stepOf(f) { var s = f.closest('[data-step]'); return s ? steps.indexOf(s) : 0; }
-        function ctl(f) { return $('[data-select-button]', f) || $('input:not([type=hidden]):not([type=file]), textarea, .ql-editor', f); }
+        function ctl(f) { return $('[data-select-button]', f) || $('[data-dp-btn]', f) || $('input:not([type=hidden]):not([type=file]), textarea, .ql-editor', f); }
 
         function recompute() {
             var live = req.filter(active), missing = live.filter(function (f) { return !filled(f); });

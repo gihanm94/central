@@ -104,6 +104,134 @@
 
     function boot() { $$('[data-map-form]').forEach(previews); $$('[data-people]').forEach(peopleCount); $$('[data-team]').forEach(teamSync); }
 
+    /* ------------------------------------------------ opportunity product lines [data-lines]
+       "+ Add" opens a card; "Add" checks it and turns it into a line of hidden inputs products[i][…]. */
+    function num(v) { v = String(v == null ? '' : v).replace(/,/g, '').trim(); return v === '' ? null : (isFinite(v) ? parseFloat(v) : NaN); }
+    function money(n) { return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function linesTotal(box) {
+        var t = 0;
+        box.querySelectorAll('[data-line]').forEach(function (li) {
+            var q = num(li.querySelector('[name$="[quantity]"]').value) || 0, p = num(li.querySelector('[name$="[unit_price]"]').value) || 0; t += q * p;
+        });
+        var out = box.querySelector('[data-lines-total]'); if (out) out.textContent = money(t);
+    }
+    function lineCardReset(card) {
+        card.querySelectorAll('[data-l]').forEach(function (i) { i.value = i.dataset.l === 'quantity' ? '1' : (i.tagName === 'SELECT' ? i.options[0].value : ''); });
+        var pick = card.querySelector('[data-remote-select]');
+        if (pick) { var h = pick.querySelector('[data-select-input]'), lb = pick.querySelector('[data-select-label]'); h.value = ''; lb.textContent = pick.dataset.placeholder || ''; lb.classList.add('text-graphite-400'); }
+        var er = card.querySelector('[data-l-error]'); er.hidden = true;
+    }
+    document.addEventListener('click', function (e) {
+        var box = e.target.closest && e.target.closest('[data-lines]'), t;
+        // a product picked in the card's search: fill in name, number and price
+        var opt = e.target.closest && e.target.closest('[role=option][data-extra]');
+        if (opt) {
+            var panel = opt.closest('[data-select-panel]'), sel = panel && panel._select, card = sel && sel.closest('[data-line-form]');
+            if (card) {
+                var x = {}; try { x = JSON.parse(opt.dataset.extra); } catch (err) { /* nothing to fill */ }
+                card.querySelector('[data-l="erp_product_id"]').value = opt.dataset.value;
+                card.querySelector('[data-l="name"]').value = x.name || opt.dataset.label || '';
+                card.querySelector('[data-l="part_number"]').value = x.no || '';
+                if (x.price != null) card.querySelector('[data-l="unit_price"]').value = x.price;
+            }
+            return;
+        }
+        if (!box) return;
+        if ((t = e.target.closest('[data-line-open]'))) {
+            var c = box.querySelector('[data-line-form="' + t.dataset.lineOpen + '"]'); lineCardReset(c); c.hidden = false;
+            var first = c.querySelector('[data-select-button], [data-l="name"]'); if (first) first.focus();
+        } else if ((t = e.target.closest('[data-line-cancel]'))) {
+            t.closest('[data-line-form]').hidden = true;
+        } else if ((t = e.target.closest('[data-line-add]'))) {
+            var card2 = t.closest('[data-line-form]'), kind = card2.dataset.lineForm, v = {}, er = card2.querySelector('[data-l-error]');
+            card2.querySelectorAll('[data-l]').forEach(function (i) { v[i.dataset.l] = i.value.trim(); });
+            var q = num(v.quantity), pr = num(v.unit_price), msg = '';
+            if (!v.name) msg = box.dataset.msgName; else if (q === null || isNaN(q) || q <= 0) msg = box.dataset.msgQty; else if (isNaN(pr)) msg = box.dataset.msgPrice;
+            if (msg) { er.textContent = msg; er.hidden = false; return; }
+            var i = parseInt(box.dataset.counter || '0', 10); box.dataset.counter = i + 1;
+            var tpl = box.querySelector('[data-line-template]').innerHTML.replace(/__i__/g, i), wrap = document.createElement('ul'); wrap.innerHTML = tpl;
+            var li = wrap.firstElementChild;
+            v.kind = kind; v.quantity = String(q); v.unit_price = pr === null ? '' : String(pr);
+            ['kind', 'erp_product_id', 'product_id', 'name', 'part_number', 'quantity', 'unit', 'unit_price'].forEach(function (k) { li.querySelector('[name$="[' + k + ']"]').value = v[k] || ''; });
+            li.querySelector('[data-l-name]').textContent = v.name;
+            li.querySelector('[data-l-sub]').textContent = [v.part_number, q + ' ' + (v.unit || ''), pr === null ? '' : money(pr)].filter(Boolean).join(' · ');
+            li.querySelector('[data-l-total]').textContent = pr === null ? '' : money(q * pr);
+            box.querySelector('[data-line-list="' + kind + '"]').appendChild(li);
+            box.querySelector('[data-line-empty="' + kind + '"]').hidden = true;
+            card2.hidden = true; linesTotal(box);
+            var form = box.closest('form'); if (form) { form.dataset.dirty = '1'; form.dispatchEvent(new Event('change', { bubbles: true })); }
+        } else if ((t = e.target.closest('[data-line-remove]'))) {
+            var row = t.closest('[data-line]'), list = row.parentNode; row.remove();
+            var k2 = list.dataset.lineList; box.querySelector('[data-line-empty="' + k2 + '"]').hidden = list.children.length > 0;
+            linesTotal(box);
+        }
+    });
+
+    /* ------------------------------------------------ next steps typed in the form [data-steps] */
+    document.addEventListener('click', function (e) {
+        var box = e.target.closest && e.target.closest('[data-steps]'), t; if (!box) return;
+        var card = box.querySelector('[data-step-form]');
+        if (e.target.closest('[data-step-open]')) { card.querySelectorAll('[data-s]').forEach(function (i) { i.value = ''; }); card.querySelector('[data-s-error]').hidden = true; card.hidden = false; card.querySelector('[data-s="title"]').focus(); }
+        else if (e.target.closest('[data-step-cancel]')) card.hidden = true;
+        else if (e.target.closest('[data-step-add]')) {
+            var v = {}; card.querySelectorAll('[data-s]').forEach(function (i) { v[i.dataset.s] = i.value.trim(); });
+            if (!v.title) { var er = card.querySelector('[data-s-error]'); er.textContent = box.dataset.msgTitle; er.hidden = false; return; }
+            var i = parseInt(box.dataset.counter || '0', 10); box.dataset.counter = i + 1;
+            var wrap = document.createElement('ul'); wrap.innerHTML = box.querySelector('[data-step-template]').innerHTML.replace(/__i__/g, i);
+            var li = wrap.firstElementChild;
+            ['title', 'due_at', 'note'].forEach(function (k) { li.querySelector('[name$="[' + k + ']"]').value = v[k]; });
+            li.querySelector('[data-s-title]').textContent = v.title;
+            var d = v.due_at ? new Date(v.due_at + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+            li.querySelector('[data-s-sub]').textContent = [d, v.note].filter(Boolean).join(' · ');
+            box.querySelector('[data-step-list]').appendChild(li); box.querySelector('[data-step-empty]').hidden = true; card.hidden = true;
+            var form = box.closest('form'); if (form) form.dataset.dirty = '1';
+        } else if ((t = e.target.closest('[data-step-remove]'))) {
+            t.closest('[data-step-line]').remove();
+            box.querySelector('[data-step-empty]').hidden = box.querySelectorAll('[data-step-line]').length > 0 || box.querySelectorAll('li').length > 0;
+        }
+    });
+
+    /* ------------------------------------------------ files dropped or chosen [data-dropfiles] (kept across several picks) */
+    function filesShow(box) {
+        var inp = box.querySelector('[data-files-input]'), list = box.querySelector('[data-files-list]'), have = parseInt(inp.dataset.have || '0', 10);
+        list.querySelectorAll('[data-new-file]').forEach(function (n) { n.remove(); });
+        Array.prototype.forEach.call(inp.files, function (f, i) {
+            var li = document.createElement('li'); li.setAttribute('data-new-file', i);
+            li.className = 'flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm ring-1 ring-graphite-900/10';
+            li.innerHTML = '<span class="min-w-0 flex-1 truncate"></span><span class="text-xs text-steel"></span><button type="button" class="btn-ghost px-2 py-1 hover:text-signal-700" data-file-x aria-label="Remove">&times;</button>';
+            li.children[0].textContent = f.name; li.children[1].textContent = Math.max(1, Math.round(f.size / 1024)) + ' KB';
+            list.appendChild(li);
+        });
+        box.querySelector('[data-count]').textContent = have + inp.files.length;
+    }
+    function filesSet(box, files) {
+        var inp = box.querySelector('[data-files-input]'), max = parseInt(box.dataset.max || '5', 10), dt = new DataTransfer();
+        files.forEach(function (f) { if (dt.files.length < max) dt.items.add(f); });
+        if (files.length > max && window.toast) window.toast(box.dataset.msgFull, 'warning');
+        inp.files = dt.files; filesShow(box);
+    }
+    document.addEventListener('change', function (e) {
+        var inp = e.target.closest && e.target.closest('[data-files-input]'); if (!inp) return;
+        var box = inp.closest('[data-dropfiles]'); if (inp._skip) { inp._skip = false; return; }
+        filesSet(box, (inp._kept || []).concat(Array.prototype.slice.call(inp.files)));
+        inp._kept = Array.prototype.slice.call(inp.files);
+    });
+    document.addEventListener('click', function (e) {
+        var x = e.target.closest && e.target.closest('[data-file-x]'); if (!x) return;
+        var box = x.closest('[data-dropfiles]'), inp = box.querySelector('[data-files-input]'), k = parseInt(x.closest('[data-new-file]').getAttribute('data-new-file'), 10);
+        var rest = Array.prototype.filter.call(inp.files, function (f, i) { return i !== k; }); filesSet(box, rest); inp._kept = rest;
+    });
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(function (ev) {
+        document.addEventListener(ev, function (e) {
+            var z = e.target.closest && e.target.closest('[data-dropfiles] [data-drop]'); if (!z) return;
+            e.preventDefault(); z.classList.toggle('!border-signal-600', ev === 'dragenter' || ev === 'dragover');
+            if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files.length) {
+                var box = z.closest('[data-dropfiles]'), inp = box.querySelector('[data-files-input]');
+                var all = (inp._kept || []).concat(Array.prototype.slice.call(e.dataTransfer.files)); filesSet(box, all); inp._kept = Array.prototype.slice.call(inp.files);
+            }
+        });
+    });
+
     window.AcmeCrmApply = function () { applyShow(); boot(); };
     document.addEventListener('DOMContentLoaded', window.AcmeCrmApply);
     window.AcmeCrmApply();
