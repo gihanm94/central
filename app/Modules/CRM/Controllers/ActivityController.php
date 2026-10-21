@@ -29,6 +29,15 @@ class ActivityController extends CrmController
     protected bool $comments = true;
     protected bool $files = true;
 
+    /** Files an activity may have in all. */
+    private const MAX_FILES = 5;
+
+    /** AC-yyyyMMddHHmmss + 3 digits, like leads */
+    protected function newCode(int $id): string { return $this->dateCode(); }
+
+    /** The form: Basic info · Description · Attachments with dots, like the lead form. */
+    protected function meta(): array { return parent::meta() + ['wizard_style' => 'dots']; }
+
     protected function select(): string
     {
         return 'SELECT t.*, l.name_en AS lead_name, l.name_th AS lead_name_th, l.image AS lead_image, c.name_en AS contact_name, o.name AS opportunity_name FROM activities t
@@ -40,7 +49,12 @@ class ActivityController extends CrmController
     protected function label(array $row): string { return (string) $row['topic']; }
 
     /** Every saved activity is also put on its owner's Google Calendar (when connected); the local calendar reads the table itself. */
-    protected function saved(int $id, array $data, ?array $existing): void { \App\Core\Support\Google\GCalendar::syncActivity($id); }
+    /** Code, files and sharing (CrmController), then the person's Google calendar. */
+    protected function saved(int $id, array $data, ?array $existing): void
+    {
+        parent::saved($id, $data, $existing);
+        \App\Core\Support\Google\GCalendar::syncActivity($id);
+    }
 
     protected function beforeDelete(array $row): void { \App\Core\Support\Google\GCalendar::removeActivity($row); }
 
@@ -61,37 +75,40 @@ class ActivityController extends CrmController
         $types = Catalog::tr(Catalog::ACTIVITY_TYPES);
         $want  = (string) Request::query('type');
 
+        $must = $this->importing ? 'nullable' : 'required';     // asked for in the form, optional in an import
+
         return [
-            '_what'      => ['section' => __('Activity')],
-            'activity_type' => ['label' => __('Type'), 'type' => 'select', 'options' => $types, 'rules' => 'required', 'default' => isset($types[$want]) ? $want : 'CALL', 'search' => false],
-            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED'],
-            'topic'      => ['label' => __('Topic'), 'rules' => 'required|max:200', 'span' => 2, 'example' => 'Follow-up call about the quotation'],
-            'start_at'   => ['label' => __('Starts'), 'type' => 'datetime', 'rules' => 'nullable|date', 'default' => preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?$/', (string) Request::query('start')) ? str_replace(' ', 'T', (string) Request::query('start')) : null],
-            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'help' => __('Leave empty to number it automatically.')],
+            '_basic'     => ['section' => __('Basic info'), 'icon' => 'pulse', 'help' => __('Type, topic, timing and references')],
+            'activity_type' => ['label' => __('Activity type'), 'type' => 'select', 'options' => $types, 'rules' => 'required', 'default' => isset($types[$want]) ? $want : 'CALL', 'search' => false],
+            'start_at'   => ['label' => __('Start date'), 'type' => 'datetime', 'rules' => $must.'|date', 'placeholder' => __('Select start date/time'),
+                             'default' => preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?$/', (string) Request::query('start')) ? str_replace(' ', 'T', (string) Request::query('start')) : null],
+            'topic'      => ['label' => __('Topic'), 'rules' => 'required|max:200', 'span' => 2, 'placeholder' => __('e.g. Product demo call with Acme'), 'example' => 'Follow-up call about the quotation'],
+            // meeting: type | status, location | duration — call: direction | status, duration
+            'meeting_type'     => ['label' => __('Meeting type'), 'type' => 'select', 'options' => Catalog::tr(Catalog::MEETING_TYPES), 'rules' => 'nullable', 'show_when' => 'activity_type=MEETING', 'placeholder' => __('Select type'), 'search' => false],
+            'call_direction'   => ['label' => __('Call direction'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CALL_DIRECTIONS), 'rules' => 'nullable', 'show_when' => 'activity_type=CALL', 'placeholder' => __('Select direction'), 'search' => false],
+            'status'     => ['label' => __('Status'), 'type' => 'select', 'options' => Catalog::tr(Catalog::ACTIVITY_STATUSES), 'rules' => 'required', 'default' => 'PLANNED', 'search' => false],
+            'meeting_location' => ['label' => __('Meeting location'), 'rules' => 'nullable|max:255', 'show_when' => 'activity_type=MEETING', 'placeholder' => __('e.g. Office / Zoom link')],
+            'meeting_duration' => ['label' => __('Meeting duration (min)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=MEETING', 'placeholder' => '60'],
+            'call_duration'    => ['label' => __('Call duration (min)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=CALL', 'placeholder' => '0'],
+            'code'       => ['label' => __('Code'), 'rules' => 'nullable|max:30', 'hide_form' => true],     // made when the activity is created (import may give one)
 
-            'call_direction'   => ['label' => __('Direction'), 'type' => 'select', 'options' => Catalog::tr(Catalog::CALL_DIRECTIONS), 'rules' => 'nullable', 'show_when' => 'activity_type=CALL'],
-            'call_duration'    => ['label' => __('Call length (minutes)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=CALL'],
-            'meeting_type'     => ['label' => __('Meeting type'), 'type' => 'select', 'options' => Catalog::tr(Catalog::MEETING_TYPES), 'rules' => 'nullable', 'show_when' => 'activity_type=MEETING'],
-            'meeting_duration' => ['label' => __('Meeting length (minutes)'), 'type' => 'number', 'rules' => 'nullable|integer', 'show_when' => 'activity_type=MEETING'],
-            'meeting_location' => ['label' => __('Location or link'), 'rules' => 'nullable|max:255', 'span' => 2, 'show_when' => 'activity_type=MEETING'],
-
-            '_related'   => ['section' => __('Related to')],
-            'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2,
+            'lead_id'    => $this->remoteField('lead_id', $row, ['label' => __('Lead'), 'rules' => 'required', 'span' => 2, 'placeholder' => __('Reference lead'),
                              'display' => fn ($r) => $r['lead_name'] ?? null, 'href' => fn ($r) => $r['lead_id'] ? '/crm/leads/'.$r['lead_id'] : null]),
-            'contact_id' => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id',
+            'contact_id' => $this->remoteField('contact_id', $row, ['label' => __('Contact'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2, 'placeholder' => __('Select contact'),
                              'display' => fn ($r) => $r['contact_name'] ?? null, 'href' => fn ($r) => $r['contact_id'] ? '/crm/contacts/'.$r['contact_id'] : null]),
-            'opportunity_id' => $this->remoteField('opportunity_id', $row, ['label' => __('Opportunity'), 'rules' => 'nullable', 'depends' => 'lead_id',
+            'opportunity_id' => $this->remoteField('opportunity_id', $row, ['label' => __('Opportunity'), 'rules' => 'nullable', 'depends' => 'lead_id', 'span' => 2, 'placeholder' => __('Select opportunity'),
                              'display' => fn ($r) => $r['opportunity_name'] ?? null, 'href' => fn ($r) => $r['opportunity_id'] ? '/crm/opportunities/'.$r['opportunity_id'] : null]),
-
-            '_reminder'  => ['section' => __('Reminder')],
-            'notify_me'  => ['label' => __('Remind me'), 'type' => 'checkbox', 'help' => __('The reminder shows on your CRM dashboard.')],
-            'notify_before' => ['label' => __('Remind me before'), 'type' => 'select', 'rules' => 'nullable', 'default' => '15', 'search' => false,
+            'notify_me'  => ['label' => __('Notify me'), 'type' => 'checkbox', 'help' => __('The reminder shows on your CRM dashboard.')],
+            'notify_before' => ['label' => __('Notify before'), 'type' => 'select', 'rules' => 'nullable', 'default' => '15', 'search' => false, 'placeholder' => __('Select time'),
                              'options' => ['0' => __('At the start'), '5' => __('5 minutes'), '15' => __('15 minutes'), '30' => __('30 minutes'), '60' => __('1 hour'), '1440' => __('1 day')],
                              'display' => fn ($r) => $r['notify_me'] ? ($r['notify_before'] ? $r['notify_before'].' min' : __('At the start')) : null],
 
-            '_more'      => ['section' => __('Notes and files')],
-            'description' => ['label' => __('Notes'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable'],
-            'files'      => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/files', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable'],
+            '_more'      => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this activity')],
+            'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
+
+            '_files'     => ['section' => __('Attachments'), 'icon' => 'clip', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
+            'files'      => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/dropfiles', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
+                             'max' => self::MAX_FILES, 'existing' => $row ? \App\Modules\CRM\Support\Attachments::forRecord('activity', (int) $row['id']) : []],
         ] + $this->ownershipFields($row);
     }
 
@@ -100,7 +117,7 @@ class ActivityController extends CrmController
         $tones = ['PLANNED' => 'info', 'DONE' => 'success', 'CANCELLED' => 'neutral'];
 
         return [
-            'topic'  => ['label' => __('Activity'), 'primary' => true, 'sort' => 't.topic', 'render' => fn ($r) => Ui::person($r['topic'], __(Catalog::ACTIVITY_TYPES[$r['activity_type']] ?? $r['activity_type']).' · '.($r['code'] ?? ''), null, '/crm/activities/'.$r['id'])],
+            'topic'  => ['label' => __('Activity'), 'primary' => true, 'sort' => 't.topic', 'render' => fn ($r) => Ui::title($r['topic'], trim(__(Catalog::ACTIVITY_TYPES[$r['activity_type']] ?? $r['activity_type']).' · '.($r['code'] ?? ''), ' ·'), '/crm/activities/'.$r['id'])],
             'when'   => ['label' => __('When'), 'sort' => 't.start_at', 'render' => function ($r) {
                 if (! $r['start_at']) { return Ui::dash(); }
                 $late = $r['status'] === 'PLANNED' && strtotime($r['start_at']) < time();
@@ -123,6 +140,10 @@ class ActivityController extends CrmController
             $data['meeting_type'] = $data['meeting_duration'] = $data['meeting_location'] = null;
         }
         $data['notify_before'] = (int) ($data['notify_before'] ?? 0);
+        $had = $existing ? count(\App\Modules\CRM\Support\Attachments::forRecord('activity', (int) $existing['id'])) : 0;      // at most MAX_FILES files in all
+        if ($had + count(\App\Modules\CRM\Support\Attachments::incoming('files')) > self::MAX_FILES) {
+            throw new ValidationException(['files' => __('You can attach up to :n files.', ['n' => self::MAX_FILES])]);
+        }
         // a changed time or reminder setting means the reminder has not been sent yet
         $same = $existing
             && ($existing['start_at'] ? strtotime((string) $existing['start_at']) : null) === (! empty($data['start_at']) ? strtotime((string) $data['start_at']) : null)

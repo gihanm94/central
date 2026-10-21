@@ -108,7 +108,7 @@ class OpportunityController extends CrmController
             '_more'       => ['section' => __('Description'), 'icon' => 'list', 'help' => __('Rich text notes about this opportunity')],
             'description' => ['label' => __('Description'), 'type' => 'richtext', 'span' => 2, 'rules' => 'nullable', 'counter' => true],
 
-            '_files'      => ['section' => __('Attachments'), 'icon' => 'link', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
+            '_files'      => ['section' => __('Attachments'), 'icon' => 'clip', 'help' => __('Upload files (max :n)', ['n' => self::MAX_FILES])],
             'files'       => ['label' => __('Attachments'), 'type' => 'custom', 'partial' => 'crm/fields/dropfiles', 'span' => 2, 'table' => false, 'import' => false, 'hide_show' => true, 'rules' => 'nullable',
                               'max' => self::MAX_FILES, 'existing' => $row ? \App\Modules\CRM\Support\Attachments::forRecord('opportunity', (int) $row['id']) : []],
         ] + $this->ownershipFields($row);
@@ -117,7 +117,7 @@ class OpportunityController extends CrmController
     protected function columns(): array
     {
         return [
-            'name'  => ['label' => __('Opportunity'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => Ui::person($r['name'], trim($r['code'].($r['priority'] === 'HIGH' ? ' · '.__('High priority') : ''), ' ·'), null, '/crm/opportunities/'.$r['id'])],
+            'name'  => ['label' => __('Opportunity'), 'primary' => true, 'sort' => 't.name', 'render' => fn ($r) => \App\Core\Support\Ui::title($r['name'], trim($r['code'].($r['priority'] === 'HIGH' ? ' · '.__('High priority') : ''), ' ·'), '/crm/opportunities/'.$r['id'])],
             'lead'  => ['label' => __('Lead'), 'sort' => 'l.name_en', 'tone' => 'amber', 'render' => fn ($r) => $r['lead_id'] ? Ui::person((string) $r['lead_name'], $r['lead_name_th'], $r['lead_image'], '/crm/leads/'.$r['lead_id']) : Ui::dash()],
             'contact' => ['label' => __('Contact'), 'sort' => 'c.name_en', 'render' => fn ($r) => e($r['contact_name'] ?: '—')],
             'stage' => ['label' => __('Stage'), 'sort' => 't.opportunity_stage', 'render' => fn ($r) => Ui::stageBadge($r['opportunity_stage'])],

@@ -8,7 +8,7 @@ $max = (int) ($f['max'] ?? 5); $have = $f['existing'] ?? [];
         <span class="flex size-12 items-center justify-center rounded-full bg-graphite-900/6 text-graphite-700"><?= icon('upload', 'size-6') ?></span>
         <span class="text-sm font-semibold"><?= e(__('Drop files here or click to browse')) ?></span>
         <span class="text-xs text-steel"><span data-count><?= count($have) ?></span> / <?= $max ?> <?= e(__('files used')) ?></span>
-        <span class="btn-secondary mt-1 !h-8 text-sm"><?= icon('link', 'size-4') ?> <?= e(__('Choose file')) ?></span>
+        <span class="btn-secondary mt-1 !h-8 text-sm"><?= icon('clip', 'size-4') ?> <?= e(__('Choose file')) ?></span>
         <input type="file" name="files[]" multiple class="sr-only" data-files-input data-have="<?= count($have) ?>">
     </label>
     <p class="hint"><?= e(__('Up to :mb MB each: :types.', ['mb' => Attachments::MAX_BYTES / 1048576, 'types' => implode(', ', Attachments::extensions())])) ?></p>

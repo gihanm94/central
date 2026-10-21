@@ -66,6 +66,14 @@ class Ui
         return '<div class="flex min-w-0 max-w-[15rem] items-center gap-3">'.$pic.'<div class="min-w-0">'.$title.($sub ? '<span class="block truncate text-xs text-steel">'.e($sub).'</span>' : '').'</div></div>';
     }
 
+    /** A list's name cell without a picture: title (linked) and a line under it. */
+    public static function title(string $name, ?string $sub = null, ?string $href = null): string
+    {
+        $title = $href ? '<a href="'.e(url($href)).'" class="block truncate font-medium hover:text-signal-700">'.e($name).'</a>' : '<span class="block truncate font-medium">'.e($name).'</span>';
+
+        return '<div class="min-w-0 max-w-[18rem]">'.$title.($sub ? '<span class="block truncate text-xs text-steel">'.e($sub).'</span>' : '').'</div>';
+    }
+
     public static function link(string $href, string $text, string $class = 'font-medium hover:text-signal-700'): string
     {
         return '<a href="'.e(url($href)).'" class="'.$class.'">'.e($text).'</a>';
