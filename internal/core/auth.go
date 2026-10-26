@@ -113,8 +113,8 @@ func reset(c *app.Ctx) {
 	app.LogActivity(c, app.ActivityEntry{Action: "password_reset", Type: "user", ID: user.Int("id"), Label: user.Str("name"), Text: "Reset password with an e-mail link", Actor: user.Int("id"), NoNotify: true})
 
 	ip := c.IP()
-	if SecurityAlert != nil {
-		SecurityAlert(c, "password", user.Int("id"), func() (string, []template.HTML, string) {
+	{
+		app.SecurityAlert(c, "password", user.Int("id"), func() (string, []template.HTML, string) {
 			return c.T("Your password was changed"),
 				[]template.HTML{esc(c.T("Your password was reset using an e-mail link.")), template.HTML(template.HTMLEscapeString(c.T("IP address")+": "+ip) + " | " + template.HTMLEscapeString(app.FormatDate(c, php.NowString(), "d M Y, H:i")))},
 				c.T("If this was not you, contact your administrator immediately.")
@@ -123,8 +123,5 @@ func reset(c *app.Ctx) {
 	c.Flash("status", c.T("Password saved. Sign in with your new password."))
 	c.Redirect("/login")
 }
-
-// SecurityAlert is Notifier::securityAlert (set by the notifier): build runs in the recipient's language.
-var SecurityAlert func(c *app.Ctx, event string, userID int, build func() (subject string, lines []template.HTML, note string), button *app.MailButton)
 
 func esc(s string) template.HTML { return template.HTML(template.HTMLEscapeString(s)) }

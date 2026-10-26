@@ -65,6 +65,17 @@ Settings: `app.Setting(key, def)`, `app.PutSetting(key, v)`, `app.Branding(c)`. 
 Uploads: `app.UploadImage(c, fh, folder, maxKB, allowSVG)`, `app.DeleteUpload(path)`. Rich text: `app.HTMLClean`, `c.HTMLRender`, `app.HTMLText`, `app.EditorImagesSaved`.
 Small helpers: `app.E(v)` (e()), `app.HTML(s)`, `app.Badge`, `app.FormatDate(c, v, fmt)`, `app.TimeAgo`, `app.DeptColor`, `app.EnumLabel/EnumOptions`.
 
+Shared support already ported (use these, do not port them again):
+- Notifier: `app.Deliver(c, module, action, userID, app.Text("Key :x", "x", v), app.Text(…), url, actorID)` (Notifier::deliver),
+  `app.Bell(...)`, `app.SecurityAlert(...)`, `app.NotifyMatrix()`, `app.NotifySecurity()`, `app.NotifyPrefs(raw)`; record events are sent by `app.LogActivity`.
+- Lark: `app.LarkMode()`, `app.LarkWebhook`, `app.LarkDirect`, `app.LarkTest`.
+- Options: `app.OptionsUsers(c, u, active)`, `app.OptionsPeople`, `app.OptionsDepartments(u)`, `app.OptionsTeams(u)`, `app.OptionsRoles(u)`, `app.OptionsAllRoles()`.
+- Period: `from, to, key := c.PeriodFromRequest()`, `app.PeriodPresets`; partial `partials/range-bar` takes
+  `dict "action" (url "/x") "range" key "from" from "to" to "keep" (map) "selects" ([]app.RangeSelect)`.
+- Partials ready in `web/views/partials`: avatar, delete-dialog, flash, logo-drop, notification-list, pagination, picker, remote-select,
+  select, priority (`dict "p" …`), progress (`dict "value" …`), scope-badge (`dict "scope" …`), status (`dict "s" … "labels" map`), tabs (`dict "tabs" (list (list url label icon) …)`), range-bar, department-extra; `crm/stats` (`dict "cards" []app.Stat`).
+- Package `acme/internal/oil` (OilPrices): interface stubs `oil.Current()`, `oil.LastSync()`, `oil.Tick(c)`; the management port fills them in.
+
 ## Database
 
 ```go

@@ -1,0 +1,11 @@
+{{- /* .tabs: [[url, label, icon]] — underline tabs that scroll sideways on phones */ -}}
+{{- $here := path -}}
+<nav class="-mx-4 mt-5 overflow-x-auto border-b border-graphite-900/10 px-4 sm:mx-0 sm:px-0" aria-label="{{__ "Sections"}}">
+    <div class="flex min-w-max gap-1">
+        {{range .tabs}}{{$on := eq (index . 0) $here}}
+            <a href="{{url (index . 0)}}" {{if $on}}aria-current="page"{{end}} class="-mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm {{if $on}}border-signal-600 font-medium text-graphite-900{{else}}border-transparent text-steel hover:text-graphite-900{{end}}">
+                {{icon (index . 2) "size-4"}}{{index . 1}}
+            </a>
+        {{end}}
+    </div>
+</nav>

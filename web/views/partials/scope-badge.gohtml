@@ -1,0 +1,2 @@
+{{- $tones := dict "all" "bg-graphite-900 text-white" "department" "bg-signal-600 text-white" "team" "bg-signal-100 text-signal-800" "own" "bg-graphite-900/8 text-graphite-800" -}}
+<span class="badge {{or (get $tones .scope) (get $tones "own")}}">{{__ (or (config (printf "core.scopes.%s" .scope)) .scope)}}</span>

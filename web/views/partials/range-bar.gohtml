@@ -1,0 +1,24 @@
+{{- /* The period + select filter bar of the dashboards.
+   .action (url), .range, .from, .to (time.Time), .keep (map of other query values the presets keep), .selects ([]app.RangeSelect) */ -}}
+{{- $keep := rangeKeep .action .keep .selects -}}
+<form method="GET" action="{{.action}}" id="ctl-filter" class="panel mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 p-3">
+    <input type="hidden" name="range" value="{{.range}}" data-range>
+    {{range $k, $v := $keep.hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
+    <nav class="flex flex-wrap gap-1 rounded-lg bg-mist p-1" aria-label="{{__ "Period"}}">
+        {{range $keep.presets}}<a href="{{.URL}}" class="rounded-md px-3 py-1.5 text-sm {{if eq .Key $.range}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}">{{__ .Label}}</a>{{end}}
+    </nav>
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+        <label class="sr-only" for="ctl-from">{{__ "From"}}</label><input id="ctl-from" type="date" name="from" value="{{.from.Format "2006-01-02"}}" class="input !w-40" data-custom>
+        <span class="text-steel">→</span>
+        <label class="sr-only" for="ctl-to">{{__ "To"}}</label><input id="ctl-to" type="date" name="to" value="{{.to.Format "2006-01-02"}}" class="input !w-40" data-custom>
+    </div>
+    {{if .selects}}
+    <div class="ml-auto flex flex-wrap items-center gap-3">
+        {{range .selects}}
+        <div class="flex items-center gap-2"><span class="hidden text-sm text-steel sm:inline">{{.Label}}</span>
+            <div class="min-w-[11rem]">{{select .Name .Options .Value (dict "aria" .Label "submit" true "class" "input" "placeholder" .Placeholder)}}</div></div>
+        {{end}}
+    </div>
+    {{end}}
+</form>
+<script>(function(){var f=document.getElementById('ctl-filter');if(!f)return;var r=f.querySelector('[data-range]');Array.prototype.forEach.call(f.querySelectorAll('[data-custom]'),function(i){i.addEventListener('change',function(){r.value='custom';f.submit();});});})();</script>

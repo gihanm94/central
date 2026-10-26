@@ -1,0 +1,5 @@
+{{- $v := float .value}}{{$pct := int .value}}{{if lt $pct 0}}{{$pct = 0}}{{end}}{{if gt $pct 100}}{{$pct = 100}}{{end -}}
+{{- $tone := "bg-signal-600"}}{{if not (lt $v 100.0)}}{{$tone = "bg-emerald-600"}}{{else if not (lt $v 70.0)}}{{$tone = "bg-graphite-800"}}{{end -}}
+<div class="h-1.5 w-full overflow-hidden rounded-full bg-graphite-900/8" role="progressbar" aria-valuenow="{{$pct}}" aria-valuemin="0" aria-valuemax="100">
+    <div class="h-full rounded-full {{$tone}}" style="width: {{$pct}}%"></div>
+</div>

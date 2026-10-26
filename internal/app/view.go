@@ -485,6 +485,7 @@ func funcMap(st *renderState) template.FuncMap {
 		"has": func(m any, k any) bool { return hasKey(m, k) },
 		"nav": func() M { return NavData(c()) },
 		"ctx": func() *Ctx { return c() },
+		"rangeKeep": func(action string, keep map[string]any, selects []RangeSelect) M { return rangeKeep(c(), action, keep, selects) },
 		"mergeDict": func(a, b M) M {
 			out := M{}
 			for k, v := range a {
