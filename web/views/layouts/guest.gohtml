@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="{{locale}}" class="h-full bg-graphite-950">
+<head>{{template "layouts/head" .}}</head>
+<body class="auth h-full bg-graphite-950 text-white">
+<div class="grid min-h-full lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
+    <section class="relative hidden overflow-hidden lg:block" aria-hidden="true">
+        {{- /* the uploaded sign-in picture, or the built-in one (transparent), shown whole (contain) on the textured dark background, never cropped */}}
+        <div class="absolute inset-0 bg-graphite-800" style="background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 2px, transparent 2px 22px), radial-gradient(120% 90% at 20% 10%, #3d4149 0%, #17181b 70%);"></div>
+        <div class="absolute inset-0 flex flex-col">
+            <div class="flex min-h-0 flex-1 items-center justify-center px-[4%] pt-[4%]"><img src="{{or .branding.login_image (asset "assets/auth-hero.webp")}}" alt="" class="max-h-full max-w-full object-contain"></div>
+            {{if .branding.banner}}
+            <div class="mt-4 bg-signal-600 py-6 pl-14 pr-16" style="clip-path: polygon(0 0, 100% 0, 94% 100%, 0 100%); margin-right: 4rem">
+                <p class="font-display text-[clamp(2rem,3.8vw,3.75rem)] font-bold leading-[0.95] tracking-tight text-white">{{.branding.banner}}</p>
+            </div>
+            {{end}}
+            {{if .branding.tagline}}<p class="px-14 pb-10 pt-5 text-base text-graphite-300">{{.branding.tagline}}</p>{{else}}<div class="pb-10"></div>{{end}}
+        </div>
+    </section>
+
+    <section class="mx-auto flex w-full max-w-md flex-col px-6 py-8 sm:px-10 sm:py-10">
+        <div class="flex items-center gap-3">
+            {{if .branding.auth_logo}}
+                {{if .branding.logo}}
+                    <img src="{{.branding.logo}}" alt="{{.branding.name}}" class="h-10 w-auto max-w-[180px] object-contain">
+                {{else}}
+                    <span class="flex size-10 items-center justify-center rounded-lg bg-signal-600 font-display text-xl font-bold">{{substr .branding.name 0 1}}</span>
+                {{end}}
+            {{end}}
+            <span class="font-display text-2xl font-semibold lg:hidden">{{.branding.name}}</span>
+            <nav class="ml-auto flex gap-1 text-xs" aria-label="{{__ "Language"}}">
+                {{range locales}}
+                    <a href="{{url (printf "/lang/%s" .Key)}}" class="rounded px-2 py-1 {{if eq .Key locale}}bg-white/10 text-white{{else}}text-graphite-400 hover:text-white{{end}}" {{if eq .Key locale}}aria-current="true"{{end}}>{{.Label}}</a>
+                {{end}}
+            </nav>
+        </div>
+        <div class="my-auto w-full py-10">{{.content}}</div>
+        <p class="text-xs text-graphite-400">
+            {{__ "Accounts are created by your administrator."}}
+            {{if accessRequests}}{{__ "Need access?"}} <button type="button" data-request-open class="text-graphite-300 underline underline-offset-2 hover:text-white">{{__ "Request"}}</button>.
+            {{else if .branding.support}}{{__ "Need access?"}} <a href="mailto:{{.branding.support}}" class="text-graphite-300 underline underline-offset-2 hover:text-white">{{.branding.support}}</a>{{end}}
+        </p>
+    </section>
+</div>
+{{if accessRequests}}{{template "auth/_request-dialog" .}}{{end}}
+</body>
+</html>

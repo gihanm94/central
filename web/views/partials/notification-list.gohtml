@@ -1,0 +1,21 @@
+{{- /* Rows of the bell dropdown and the notifications page. .items: notifications (+ actor_name) */ -}}
+{{- $icons := dict "commented" "chat" "reminder" "bell" "shared" "users" "updated" "pencil" "created" "plus" "deleted" "trash" -}}
+{{if not .items}}
+    <p class="px-4 py-8 text-center text-sm text-steel">{{__ "You are all caught up."}}</p>
+{{else}}
+<ul class="divide-y divide-graphite-900/6">
+    {{range .items}}{{$unread := not .read_at}}
+    <li>
+        <a href="{{url (printf "/notifications/%v/open" .id)}}" class="flex items-start gap-3 px-4 py-3 hover:bg-mist/60 {{if $unread}}bg-signal-50/40{{end}}">
+            <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full {{if $unread}}bg-brand text-white{{else}}bg-graphite-900/6 text-steel{{end}}">{{icon (or (get $icons .type) "bell") "size-4"}}</span>
+            <span class="min-w-0 flex-1">
+                <span class="block text-sm leading-snug {{if $unread}}font-semibold{{end}}">{{.title}}</span>
+                {{if .body}}<span class="mt-0.5 block text-xs leading-snug text-steel">{{strLimit .body 110}}</span>{{end}}
+                <span class="mt-1 block text-[11px] text-graphite-400">{{if .actor_name}}{{.actor_name}} · {{end}}{{timeAgo .created_at}}</span>
+            </span>
+            {{if $unread}}<span class="mt-2 size-2 shrink-0 rounded-full bg-signal-600" aria-label="{{__ "Unread"}}"></span>{{end}}
+        </a>
+    </li>
+    {{end}}
+</ul>
+{{end}}

@@ -1,0 +1,5 @@
+<div class="{{.span}}">
+        <label for="rq-{{.name}}" class="mb-1 block text-xs font-medium text-graphite-300">{{.label}} <span class="text-signal-500">*</span></label>
+        <input id="rq-{{.name}}" name="{{.name}}" type="{{or .type "text"}}" required maxlength="{{or .max 190}}" autocomplete="{{or .auto "off"}}" class="input-dark" {{with .inputmode}}inputmode="{{.}}"{{end}} {{with .placeholder}}placeholder="{{.}}"{{end}}>
+        <p class="mt-1 hidden text-xs font-medium text-signal-500" data-err="{{.name}}"></p>
+    </div>

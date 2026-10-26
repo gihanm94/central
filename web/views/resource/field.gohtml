@@ -1,0 +1,76 @@
+{{- /* one form field: .f (app.FormField) .row */ -}}
+{{- $f := .f -}}{{- $type := $f.TypeOr -}}{{- $name := $f.Name -}}{{- $err := $f.Err -}}{{- $req := $f.Req -}}
+{{- define "resource/label" -}}{{.Label}}{{if .Req}} <span class="text-signal-600" aria-hidden="true">*</span><span class="sr-only">({{__ "required"}})</span>{{end}}{{- end -}}
+{{if eq $type "custom"}}
+    {{partial $f.Partial "name" $name "f" $f "row" .row "v" $f.Value "err" $err}}
+{{else if eq $type "multi"}}
+        <span class="label">{{template "resource/label" $f}}</span>
+        <div class="flex flex-wrap gap-2" role="group" aria-label="{{$f.Label}}">
+            {{range $f.Choices}}{{$on := in .Value $f.Picked}}
+                <label class="cursor-pointer">
+                    <input type="checkbox" name="{{$name}}[]" value="{{.Value}}" class="peer sr-only" {{if $on}}checked{{end}}>
+                    <span class="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm ring-1 ring-graphite-900/15 transition-colors hover:bg-mist peer-checked:bg-graphite-900 peer-checked:text-white peer-checked:ring-graphite-900 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-signal-600">{{.Label}}</span>
+                </label>
+            {{end}}
+            {{if not $f.Choices}}<span class="text-sm text-steel">{{or $f.Empty (__ "Nothing to choose from yet.")}}</span>{{end}}
+        </div>
+        {{if $f.Help}}<p class="hint">{{$f.Help}}</p>{{end}}
+{{else if eq $type "picker"}}
+        <span class="label" id="lbl-{{$name}}">{{template "resource/label" $f}}</span>
+        {{template "partials/picker" (dict "name" $name "f" $f.Field "picked" $f.Picked "err" $err)}}
+{{else if eq $type "logo"}}
+        {{template "partials/logo-drop" (dict "name" $name "f" $f.Field "current" $f.RowVal "err" $err)}}
+{{else if eq $type "file"}}
+        <span class="label">{{template "resource/label" $f}}</span>
+        <div class="flex items-center gap-4">
+            <img id="prev-{{$name}}" src="{{uploadURL $f.RowVal}}" alt="" class="size-16 rounded-lg bg-white object-contain ring-1 ring-graphite-900/10" {{if empty $f.RowVal}}hidden{{end}}>
+            <span data-preview-ph class="flex size-16 items-center justify-center rounded-lg bg-mist text-graphite-400 ring-1 ring-graphite-900/10" {{if not (empty $f.RowVal)}}hidden{{end}}>{{icon "photo" "size-6"}}</span>
+            <div>
+                <label class="btn-secondary cursor-pointer">{{icon "upload" "size-4"}} {{__ "Choose image"}}
+                    <input id="f-{{$name}}" name="{{$name}}" type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" data-preview="#prev-{{$name}}"></label>
+                {{if $f.Help}}<p class="hint">{{$f.Help}}</p>{{end}}
+            </div>
+        </div>
+        {{if $err}}<p class="error">{{$err}}</p>{{end}}
+{{else if eq $type "richtext"}}
+        <span class="label" id="lbl-{{$name}}">{{template "resource/label" $f}}</span>
+        <div data-richtext data-upload="{{url "/editor/image"}}" data-assets="{{url "assets/vendor/quill"}}" data-labelledby="lbl-{{$name}}">
+            <textarea hidden name="{{$name}}">{{$f.Value}}</textarea>
+            <div data-rt-editor class="rt-editor"></div>
+            {{if $f.Counter}}
+            <div class="flex justify-between rounded-b-md border-t border-graphite-900/10 bg-mist/40 px-3 py-1.5 text-xs text-steel ring-1 ring-graphite-900/15">
+                <span>{{__ "Characters"}}: <span class="tabular-nums" data-rt-chars>0</span></span><span>{{__ "Words"}}: <span class="tabular-nums" data-rt-words>0</span></span>
+            </div>
+            {{end}}
+        </div>
+        {{if $f.Help}}<p class="hint">{{$f.Help}}</p>{{end}}
+        {{if $err}}<p class="error">{{$err}}</p>{{end}}
+{{else if eq $type "checkbox"}}
+        <label class="flex items-start gap-3 text-sm sm:pt-6">
+            <input type="checkbox" name="{{$name}}" value="1" class="mt-0.5 size-4 accent-signal-600" {{if $f.Checked}}checked{{end}} {{if $f.Readonly}}disabled{{end}}>
+            <span><span class="font-medium">{{$f.Label}}</span>{{if $f.Help}}<span class="block text-xs text-steel">{{$f.Help}}</span>{{end}}</span>
+        </label>
+{{else}}
+        <label for="f-{{$name}}" class="label">{{template "resource/label" $f}}</label>
+        {{if eq $type "textarea"}}
+            <textarea id="f-{{$name}}" name="{{$name}}" rows="{{or $f.Rows 4}}" {{with $f.Placeholder}}placeholder="{{.}}"{{end}} class="input {{if $err}}input-error{{end}}" {{if $f.Readonly}}disabled{{end}}>{{$f.Value}}</textarea>
+        {{else if and (eq $type "select") $f.Remote}}
+            {{template "partials/remote-select" (dict "name" $name "value" $f.Value "current" $f.Current "kind" $f.Remote "o" (dict "id" (printf "f-%s" $name) "placeholder" (or $f.Placeholder (__ "Search and choose…")) "required" $req "depends" $f.Depends))}}
+        {{else if eq $type "select"}}
+            {{$o := dict "id" (printf "f-%s" $name) "placeholder" (or $f.Placeholder (__ "Choose…")) "disabled" $f.Readonly "required" $req}}
+            {{if not $f.Rich}}{{$o = dict "id" (printf "f-%s" $name) "placeholder" (or $f.Placeholder (__ "Choose…")) "disabled" $f.Readonly "required" $req "class" (printf "input%s" (ternary (bool $err) " input-error" ""))}}{{end}}
+            {{if $f.Search}}{{$o = mergeDict $o (dict "search" (deref $f.Search))}}{{end}}
+            {{select $name $f.Opts $f.Value $o}}
+            {{if $f.Other}}
+                <input name="{{$name}}__other" value="{{$f.OtherVal}}" data-other-for="{{$name}}" {{if not $f.OtherOn}}hidden{{end}} maxlength="{{or $f.OtherMax 60}}"
+                       placeholder="{{or $f.OtherPlaceholder (__ "Type your own")}}" aria-label="{{$f.Label}} · {{__ "Other"}}" class="input mt-2">
+            {{end}}
+        {{else}}
+            <input id="f-{{$name}}" name="{{$name}}" type="{{if eq $type "datetime"}}datetime-local{{else}}{{$type}}{{end}}" {{if eq $type "number"}}step="any" inputmode="decimal"{{end}}
+                   value="{{if ne $type "password"}}{{$f.Value}}{{end}}" {{if eq $type "password"}}autocomplete="new-password"{{end}} {{with $f.Placeholder}}placeholder="{{.}}"{{end}}
+                   class="input {{if $err}}input-error{{end}} {{if eq $type "color"}}!w-20 p-1{{end}}" {{if $f.Readonly}}disabled{{end}}>
+        {{end}}
+        {{if $f.Help}}<p class="hint">{{$f.Help}}</p>{{end}}
+        {{if $f.Readonly}}<p class="hint">{{__ "You can't change this."}}</p>{{end}}
+        {{if $err}}<p class="error">{{$err}}</p>{{end}}
+{{end}}

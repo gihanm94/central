@@ -1,0 +1,11 @@
+{{- $dark := not auth -}}
+{{- if not auth}}{{set "layout" "layouts/guest"}}{{end -}}
+{{- $headline := __ "Something went wrong" -}}
+{{- if eq .status 403}}{{$headline = __ "You don't have access to this page"}}{{else if eq .status 404}}{{$headline = __ "We couldn't find that page"}}{{else if eq .status 419}}{{$headline = __ "Your session expired"}}{{else if eq .status 405}}{{$headline = __ "That action is not allowed here"}}{{else if eq .status 401}}{{$headline = __ "Please sign in"}}{{else if eq .status 503}}{{$headline = __ "This module is temporarily unavailable"}}{{end -}}
+<div class="mx-auto max-w-lg py-16 text-center">
+    <span class="inline-flex size-12 items-center justify-center rounded-full {{if $dark}}bg-white/5 text-signal-500{{else}}bg-signal-50 text-signal-600{{end}}">{{icon (ternary (eq .status 403) "lock" "alert") "size-6"}}</span>
+    <h1 class="mt-5 font-display text-3xl font-semibold tracking-tight">{{$headline}}</h1>
+    <p class="mt-2 text-sm {{if $dark}}text-graphite-400{{else}}text-steel{{end}}">{{or .message (__ "Error :code." "code" .status)}}{{if eq .status 403}} {{__ "Ask an administrator if you need it."}}{{end}}</p>
+    {{if and .ref auth (isAdmin)}}<p class="mt-3"><a href="{{url "/system-logs" "ref" .ref}}" class="text-sm font-medium text-signal-700 underline">{{__ "Open the full error in System logs"}}</a></p>{{end}}
+    <a href="{{url (ternary (bool auth) "/dashboard" "/login")}}" class="btn-primary mt-6">{{if auth}}{{__ "Go to dashboard"}}{{else}}{{__ "Go to sign in"}}{{end}}</a>
+</div>

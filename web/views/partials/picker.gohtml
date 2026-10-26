@@ -1,0 +1,41 @@
+{{- /* Chips + a dialog to pick up to .f.Extra.max items (ui.js [data-picker]). .name .picked .err .f (Extra: choices []app.PickChoice, max, search, group, add, empty, none) */ -}}
+{{- $d := pickerData .f .picked -}}
+<div data-picker data-name="{{.name}}" data-max="{{$d.Max}}" data-msg-remove="{{__ "Remove"}}" aria-labelledby="lbl-{{.name}}">
+    <script type="application/json" data-picker-options>{{$d.JSON}}</script>
+    <div data-picker-values>{{range $d.Picked}}<input type="hidden" name="{{$.name}}[]" value="{{.}}">{{end}}</div>
+
+    <div data-picker-chips {{if not $d.Picked}}hidden{{end}} class="flex min-h-[4.5rem] flex-wrap content-start items-start gap-2 rounded-lg bg-mist/60 p-3 ring-1 {{if .err}}ring-signal-600{{else}}ring-graphite-900/10{{end}}">
+        {{range $d.Chips}}<span data-chip="{{.ID}}" class="inline-flex h-7 items-center gap-1.5 rounded-md pl-2 pr-1 text-sm font-medium" style="{{css (printf "background:%s1f;color:color-mix(in srgb,%s 78%%,#000);box-shadow:inset 0 0 0 1px %s59" .Color .Color .Color)}}"><span class="size-1.5 rounded-full" style="{{css (printf "background:%s" .Color)}}"></span><span>{{.Label}}</span><button type="button" class="ml-0.5 inline-flex size-5 items-center justify-center rounded opacity-70 hover:opacity-100" data-chip-x aria-label="{{__ "Remove"}} {{.Label}}">&times;</button></span>{{end}}
+        <button type="button" data-picker-open data-picker-add class="inline-flex h-7 items-center gap-1 rounded-md border border-dashed border-graphite-900/25 bg-white px-2 text-sm text-steel hover:border-graphite-900/50 hover:text-graphite-900">{{icon "plus" "size-3.5"}} {{__ "Add"}}</button>
+    </div>
+    <button type="button" data-picker-open data-picker-empty {{if $d.Picked}}hidden{{end}} class="flex w-full flex-col items-center justify-center gap-2 rounded-lg bg-mist/60 px-4 py-6 text-steel ring-1 {{if .err}}ring-signal-600{{else}}ring-graphite-900/10{{end}} hover:bg-mist hover:text-graphite-900">
+        <span class="flex size-10 items-center justify-center rounded-full border border-dashed border-graphite-900/25">{{icon "plus" "size-5"}}</span>
+        <span class="text-sm font-medium">{{or (get .f.Extra "empty") (__ "Click to add")}}</span>
+    </button>
+    {{if not $d.Choices}}<p class="hint">{{or (get .f.Extra "none") (__ "Nothing to choose from yet.")}}</p>{{end}}
+    {{if .f.Help}}<p class="hint">{{.f.Help}}</p>{{end}}
+    {{if .err}}<p class="error">{{.err}}</p>{{end}}
+
+    <dialog data-picker-dialog class="m-auto w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-label="{{.f.Label}}">
+        <div class="p-2">
+            <label class="relative block">
+                <span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-graphite-400">{{icon "search" "size-4"}}</span>
+                <input type="search" data-picker-search class="input pl-8" placeholder="{{or (get .f.Extra "search") (__ "Search…")}}" aria-label="{{or (get .f.Extra "search") (__ "Search…")}}" autocomplete="off">
+            </label>
+        </div>
+        <div class="max-h-[22rem] overflow-y-auto px-2 pb-2">
+            <p data-picker-sel-head class="px-2.5 pb-1 pt-2 text-xs font-medium text-steel">{{__ "Selected"}}</p>
+            <div data-picker-group="selected" class="space-y-0.5"></div>
+            <p data-picker-rest-head class="px-2.5 pb-1 pt-3 text-xs font-medium text-steel">{{or (get .f.Extra "group") .f.Label}}</p>
+            <div data-picker-group="rest" class="space-y-0.5"></div>
+            <p data-picker-none hidden class="px-2.5 py-6 text-center text-sm text-steel">{{__ "Nothing found."}}</p>
+        </div>
+        <div class="flex items-center justify-between gap-3 border-t border-graphite-900/8 px-4 py-3">
+            <span class="text-sm text-steel"><span class="tabular-nums" data-picker-count>0</span> {{__ "selected"}}</span>
+            <div class="flex items-center gap-2">
+                <button type="button" class="btn-ghost" data-picker-cancel>{{__ "Cancel"}}</button>
+                <button type="button" class="btn-primary" data-picker-done>{{icon "plus" "size-4"}} {{or (get .f.Extra "add") (__ "Add")}}</button>
+            </div>
+        </div>
+    </dialog>
+</div>

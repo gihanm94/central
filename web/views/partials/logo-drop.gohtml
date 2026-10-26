@@ -1,0 +1,13 @@
+{{- /* Drop zone for a logo / picture (ui.js [data-logo-drop]): round, or rounded square with .f.Extra.shape = "square". .name .f .current .err */ -}}
+{{- $round := ne (get .f.Extra "shape") "square" -}}
+<div class="flex flex-col items-center gap-1.5 text-center">
+    <label data-logo-drop class="relative flex size-32 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden {{if $round}}rounded-full{{else}}rounded-2xl{{end}} border-2 border-dashed border-graphite-900/15 bg-mist/50 text-steel transition-colors hover:border-signal-600/50 hover:text-graphite-900 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal-600 {{if .err}}!border-signal-600{{end}}">
+        <img data-logo-img src="{{uploadURL .current}}" alt="" class="absolute inset-0 size-full bg-white {{if $round}}object-contain p-2{{else}}object-cover{{end}}" {{if not .current}}hidden{{end}}>
+        <span data-logo-ph class="flex flex-col items-center gap-1" {{if .current}}hidden{{end}}>{{icon "upload" "size-6"}}<span class="text-xs font-medium">{{__ "Click or drop"}}</span></span>
+        <input type="file" name="{{.name}}" accept="image/png,image/jpeg,image/webp" class="sr-only" data-logo-input aria-label="{{.f.Label}}">
+    </label>
+    <p class="mt-1 text-xs text-steel">{{or .f.Help (__ "PNG, JPG or WEBP")}}</p>
+    {{with get .f.Extra "recommend"}}<p class="text-xs text-steel">{{.}}</p>{{end}}
+    {{if .current}}<p class="text-xs text-steel">{{__ "Click the picture to change it."}}</p>{{end}}
+    {{if .err}}<p class="error">{{.err}}</p>{{end}}
+</div>

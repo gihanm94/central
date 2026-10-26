@@ -1,0 +1,18 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf-token" content="{{csrfToken}}">
+<meta name="theme-color" content="#17181b">
+<title>{{with .title}}{{.}} · {{end}}{{.branding.name}}</title>
+{{if .branding.logo}}<link rel="icon" href="{{.branding.logo}}">{{else}}<link rel="icon" href="data:,">{{end}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{asset "assets/app.css"}}">
+<script src="{{asset "assets/toast.js"}}" defer></script>
+<script src="{{asset "assets/app.js"}}" defer></script>
+<script src="{{asset "assets/datepicker.js"}}" defer></script>
+<script src="{{asset "assets/crm.js"}}" defer></script>
+<script src="{{asset "assets/logview.js"}}" defer></script>
+<script src="{{asset "assets/accounting.js"}}" defer></script>
+<script src="{{asset "assets/billing.js"}}" defer></script>
+<script src="{{asset "assets/ui.js"}}" defer></script>

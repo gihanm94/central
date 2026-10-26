@@ -1,0 +1,11 @@
+{{- /* the actions menu of one list row: .c .row .a (RowActions) .id .singular */ -}}
+<div id="{{.id}}" data-menu-panel hidden role="menu" class="fixed z-[70] w-48 rounded-lg bg-white p-1.5 text-sm shadow-xl ring-1 ring-graphite-900/10">
+        <a role="menuitem" href="{{url (printf "%s/%v" .c.base .row.id)}}" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist">{{icon "eye" "size-4 text-steel"}} {{__ "View"}}</a>
+        {{if .a.Edit}}<a role="menuitem" href="{{url (printf "%s/%v/edit" .c.base .row.id)}}" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist">{{icon "pencil" "size-4 text-steel"}} {{__ "Edit"}}</a>{{end}}
+        {{range .a.Links}}{{if .Post}}<form method="POST" action="{{url .URL}}">{{csrfField}}<button role="menuitem" class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist">{{icon (or .Icon "eye") "size-4 text-steel"}} {{.Label}}</button></form>{{else}}<a role="menuitem" href="{{url .URL}}" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist">{{icon (or .Icon "eye") "size-4 text-steel"}} {{.Label}}</a>{{end}}{{end}}
+        {{if .a.Download}}<a role="menuitem" href="{{url (printf "%s/%v/download" .c.base .row.id)}}" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist">{{icon "download" "size-4 text-steel"}} {{__ "Download"}}</a>{{end}}
+        {{if .a.Delete}}
+            <hr class="my-1 border-graphite-900/8">
+            <button type="button" role="menuitem" data-delete-url="{{url (printf "%s/%v/delete" .c.base .row.id)}}" data-delete-name="{{.row._label}}" data-delete-kind="{{.singular}}" class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-signal-700 hover:bg-signal-50">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>
+        {{end}}
+    </div>

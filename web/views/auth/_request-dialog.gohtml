@@ -1,0 +1,40 @@
+{{- /* The "Request" dialog of the sign-in pages. */ -}}
+<dialog id="request-dialog" class="m-auto w-[min(34rem,calc(100vw-1.5rem))] rounded-2xl bg-graphite-900 p-0 text-white shadow-2xl ring-1 ring-white/10 backdrop:bg-black/70">
+    <form id="request-form" method="POST" action="{{url "/request-access"}}" novalidate class="max-h-[90vh] overflow-y-auto p-6">
+        {{csrfField}}
+        <div class="flex items-start justify-between gap-3">
+            <div><h2 class="font-display text-2xl font-semibold">{{__ "Request an account"}}</h2>
+                <p class="mt-1 text-sm text-graphite-400">{{__ "An administrator checks your details, chooses your department and role, and e-mails you. Nobody else sees your password."}}</p></div>
+            <button type="button" data-request-close class="rounded-md p-1 text-graphite-400 hover:bg-white/10 hover:text-white" aria-label="{{__ "Close"}}">&times;</button>
+        </div>
+        <input type="text" name="website" value="" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
+
+        <div data-request-body class="mt-5 grid gap-4 sm:grid-cols-2">
+            {{template "auth/_request-field" (dict "name" "employee_code" "label" (__ "Employee ID") "max" 30)}}
+            {{template "auth/_request-field" (dict "name" "name" "label" (__ "Full name") "max" 120 "auto" "name")}}
+            {{template "auth/_request-field" (dict "name" "email" "label" (__ "Work e-mail") "type" "email" "auto" "email" "inputmode" "email")}}
+            {{template "auth/_request-field" (dict "name" "phone" "label" (__ "Phone") "type" "tel" "max" 30 "auto" "tel" "inputmode" "tel")}}
+            <div class="sm:col-span-2">
+                <span class="mb-1 block text-xs font-medium text-graphite-300">{{__ "Gender"}} <span class="text-signal-500">*</span></span>
+                <div class="flex flex-wrap gap-2" role="radiogroup">
+                    {{range enumOptions "genders"}}
+                    <label class="cursor-pointer"><input type="radio" name="gender" value="{{.Value}}" class="peer sr-only"><span class="inline-flex h-9 items-center rounded-full px-4 text-sm ring-1 ring-white/15 hover:bg-white/5 peer-checked:bg-signal-600 peer-checked:ring-signal-600 peer-focus-visible:outline-2 peer-focus-visible:outline-white">{{.Label}}</span></label>
+                    {{end}}
+                </div>
+                <p class="mt-1 hidden text-xs font-medium text-signal-500" data-err="gender"></p>
+            </div>
+            {{template "auth/_request-field" (dict "name" "department_text" "label" (__ "Department") "max" 120 "span" "sm:col-span-2" "placeholder" (__ "Type your department"))}}
+            {{template "auth/_request-field" (dict "name" "password" "label" (__ "Password") "type" "password" "max" 100 "auto" "new-password")}}
+            {{template "auth/_request-field" (dict "name" "password_confirmation" "label" (__ "Confirm password") "type" "password" "max" 100 "auto" "new-password")}}
+            <p class="text-xs text-graphite-400 sm:col-span-2">{{__ "Use at least 8 characters with upper and lower case letters and a number."}}</p>
+            <p class="hidden rounded-md bg-signal-600/15 px-3 py-2 text-sm text-signal-500 sm:col-span-2" data-err="_form"></p>
+        </div>
+        <div data-request-done class="mt-6 hidden rounded-xl bg-emerald-500/10 p-5 text-sm text-emerald-300"></div>
+
+        <div class="mt-6 flex items-center justify-end gap-3">
+            <button type="button" data-request-close class="btn bg-white/5 px-4 py-2 text-white ring-1 ring-white/15 hover:bg-white/10">{{__ "Close"}}</button>
+            <button type="submit" data-request-send class="btn-primary px-5 py-2">{{__ "Send request"}}</button>
+        </div>
+    </form>
+</dialog>
+<script src="{{asset "assets/request.js"}}" defer></script>

@@ -1,0 +1,16 @@
+{{- /* Footer of every list: first / previous / next / last, rows per page, go to page. .total .perPage .page */ -}}
+{{- $p := pager .total .perPage .page -}}
+<nav class="flex flex-wrap items-center justify-between gap-3 border-t border-graphite-900/8 px-4 py-3 text-sm" aria-label="{{__ "Pages"}}">
+    <p class="text-steel">{{if .total}}{{__ ":start–:end of :total" "start" $p.From "end" $p.To "total" .total}}{{else}}{{__ "No rows"}}{{end}}</p>
+    <form method="GET" action="{{url path}}" class="flex flex-wrap items-center gap-2">
+        {{range $k, $v := queryMap}}{{if and (ne $k "page") (ne $k "per_page")}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}{{end}}
+        {{template "partials/page-btn" (dict "href" $p.First "glyph" "«" "label" (__ "First page") "on" (gt $p.Page 1))}}
+        {{template "partials/page-btn" (dict "href" $p.Prev "glyph" "‹" "label" (__ "Previous") "on" (gt $p.Page 1))}}
+        <span class="px-1 tabular-nums text-steel">{{__ "Page :p of :n" "p" $p.Page "n" $p.Pages}}</span>
+        {{template "partials/page-btn" (dict "href" $p.Next "glyph" "›" "label" (__ "Next") "on" (lt $p.Page $p.Pages))}}
+        {{template "partials/page-btn" (dict "href" $p.Last "glyph" "»" "label" (__ "Last page") "on" (lt $p.Page $p.Pages))}}
+        {{select "per_page" (opts "10" (printf "10 / %s" (__ "page")) "20" (printf "20 / %s" (__ "page")) "50" (printf "50 / %s" (__ "page")) "100" (printf "100 / %s" (__ "page"))) .perPage (dict "submit" true "search" false "wrap" "w-28" "aria" (__ "Rows per page") "required" true)}}
+        <label class="flex items-center gap-2 text-steel">{{__ "Go to"}}
+            <input name="page" type="number" min="1" max="{{$p.Pages}}" value="{{$p.Page}}" class="input w-16 text-center" aria-label="{{__ "Go to page"}}"></label>
+    </form>
+</nav>

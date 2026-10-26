@@ -1,0 +1,8 @@
+{{- /* success / status / warning / error messages are shown as toasts (public/assets/toast.js); a line break splits title and description */ -}}
+{{range list (strs "success" "success") (strs "status" "info") (strs "warning" "warning") (strs "error" "error")}}{{with flash (index . 0)}}
+    <div data-toast data-type="{{index $ 1}}" hidden>{{.}}</div>
+{{end}}{{end}}
+{{- $errors := errors -}}
+{{if and $errors.Len (not $.hideErrorSummary)}}
+    <div data-toast data-type="error" hidden>{{if gt $errors.Len 1}}{{__ "Not saved: please fix the :n highlighted fields." "n" $errors.Len}}{{else}}{{__ "Not saved: :reason" "reason" $errors.First}}{{end}}</div>
+{{end}}

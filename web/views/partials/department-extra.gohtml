@@ -1,0 +1,30 @@
+<div class="grid gap-6 {{if .teams}}lg:grid-cols-2{{end}}">
+    {{if .teams}}
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Teams"}}</h2></div>
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .teams}}
+                <li class="flex items-center justify-between px-5 py-2.5 text-sm">
+                    <a href="{{url (printf "/teams/%v" .id)}}" class="font-medium hover:text-signal-700">{{.name}}</a>
+                    <span class="text-steel">{{or .lead_name (__ "No lead")}}</span>
+                </li>
+            {{end}}
+        </ul>
+    </section>
+    {{end}}
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "People"}}</h2><span class="text-xs text-steel">{{len .members}}</span></div>
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .members}}
+                <li class="flex items-center gap-3 px-5 py-2.5">
+                    {{template "partials/avatar" (dict "name" .name "avatar" .avatar "size" "size-8")}}
+                    <div class="text-sm">
+                        {{if can "members"}}<a href="{{url (printf "/members/%v" .id)}}" class="font-medium hover:text-signal-700">{{.name}}</a>{{else}}<span class="font-medium">{{.name}}</span>{{end}}
+                        <p class="text-xs text-steel">{{__ .role_name}}</p>
+                    </div>
+                </li>
+            {{end}}
+            {{if not .members}}<li class="px-5 py-6 text-center text-sm text-steel">{{__ "Nobody here yet."}}</li>{{end}}
+        </ul>
+    </section>
+</div>

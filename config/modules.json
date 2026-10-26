@@ -1,0 +1,116 @@
+{
+    "core": {
+        "name": "User Management",
+        "icon": "users",
+        "home": "/dashboard/personal",
+        "enabled": true,
+        "db": "core",
+        "dashboards": {
+            "personal": {
+                "label": "My workspace",
+                "url": "/dashboard/personal"
+            }
+        },
+        "menu": [
+            {
+                "heading": "Overview"
+            },
+            {
+                "label": "My workspace",
+                "url": "/dashboard/personal",
+                "icon": "home"
+            },
+            {
+                "label": "Notifications",
+                "url": "/notifications",
+                "icon": "bell"
+            },
+            {
+                "label": "My activity",
+                "url": "/my-activity",
+                "icon": "clock"
+            },
+            {
+                "heading": "Work"
+            },
+            {
+                "label": "Calendar",
+                "url": "/calendar",
+                "icon": "calendar"
+            },
+            {
+                "label": "Mail",
+                "url": "/mail",
+                "icon": "mail"
+            },
+            {
+                "label": "Tasks",
+                "url": "/tasks",
+                "icon": "check",
+                "permission": "tasks.view"
+            },
+            {
+                "label": "KPIs & OKRs",
+                "url": "/kpis",
+                "icon": "target",
+                "permission": "kpis.view"
+            },
+            {
+                "label": "KPI submissions",
+                "url": "/kpi-submissions",
+                "icon": "tick",
+                "permission": "kpi_submissions.view"
+            },
+            {
+                "label": "Sign PDF",
+                "url": "/sign-pdf",
+                "icon": "pencil",
+                "permission": "pdf_sign.view"
+            },
+            {
+                "label": "Everbetter",
+                "url": "/everbetter",
+                "icon": "bolt",
+                "permission": "everbetter.view"
+            },
+            {
+                "heading": "ERP"
+            },
+            {
+                "label": "Invoices",
+                "url": "/erp/invoices",
+                "icon": "doc",
+                "permission": "erp_invoices.view"
+            },
+            {
+                "label": "Billing notes",
+                "url": "/erp/billing",
+                "icon": "doc",
+                "permission": "erp_billing.view"
+            }
+        ]
+    },
+    "crm": {
+        "enabled": true
+    },
+    "accounting": {
+        "enabled": true
+    },
+    "inventory": {
+        "name": "Inventory",
+        "icon": "box",
+        "home": "/inventory",
+        "enabled": false,
+        "db": "inventory"
+    },
+    "machines": {
+        "enabled": true
+    },
+    "hr": {
+        "name": "HR",
+        "icon": "id",
+        "home": "/hr",
+        "enabled": false,
+        "db": "hr"
+    }
+}

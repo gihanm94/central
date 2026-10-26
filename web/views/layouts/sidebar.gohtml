@@ -1,0 +1,55 @@
+{{- $nav := .nav -}}{{- $sid := .sid -}}{{- $mobile := eq .sid "mobile" -}}
+<div class="flex h-full flex-col bg-graphite-900 text-graphite-300">
+    <!-- Company + active module switcher -->
+    <div class="relative shrink-0 border-b border-white/5 p-3">
+        <button type="button" data-menu="#module-menu-{{$sid}}" data-placement="bottom-start" aria-haspopup="menu" aria-expanded="false"
+                title="{{__ "Switch module"}}"
+                class="flex w-full items-center gap-3 rounded-lg bg-brand p-2 text-left transition-colors hover:bg-brand-600 focus-visible:bg-brand-600 lg:collapsed:justify-center">
+            {{if .branding.logo}}
+                <span class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5 p-1"><img src="{{.branding.logo}}" alt="" class="max-h-full max-w-full object-contain"></span>
+            {{else}}
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-graphite-950 text-white">{{icon $nav.module.Icon "size-5"}}</span>
+            {{end}}
+            <span class="min-w-0 flex-1 {{if not $mobile}}lg:collapsed:hidden{{end}}">
+                <span class="block truncate font-display text-lg font-semibold leading-tight text-white">{{.branding.name}}</span>
+                <span class="block truncate text-xs text-graphite-300">{{__ $nav.module.Name}}</span>
+            </span>
+            {{icon "updown" (printf "size-4 shrink-0 text-graphite-400 %s" (ternary $mobile "" "lg:collapsed:hidden"))}}
+        </button>
+        <div id="module-menu-{{$sid}}" data-menu-panel hidden role="menu" class="fixed z-[70] w-56 rounded-lg bg-graphite-800 p-1.5 text-graphite-300 shadow-2xl ring-1 ring-white/10">
+            <p class="px-2.5 pb-1.5 pt-1 text-xs text-graphite-400">{{__ "Modules"}}</p>
+            {{range $nav.modules}}
+                <a role="menuitem" href="{{url .Home}}" class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-graphite-700 hover:text-white {{if .Current}}text-white{{end}}">
+                    <span class="flex size-7 items-center justify-center rounded-md {{if .Current}}bg-brand text-white{{else}}bg-white/5{{end}}">{{icon .Icon "size-4"}}</span>
+                    <span class="flex-1">{{__ .Name}}</span>
+                    {{if .Problem}}<span title="{{__ "Temporarily unavailable"}}">{{icon "alert" "size-4 text-amber-400"}}</span>{{end}}
+                    {{if .Current}}{{icon "tick" "size-4 text-white"}}{{end}}
+                </a>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Module menu -->
+    <nav class="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3" aria-label="{{__ $nav.module.Name}}">
+        {{range $nav.menu}}
+            {{if .Heading}}
+                <p class="px-3 pb-1.5 {{if .First}}pt-1{{else}}pt-5{{end}} text-[11px] font-semibold uppercase tracking-wider text-graphite-400 {{if not $mobile}}lg:collapsed:hidden{{end}}">{{__ .Heading}}</p>
+                {{if and (not $mobile) (not .First)}}<hr class="mx-2 my-3 hidden border-white/10 lg:collapsed:block">{{end}}
+            {{else}}
+                <a href="{{url .URL}}" title="{{__ .Label}}" class="nav-link {{if .Active}}nav-link-active{{end}} {{if not $mobile}}lg:collapsed:justify-center lg:collapsed:px-0{{end}}" {{if .Active}}aria-current="page"{{end}}>
+                    {{icon (or .Icon "grid") "size-[18px] shrink-0"}}
+                    <span class="truncate {{if not $mobile}}lg:collapsed:sr-only{{end}}">{{__ .Label}}</span>
+                </a>
+            {{end}}
+        {{end}}
+    </nav>
+
+    <!-- Signed-in person -->
+    <a href="{{url "/profile"}}" title="{{auth.Name}}" class="flex shrink-0 items-center gap-3 border-t border-white/5 px-4 py-3.5 hover:bg-graphite-800 {{if not $mobile}}lg:collapsed:justify-center lg:collapsed:px-0{{end}}">
+        {{template "partials/avatar" (dict "name" auth.Name "avatar" auth.Avatar "size" "size-9")}}
+        <span class="min-w-0 {{if not $mobile}}lg:collapsed:hidden{{end}}">
+            <span class="block truncate text-sm font-medium text-white">{{auth.Name}}</span>
+            <span class="block truncate text-xs text-graphite-400">{{__ auth.RoleName}}</span>
+        </span>
+    </a>
+</div>

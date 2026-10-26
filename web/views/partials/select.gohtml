@@ -1,0 +1,29 @@
+{{- /* Tailwind dropdown that replaces <select>; built by SelectField (select_field in PHP). */ -}}
+{{- $ := . -}}
+<div class="relative {{.o.wrap}}" data-select {{if .o.submit}}data-submit{{end}}>
+    <input type="hidden" name="{{.name}}" value="{{.value}}" data-select-input>
+    <button type="button" id="{{.id}}" data-select-button data-base="{{.base}}" aria-haspopup="listbox" aria-expanded="false"
+            {{if .o.disabled}}disabled{{end}} {{with .o.aria}}aria-label="{{.}}"{{end}}
+            class="{{.base}} {{.tone}} flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-70">
+        <span data-select-label class="min-w-0 flex-1 truncate {{if not .hasValue}}text-graphite-400{{end}}">{{if and .rich .hasValue}}{{template "partials/select-rich" .selected}}{{else}}{{.label}}{{end}}</span>
+        {{icon "updown" (printf "%s shrink-0 opacity-60" (ternary .sm "size-3.5" "size-4"))}}
+    </button>
+    <div data-select-panel hidden role="listbox" aria-labelledby="{{.id}}" class="fixed z-[70] min-w-44 rounded-lg bg-white p-1 text-graphite-900 shadow-xl ring-1 ring-graphite-900/10">
+        {{if .search}}
+            <div class="p-1"><input type="text" data-select-search placeholder="{{__ "Search…"}}" class="w-full rounded-md border-0 bg-mist px-2.5 py-1.5 text-sm ring-0 focus:outline-none focus:ring-2 focus:ring-signal-600" autocomplete="off"></div>
+        {{end}}
+        <div class="max-h-64 overflow-y-auto" data-select-list>
+            {{if and .hasPlaceholder (not .required)}}
+                <button type="button" role="option" data-value="" data-label="{{.placeholder}}" aria-selected="{{if .hasValue}}false{{else}}true{{end}}"
+                        class="flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-sm text-steel hover:bg-mist focus:bg-mist focus:outline-none">{{.placeholder}}</button>
+            {{end}}
+            {{range .options}}{{$sel := and $.hasValue (eq .Value $.value)}}
+                <button type="button" role="option" data-value="{{.Value}}" data-label="{{.Label}}" {{if $.rich}}data-search="{{.Label}} {{.Sub}}"{{end}} aria-selected="{{if $sel}}true{{else}}false{{end}}" {{with get $.tones .Value}}data-tone="{{.}}"{{end}}
+                        class="group flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-mist focus:bg-mist focus:outline-none aria-selected:font-medium">
+                    {{if $.rich}}<span class="min-w-0" data-rich>{{template "partials/select-rich" .}}</span>{{else}}<span class="truncate">{{.Label}}</span>{{end}}{{icon "tick" "size-4 shrink-0 text-signal-600 invisible group-aria-selected:visible"}}
+                </button>
+            {{end}}
+            <p data-select-empty hidden class="px-2.5 py-2 text-sm text-steel">{{__ "No matches"}}</p>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,36 @@
+{{set "layout" "layouts/guest"}}
+<h1 class="font-display text-4xl font-semibold tracking-tight">{{__ "Sign in"}}</h1>
+<p class="mt-2 text-sm text-graphite-400">{{__ "Use your username, or a passkey saved on this device."}}</p>
+{{template "auth/_messages" .}}
+
+<form method="POST" action="{{url "/login"}}" class="mt-8 space-y-5" novalidate>
+    {{csrfField}}
+    <div>
+        <label for="username" class="mb-1.5 block text-sm font-medium text-graphite-300">{{__ "Username"}}</label>
+        <input id="username" name="username" type="text" value="{{old "username"}}" required autofocus autocomplete="username webauthn" autocapitalize="none" spellcheck="false" maxlength="190"
+               class="input-dark {{if errorFor "username"}}ring-signal-500{{end}}">
+        {{with errorFor "username"}}<p class="mt-1.5 text-xs font-medium text-signal-500">{{.}}</p>{{end}}
+    </div>
+    <div>
+        <div class="mb-1.5 flex items-center justify-between">
+            <label for="password" class="text-sm font-medium text-graphite-300">{{__ "Password"}}</label>
+            <a href="{{url "/forgot-password"}}" class="text-xs text-graphite-400 underline-offset-2 hover:text-white hover:underline">{{__ "Forgot password?"}}</a>
+        </div>
+        <input id="password" name="password" type="password" required autocomplete="current-password" class="input-dark">
+        {{with errorFor "password"}}<p class="mt-1.5 text-xs font-medium text-signal-500">{{.}}</p>{{end}}
+    </div>
+    <label class="flex items-center gap-2.5 text-sm text-graphite-300">
+        <input type="checkbox" name="remember" value="1" class="size-4 accent-signal-600" {{if old "remember"}}checked{{end}}>
+        {{__ "Keep me signed in on this device"}}
+    </label>
+    <button type="submit" class="btn-primary w-full py-2.5">{{__ "Sign in"}}</button>
+</form>
+
+<div class="my-6 flex items-center gap-3 text-xs text-graphite-400"><span class="h-px flex-1 bg-white/10"></span> {{__ "or"}} <span class="h-px flex-1 bg-white/10"></span></div>
+
+<button type="button" data-passkey-login data-options-url="{{url "/passkeys/login/options"}}" data-login-url="{{url "/passkeys/login"}}"
+        data-msg-unsupported="{{__ "This browser does not support passkeys."}}" data-msg-cancel="{{__ "Passkey sign-in was cancelled."}}"
+        class="btn w-full bg-white/5 py-2.5 text-white ring-1 ring-white/15 hover:bg-white/10">
+    {{icon "finger" "size-5 text-signal-500"}} {{__ "Sign in with a passkey"}}
+</button>
+<p id="passkey-status" role="alert" hidden class="mt-3 text-xs font-medium text-signal-500"></p>

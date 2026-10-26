@@ -1,0 +1,135 @@
+{{- $embed := .embed -}}
+{{- if $embed}}{{set "layout" ""}}{{end -}}
+{{- $isEdit := .row -}}
+{{- $c := .c -}}
+{{- if $isEdit}}{{set "crumbs" (list (list (__ (ucfirst $c.plural)) $c.base) (list (strLimit (or .row.name .row.name_en .row.title .row.topic (printf "#%v" .row.id)) 30) (printf "%s/%v" $c.base .row.id)))}}{{else}}{{set "crumbs" (list (list (__ (ucfirst $c.plural)) $c.base))}}{{end -}}
+{{- $steps := .fields.Steps -}}
+{{- $wizard := and $c.wizard (gt (len $steps) 1) -}}
+{{- $dots := and $wizard (eq $c.wizard_style "dots") -}}
+{{- $errStep := .fields.ErrStep -}}
+{{- $saveLabel := __ "Create :item" "item" (__ $c.singular)}}{{if $isEdit}}{{$saveLabel = __ "Save changes"}}{{end -}}
+{{- $row := .row -}}
+<div id="form-shell" class="[&:fullscreen]:overflow-auto [&:fullscreen]:bg-mist [&:fullscreen]:p-6">
+<form method="POST" action="{{if $isEdit}}{{url (printf "%s/%v" $c.base .row.id)}}{{else}}{{url $c.base}}{{end}}" enctype="multipart/form-data" novalidate data-no-busy {{if $embed}}data-sheet-form{{end}}
+      data-form data-msg-discard="{{__ "Discard what you typed?"}}" data-msg-missing="{{__ "required missing"}}" data-msg-done="{{__ "Complete"}}" data-msg-optional="{{__ "Optional"}}" data-msg-required="{{__ ":n required"}}" data-msg-field-required="{{__ "This field is required."}}" data-msg-fix="{{__ "Fill in the fields marked in red."}}" {{if $wizard}}data-wizard data-start="{{$errStep}}"{{end}} {{if $dots}}data-dots{{end}}>
+    {{csrfField}}
+
+    <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+            {{if not $embed}}<h1 class="page-title">{{.title}}</h1>{{end}}
+            <!-- Required fields: how many are filled (the dots form says it on each step instead) -->
+            <div data-req-summary hidden {{if $dots}}data-off{{end}} class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <div class="flex items-center gap-2.5">
+                    <div class="h-1.5 w-36 overflow-hidden rounded-full bg-graphite-900/10" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-req-progress><div data-req-bar class="h-full rounded-full bg-signal-600 transition-all" style="width:0%"></div></div>
+                    <span class="tabular-nums text-steel"><span class="font-semibold text-graphite-900" data-req-filled>0</span> {{__ "of"}} <span data-req-total>0</span> {{__ "required fields filled"}}</span>
+                </div>
+                <button type="button" class="btn-secondary !h-7 text-xs" data-req-open>{{icon "list" "size-3.5"}} {{__ "View required fields"}}</button>
+            </div>
+        </div>
+        {{if not $embed}}<button type="button" class="btn-secondary" data-fullscreen title="{{__ "Full screen"}}">{{icon "expand" "size-4"}}<span class="hidden sm:inline"> {{__ "Full screen"}}</span></button>{{end}}
+    </div>
+
+    {{if $dots}}
+    <!-- one card per step: icon, title and what the step is for; Previous · dots · Next (named after the next step) under it -->
+    <div class="{{if $embed}}mt-4{{else}}mt-6{{end}} mx-auto max-w-4xl">
+        <!-- the steps by name: jump to any of them; each says how many required fields it has, or that it is optional -->
+        <nav class="mb-5 flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-graphite-900/8" aria-label="{{__ "Steps"}}">
+            {{range $steps}}
+            <button type="button" data-go="{{.Index}}" data-tab-style class="flex min-w-fit flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-left">
+                <span data-dot class="flex size-6 shrink-0 items-center justify-center rounded-full bg-graphite-900/8 text-xs font-semibold">{{add .Index 1}}</span>
+                <span class="min-w-0"><span class="block truncate text-sm font-medium">{{.Title}}</span><span class="block text-xs text-steel" data-step-note>&nbsp;</span></span>
+            </button>
+            {{end}}
+        </nav>
+        {{range $st := $steps}}
+        <section data-step="{{$st.Index}}" {{if ne $st.Index $errStep}}hidden{{end}} aria-labelledby="step-title-{{$st.Index}}">
+            <div class="flex items-start gap-3">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-signal-50 text-signal-700">{{icon (or $st.Icon "doc") "size-6"}}</span>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-base font-semibold" id="step-title-{{$st.Index}}" data-step-title>{{$st.Title}}</h2>
+                        {{if $st.Req}}<span class="rounded border border-graphite-900/15 px-1.5 py-0.5 text-xs text-steel">{{raw (__ "Fields marked <span class=\"text-signal-600\">*</span> are required")}}</span>{{end}}
+                    </div>
+                    {{if $st.Help}}<p class="mt-0.5 text-sm text-steel">{{$st.Help}}</p>{{end}}
+                </div>
+            </div>
+            <div class="mt-4 grid gap-x-6 gap-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-graphite-900/8 md:grid-cols-2">
+            {{range $st.Fields}}
+                <div class="min-w-0 {{if eq .Span 2}}md:col-span-2{{end}}" data-field="{{.Name}}" data-label="{{.Label}}" {{.ReqAttr}} {{with .ShowWhen}}data-crm-show="{{.}}"{{end}} {{with .WideWhen}}data-crm-wide="{{.}}"{{end}}>
+                    {{template "resource/field" (dict "f" . "row" $row)}}
+                </div>
+            {{end}}
+            </div>
+        </section>
+        {{end}}
+
+        <div class="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <div><button type="button" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-steel hover:text-graphite-900 disabled:pointer-events-none disabled:opacity-40" data-prev>{{icon "arrowleft" "size-4"}} {{__ "Previous"}}</button></div>
+            <div class="flex items-center gap-1.5" data-stepper>
+                {{range $steps}}<button type="button" data-go="{{.Index}}" data-dot-style aria-label="{{__ "Step :n of :t" "n" (add .Index 1) "t" (len $steps)}}: {{.Title}}" class="h-1.5 w-1.5 rounded-full bg-graphite-900/20"></button>{{end}}
+            </div>
+            <div class="flex items-center justify-end gap-2">
+                {{if $embed}}<button type="button" class="btn-ghost" data-sheet-close>{{__ "Cancel"}}</button>{{end}}
+                <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3 text-sm font-medium text-signal-700 ring-1 ring-signal-600/40 hover:bg-signal-50" data-next><span data-next-label>{{__ "Next"}}</span> {{icon "right" "size-4"}}</button>
+                <button type="submit" class="btn-primary" data-save disabled title="{{__ "Fill in all required fields first"}}">{{icon "check" "size-4"}} {{$saveLabel}}</button>
+            </div>
+        </div>
+    </div>
+    {{else}}
+    <div class="{{if $embed}}mt-4{{else}}mt-6{{end}} grid items-start gap-5 {{if and $wizard (not $embed)}}lg:grid-cols-[15.5rem_minmax(0,1fr)]{{end}}">
+        {{if $wizard}}
+        <nav class="{{if not $embed}}lg:sticky lg:top-20{{end}}" aria-label="{{__ "Steps"}}">
+            <ol class="flex gap-1 overflow-x-auto rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-graphite-900/8 {{if not $embed}}lg:flex-col lg:overflow-visible{{end}}" data-stepper>
+                {{range $steps}}
+                <li class="min-w-fit {{if not $embed}}lg:min-w-0{{end}}">
+                    <button type="button" data-go="{{.Index}}" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-graphite-900/5">
+                        <span data-dot class="flex size-7 shrink-0 items-center justify-center rounded-full bg-graphite-900/8 text-xs font-semibold">{{add .Index 1}}</span>
+                        <span class="min-w-0"><span class="block truncate text-sm font-medium">{{.Title}}</span><span class="block text-xs text-steel" data-step-note>&nbsp;</span></span>
+                    </button>
+                </li>
+                {{end}}
+            </ol>
+        </nav>
+        {{end}}
+
+        <div class="min-w-0 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-graphite-900/8">
+            {{range $st := $steps}}
+            <section data-step="{{$st.Index}}" {{if and $wizard (ne $st.Index $errStep)}}hidden{{end}} aria-label="{{$st.Title}}" class="{{if and (not $wizard) (gt $st.Index 0)}}border-t border-graphite-900/8{{end}}">
+                <div class="px-6 pt-6">
+                    {{if $wizard}}<p class="text-xs font-medium text-steel">{{__ "Step :n of :t" "n" (add $st.Index 1) "t" (len $steps)}}</p>{{end}}
+                    <h2 class="text-lg font-semibold tracking-tight" data-step-title>{{$st.Title}}</h2>
+                </div>
+                <div class="grid gap-x-6 gap-y-5 px-6 py-6 md:grid-cols-2 {{if not $embed}}2xl:grid-cols-3{{end}}">
+                {{range $st.Fields}}
+                    <div class="min-w-0 {{if eq .Span 2}}{{if $embed}}md:col-span-2{{else}}md:col-span-2 2xl:col-span-3{{end}}{{end}}" data-field="{{.Name}}" data-label="{{.Label}}" {{.ReqAttr}} {{with .ShowWhen}}data-crm-show="{{.}}"{{end}} {{with .WideWhen}}data-crm-wide="{{.}}"{{end}}>
+                        {{template "resource/field" (dict "f" . "row" $row)}}
+                    </div>
+                {{end}}
+                </div>
+            </section>
+            {{end}}
+
+            <div class="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-graphite-900/8 bg-white px-6 py-3">
+                <div>{{if $wizard}}<button type="button" class="btn-secondary" data-prev>{{icon "arrowleft" "size-4"}} {{__ "Back"}}</button>{{end}}</div>
+                <div class="flex flex-wrap items-center gap-2">
+                    {{if $embed}}<button type="button" class="btn-ghost" data-sheet-close>{{__ "Cancel"}}</button>
+                    {{else}}<a href="{{if $isEdit}}{{url (printf "%s/%v" $c.base $row.id)}}{{else}}{{url $c.base}}{{end}}" class="btn-ghost">{{__ "Cancel"}}</a>{{end}}
+                    {{if $wizard}}<button type="button" class="btn-secondary" data-next>{{__ "Next"}} {{icon "right" "size-4"}}</button>{{end}}
+                    <button type="submit" class="btn-primary" data-save disabled title="{{__ "Fill in all required fields first"}}">{{$saveLabel}}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{end}}
+
+    <dialog id="required-dialog" class="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-labelledby="required-title">
+        <div class="p-5">
+            <h2 id="required-title" class="text-base font-semibold">{{__ "Required fields"}}</h2>
+            <p class="mt-0.5 text-sm text-steel"><span data-req-filled>0</span> {{__ "of"}} <span data-req-total>0</span> {{__ "filled"}}. {{__ "Select a field to go to it."}}</p>
+            <ul class="mt-4 max-h-[50vh] space-y-1 overflow-y-auto" data-req-list></ul>
+        </div>
+        <div class="flex justify-end rounded-b-xl bg-mist/60 px-5 py-3"><button type="button" class="btn-dark" data-req-close>{{__ "Close"}}</button></div>
+    </dialog>
+</form>
+</div>

@@ -1,0 +1,15 @@
+{{- /* .cards: []app.Stat — summary cards above a list */ -}}
+{{- $tones := dict "neutral" "bg-graphite-900/6 text-graphite-700" "success" "bg-emerald-50 text-emerald-700" "danger" "bg-signal-50 text-signal-700" "info" "bg-sky-50 text-sky-700" "warn" "bg-amber-50 text-amber-700" "violet" "bg-violet-50 text-violet-700" -}}
+{{- $n := len .cards}}{{$cols := 4}}{{if gt $n 4}}{{$cols = $n}}{{end}}{{if gt $cols 6}}{{$cols = 6}}{{end -}}
+<section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-{{$cols}}" aria-label="{{__ "Statistics"}}" data-stats>
+    {{range .cards}}{{$tone := or (get $tones .Tone) (get $tones "neutral")}}
+    {{if .Href}}<a href="{{url .Href}}" class="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8 transition-shadow hover:shadow-md">{{else}}<div  class="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8 ">{{end}}
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg {{$tone}}">{{icon .Icon "size-5"}}</span>
+        <span class="min-w-0">
+            <span class="block truncate text-xs text-steel">{{.Label}}</span>
+            <span class="block truncate text-xl font-semibold leading-tight tabular-nums {{if eq .Tone "danger"}}text-signal-700{{end}}">{{.Value}}</span>
+            {{if .Sub}}<span class="block truncate text-xs text-steel">{{.Sub}}</span>{{end}}
+        </span>
+    {{if .Href}}</a>{{else}}</div>{{end}}
+    {{end}}
+</section>

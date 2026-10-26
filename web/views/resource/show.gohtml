@@ -1,0 +1,54 @@
+{{- $singular := __ .c.singular -}}
+{{- set "crumbs" (list (list (__ (ucfirst .c.plural)) .c.base)) -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex min-w-0 items-center gap-4">
+        {{if eq .c.resource "members"}}{{template "partials/avatar" (dict "name" .row.name "avatar" .row.avatar "size" "size-14" "extra" "text-base")}}{{end}}
+        <div class="min-w-0">
+            <h1 class="page-title break-words">{{.title}}</h1>
+            <p class="text-sm text-steel">
+                {{ucfirst $singular}} #{{.row.id}}
+                {{if .row.created_at}} · {{__ "added :date" "date" (formatDate .row.created_at)}}{{end}}
+                {{if .row.updated_at}} · {{__ "updated :time" "time" (timeAgo .row.updated_at)}}{{end}}
+            </p>
+        </div>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        {{range .links}}<a href="{{url .URL}}" {{if contains .URL "/create"}}data-sheet{{end}} data-sheet-title="{{.Label}}" class="btn-secondary flex-1 sm:flex-none">{{icon (or .Icon "eye") "size-4"}} {{.Label}}</a>{{end}}
+        {{if .canDownload}}<a href="{{url (printf "%s/%v/download" .c.base .row.id)}}" class="btn-secondary flex-1 sm:flex-none">{{icon "download" "size-4"}} {{__ "Download"}}</a>{{end}}
+        {{if .canDelete}}
+            <button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="{{url (printf "%s/%v/delete" .c.base .row.id)}}" data-delete-name="{{.title}}" data-delete-kind="{{$singular}}">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>
+        {{end}}
+        {{if .canEdit}}<a href="{{url (printf "%s/%v/edit" .c.base .row.id)}}" class="btn-primary w-full sm:w-auto">{{icon "pencil" "size-4"}} {{__ "Edit"}}</a>{{end}}
+    </div>
+</div>
+
+{{if and (eq .c.resource "tasks") .canEdit (ne .row.status "done")}}
+    <form method="POST" action="{{url (printf "/tasks/%v/status" .row.id)}}" class="mt-5 flex flex-wrap items-center gap-2">
+        {{csrfField}}
+        <span class="text-sm text-steel">{{__ "Move to"}}</span>
+        {{range .taskStatuses}}{{if ne .Value $.row.status}}
+            <button name="status" value="{{.Value}}" class="{{if eq .Value "done"}}btn-dark{{else}}btn-secondary{{end}} py-1.5">{{.Label}}</button>
+        {{end}}{{end}}
+    </form>
+{{end}}
+
+<section class="panel mt-6">
+    <dl class="grid sm:grid-cols-2">
+        {{range .display}}
+            {{if .IsSection}}
+                <h2 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel sm:col-span-2">{{.Section}}</h2>
+            {{else}}
+            <div class="border-b border-graphite-900/6 px-5 py-3.5 {{if eq .Span 2}}sm:col-span-2{{end}}">
+                <dt class="text-xs text-steel">{{.Label}}</dt>
+                {{if .IsPic}}
+                    <dd class="mt-1 flex items-center gap-2 text-sm font-medium">{{if .Img}}<img src="{{.Img}}" alt="" class="{{if .ImgOnly}}size-16 rounded-lg ring-1 ring-graphite-900/10{{else}}size-7 rounded-full{{end}} object-cover">{{else}}<span class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-700 text-[11px] font-semibold text-white">{{initials .Text}}</span>{{end}}{{.Text}}</dd>
+                {{else}}
+                <dd class="mt-1 whitespace-pre-line break-words text-sm {{if .Empty}}text-graphite-400{{else}}font-medium{{end}}">{{.Text}}</dd>
+                {{end}}
+            </div>
+            {{end}}
+        {{end}}
+    </dl>
+</section>
+
+{{if .extra}}<div class="mt-6">{{.extra}}</div>{{end}}
