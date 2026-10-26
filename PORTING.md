@@ -74,6 +74,7 @@ Shared support already ported (use these, do not port them again):
   `dict "action" (url "/x") "range" key "from" from "to" to "keep" (map) "selects" ([]app.RangeSelect)`.
 - Partials ready in `web/views/partials`: avatar, delete-dialog, flash, logo-drop, notification-list, pagination, picker, remote-select,
   select, priority (`dict "p" …`), progress (`dict "value" …`), scope-badge (`dict "scope" …`), status (`dict "s" … "labels" map`), tabs (`dict "tabs" (list (list url label icon) …)`), range-bar, department-extra; `crm/stats` (`dict "cards" []app.Stat`).
+- Power BI: `app.PowerBiURL()`, `app.PowerBiLink(c, input)`, `app.PowerBiKey`.
 - Package `acme/internal/oil` (OilPrices): interface stubs `oil.Current()`, `oil.LastSync()`, `oil.Tick(c)`; the management port fills them in.
 
 ## Database
