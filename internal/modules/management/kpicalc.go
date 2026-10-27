@@ -358,7 +358,7 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 	view := app.M{"title": c.T("KPI calculator") + " · " + p.Str("name"), "p": p, "year": year, "yearS": php.Str(year), "month": php.Str(month), "group": group, "preview": preview, "canEdit": canEdit,
 		"ro": !canEdit, "years": yearOpts(php.Now().Year(), php.Now().Year()-4), "months": months, "groups": grp,
 		"score": php.NF(res.Score, 2), "scoreTone": tone(res.Score), "bar": bar, "barW": php.Str(math.Min(100, res.Score)),
-		"groupLine": c.T(":g · January – :m :y", "g", c.T(groupLabels[group]), "m", monthNames[month], "y", year), "secRows": secRows, "deduction": res.Deduction, "deductionS": php.NF(res.Deduction, 2),
+		"groupLine": c.T(":g · January – :m :y", "g", c.T(groupLabels[group]), "m", monthNames[month], "y", year), "secRows": secRows, "deduction": res.Deduction, "deductionS": php.NF(res.Deduction, 2), "deductionN": php.NumberClean(res.Deduction),
 		"noRaise": res.Absence.NoRaise, "severe": php.Int(in["severe"]) != 0, "kpis": kpis, "openKPIs": len(kpis) <= 6,
 		"kpiRate": pctV(res.KPI.Rate), "waiting": res.Waiting, "scaled": res.KPI.Scaled, "kpiPoints": pts["kpi"], "ontimePoints": pts["ontime"],
 		"ontimeRate": pctV(res.OnTime.Rate), "ontime": ot, "tiers": true,

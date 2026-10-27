@@ -154,7 +154,7 @@
     </div>
 
     <section class="panel" id="sec-warn">
-        <div class="panel-head"><h2 class="panel-title">{{__ "8. Warnings"}}</h2><strong class="tabular-nums text-signal-700">−{{.deductionS}}</strong></div>
+        <div class="panel-head"><h2 class="panel-title">{{__ "8. Warnings"}}</h2><strong class="tabular-nums text-signal-700">−{{.deductionN}}</strong></div>
         <div class="grid gap-4 p-5 sm:grid-cols-3">
             {{template "management/kpi-calc/field" (dict "f" .warnWritten "ro" $ro)}}{{template "management/kpi-calc/field" (dict "f" .warnFinal "ro" $ro)}}
             <label class="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" name="severe" value="1" class="size-4 accent-signal-600" {{if .severe}}checked{{end}} {{if $ro}}disabled{{end}}> {{__ "Severe warning (goes to the committee)"}}</label>
