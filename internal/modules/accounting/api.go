@@ -1,8 +1,9 @@
 package accounting
 
 import (
+	"acme/internal/api"
+	"acme/internal/config"
 	"html/template"
-	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,58 +23,50 @@ Permissions are the website's (accounting_* view).
 
 func payloadJS(s string) template.JS { return template.JS(s) }
 
-// apiErr answers {"error": {"code", "message"}} (ApiException).
-func apiErr(c *app.Ctx, status int, code, msg string) {
-	c.JSON(app.M{"error": app.M{"code": code, "message": msg}}, status)
-}
+func apiNeed(c *app.Ctx, res string) { api.Need(c, res) }
+func apiNotFound(c *app.Ctx)         { api.NotFound(c) }
+func apiQ(c *app.Ctx) string         { return api.Q(c) }
+func apiLike(q string) string        { return api.Like(q) }
 
-func apiNeed(c *app.Ctx, res string) {
-	if c.User() == nil {
-		apiErr(c, 401, "unauthenticated", c.T("Sign in first."))
-	}
-	if !c.Can(res, "view") {
-		apiErr(c, 403, "forbidden", c.T("You don't have permission to :a :r.", "a", "view", "r", strings.ReplaceAll(res, "_", " ")))
-	}
-}
-
-func apiNotFound(c *app.Ctx) { apiErr(c, 404, "not_found", c.T("Not found.")) }
-
-func apiQ(c *app.Ctx) string { return php.Substr(strings.TrimSpace(c.Query("q")), 0, 100) }
-
-func apiLike(q string) string { return "%" + likeEscape(q) + "%" }
-
-// apiPaged is one page of sql (no ORDER BY / LIMIT): ?page= (from 1) and ?per_page= (1–100, default 25).
-func apiPaged(c *app.Ctx, sql string, params []any, order string, mapRow func(db.Row) app.M) {
-	per := max(1, min(100, php.Int(c.Query("per_page", "25"))))
-	page := max(1, min(10000, php.Int(c.Query("page", "1"))))
-	total := php.Int(acc().Scalar("SELECT count(*) FROM ("+sql+") x", params...))
-	rows := acc().Select(sql+" ORDER BY "+order+" LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), params...)
-	out := make([]app.M, 0, len(rows))
-	for _, r := range rows {
-		if mapRow != nil {
-			out = append(out, mapRow(r))
-		} else {
-			out = append(out, app.M(r))
+// apiPaged answers one page of sql (see api.Paged); mapRow (optional) turns a row into what the app gets.
+func apiPaged(c *app.Ctx, sql string, params []any, order string, mapRow func(db.Row) any) {
+	var mf func(*config.Map) any
+	if mapRow != nil {
+		mf = func(m *config.Map) any {
+			r := db.Row{}
+			for _, k := range m.Keys {
+				r[k] = m.Vals[k]
+			}
+			return mapRow(r)
 		}
 	}
-	c.JSON(app.M{"data": out, "meta": app.M{"page": page, "per_page": per, "total": total, "pages": int(math.Ceil(float64(total) / float64(per)))}})
+	api.Reply(c, api.Paged(c, sql, params, order, C, mf))
 }
 
-func pickKeys(r db.Row, keys ...string) app.M {
-	out := app.M{}
-	for _, k := range keys {
-		out[k] = r[k]
+// ordRow is the first row of a query as an ordered object (nil when there is none).
+func ordRow(sql string, params ...any) *config.Map {
+	rows := acc().SelectOrdered(sql, params...)
+	if len(rows) == 0 {
+		return nil
+	}
+	return api.RowObj(rows[0])
+}
+
+func ordRows(sql string, params ...any) []any {
+	out := []any{}
+	for _, r := range acc().SelectOrdered(sql, params...) {
+		out = append(out, api.RowObj(r))
 	}
 	return out
 }
 
+func pickKeys(r db.Row, keys ...string) *config.Map { return api.Pick(r, keys...) }
+
 func apiStats(c *app.Ctx) {
-	if c.User() == nil {
-		apiErr(c, 401, "unauthenticated", c.T("Sign in first."))
-	}
-	show := map[string]bool{"finance": c.Can("accounting_invoices", "view"), "orders": c.Can("accounting_orders", "view"), "inet": c.Can("accounting_inet", "view"), "billing": c.Can("accounting_billing", "view")}
+	u := api.User(c)
+	show := map[string]bool{"finance": u.Can("accounting_invoices", "view"), "orders": u.Can("accounting_orders", "view"), "inet": u.Can("accounting_inet", "view"), "billing": u.Can("accounting_billing", "view")}
 	if !show["finance"] && !show["orders"] && !show["inet"] && !show["billing"] {
-		apiErr(c, 403, "forbidden", c.T("You don't have permission to view the accounting overview."))
+		api.Fail(403, "forbidden", c.T("You don't have permission to view the accounting overview."))
 	}
 	d := dashboardGet(false)
 	blocks := []struct {
@@ -82,17 +75,17 @@ func apiStats(c *app.Ctx) {
 	}{{"finance", []string{"year", "by_year", "month_cur", "month_prev", "kpi", "customers", "sellers", "products", "aging", "receivable"}},
 		{"orders", []string{"orders_month", "orders_this_month"}}, {"inet", []string{"inet", "inet_month", "not_in_inet"}},
 		{"billing", []string{"billing_status", "billing_month", "billing_today", "billing_open"}}}
-	out := app.M{"built": d["built"]}
+	out := api.Obj("built", d["built"])
 	for _, b := range blocks {
 		if show[b.name] {
-			m := app.M{}
+			m := config.NewMap()
 			for _, k := range b.keys {
-				m[k] = d[k]
+				m.Set(k, d[k])
 			}
-			out[b.name] = m
+			out.Set(b.name, m)
 		}
 	}
-	c.JSON(app.M{"data": out})
+	api.Reply(c, api.Obj("data", out))
 }
 
 const apiCustomerSQL = `SELECT t.id, t.code, t.name, t.alternative_name, t.vat_number, t.corporation_identification_number, t.is_private_customer, t.credit_limit,
@@ -116,30 +109,30 @@ func apiCustomers(c *app.Ctx) {
 func apiCustomer(c *app.Ctx) {
 	apiNeed(c, "accounting_customers")
 	id := c.ParamInt("id")
-	cu := acc().First(apiCustomerSQL+" WHERE t.id = ?", id)
+	cu := ordRow(apiCustomerSQL+" WHERE t.id = ?", id)
 	if cu == nil {
 		apiNotFound(c)
 	}
-	links := app.M{}
+	links := config.NewMap()
 	if c.Can("accounting_invoices", "view") {
-		links["invoices"] = rowsM(acc().Select(`SELECT invoice_number, max(invoice_date) AS invoice_date, max(currency_code) AS currency_code,
+		links.Set("invoices", ordRows(`SELECT invoice_number, max(invoice_date) AS invoice_date, max(currency_code) AS currency_code,
                 sum(coalesce(invoiced_quantity, 0) * coalesce(price, 0) * (1 - coalesce(discount, 0) / 100)) AS amount
                 FROM erp_invoices WHERE customer_id = ? AND invoice_number IS NOT NULL GROUP BY invoice_number ORDER BY max(invoice_date) DESC, invoice_number DESC LIMIT 20`, id))
 	}
 	if c.Can("accounting_orders", "view") {
-		links["orders"] = rowsM(acc().Select("SELECT id, order_number, business_contact_order_number, order_date, status, is_credit FROM erp_orders WHERE customer_id = ? ORDER BY order_date DESC NULLS LAST, id DESC LIMIT 20", id))
+		links.Set("orders", ordRows("SELECT id, order_number, business_contact_order_number, order_date, status, is_credit FROM erp_orders WHERE customer_id = ? ORDER BY order_date DESC NULLS LAST, id DESC LIMIT 20", id))
 	}
 	if c.Can("accounting_inet", "view") {
-		links["inets"] = rowsM(acc().Select("SELECT id, no_invoice, invoice_date, is_credit, total_amount, currency_code FROM inets WHERE customer_id = ? ORDER BY invoice_date DESC NULLS LAST, id DESC LIMIT 20", id))
+		links.Set("inets", ordRows("SELECT id, no_invoice, invoice_date, is_credit, total_amount, currency_code FROM inets WHERE customer_id = ? ORDER BY invoice_date DESC NULLS LAST, id DESC LIMIT 20", id))
 	}
 	if c.Can("accounting_billing", "view") {
-		links["billing_notes"] = rowsM(acc().Select("SELECT id, billing_number, billing_at, total_amount, currency_code, is_paid, is_complete FROM billing_notes WHERE customer_id = ? ORDER BY id DESC LIMIT 20", php.Str(id)))
+		links.Set("billing_notes", ordRows("SELECT id, billing_number, billing_at, total_amount, currency_code, is_paid, is_complete FROM billing_notes WHERE customer_id = ? ORDER BY id DESC LIMIT 20", php.Str(id)))
 	}
 	// CRM leads with the same tax id, through the CRM's own visibility (only when the CRM is on and the person may see leads)
-	if cu.Str("vat_number") != "" && app.ModuleUsable("crm") && c.Can("crm_leads", "view") {
-		links["crm_leads"] = crmLeadsFor(c, cu.Str("vat_number"))
+	if php.Str(mget(cu, "vat_number")) != "" && app.ModuleUsable("crm") && c.Can("crm_leads", "view") {
+		links.Set("crm_leads", crmLeadsFor(c, php.Str(mget(cu, "vat_number"))))
 	}
-	c.JSON(app.M{"data": cu, "links": links})
+	api.Reply(c, api.Obj("data", cu, "links", links))
 }
 
 func apiProducts(c *app.Ctx) {
@@ -156,11 +149,11 @@ func apiProducts(c *app.Ctx) {
 
 func apiProduct(c *app.Ctx) {
 	apiNeed(c, "accounting_products")
-	r := acc().First("SELECT id, part_number, description, alias, standard_price, part_template_id, part_code_id FROM erp_products WHERE id = ?", c.ParamInt("id"))
+	r := ordRow("SELECT id, part_number, description, alias, standard_price, part_template_id, part_code_id FROM erp_products WHERE id = ?", c.ParamInt("id"))
 	if r == nil {
 		apiNotFound(c)
 	}
-	c.JSON(app.M{"data": r})
+	api.Reply(c, api.Obj("data", r))
 }
 
 const apiOrderSQL = `SELECT t.id, t.order_number, t.business_contact_order_number, t.order_date, t.vat_number, t.is_credit, t.status, t.customer_id,
@@ -207,13 +200,13 @@ func apiOrders(c *app.Ctx) {
 func apiOrder(c *app.Ctx) {
 	apiNeed(c, "accounting_orders")
 	id := c.ParamInt("id")
-	o := acc().First(apiOrderSQL+" WHERE t.id = ?", id)
+	o := ordRow(apiOrderSQL+" WHERE t.id = ?", id)
 	if o == nil {
 		apiNotFound(c)
 	}
-	o["rows"] = rowsM(acc().Select(`SELECT r.row_index, p.part_number, coalesce(r.additional_row_description, p.description) AS description, r.ordered_quantity, r.price, r.discount, r.delivery_date
+	o.Set("rows", ordRows(`SELECT r.row_index, p.part_number, coalesce(r.additional_row_description, p.description) AS description, r.ordered_quantity, r.price, r.discount, r.delivery_date
             FROM erp_order_rows r LEFT JOIN erp_products p ON p.id = r.part_id WHERE r.parent_order_id = ? ORDER BY r.row_index, r.id`, id))
-	c.JSON(app.M{"data": o})
+	api.Reply(c, api.Obj("data", o))
 }
 
 const apiInvoiceSQL = `SELECT i.invoice_number, max(i.invoice_date) AS invoice_date, max(i.customer_id) AS customer_id, max(i.customer_code) AS customer_code,
@@ -247,12 +240,12 @@ func apiInvoice(c *app.Ctx) {
 	if !invNoRe.MatchString(no) {
 		apiNotFound(c)
 	}
-	inv := acc().First(strings.Replace(apiInvoiceSQL, "%s", " AND i.invoice_number::text = ?", 1), no)
+	inv := ordRow(strings.Replace(apiInvoiceSQL, "%s", " AND i.invoice_number::text = ?", 1), no)
 	if inv == nil {
 		apiNotFound(c)
 	}
-	inv["lines"] = rowsM(acc().Select("SELECT part_number, invoiced_quantity, price, discount, unit_code FROM erp_invoices WHERE invoice_number::text = ? ORDER BY id", no))
-	c.JSON(app.M{"data": inv})
+	inv.Set("lines", ordRows("SELECT part_number, invoiced_quantity, price, discount, unit_code FROM erp_invoices WHERE invoice_number::text = ? ORDER BY id", no))
+	api.Reply(c, api.Obj("data", inv))
 }
 
 func apiSellers(c *app.Ctx) {
@@ -297,7 +290,7 @@ func apiInets(c *app.Ctx) {
 		w += " AND t.customer_id = ?"
 		p = append(p, cid)
 	}
-	apiPaged(c, "SELECT t.* FROM inets t WHERE "+w, p, "t.no_invoice DESC", func(r db.Row) app.M { return apiInetOut(c, r, false) })
+	apiPaged(c, "SELECT t.* FROM inets t WHERE "+w, p, "t.no_invoice DESC", func(r db.Row) any { return apiInetOut(c, r, false) })
 }
 
 func apiInet(c *app.Ctx) {
@@ -306,16 +299,16 @@ func apiInet(c *app.Ctx) {
 	if r == nil {
 		apiNotFound(c)
 	}
-	c.JSON(app.M{"data": apiInetOut(c, r, true)})
+	api.Reply(c, api.Obj("data", apiInetOut(c, r, true)))
 }
 
-func apiInetOut(c *app.Ctx, r db.Row, full bool) app.M {
+func apiInetOut(c *app.Ctx, r db.Row, full bool) *config.Map {
 	keys := inetList
 	if full {
 		keys = append(append([]string{}, inetList...), "tax_id", "branch", "email", "delivery_note_number", "department_name", "exchange_rate", "tax_rate", "product_count", "remark")
 	}
 	out := pickKeys(r, keys...)
-	var docs []app.M
+	docs := []any{}
 	types := []string{"388", "t01"}
 	if r.Bool("is_credit") {
 		types = []string{"81"}
@@ -332,10 +325,10 @@ func apiInetOut(c *app.Ctx, r db.Row, full bool) app.M {
 		if r.Str("inet_pdf_"+d) != "" {
 			signedURL = c.URL("/api/v1/accounting/inets/"+r.Str("id")+"/pdf/"+d, "signed", 1)
 		}
-		docs = append(docs, app.M{"type": d, "label": c.T(deptDocs[d]), "generated": r.Str("pdf_"+d) != "", "sent": r.Bool("is_" + d + "_send"), "signed": r.Str("inet_pdf_"+d) != "",
-			"message": msg, "pdf_url": pdfURL, "signed_pdf_url": signedURL})
+		docs = append(docs, api.Obj("type", d, "label", c.T(deptDocs[d]), "generated", r.Str("pdf_"+d) != "", "sent", r.Bool("is_"+d+"_send"), "signed", r.Str("inet_pdf_"+d) != "",
+			"message", msg, "pdf_url", pdfURL, "signed_pdf_url", signedURL))
 	}
-	out["documents"] = docs
+	out.Set("documents", docs)
 	return out
 }
 
@@ -370,7 +363,7 @@ func apiInetPDF(c *app.Ctx) {
 		if signed {
 			msg = c.T("INET has not returned a signed copy yet.")
 		}
-		apiErr(c, 404, "pdf_not_available", msg)
+		api.Fail(404, "pdf_not_available", msg)
 	}
 	suffix := ""
 	if signed {
@@ -400,12 +393,15 @@ func apiBillingNotes(c *app.Ctx) {
 	}
 	apiPaged(c, `SELECT t.id, t.billing_number, t.billing_at, t.remind_date, t.customer_id, t.customer_code, t.customer_name, t.vat_number, t.total_amount, t.currency_code,
             t.is_paid, t.is_complete, `+status+` AS status, (SELECT count(*) FROM billing_note_invoices i WHERE i.billing_id = t.id) AS invoice_count, t.file_key IS NOT NULL AS has_pdf
-            FROM billing_notes t WHERE `+w, p, "t.id DESC", func(r db.Row) app.M {
-		m := app.M(r)
+            FROM billing_notes t WHERE `+w, p, "t.id DESC", func(r db.Row) any {
+		m := config.NewMap()
+		for _, k := range []string{"id", "billing_number", "billing_at", "remind_date", "customer_id", "customer_code", "customer_name", "vat_number", "total_amount", "currency_code", "is_paid", "is_complete", "status", "invoice_count", "has_pdf"} {
+			m.Set(k, r[k])
+		}
 		if r.Bool("has_pdf") {
-			m["pdf_url"] = c.URL("/api/v1/accounting/billing-notes/" + r.Str("id") + "/pdf")
+			m.Set("pdf_url", c.URL("/api/v1/accounting/billing-notes/"+r.Str("id")+"/pdf"))
 		} else {
-			m["pdf_url"] = nil
+			m.Set("pdf_url", nil)
 		}
 		return m
 	})
@@ -420,17 +416,17 @@ func apiBillingNote(c *app.Ctx) {
 	}
 	out := pickKeys(n, "id", "billing_number", "is_thai", "billing_at", "remind_date", "customer_id", "customer_code", "customer_name", "vat_number", "address",
 		"total_amount", "currency_code", "note", "remark", "is_paid", "is_complete", "created_at")
-	var inv []app.M
+	inv := []any{}
 	for _, r := range n["rows"].([]db.Row) {
 		inv = append(inv, pickKeys(r, "invoice_number", "order_no", "invoice_date", "due_date", "amount", "vat_amount", "is_credit"))
 	}
-	out["invoices"] = inv
+	out.Set("invoices", inv)
 	if n.Str("file_key") != "" {
-		out["pdf_url"] = c.URL("/api/v1/accounting/billing-notes/" + php.Str(id) + "/pdf")
+		out.Set("pdf_url", c.URL("/api/v1/accounting/billing-notes/"+php.Str(id)+"/pdf"))
 	} else {
-		out["pdf_url"] = nil
+		out.Set("pdf_url", nil)
 	}
-	c.JSON(app.M{"data": out})
+	api.Reply(c, api.Obj("data", out))
 }
 
 // apiBillingPDF: the stored PDF of a billing note. Unlike the website, never rebuilds it.
@@ -442,13 +438,13 @@ func apiBillingPDF(c *app.Ctx) {
 	}
 	path := safeStored(n.Str("file_key"), "billing/")
 	if path == "" {
-		apiErr(c, 404, "pdf_not_available", c.T("The PDF of this billing note has not been made yet. Open it once on the website."))
+		api.Fail(404, "pdf_not_available", c.T("The PDF of this billing note has not been made yet. Open it once on the website."))
 	}
 	apiFile(c, path, filepath.Base(n.Str("billing_number"))+".pdf")
 }
 
 // api registers the module's endpoints, paths relative to /api/v1 (api.php).
-func api(r app.Router) {
+func apiRoutes(r app.Router) {
 	r.Get("/accounting/stats", apiStats)
 	r.Get("/accounting/customers", apiCustomers)
 	r.Get("/accounting/customers/{id}", apiCustomer)

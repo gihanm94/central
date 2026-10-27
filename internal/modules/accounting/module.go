@@ -66,7 +66,7 @@ func init() {
 			"revenue.ranking": app.HookPeriod(func(c *app.Ctx, from, to string) app.M { return rankingGet(from, to) }),
 		},
 		Routes: routes,
-		API:    api,
+		API:    apiRoutes,
 	})
 	app.Commands["erp-sync"] = erpSync
 }
