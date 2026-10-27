@@ -1,0 +1,35 @@
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title">{{__ "Roles & access"}}</h1>
+        <p class="mt-1 max-w-2xl text-sm text-steel">{{__ "A role decides what people can do and which records they see. You can still make exceptions for one person from their member page."}}</p>
+    </div>
+    {{if can "roles" "create"}}<a href="{{url "/roles/create"}}" class="btn-primary w-full sm:w-auto">{{icon "plus" "size-4"}} {{__ "New role"}}</a>{{end}}
+</div>
+
+<div class="mt-6 grid gap-4 lg:grid-cols-2">
+    {{range $r := .roles}}
+        <section class="panel flex flex-col">
+            <div class="flex items-start justify-between gap-4 p-5">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="font-display text-2xl font-semibold">{{__ $r.name}}</h2>
+                        {{if bool $r.is_system}}<span class="badge bg-graphite-900/6 text-steel">{{__ "Built-in"}}</span>{{end}}
+                    </div>
+                    <p class="mt-1 text-sm text-steel">{{if $r.description}}{{__ $r.description}}{{else}}—{{end}}</p>
+                </div>
+                <div class="text-right"><p class="figure text-3xl">{{int $r.users_count}}</p><p class="text-xs text-steel">{{__ "people"}}</p></div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 px-5 text-xs text-steel">{{__ "Sees"}} {{template "partials/scope-badge" (dict "scope" $r.data_scope)}} · {{__ "rank :n" "n" (int $r.level)}}</div>
+            <div class="mt-4 flex-1 border-t border-graphite-900/6 px-5 py-3 text-xs leading-6 text-steel">
+                {{$r._summary}}
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2 border-t border-graphite-900/8 px-5 py-3">
+                {{if and (can "roles" "delete") (not (bool $r.is_system))}}
+                    <form method="POST" action="{{url (printf "/roles/%v/delete" $r.id)}}" data-confirm="{{__ "Delete the role :name?" "name" $r.name}}" class="mr-auto">{{csrfField}}<button class="btn-ghost px-2 text-signal-700" aria-label="{{__ "Delete"}}">{{icon "trash" "size-4"}}</button></form>
+                {{end}}
+                {{if can "roles" "edit"}}<a href="{{url (printf "/roles/%v/edit" $r.id)}}" class="btn-secondary py-1.5">{{__ "Edit role"}}</a>{{end}}
+                <a href="{{url (printf "/roles/%v/permissions" $r.id)}}" class="btn-dark py-1.5">{{icon "shield" "size-4"}} {{__ "Permissions"}}</a>
+            </div>
+        </section>
+    {{end}}
+</div>
