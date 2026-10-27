@@ -51,8 +51,12 @@ func Configured() bool { return ClientID() != "" && ClientSecret() != "" }
 // RedirectURI is url('/connect/google/callback').
 func RedirectURI(c *app.Ctx) string { return c.URL("/connect/google/callback") }
 
-func authURL() string  { return php.OrStr(app.Setting("google_auth_url", ""), "https://accounts.google.com/o/oauth2/v2/auth") }
-func tokenURL() string { return php.OrStr(app.Setting("google_token_url", ""), "https://oauth2.googleapis.com/token") }
+func authURL() string {
+	return php.OrStr(app.Setting("google_auth_url", ""), "https://accounts.google.com/o/oauth2/v2/auth")
+}
+func tokenURL() string {
+	return php.OrStr(app.Setting("google_token_url", ""), "https://oauth2.googleapis.com/token")
+}
 
 // APIURL is the API base address.
 func APIURL() string {

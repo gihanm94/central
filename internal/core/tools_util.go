@@ -1,8 +1,8 @@
 package core
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"acme/internal/config"

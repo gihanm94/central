@@ -100,9 +100,9 @@ func adminEditTable(c *app.Ctx) {
 		cols = append(cols, colView{col.Name, col.Type, secretColumn(col.Name), !php.InList(col.Name, hidden...)})
 	}
 	type pick struct {
-		ID         int
-		Name, Sub  string
-		Checked    bool
+		ID        int
+		Name, Sub string
+		Checked   bool
 	}
 	var rv, uv []pick
 	for _, r := range db.Select("SELECT id, name FROM roles ORDER BY level DESC, name") {

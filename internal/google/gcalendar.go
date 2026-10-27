@@ -143,4 +143,3 @@ func RemoveActivity(c *app.Ctx, a db.Row) {
 		app.WriteErrorLog("[gcal] remove: " + err.Error())
 	}
 }
-

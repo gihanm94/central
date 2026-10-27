@@ -150,7 +150,7 @@ func mailShow(c *app.Ctx) {
 	}
 	c.View("mail/show", app.M{"title": title, "m": m, "subject": subject, "date": date, "doc": doc,
 		"hasImages": htm != "" && regexp.MustCompile(`(?i)<img\b`).MatchString(htm) && !images,
-		"reply": app.M{"to": replyTo, "subject": reSubject, "thread": m["thread"], "in_reply_to": m["message_id"], "references": m["references"]}})
+		"reply":     app.M{"to": replyTo, "subject": reSubject, "thread": m["thread"], "in_reply_to": m["message_id"], "references": m["references"]}})
 }
 
 var emailInBrackets = regexp.MustCompile(`<[^>]+@[^>]+>`)

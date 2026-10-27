@@ -340,9 +340,9 @@ func syncForm(c *app.Ctx, title string, s db.Row, tables, accounts []db.Row, tab
 	}
 	label := ""
 	type tableOpt struct {
-		ID                 int
-		Label, Text        string
-		Selected           bool
+		ID          int
+		Label, Text string
+		Selected    bool
 	}
 	var topts []tableOpt
 	for _, t := range tables {

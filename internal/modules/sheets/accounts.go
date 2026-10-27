@@ -16,7 +16,7 @@ import (
 // Scopes the module asks for.
 var Scopes = []string{
 	"openid", "email",
-	"https://www.googleapis.com/auth/spreadsheets",           // write the synced tabs
+	"https://www.googleapis.com/auth/spreadsheets",            // write the synced tabs
 	"https://www.googleapis.com/auth/drive.metadata.readonly", // list the person's spreadsheets to pick from
 }
 
