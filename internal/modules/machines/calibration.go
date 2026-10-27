@@ -139,7 +139,9 @@ var calibration = &app.Resource{
 				}
 				return pillH(c, c.T("Failed"), "bad")
 			}},
-			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(php.Coalesce(r["department_name"], "—"))) }},
+			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
+				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+			}},
 		}
 	},
 	Prepare: func(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {

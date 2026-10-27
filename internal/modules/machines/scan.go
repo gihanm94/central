@@ -36,10 +36,10 @@ func scanLookup(c *app.Ctx) {
 	code := codeFromScan(c.Query("text", ""))
 	if code != "" {
 		if m := machine(code); m != nil {
-			c.JSON(om("ok", true, "code", m["machine_code"], "url", c.URL("/machines/m/"+url.PathEscape(m.Str("machine_code")))))
+			c.JSONRaw(phpJSON(om("ok", true, "code", m["machine_code"], "url", c.URL("/machines/m/"+url.PathEscape(m.Str("machine_code")))), 0))
 		}
 	}
-	c.JSON(om("ok", false, "message", c.T("No machine with this code.")), http.StatusNotFound)
+	c.JSONRaw(phpJSON(om("ok", false, "message", c.T("No machine with this code.")), 0), http.StatusNotFound)
 }
 
 // scanFind: type-ahead for the code box: any machine in use.
@@ -47,7 +47,7 @@ func scanFind(c *app.Ctx) {
 	c.MustUser()
 	q := strings.TrimSpace(c.Query("q", ""))
 	if php.Len(q) < 2 {
-		c.JSON(om("rows", []any{}))
+		c.JSONRaw(phpJSON(om("rows", []any{}), 0))
 	}
 	like := "%" + q + "%"
 	rows := mdb().Select("SELECT machine_code, machine_name, brand, model FROM machine WHERE deleted_at IS NULL AND machine_status IN ("+activeIn()+") AND (machine_code ILIKE ? OR machine_name ILIKE ? OR serial_number ILIKE ? OR machine_number ILIKE ?) ORDER BY machine_code LIMIT 12", like, like, like, like)
@@ -55,7 +55,7 @@ func scanFind(c *app.Ctx) {
 	for _, r := range rows {
 		out = append(out, om("code", r["machine_code"], "name", r["machine_name"], "sub", strings.TrimSpace(r.Str("brand")+" "+r.Str("model")), "url", c.URL("/machines/m/"+url.PathEscape(r.Str("machine_code")))))
 	}
-	c.JSON(om("rows", out))
+	c.JSONRaw(phpJSON(om("rows", out), 0))
 }
 
 // scanMachine is the page a QR label opens.
@@ -94,10 +94,10 @@ func scanMachine(c *app.Ctx) {
 		{"l": c.T("Supervisor"), "v": php.Str(sup)},
 	}
 	c.View("machines/landing", app.M{"title": m["machine_code"], "m": m, "plan": p, "checks": checks, "due": due, "facts": facts, "active": act,
-		"pills":   []any{pillH(c, m["machine_status"], ""), pillH(c, m["check_status"], "")},
-		"overdue": pillH(c, c.T("Overdue"), "bad"),
+		"pills":    []any{pillH(c, m["machine_status"], ""), pillH(c, m["check_status"], "")},
+		"overdue":  pillH(c, c.T("Overdue"), "bad"),
 		"canCheck": p != nil && c.Can("machines_checklists", "create"), "canOpen": c.Can("machines_machines", "view") && canSee(u, m.Str("machine_code")),
-		"checkURL": c.URL("/machines/checklists/new?machine=" + url.PathEscape(m.Str("machine_code"))),
+		"checkURL":  c.URL("/machines/checklists/new?machine=" + url.PathEscape(m.Str("machine_code"))),
 		"statusLow": strings.ToLower(m.Str("machine_status"))})
 }
 

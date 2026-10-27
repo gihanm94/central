@@ -32,8 +32,8 @@ func api(r app.Router) {
 
 // apiError is ApiException: an answer other than 2xx.
 type apiError struct {
-	status      int
-	code, msg   string
+	status    int
+	code, msg string
 }
 
 func (e *apiError) Error() string { return e.msg }

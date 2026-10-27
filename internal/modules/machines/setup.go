@@ -16,7 +16,9 @@ var types = &app.Resource{
 	Base: "/machines/types", Icon: "gear", OrderBy: "t.machine_group_id, t.machine_type_id", Module: "machines", Conn: conn,
 	Searchable: []string{"t.machine_group_name", "t.machine_type_name", "t.machine_group_id", "t.machine_type_id"},
 	ScopeSQL:   func(c *app.Ctx) (string, []any) { return "TRUE", nil },
-	Label:      func(c *app.Ctx, row db.Row) string { return row.Str("machine_group_name") + " / " + row.Str("machine_type_name") },
+	Label: func(c *app.Ctx, row db.Row) string {
+		return row.Str("machine_group_name") + " / " + row.Str("machine_type_name")
+	},
 	Filters: func(c *app.Ctx) []app.Filter {
 		return []app.Filter{
 			{Name: "group", Label: c.T("All groups"), Options: groupOptions(), Column: "t.machine_group_id"},

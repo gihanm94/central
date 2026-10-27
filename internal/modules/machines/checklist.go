@@ -31,8 +31,10 @@ var checklists = &app.Resource{
 		s, p := scope(u, "m")
 		return "(t.created_by = ? OR t.supervisor = ? OR t.manager = ? OR (m.id IS NOT NULL AND " + s + "))", append([]any{u.ID, u.ID, u.ID}, p...)
 	},
-	Hydrate:   func(c *app.Ctx, rows []db.Row) []db.Row { return withPeople(rows, "supervisor", "manager") },
-	Label:     func(c *app.Ctx, row db.Row) string { return row.Str("machine_code") + " · " + fmtDate(c, row["created_at"], "d M Y H:i") },
+	Hydrate: func(c *app.Ctx, rows []db.Row) []db.Row { return withPeople(rows, "supervisor", "manager") },
+	Label: func(c *app.Ctx, row db.Row) string {
+		return row.Str("machine_code") + " · " + fmtDate(c, row["created_at"], "d M Y H:i")
+	},
 	Owner:     func(row db.Row) int { return row.Int("created_by") },
 	CanModify: func(c *app.Ctx, row db.Row, action string) bool { return c.MustUser().IsAdmin() },
 	Filters: func(c *app.Ctx) []app.Filter {
@@ -133,10 +135,10 @@ func statusChoices(c *app.Ctx, _ string) []statusChoice {
 
 // questionView is one question of machines/_questions with the answer posted before.
 type questionView struct {
-	N, ID              int
-	Detail, Desc       string
-	Choice             bool
-	Ans, Remark        string
+	N, ID        int
+	Detail, Desc string
+	Choice       bool
+	Ans, Remark  string
 }
 
 func questionsView(c *app.Ctx, items []db.Row) []questionView {

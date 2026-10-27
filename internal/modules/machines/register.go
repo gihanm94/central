@@ -53,11 +53,15 @@ var register = &app.Resource{
 			{Key: "machine", Label: c.T("Machine"), Primary: true, Sort: "t.machine_name", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return app.HTML(`<span class="font-medium">` + esc(r["machine_name"]) + `</span><span class="block text-xs text-steel">` + esc(strings.TrimSpace(r.Str("brand")+" "+r.Str("model"))) + `</span>`)
 			}},
-			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(php.Coalesce(r["department_name"], "—"))) }},
+			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
+				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+			}},
 			{Key: "by", Label: c.T("Requested by"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return app.HTML(esc(php.Coalesce(r["created_by_name"], "—")) + `<span class="block text-xs text-steel">` + esc(fmtDate(c, r["created_at"])) + `</span>`)
 			}},
-			{Key: "resp", Label: c.T("Responsible"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(php.Coalesce(r["responsible_id_name"], "—"))) }},
+			{Key: "resp", Label: c.T("Responsible"), Render: func(c *app.Ctx, r db.Row) template.HTML {
+				return app.HTML(esc(php.Coalesce(r["responsible_id_name"], "—")))
+			}},
 			{Key: "state", Label: c.T("Status"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r.Int("machine_count") > 0 {
 					return app.HTML(pill(c, c.T("Machine created"), "ok") + `<span class="mt-0.5 block text-xs text-steel">` + esc(r["machine_codes"]) + `</span>`)

@@ -107,7 +107,9 @@ var maintenance = &app.Resource{
 				}
 				return app.HTML(h)
 			}},
-			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(php.Coalesce(r["department_name"], "—"))) }},
+			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
+				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+			}},
 		}
 	},
 	RowLinks: func(c *app.Ctx, row db.Row) []app.Link {

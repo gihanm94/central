@@ -52,7 +52,7 @@ type answer struct {
 }
 
 // answers: posted answers → the list saved with the record. Every item needs an answer; "NG" needs a remark.
-// posted is Request::input('answers'): answers[<item id>] = [answer => OK|NG|NA|text, remark => ''].
+// posted is Request::input('answers'): answers[<item id>] = [answer => OK|NG|NA|text, remark => ”].
 func answers(c *app.Ctx, items []db.Row, posted any) []answer {
 	if len(items) == 0 {
 		app.Invalid("answers", c.T("This machine has no checklist questions yet. Ask its manager to add them."))

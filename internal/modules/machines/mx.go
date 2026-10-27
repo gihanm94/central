@@ -102,7 +102,9 @@ func pill(c *app.Ctx, text any, tone string) string {
 	return `<span class="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ` + pillClasses[tone] + `">` + app.E(show) + `</span>`
 }
 
-func pillH(c *app.Ctx, text any, tone string) template.HTML { return template.HTML(pill(c, text, tone)) }
+func pillH(c *app.Ctx, text any, tone string) template.HTML {
+	return template.HTML(pill(c, text, tone))
+}
 
 func isActive(status any) bool { return php.InList(php.Str(status), active...) && status != nil }
 

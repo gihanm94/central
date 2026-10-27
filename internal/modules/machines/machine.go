@@ -54,7 +54,9 @@ var machines = &app.Resource{
 				}
 				return app.HTML(esc(t) + `<span class="block text-xs text-steel">` + esc(strings.TrimSpace(r.Str("brand")+" "+r.Str("model"))) + `</span>`)
 			}},
-			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(php.Coalesce(r["department_name"], "—"))) }},
+			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
+				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+			}},
 			{Key: "resp", Label: c.T("Responsible"), Sort: "t.responsible_person_name", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return app.HTML(esc(php.Coalesce(r["responsible_person_id_name"], r["responsible_person_name"], "—")))
 			}},
@@ -752,7 +754,7 @@ type infoItem struct {
 	Raw   bool
 }
 
-// Empty: $val === null || $val === ''
+// Empty: $val === null || $val === ”
 func (i infoItem) Empty() bool {
 	if i.Val == nil {
 		return true
