@@ -96,11 +96,7 @@ func (s *screen) setup() *screen {
 		return out
 	}
 	r.Finish = func(c *app.Ctx, id int) {
-		if c.API { // the mobile API delegated to this action: hand the id back instead of answering
-			c.Shared["_crm_saved_id"] = id
-			return
-		}
-		if c.IsJSON() {
+		if c.API || c.IsJSON() {
 			c.JSON(app.M{"ok": true, "id": id, "url": c.URL(r.Base + "/" + php.Str(id))})
 		}
 		c.Redirect(r.Base + "/" + php.Str(id))

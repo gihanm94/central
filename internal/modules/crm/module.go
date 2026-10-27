@@ -45,7 +45,7 @@ func init() {
 			"management.crm": app.HookPeriod(managementData),
 		},
 		Routes: routes,
-		API:    api,
+		API:    apiRoutes,
 	})
 
 	// Sends due activity reminders. Run it every minute from cron so reminders go out even when nobody is signed in:

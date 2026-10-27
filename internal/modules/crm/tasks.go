@@ -212,9 +212,6 @@ func taskSetStatus(c *app.Ctx) {
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "task", ID: id, Label: row.Str("name"), Text: `Marked task ":label" as :status`,
 		Params: []any{"label", row.Str("name"), "status", to},
 		Props:  app.M{"changes": app.M{"status": app.M{"from": trLabel(c, taskStatuses, row.Str("status")), "to": c.T(to)}}}, Owner: row.Int("owner_id"), Module: "crm"})
-	if c.API { // the mobile API delegated here: done
-		return
-	}
 	c.Flash("success", c.T("Marked as :status.", "status", strings.ToLower(c.T(to))))
 	c.Back("", "")
 }

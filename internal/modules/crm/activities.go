@@ -7,6 +7,7 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/db"
+	"acme/internal/google"
 	"acme/internal/php"
 )
 
@@ -33,9 +34,7 @@ var startQuery = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2})?$`)
 var activityTones = map[string]string{"PLANNED": "info", "DONE": "success", "CANCELLED": "neutral"}
 
 func gcalSync(c *app.Ctx, id int) {
-	if app.GCalendarSyncActivity != nil {
-		app.GCalendarSyncActivity(c, id)
-	}
+	google.SyncActivity(c, id)
 }
 
 func init() {
@@ -44,9 +43,7 @@ func init() {
 	// Every saved activity is also put on its owner's Google Calendar (when connected); the local calendar reads the table itself.
 	s.savedAfter = gcalSync
 	r.BeforeDelete = func(c *app.Ctx, row db.Row) {
-		if app.GCalendarRemoveActivity != nil {
-			app.GCalendarRemoveActivity(c, row)
-		}
+		google.RemoveActivity(c, row)
 	}
 	r.Filters = func(c *app.Ctx) []app.Filter {
 		return append([]app.Filter{
@@ -239,9 +236,6 @@ func activitySetStatus(c *app.Ctx) {
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "activity", ID: id, Label: row.Str("topic"), Text: `Marked activity ":label" as :status`,
 		Params: []any{"label", row.Str("topic"), "status", to},
 		Props:  app.M{"changes": app.M{"status": app.M{"from": trLabel(c, activityStatuses, row.Str("status")), "to": c.T(to)}}}, Owner: row.Int("owner_id"), Module: "crm"})
-	if c.API { // the mobile API delegated here: done
-		return
-	}
 	c.Flash("success", c.T("Marked as :status.", "status", strings.ToLower(c.T(to))))
 	c.Redirect("/crm/activities/" + php.Str(id))
 }
