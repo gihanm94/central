@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/config"
 	"acme/internal/db"
 	"acme/internal/php"
 )
@@ -156,9 +157,9 @@ func rankingGet(from, to string) app.M {
 	pFrom := pTo.AddDate(0, 0, -(days - 1))
 	prev := php.Float(acc().Scalar("SELECT coalesce(round(sum("+line+")::numeric, 2), 0) "+base, pFrom.Format("2006-01-02"), pTo.Format("2006-01-02")))
 
-	months := app.M{}
+	months := config.NewMap()
 	for _, r := range acc().Select("SELECT to_char("+day+", 'YYYY-MM') AS ym, round(sum("+line+")::numeric, 2) AS v "+base+" GROUP BY 1 ORDER BY 1", from, to) {
-		months[r.Str("ym")] = r.Float("v")
+		months.Set(r.Str("ym"), r.Float("v"))
 	}
 	var customers, sellers, depts []app.M
 	for _, r := range acc().Select(`SELECT coalesce(nullif(c.name, ''), i.customer_code, '—') AS name, max(i.customer_code) AS code, round(sum(`+line+`)::numeric, 2) AS v,

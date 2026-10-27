@@ -209,14 +209,14 @@ func paymentRemark(customerID any) any {
 }
 
 type pdfRow struct {
-	No                       int
-	PartNumber, PartName     string
-	Batch                    string
-	DeliveryDate             any
-	Qty                      float64
-	Unit                     string
-	Price, Discount, Conv    float64
-	Sub                      []string
+	No                    int
+	PartNumber, PartName  string
+	Batch                 string
+	DeliveryDate          any
+	Qty                   float64
+	Unit                  string
+	Price, Discount, Conv float64
+	Sub                   []string
 }
 
 var nlRe = regexp.MustCompile(`\r?\n`)

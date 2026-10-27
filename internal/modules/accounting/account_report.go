@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/config"
 	"acme/internal/db"
 	"acme/internal/php"
 )
@@ -49,7 +50,9 @@ func arMonths(c *app.Ctx) []app.Opt {
 }
 
 // appDepartmentNames: department names of the app (User Management → Departments).
-func appDepartmentNames() []string { return column(db.Select("SELECT name FROM departments WHERE deleted_at IS NULL ORDER BY name"), "name") }
+func appDepartmentNames() []string {
+	return column(db.Select("SELECT name FROM departments WHERE deleted_at IS NULL ORDER BY name"), "name")
+}
 
 func arYears() []app.Opt {
 	var out []app.Opt
@@ -102,7 +105,9 @@ func arAlreadyStored(data *app.Clean, existing db.Row) bool {
 
 var arKeyRe = regexp.MustCompile(`[^a-z0-9ก-๙]+`)
 
-func arKey(v string) string { return strings.Trim(arKeyRe.ReplaceAllString(strings.ToLower(strings.TrimSpace(v)), "_"), "_") }
+func arKey(v string) string {
+	return strings.Trim(arKeyRe.ReplaceAllString(strings.ToLower(strings.TrimSpace(v)), "_"), "_")
+}
 
 var accountReports = &app.Resource{
 	Resource: "accounting_reports", Table: "account_reports", Type: "account_report", Singular: "account line", Plural: "account report",
@@ -166,7 +171,9 @@ var accountReports = &app.Resource{
 				}
 				return h(`<span class="badge ` + kindTone[r.Str("kind")] + `">` + app.E(l) + `</span>`)
 			}},
-			{Key: "year", Label: c.T("Year"), Sort: "t.year", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(`<span class="tabular-nums">` + php.Str(r.Int("year")) + `</span>`) }},
+			{Key: "year", Label: c.T("Year"), Sort: "t.year", Render: func(c *app.Ctx, r db.Row) template.HTML {
+				return h(`<span class="tabular-nums">` + php.Str(r.Int("year")) + `</span>`)
+			}},
 			{Key: "month", Label: c.T("Month"), Sort: "t.month", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				l, ok := app.OptLabel(months, php.Str(r.Int("month")))
 				if !ok {
@@ -321,7 +328,9 @@ var accountReports = &app.Resource{
 		}
 		return raw
 	},
-	Intro: func(c *app.Ctx) string { return c.T("Import a CSV or Excel file; lines already in the report are skipped.") },
+	Intro: func(c *app.Ctx) string {
+		return c.T("Import a CSV or Excel file; lines already in the report are skipped.")
+	},
 }
 
 // monthOf is date('n', strtotime('1 '.$m.' 2000')) for English month names and their short forms (0 = not a month).
@@ -429,13 +438,13 @@ func accountReportSummary(filters app.M) app.M {
 	byDept := acc().Select("SELECT department, "+sum+" FROM account_reports WHERE "+w+" GROUP BY department ORDER BY department", p...)
 	matrix := acc().Select("SELECT department, type, SUM(amount)::float AS amount FROM account_reports WHERE "+w+" GROUP BY department, type", p...)
 
-	monthsOf := func(rows []db.Row) app.M {
-		m := app.M{}
+	monthsOf := func(rows []db.Row) *config.Map {
+		m := config.NewMap()
 		for i := 1; i <= 12; i++ {
-			m[php.Str(i)] = app.M{"income": 0.0, "expense": 0.0}
+			m.Set(php.Str(i), om("income", 0.0, "expense", 0.0))
 		}
 		for _, r := range rows {
-			m[php.Str(r.Int("month"))] = app.M{"income": r.Float("income"), "expense": r.Float("expense")}
+			m.Set(php.Str(r.Int("month")), om("income", r.Float("income"), "expense", r.Float("expense")))
 		}
 		return m
 	}
@@ -447,12 +456,12 @@ func accountReportSummary(filters app.M) app.M {
 			topExpense = append(topExpense, app.M(r))
 		}
 	}
-	types, kinds := app.M{}, app.M{}
+	types, kinds := config.NewMap(), config.NewMap()
 	for _, x := range arTypes {
-		types[x[0]] = x[1]
+		types.Set(x[0], x[1])
 	}
 	for _, x := range arKinds {
-		kinds[x[0]] = x[1]
+		kinds.Set(x[0], x[1])
 	}
 	ys := []any{}
 	for _, y := range years {

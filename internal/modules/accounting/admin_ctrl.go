@@ -395,9 +395,9 @@ func erpIndex(c *app.Ctx) {
 	cron := "* * * * * " + program() + " -base " + app.BasePath + " erp-sync tick"
 	c.View("accounting/erp", app.M{"title": c.T("ERP connection"), "apis": apis, "configured": erpConfigured(), "inWindow": inWindow(time.Now()), "cron": cron, "hasPassword": erpPassword() != "",
 		"hasInet": sget("inet.authorization", "") != "", "tokenState": tokenState, "tokenSession": tokenSession, "tokenGot": tokenGot, "hasToken": token != nil, "days": dayList,
-		"conn": app.M{"ip": connSetting("ip"), "port": connSetting("port"), "username": connSetting("username"), "timeout": connSetting("timeout"), "verify": connSetting("verify_tls") == "1", "base": erpBaseURL()},
+		"conn":  app.M{"ip": connSetting("ip"), "port": connSetting("port"), "username": connSetting("username"), "timeout": connSetting("timeout"), "verify": connSetting("verify_tls") == "1", "base": erpBaseURL()},
 		"sched": app.M{"enabled": sched, "hot": schedSetting("hot_minutes"), "cold": schedSetting("cold_minutes"), "from": schedSetting("hour_start"), "to": schedSetting("hour_end"), "tz": schedSetting("tz")},
-		"inet": app.M{"sendApi": inetSetting("sendApi"), "statusApi": inetSetting("statusApi"), "paramsApi": inetSetting("paramsApi")},
+		"inet":  app.M{"sendApi": inetSetting("sendApi"), "statusApi": inetSetting("statusApi"), "paramsApi": inetSetting("paramsApi")},
 		"stats": statCards, "runningLabel": runLabel, "schedText": schedText + beatText, "endpointCount": len(eps.Keys),
 		"errIP": c.Sess.Errors().Get("ip"), "errSend": c.Sess.Errors().Get("inet_sendApi"), "errStatus": c.Sess.Errors().Get("inet_statusApi"), "errParams": c.Sess.Errors().Get("inet_paramsApi")})
 }

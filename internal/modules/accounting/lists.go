@@ -178,7 +178,9 @@ var ordersList = newErpList(&erpList{syncKey: "order", res: &app.Resource{
                        (SELECT sum(coalesce(r.ordered_quantity, 0) * coalesce(r.price, 0) * (1 - coalesce(r.discount, 0) / 100)) FROM erp_order_rows r WHERE r.parent_order_id = t.id) AS total
                 FROM erp_orders t LEFT JOIN erp_customers c ON c.id = t.customer_id LEFT JOIN erp_sellers s ON s.id = t.seller_id`
 	},
-	Label: func(c *app.Ctx, row db.Row) string { return php.Str(php.Coalesce(row["order_number"], "#"+row.Str("id"))) },
+	Label: func(c *app.Ctx, row db.Row) string {
+		return php.Str(php.Coalesce(row["order_number"], "#"+row.Str("id")))
+	},
 	Filters: func(c *app.Ctx) []app.Filter {
 		var kinds []app.Opt
 		for _, r := range acc().Select("SELECT DISTINCT upper(substring(order_number FROM '^[A-Za-z]+')) AS k FROM erp_orders WHERE order_number ~ '^[A-Za-z]' ORDER BY 1") {
@@ -368,7 +370,9 @@ var productsList = newErpList(&erpList{syncKey: "product", res: &app.Resource{
 	Resource: "accounting_products", Table: "erp_products", Type: "product", Singular: "product", Plural: "products",
 	Base: "/accounting/products", Icon: "box", OrderBy: "t.id DESC",
 	Searchable: []string{"t.part_number", "t.description", "t.alias"},
-	Label:      func(c *app.Ctx, row db.Row) string { return php.Str(php.Coalesce(row["part_number"], "#"+row.Str("id"))) },
+	Label: func(c *app.Ctx, row db.Row) string {
+		return php.Str(php.Coalesce(row["part_number"], "#"+row.Str("id")))
+	},
 	Columns: func(c *app.Ctx) []app.Column {
 		return []app.Column{
 			{Key: "part", Label: c.T("Part"), Primary: true, Sort: "t.part_number", Render: func(c *app.Ctx, r db.Row) template.HTML {

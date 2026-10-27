@@ -82,16 +82,16 @@ func billingCustomer(id string) db.Row {
 }
 
 type billInv struct {
-	InvoiceNumber          int     `json:"invoice_number"`
-	OrderNo                string  `json:"order_no"`
-	InvoiceDate            any     `json:"invoice_date"`
-	DueDate                any     `json:"due_date"`
-	Amount                 float64 `json:"amount"`
-	VatAmount              float64 `json:"vat_amount"`
-	IsCredit               bool    `json:"is_credit"`
-	Currency               string  `json:"currency"`
-	HasReceivable          bool    `json:"has_receivable"`
-	OnNote                 bool    `json:"-"`
+	InvoiceNumber int     `json:"invoice_number"`
+	OrderNo       string  `json:"order_no"`
+	InvoiceDate   any     `json:"invoice_date"`
+	DueDate       any     `json:"due_date"`
+	Amount        float64 `json:"amount"`
+	VatAmount     float64 `json:"vat_amount"`
+	IsCredit      bool    `json:"is_credit"`
+	Currency      string  `json:"currency"`
+	HasReceivable bool    `json:"has_receivable"`
+	OnNote        bool    `json:"-"`
 }
 
 // billingInvoices: invoices of a customer that are not on any billing note yet.

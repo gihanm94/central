@@ -67,7 +67,7 @@ func addslashes(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `'`, `\'`, `"`, `\"`, "\x00", `\0`).Replace(s)
 }
 
-// trimNum is rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.').
+// trimNum is rtrim(rtrim(number_format($v, 2, '.', ”), '0'), '.').
 func trimNum(v float64) string {
 	return strings.TrimRight(strings.TrimRight(nf(v, 2, ".", ""), "0"), ".")
 }
@@ -112,13 +112,13 @@ func pdfFonts() string {
 }
 
 type pdfItem struct {
-	No                         int
+	No                          int
 	PartNumber, PartName, Batch string
-	Sub                        []string
-	DeliveryDate               string
-	Qty                        float64
-	Unit                       string
-	Price, Discount, Amount    float64
+	Sub                         []string
+	DeliveryDate                string
+	Qty                         float64
+	Unit                        string
+	Price, Discount, Amount     float64
 }
 
 // documentHTML is PdfRenderer::html: the page that is printed.
