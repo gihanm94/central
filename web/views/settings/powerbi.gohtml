@@ -1,0 +1,20 @@
+{{- /* .url (current Power BI report link or '') — administrators only */ -}}
+{{template "settings/_tabs" .}}
+<form method="POST" action="{{url "/settings/powerbi"}}" class="panel mt-6 max-w-3xl space-y-4 p-5">
+    {{csrfField}}
+    <div>
+        <h2 class="panel-title">{{__ "Power BI overview report"}}</h2>
+        <p class="mt-1 text-sm text-steel">{{__ "Shown full page on Management → Power BI → Overview. Only administrators can change it."}}</p>
+    </div>
+    <div>
+        <label for="embed" class="label">{{__ "Embed code or report link"}}</label>
+        <textarea id="embed" name="embed" rows="5" class="input font-mono text-xs" placeholder='<iframe title="…" width="1140" height="541.25" src="https://app.powerbi.com/reportEmbed?reportId=…" frameborder="0" allowFullScreen="true"></iframe>'>{{old "embed" .url}}</textarea>
+        {{with errorFor "embed"}}<p class="mt-1 text-sm text-signal-700">{{.}}</p>{{end}}
+        <p class="hint">{{__ "In Power BI: File → Embed report → Website or portal (or Publish to web), copy the iframe code and paste it here. Only the https link to Power BI is kept. Leave empty to remove the report."}}</p>
+    </div>
+    {{if .url}}<p class="break-all text-xs text-steel">{{__ "Now showing"}}: {{.url}}</p>{{end}}
+    <div class="flex items-center justify-end gap-2">
+        {{if .url}}<a href="{{url "/management/powerbi"}}" class="btn-secondary">{{__ "Open the report"}}</a>{{end}}
+        <button class="btn-primary">{{__ "Save"}}</button>
+    </div>
+</form>

@@ -1,0 +1,4 @@
+<h1 class="page-title">{{__ "Company settings"}}</h1>
+{{- $tabs := list (list "/settings" (__ "Branding & language") "photo") (list "/settings/notifications" (__ "Notifications") "bell") -}}
+{{- if isAdmin}}{{$tabs = list (list "/settings" (__ "Branding & language") "photo") (list "/settings/notifications" (__ "Notifications") "bell") (list "/settings/powerbi" (__ "Power BI") "chart")}}{{end}}
+{{template "partials/tabs" (dict "tabs" $tabs)}}
