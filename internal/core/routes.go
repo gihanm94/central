@@ -38,7 +38,7 @@ var (
 	authRoutes  []func(r app.Router)
 )
 
-func guest(fn func(r app.Router))    { guestRoutes = append(guestRoutes, fn) }
+func guest(fn func(r app.Router)) { guestRoutes = append(guestRoutes, fn) }
 func signedIn(fn func(r app.Router)) { authRoutes = append(authRoutes, fn) }
 
 func init() {
