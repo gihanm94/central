@@ -1,0 +1,33 @@
+{{- /* .me, .sessions, .events, .page, .pages, .total, .maxHours */ -}}
+{{template "profile/_header" .}}
+<div class="mt-6 grid items-start gap-6 xl:grid-cols-5">
+    <section class="panel xl:col-span-3">
+        <div class="panel-head"><div><h2 class="panel-title">{{__ "Active sessions"}}</h2><p class="text-xs text-steel">{{__ "Every browser that is signed in to your account. Each one ends by itself :h hours after signing in." "h" .maxHours}}</p></div>
+            {{if gt (len .sessions) 1}}<form method="POST" action="{{url "/profile/sessions/revoke-others"}}" data-confirm="{{__ "Sign out every other device?"}}">{{csrfField}}<button class="btn-secondary py-1 text-xs">{{__ "Sign out all others"}}</button></form>{{end}}</div>
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .sessions}}{{$s := .row}}
+            <li class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
+                <div class="min-w-0">
+                    <p class="flex items-center gap-2 text-sm font-medium">{{$s.device}}{{if .cur}}<span class="badge bg-emerald-50 text-emerald-800">{{__ "This device"}}</span>{{end}}</p>
+                    <p class="text-xs text-steel">{{$s.ip}} · {{__ "signed in :t" "t" (timeAgo $s.created_at)}} · {{__ "active :t" "t" (timeAgo $s.last_seen_at)}} · {{__ "ends :d" "d" (formatDate $s.expires_at "d M, H:i")}}</p>
+                </div>
+                <form method="POST" action="{{url (printf "/profile/sessions/%v/revoke" $s.id)}}" data-confirm="{{if .cur}}{{__ "Sign out of this device?"}}{{else}}{{__ "Sign this device out?"}}{{end}}">{{csrfField}}<button class="btn-danger px-3 py-1.5 text-xs">{{if .cur}}{{__ "Sign out"}}{{else}}{{__ "Revoke"}}{{end}}</button></form>
+            </li>
+            {{end}}
+            {{if not .sessions}}<li class="px-5 py-6 text-center text-sm text-steel">{{__ "No active sessions."}}</li>{{end}}
+        </ul>
+    </section>
+    <section class="panel xl:col-span-2">
+        <div class="panel-head"><div><h2 class="panel-title">{{__ "Device log"}}</h2><p class="text-xs text-steel">{{__ "Sign-ins, sign-outs and failed attempts on your account."}}</p></div><span class="text-xs text-steel">{{.total}}</span></div>
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .events}}{{$ev := .row}}
+            <li class="px-5 py-3"><div class="flex items-center justify-between gap-2"><span class="badge {{.tone}}">{{.label}}</span><span class="text-xs text-steel" title="{{formatDate $ev.created_at "d M Y, H:i:s"}}">{{timeAgo $ev.created_at}}</span></div>
+                <p class="mt-1 truncate text-sm">{{$ev.device}}</p><p class="text-xs text-steel">{{$ev.ip}}{{if $ev.method}} · {{$ev.method}}{{end}}{{if $ev.note}} · {{$ev.note}}{{end}}</p></li>
+            {{end}}
+            {{if not .events}}<li class="px-5 py-6 text-center text-sm text-steel">{{__ "Nothing yet."}}</li>{{end}}
+        </ul>
+        {{if gt .pages 1}}<div class="flex items-center justify-between border-t border-graphite-900/8 px-5 py-2.5 text-sm text-steel">
+            <a class="btn-secondary !h-8 !px-3 {{if le .page 1}}pointer-events-none opacity-40{{end}}" href="{{url "/profile/sessions" "page" (sub .page 1)}}">‹</a><span>{{.page}} / {{.pages}}</span>
+            <a class="btn-secondary !h-8 !px-3 {{if ge .page .pages}}pointer-events-none opacity-40{{end}}" href="{{url "/profile/sessions" "page" (add .page 1)}}">›</a></div>{{end}}
+    </section>
+</div>

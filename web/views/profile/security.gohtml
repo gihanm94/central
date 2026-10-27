@@ -1,0 +1,72 @@
+{{template "profile/_header" .}}
+<div class="mt-6 grid items-start gap-6 xl:grid-cols-3">
+    <div class="space-y-6 xl:col-span-2">
+        <form method="POST" action="{{url "/profile/password"}}" class="panel">
+            {{csrfField}}
+            <div class="panel-head"><h2 class="panel-title">{{__ "Password"}}</h2></div>
+            <div class="grid gap-5 p-4 sm:grid-cols-3 sm:p-5">
+                {{range (list (list "current_password" (__ "Current password") "current-password") (list "password" (__ "New password") "new-password") (list "password_confirmation" (__ "Confirm new password") "new-password"))}}{{$name := index . 0}}
+                    <div>
+                        <label for="{{$name}}" class="label">{{index . 1}}</label>
+                        <input id="{{$name}}" name="{{$name}}" type="password" required autocomplete="{{index . 2}}" class="input {{if errorFor $name}}input-error{{end}}">
+                        {{fieldError $name}}
+                    </div>
+                {{end}}
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-graphite-900/8 px-4 py-3 sm:px-5">
+                <p class="text-xs text-steel">{{__ "Changing it signs you out on other devices and sends you a confirmation."}}</p>
+                <button class="btn-dark w-full sm:w-auto">{{__ "Change password"}}</button>
+            </div>
+        </form>
+
+        <section class="panel">
+            <div class="panel-head"><div><h2 class="panel-title">{{__ "Passkeys"}}</h2><p class="text-xs text-steel">{{__ "Sign in with your fingerprint, face or device PIN instead of a password."}}</p></div></div>
+            <ul class="divide-y divide-graphite-900/6">
+                {{range .passkeys}}
+                    <li class="flex items-center justify-between gap-4 px-5 py-3">
+                        <div class="flex min-w-0 items-center gap-3">{{icon "key" "size-5 shrink-0 text-steel"}}
+                            <div class="min-w-0"><p class="truncate text-sm font-medium">{{.name}}</p><p class="text-xs text-steel">{{__ "Added :date" "date" (formatDate .created_at)}} · {{if .last_used_at}}{{__ "last used :time" "time" (timeAgo .last_used_at)}}{{else}}{{__ "not used yet"}}{{end}}</p></div>
+                        </div>
+                        <form method="POST" action="{{url (printf "/passkeys/%v/delete" .id)}}" data-confirm="{{__ "Remove this passkey? You will no longer be able to sign in with it."}}">
+                            {{csrfField}}<button class="btn-danger px-3 py-1.5 text-xs">{{__ "Remove"}}</button>
+                        </form>
+                    </li>
+                {{end}}
+                {{if not .passkeys}}<li class="px-5 py-4 text-sm text-steel">{{__ "No passkeys yet."}}</li>{{end}}
+            </ul>
+            <form data-passkey-register action="{{url "/passkeys"}}" data-options-url="{{url "/passkeys/options"}}"
+                  data-msg-unsupported="{{__ "This browser does not support passkeys."}}" data-msg-cancel="{{__ "Passkey setup was cancelled."}}" data-msg-ok="{{__ "Passkey added."}}" data-msg-exists="{{__ "This device already has a passkey for your account."}}"
+                  class="flex flex-wrap items-end gap-3 border-t border-graphite-900/8 px-5 py-4">
+                <div class="min-w-0 flex-1 basis-48"><label for="passkey-name" class="label">{{__ "Name this passkey"}}</label><input id="passkey-name" name="name" maxlength="80" placeholder="{{__ "e.g. Work laptop"}}" class="input"></div>
+                <button type="submit" class="btn-primary w-full sm:w-auto">{{icon "finger" "size-4"}} {{__ "Add passkey"}}</button>
+                <p data-passkey-status role="alert" hidden class="w-full text-xs font-medium text-signal-700"></p>
+            </form>
+        </section>
+    </div>
+
+    <aside class="space-y-6">
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Remembered devices"}}</h2></div>
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                {{range .devices}}
+                    <li class="flex items-center justify-between gap-3 px-5 py-2.5">
+                        <div class="min-w-0"><p class="truncate">{{strLimit .user_agent 44}}</p><p class="text-xs text-steel">{{__ "Since :date" "date" (formatDate .created_at)}}</p></div>
+                        <form method="POST" action="{{url (printf "/profile/devices/%v/forget" .id)}}">{{csrfField}}<button class="btn-ghost px-2 py-1 text-xs">{{__ "Forget"}}</button></form>
+                    </li>
+                {{end}}
+                {{if not .devices}}<li class="px-5 py-3 text-steel">{{__ "No devices use “keep me signed in”."}}</li>{{end}}
+            </ul>
+        </section>
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Recent sign-ins"}}</h2></div>
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                {{range .logins}}
+                    <li class="px-5 py-2.5">
+                        <p class="{{if hasPrefix .description "Failed"}}text-signal-700{{end}}">{{activityText .}}</p>
+                        <p class="text-xs text-steel">{{.ip_address}} · {{timeAgo .created_at}}</p>
+                    </li>
+                {{end}}
+            </ul>
+        </section>
+    </aside>
+</div>
