@@ -278,6 +278,100 @@ npx @tailwindcss/cli -i resources/css/app.css -o public/assets/app.css --minify
 ```
 Run it inside this project folder (it needs internet once to download Tailwind).
 
+## Go version
+
+The system also exists as one Go program (branch `acme-go`): same URLs, same pages, same PostgreSQL databases, same
+`public/assets`. It replaces PHP + php-fpm; nothing else changes on the server. The PHP code stays in the tree as the reference.
+
+### Build and run
+
+Go 1.24 is needed on the machine that builds (the result is one static file, `acme`, that you copy to the server together with
+`config/`, `database/`, `lang/`, `public/` and `web/`).
+
+```bash
+GOTOOLCHAIN=local go build -o acme ./cmd/acme
+./acme -addr 127.0.0.1:8000 -base .      # -base = the project folder (env ACME_BASE, ACME_ADDR work too)
+./acme migrate                           # apply new SQL upgrades (database/sql/migrations/…) and exit
+```
+
+A new server: open `/install` (or `/install.php`) — same page as the PHP installer: it creates the databases, runs
+`database/sql/*.sql` and the upgrades, creates the admin (and optional demo data), writes `config/config.json` (mode 0600; saved
+passwords are never shown, a blank password field keeps the saved one) and `storage/installed.lock`. The upgrades also run by
+themselves on the first request after you deploy new files, so `acme migrate` is only needed for scripted deploys.
+If `config/config.json` goes missing on an installed system, the program looks for the database login by itself (`DB_HOST`,
+`DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, the template login, the running user, `postgres`) and otherwise shows the
+"Reconnect the database" form on `/install` — on the server itself (localhost) only.
+
+### Moving an existing PHP install
+
+The Go version reads JSON instead of PHP arrays. In the project folder (PHP is only needed for this one step):
+
+```bash
+php tools/php-to-json.php          # config/core.json, modules.json, erp*.json, inet_schema.json, lang/*.json
+php tools/php-to-json.php config   # also config/config.json from config/config.php (passwords; written with mode 0600, never commit it)
+```
+
+The database stays as it is. Sessions are separate (the Go version keeps its own files in `storage/sessions/`), so everybody
+signs in once more. Mobile app tokens keep working (same `api_devices` table).
+
+### systemd
+
+```ini
+# /etc/systemd/system/acme.service
+[Unit]
+Description=Acme company system
+After=network.target postgresql.service
+
+[Service]
+User=acme
+WorkingDirectory=/srv/acme
+ExecStart=/srv/acme/acme -addr 127.0.0.1:8000 -base /srv/acme
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/srv/acme/storage /srv/acme/public/uploads /srv/acme/config
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`sudo systemctl daemon-reload && sudo systemctl enable --now acme`. Logs: `journalctl -u acme`, and `storage/logs/php-error.log`
+(same format as before; "System logs" reads it). Cron-style jobs of `bin/*.php` run as `acme <command>`.
+
+### nginx (reverse proxy)
+
+The program speaks plain HTTP on localhost; nginx adds HTTPS. It must send `X-Forwarded-Proto` — the app trusts that header
+only from the same machine or the private network, and the API (`api.require_https`), secure cookies and links in e-mails depend on it.
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name company.example.com;
+    # ssl_certificate … ssl_certificate_key …
+    client_max_body_size 64m;                 # uploads (the API accepts 12 MB per request)
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 120s;
+    }
+}
+```
+
+Set `app.url` (and `app.hosts` for other names) in `config/config.json`, e.g. `"url": "https://company.example.com"`.
+Static files under `public/assets/` can also be served by nginx directly (`location /assets/ { alias /srv/acme/public/assets/; }`).
+
+### What lives where
+
+- `storage/installed.lock` — the install marker. `storage/cache/` — migration stamp, module status, Lark token (safe to delete).
+  `storage/sessions/` — web sessions. `storage/logs/` — error log. `storage/mail/` — saved e-mails (mail driver `log`).
+  `storage/attachments/`, `storage/signatures/`, `storage/pdf-signs/` — private files, never served directly. Back up `storage/` minus `cache/`.
+- `public/uploads/` — avatars, branding, CRM files, editor images; served as static files (with a sandboxing header). Back it up.
+- `config/config.json` — server settings and passwords (not in git); `config/config.json.example` is the template the installer fills in.
+
 ## Folder map
 
 ```
