@@ -1,0 +1,75 @@
+{{- /* .row (kpis row), .subs (its submissions, newest first), .history (activity_logs of the KPI and its submissions); tones and labels from kpiShowExtra */ -}}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Status"}}</p>
+        <p class="mt-2"><span class="inline-flex rounded-md px-3 py-1 font-display text-xl font-semibold {{.statusTone}}">{{.statusLabel}}</span></p>
+        <p class="mt-2 text-xs text-steel">{{formatDate .row.period_start "d M"}} – {{formatDate .row.period_end "d M Y"}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Target reached"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums {{.pctTone}}">{{.pct}}%</p>
+        <div class="mt-2 h-2 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full {{.pctBar}}" style="width: {{.pctWidth}}%"></div></div>
+        <p class="mt-1.5 text-xs text-steel">{{.amount}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Criteria"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums">{{.criteria}}</p>
+        <p class="mt-1.5 text-xs text-steel"><span class="badge {{.kindBadge}}">{{.kindLabel}}</span></p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Monthly submissions"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums {{.avgTone}}">{{if .avg}}{{.avg}}{{else}}—{{end}}</p>
+        <p class="mt-1.5 text-xs text-steel">{{__ ":a of :n approved" "a" .approved "n" (len .subs)}} · {{__ "average on-time score"}}</p></div>
+</div>
+
+<section class="panel mt-4 overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Monthly submissions"}}</h2>
+        <a href="{{url "/kpi-submissions"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "All submissions"}}</a></div>
+    {{if not .subs}}
+        <p class="px-5 py-8 text-center text-sm text-steel">{{__ "Nothing submitted for this KPI yet."}}</p>
+    {{else}}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="whitespace-nowrap bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="px-4 py-2 font-medium">{{__ "Month"}}</th><th class="px-3 py-2 font-medium">{{__ "Status"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "Finished"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Total tasks"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "Percentage"}}</th><th class="px-3 py-2 font-medium">{{__ "Approver"}}</th><th class="px-3 py-2 font-medium">{{__ "Approved"}}</th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range $s := .subs}}
+            <tr>
+                <td class="whitespace-nowrap px-4 py-2.5 font-medium">{{$s._month}}</td>
+                <td class="px-3 py-2.5">{{if int $s.days_late}}<span class="badge {{$s._lateTone}}">{{__ "Late :n days" "n" $s.days_late}}</span>{{else}}<span class="badge bg-emerald-50 text-emerald-800">{{__ "On time"}}</span>{{end}}</td>
+                <td class="px-3 py-2.5 text-right tabular-nums">{{nf $s.finished 2}}</td>
+                <td class="px-3 py-2.5 text-right tabular-nums">{{nf $s.total 2}}</td>
+                <td class="px-3 py-2.5 text-right"><span class="inline-flex min-w-14 justify-center rounded-md px-2 py-0.5 font-semibold tabular-nums {{$s._pctTone}}">{{$s._pct}}%</span></td>
+                <td class="whitespace-nowrap px-3 py-2.5">{{if $s.approver_name}}<span class="flex items-center gap-2">{{template "partials/avatar" (dict "name" $s.approver_name "avatar" $s.approver_avatar "size" "size-7" "extra" "text-[11px]")}}<span>{{$s.approver_name}}</span></span>{{else}}—{{end}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5">{{if $s.approved_at}}<span class="text-emerald-700">{{icon "check" "mr-1 inline size-4"}}{{formatDate $s.approved_at "j M Y"}}</span>{{else}}<span class="text-steel">{{__ "Waiting"}}</span>{{end}}</td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table></div>
+    {{end}}
+</section>
+
+<section class="panel mt-4">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Change history"}}</h2><span class="text-xs text-steel">{{__ "Who changed what, and when"}}</span></div>
+    {{if not .history}}
+        <p class="px-5 py-8 text-center text-sm text-steel">{{__ "No changes yet."}}</p>
+    {{else}}
+    <ol class="divide-y divide-graphite-900/6">
+        {{range $log := .history}}
+            <li class="flex gap-3 px-5 py-3">
+                {{template "partials/avatar" (dict "name" (or $log.user_name (__ "System")) "avatar" $log.avatar "size" "size-8" "extra" "mt-0.5")}}
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm"><span class="font-medium">{{or $log.user_name (__ "System")}}</span>
+                        <span class="badge ml-1 {{$log._tone}}">{{__ (ucfirst $log.action)}}</span>
+                        <span class="text-graphite-700">{{activityText $log}}</span></p>
+                    {{with $log._changes}}
+                        <ul class="mt-1.5 space-y-1 text-xs">
+                            {{range .}}
+                                <li class="flex flex-wrap items-baseline gap-1.5"><span class="font-medium text-graphite-700">{{.Label}}:</span>
+                                    <span class="rounded bg-signal-50 px-1.5 text-signal-800 line-through decoration-signal-400">{{.From}}</span>
+                                    <span class="text-steel">→</span>
+                                    <span class="rounded bg-emerald-50 px-1.5 text-emerald-800">{{.To}}</span></li>
+                            {{end}}
+                        </ul>
+                    {{end}}
+                    <p class="mt-1 text-xs text-steel"><time datetime="{{$log._iso}}">{{formatDate $log.created_at "j M Y H:i"}}</time> · {{timeAgo $log.created_at}}</p>
+                </div>
+            </li>
+        {{end}}
+    </ol>
+    {{end}}
+</section>
