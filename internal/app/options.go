@@ -73,4 +73,6 @@ func OptionsRoles(u *CurrentUser) []Opt {
 }
 
 // OptionsAllRoles is every role.
-func OptionsAllRoles() []Opt { return rowsToOpts(db.Select("SELECT id, name FROM roles ORDER BY level DESC")) }
+func OptionsAllRoles() []Opt {
+	return rowsToOpts(db.Select("SELECT id, name FROM roles ORDER BY level DESC"))
+}

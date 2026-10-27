@@ -107,8 +107,8 @@ func sessionsAdminIndex(c *app.Ctx) {
 	c.View("admin/sessions", app.M{
 		"title": c.T("Sessions"), "tab": tab, "q": q, "rows": rows, "active": active, "events": wsEvents(c, rows), "page": page, "pages": pages, "total": total,
 		"activeCount": php.Int(db.Scalar("SELECT count(*) FROM user_sessions WHERE revoked_at IS NULL AND expires_at > now()")),
-		"intro": c.T("Who is signed in, from which device. The browser id changes every :m minutes and every sign-in ends after :h hours.", "m", app.SessionRotateMinutes(), "h", app.SessionMaxHours()),
-		"prevURL": link(page - 1), "nextURL": link(page + 1),
+		"intro":       c.T("Who is signed in, from which device. The browser id changes every :m minutes and every sign-in ends after :h hours.", "m", app.SessionRotateMinutes(), "h", app.SessionMaxHours()),
+		"prevURL":     link(page - 1), "nextURL": link(page + 1),
 	})
 }
 

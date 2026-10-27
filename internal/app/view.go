@@ -266,16 +266,16 @@ func funcMap(st *renderState) template.FuncMap {
 	c := func() *Ctx { return st.c }
 	return template.FuncMap{
 		// language
-		"__": func(key string, params ...any) string { return c().T(key, params...) },
-		"locale": func() string { return c().Locale() },
+		"__":      func(key string, params ...any) string { return c().T(key, params...) },
+		"locale":  func() string { return c().Locale() },
 		"locales": func() []config.Pair { return i18n.Available() },
 		// urls
-		"url": func(path string, query ...any) string { return c().URL(path, query...) },
-		"asset": func(path string) string { return c().Asset(path) },
+		"url":       func(path string, query ...any) string { return c().URL(path, query...) },
+		"asset":     func(path string) string { return c().Asset(path) },
 		"uploadURL": func(p any) string { return c().UploadURL(p) },
-		"path": func() string { return c().Path() },
-		"query": func(k string) string { return c().Query(k) },
-		"queryMap": func() map[string]string { return c().QueryMap() },
+		"path":      func() string { return c().Path() },
+		"query":     func(k string) string { return c().Query(k) },
+		"queryMap":  func() map[string]string { return c().QueryMap() },
 		"withQuery": func(set ...any) string { // current query with some values replaced: withQuery "page" 2
 			q := c().QueryMap()
 			m := map[string]any{}
@@ -312,7 +312,7 @@ func funcMap(st *renderState) template.FuncMap {
 			return ""
 		},
 		"errorFor": func(k string) string { return c().Sess.Errors().Get(k) },
-		"errors": func() *Errors { return c().Sess.Errors() },
+		"errors":   func() *Errors { return c().Sess.Errors() },
 		"fieldError": func(k string) template.HTML {
 			if m := c().Sess.Errors().Get(k); m != "" {
 				return template.HTML(`<p class="error">` + template.HTMLEscapeString(m) + `</p>`)
@@ -365,16 +365,16 @@ func funcMap(st *renderState) template.FuncMap {
 			}
 			return php.NF(n, d)
 		},
-		"ucfirst": func(s any) string { return php.Ucfirst(php.Str(s)) },
-		"lower": func(s any) string { return strings.ToLower(php.Str(s)) },
-		"upper": func(s any) string { return strings.ToUpper(php.Str(s)) },
-		"trim": func(s any) string { return strings.TrimSpace(php.Str(s)) },
-		"replace": func(s any, old, new string) string { return strings.ReplaceAll(php.Str(s), old, new) },
-		"contains": func(s any, sub string) bool { return strings.Contains(php.Str(s), sub) },
+		"ucfirst":   func(s any) string { return php.Ucfirst(php.Str(s)) },
+		"lower":     func(s any) string { return strings.ToLower(php.Str(s)) },
+		"upper":     func(s any) string { return strings.ToUpper(php.Str(s)) },
+		"trim":      func(s any) string { return strings.TrimSpace(php.Str(s)) },
+		"replace":   func(s any, old, new string) string { return strings.ReplaceAll(php.Str(s), old, new) },
+		"contains":  func(s any, sub string) bool { return strings.Contains(php.Str(s), sub) },
 		"hasPrefix": func(s any, p string) bool { return strings.HasPrefix(php.Str(s), p) },
 		"hasSuffix": func(s any, p string) bool { return strings.HasSuffix(php.Str(s), p) },
-		"join": func(list any, sep string) string { return strings.Join(toStrings(list), sep) },
-		"split": func(s any, sep string) []string { return strings.Split(php.Str(s), sep) },
+		"join":      func(list any, sep string) string { return strings.Join(toStrings(list), sep) },
+		"split":     func(s any, sep string) []string { return strings.Split(php.Str(s), sep) },
 		"substr": func(s any, start int, length ...int) string {
 			l := -1
 			if len(length) > 0 {
@@ -390,10 +390,10 @@ func funcMap(st *renderState) template.FuncMap {
 			}
 			return Setting(k, d)
 		},
-		"config": func(k string) any { return config.Get(k) },
-		"enumLabel": func(group string, v any) string { return EnumLabel(c(), group, php.Str(v)) },
+		"config":       func(k string) any { return config.Get(k) },
+		"enumLabel":    func(group string, v any) string { return EnumLabel(c(), group, php.Str(v)) },
 		"activityText": func(r db.Row) string { return ActivityText(c(), r) },
-		"enumOptions": func(group string) []Opt { return EnumOptions(c(), group) },
+		"enumOptions":  func(group string) []Opt { return EnumOptions(c(), group) },
 		// data
 		"dict": func(kv ...any) M { return dictOf(kv) },
 		"list": func(v ...any) []any { return v },
@@ -407,17 +407,17 @@ func funcMap(st *renderState) template.FuncMap {
 			b, _ := json.Marshal(v)
 			return string(b)
 		},
-		"raw": func(s any) template.HTML { return template.HTML(php.Str(s)) },
-		"attr": func(s any) template.HTMLAttr { return template.HTMLAttr(php.Str(s)) },
+		"raw":     func(s any) template.HTML { return template.HTML(php.Str(s)) },
+		"attr":    func(s any) template.HTMLAttr { return template.HTMLAttr(php.Str(s)) },
 		"safeURL": func(s any) template.URL { return template.URL(php.Str(s)) },
-		"css": func(s any) template.CSS { return template.CSS(php.Str(s)) },
-		"str": func(v any) string { return php.Str(v) },
-		"int": toInt,
-		"float": toFloat,
-		"bool": func(v any) bool { return php.Bool(v) },
-		"empty": func(v any) bool { return php.Empty(v) },
-		"blank": func(v any) bool { return php.Blank(v) },
-		"filled": func(v any) bool { return !php.Blank(v) },
+		"css":     func(s any) template.CSS { return template.CSS(php.Str(s)) },
+		"str":     func(v any) string { return php.Str(v) },
+		"int":     toInt,
+		"float":   toFloat,
+		"bool":    func(v any) bool { return php.Bool(v) },
+		"empty":   func(v any) bool { return php.Empty(v) },
+		"blank":   func(v any) bool { return php.Blank(v) },
+		"filled":  func(v any) bool { return !php.Blank(v) },
 		"default": func(def, v any) any {
 			if php.Empty(v) {
 				return def
@@ -425,7 +425,7 @@ func funcMap(st *renderState) template.FuncMap {
 			return v
 		},
 		"coalesce": func(v ...any) any { return php.Coalesce(v...) },
-		"or": func(v ...any) any { return php.Or(v...) },
+		"or":       func(v ...any) any { return php.Or(v...) },
 		"ternary": func(cond bool, a, b any) any {
 			if cond {
 				return a
@@ -485,7 +485,9 @@ func funcMap(st *renderState) template.FuncMap {
 		"has": func(m any, k any) bool { return hasKey(m, k) },
 		"nav": func() M { return NavData(c()) },
 		"ctx": func() *Ctx { return c() },
-		"rangeKeep": func(action string, keep map[string]any, selects []RangeSelect) M { return rangeKeep(c(), action, keep, selects) },
+		"rangeKeep": func(action string, keep map[string]any, selects []RangeSelect) M {
+			return rangeKeep(c(), action, keep, selects)
+		},
 		"mergeDict": func(a, b M) M {
 			out := M{}
 			for k, v := range a {
@@ -507,15 +509,17 @@ func funcMap(st *renderState) template.FuncMap {
 			}
 			return m
 		},
-		"pager": func(total, perPage, page any) Pager { return pagerFor(c(), php.Int(total), php.Int(perPage), php.Int(page)) },
-		"pickerData": func(f Field, picked []string) pickerView { return pickerData(f, picked) },
+		"pager": func(total, perPage, page any) Pager {
+			return pagerFor(c(), php.Int(total), php.Int(perPage), php.Int(page))
+		},
+		"pickerData":     func(f Field, picked []string) pickerView { return pickerData(f, picked) },
 		"accessRequests": func() bool { return AccessRequestsEnabled() },
 		"debugBanner": func() bool {
 			return config.String("app.env", "") == "local" && c().User().IsAdmin() && !php.InList(c().Host(), "localhost", "127.0.0.1", "::1")
 		},
 		"cookie": func(k string) string { return c().Cookie(k) },
-		"now": func() time.Time { return php.Now() },
-		"year": func() int { return php.Now().Year() },
+		"now":    func() time.Time { return php.Now() },
+		"year":   func() int { return php.Now().Year() },
 	}
 }
 

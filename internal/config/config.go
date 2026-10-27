@@ -224,9 +224,9 @@ func Set(key string, value any) {
 	m.Set(parts[len(parts)-1], value)
 }
 
-func String(key, def string) string { return AsString(Get(key), def) }
-func Int(key string, def int) int     { return AsInt(Get(key), def) }
-func Bool(key string, def bool) bool  { return AsBool(Get(key), def) }
+func String(key, def string) string  { return AsString(Get(key), def) }
+func Int(key string, def int) int    { return AsInt(Get(key), def) }
+func Bool(key string, def bool) bool { return AsBool(Get(key), def) }
 
 // Strings returns a list of strings (a JSON array), or the keys of an object.
 func Strings(key string) []string { return AsStrings(Get(key)) }

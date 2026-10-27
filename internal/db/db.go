@@ -498,12 +498,14 @@ func (q Q) Transaction(fn func(tx Q)) {
 }
 
 // Package-level shortcuts on core.
-func Select(sql string, params ...any) []Row  { return Core.Select(sql, params...) }
-func First(sql string, params ...any) Row     { return Core.First(sql, params...) }
-func Scalar(sql string, params ...any) any    { return Core.Scalar(sql, params...) }
-func Exec(sql string, params ...any) int      { return Core.Exec(sql, params...) }
-func Insert(table string, data Cols, returning ...string) any { return Core.Insert(table, data, returning...) }
-func Update(table string, data Cols, where Cols) int           { return Core.Update(table, data, where) }
+func Select(sql string, params ...any) []Row { return Core.Select(sql, params...) }
+func First(sql string, params ...any) Row    { return Core.First(sql, params...) }
+func Scalar(sql string, params ...any) any   { return Core.Scalar(sql, params...) }
+func Exec(sql string, params ...any) int     { return Core.Exec(sql, params...) }
+func Insert(table string, data Cols, returning ...string) any {
+	return Core.Insert(table, data, returning...)
+}
+func Update(table string, data Cols, where Cols) int { return Core.Update(table, data, where) }
 
 // Try runs fn and returns a database (or any) panic as an error.
 func Try(fn func()) (err error) {
@@ -534,13 +536,13 @@ func Ping(dsn string) error {
 }
 
 const (
-	oidBool    = 16
-	oidInt8    = 20
-	oidInt2    = 21
-	oidInt4    = 23
-	oidOID     = 26
-	oidFloat4  = 700
-	oidFloat8  = 701
+	oidBool   = 16
+	oidInt8   = 20
+	oidInt2   = 21
+	oidInt4   = 23
+	oidOID    = 26
+	oidFloat4 = 700
+	oidFloat8 = 701
 )
 
 func decode(oid uint32, raw []byte) any {

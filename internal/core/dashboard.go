@@ -136,9 +136,9 @@ func wsDays(a, b time.Time) int {
 }
 
 type wsDept struct {
-	ID          int
-	Name, Code  string
-	Color       string
+	ID         int
+	Name, Code string
+	Color      string
 }
 
 type wsTile struct {

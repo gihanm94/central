@@ -115,7 +115,7 @@ func notifyEvent(c *Ctx, module, action string, text M, changes any, actorID, ow
 		lines := []template.HTML{
 			template.HTML(E(intro)),
 			template.HTML("<strong>" + E(who) + "</strong>: " + E(desc)),
-			template.HTML(E(c.T("Time") + ": " + FormatDate(c, php.NowString(), "d M Y, H:i") + "  |  IP: ") + E(c.IP())),
+			template.HTML(E(c.T("Time")+": "+FormatDate(c, php.NowString(), "d M Y, H:i")+"  |  IP: ") + E(c.IP())),
 		}
 		if chg != nil {
 			for i, f := range chg.Keys {

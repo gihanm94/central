@@ -75,8 +75,10 @@ func (r Router) handle(method, path string, h Handler, mw []Middleware) {
 	r.R.MethodFunc(method, pattern(path), fn)
 }
 
-func (r Router) Get(path string, h Handler, mw ...Middleware)  { r.handle(http.MethodGet, path, h, mw) }
-func (r Router) Post(path string, h Handler, mw ...Middleware) { r.handle(http.MethodPost, path, h, mw) }
+func (r Router) Get(path string, h Handler, mw ...Middleware) { r.handle(http.MethodGet, path, h, mw) }
+func (r Router) Post(path string, h Handler, mw ...Middleware) {
+	r.handle(http.MethodPost, path, h, mw)
+}
 
 // Group adds middleware to the routes fn registers.
 func (r Router) Group(mw []Middleware, fn func(Router)) {

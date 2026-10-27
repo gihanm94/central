@@ -17,7 +17,7 @@ type NavItem struct {
 // ModuleLink is an entry of the module switcher.
 type ModuleLink struct {
 	Key, Name, Icon, Home string
-	Current, Problem     bool
+	Current, Problem      bool
 }
 
 // NavData is what layouts/app, sidebar and navbar compute (the PHP layout did this inline).

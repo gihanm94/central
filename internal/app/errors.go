@@ -36,7 +36,7 @@ func (e *Errors) Add(field, msg string) *Errors {
 	return e
 }
 
-func (e *Errors) Has(field string) bool { _, ok := e.Msgs[field]; return ok }
+func (e *Errors) Has(field string) bool   { _, ok := e.Msgs[field]; return ok }
 func (e *Errors) Get(field string) string { return e.Msgs[field] }
 func (e *Errors) Len() int {
 	if e == nil {

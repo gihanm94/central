@@ -178,7 +178,7 @@ func Empty(v any) bool {
 	return false
 }
 
-// Blank is trim((string) $v) === ''.
+// Blank is trim((string) $v) === ”.
 func Blank(v any) bool { return strings.TrimSpace(Str(v)) == "" }
 
 // Coalesce returns the first value that is not nil (PHP ??).

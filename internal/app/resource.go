@@ -24,29 +24,29 @@ permission (resource.action) and the data scope. A screen fills in the struct an
 A hook left nil does what the PHP base class did.
 */
 type Resource struct {
-	Resource    string
-	Table       string
-	Type        string
-	Singular    string
-	Plural      string
-	Base        string
-	ScopeCols   ScopeCols
+	Resource     string
+	Table        string
+	Type         string
+	Singular     string
+	Plural       string
+	Base         string
+	ScopeCols    ScopeCols
 	NoSoftDelete bool   // PHP $softDelete = false
-	OrderBy     string // default "t.id DESC"
-	PerPage     int    // default 10
-	Wizard      bool
-	WizardStyle string // "dots"
-	Icon        string
-	Module      string // "core" when empty
-	Conn        string // database connection, "core" when empty
-	Readonly    bool   // read-only screens (ERP copies): no add / import
-	Selectable  bool   // tick rows → delete the ticked ones
-	Searchable  []string
+	OrderBy      string // default "t.id DESC"
+	PerPage      int    // default 10
+	Wizard       bool
+	WizardStyle  string // "dots"
+	Icon         string
+	Module       string // "core" when empty
+	Conn         string // database connection, "core" when empty
+	Readonly     bool   // read-only screens (ERP copies): no add / import
+	Selectable   bool   // tick rows → delete the ticked ones
+	Searchable   []string
 
 	Fields  func(c *Ctx, row db.Row) []Field
 	Columns func(c *Ctx) []Column
 
-	SelectSQL      func(c *Ctx) string                      // default "SELECT t.* FROM <table> t"
+	SelectSQL      func(c *Ctx) string // default "SELECT t.* FROM <table> t"
 	Filters        func(c *Ctx) []Filter
 	ScopeSQL       func(c *Ctx) (string, []any)
 	Label          func(c *Ctx, row db.Row) string
@@ -72,39 +72,39 @@ type Resource struct {
 
 // Field is one form field, or a section heading (Section set). See ResourceController's docblock.
 type Field struct {
-	Name     string
-	Label    string
-	Type     string // text|email|password|textarea|select|date|datetime|number|checkbox|richtext|file|logo|picker|multi|custom|tel|color
-	Rules    string
-	Options  []Opt
-	AllOptions []Opt // labels of values no longer offered
-	Span     int
-	Help     string
-	Placeholder string
-	Readonly bool
-	Default  any
-	NoTable  bool // 'table' => false: not a column of the table, handled in Saved
-	NoImport bool // 'import' => false
-	HideForm bool
-	Rows     int
-	Other    bool // the list plus "Other…"
-	OtherMax int
+	Name             string
+	Label            string
+	Type             string // text|email|password|textarea|select|date|datetime|number|checkbox|richtext|file|logo|picker|multi|custom|tel|color
+	Rules            string
+	Options          []Opt
+	AllOptions       []Opt // labels of values no longer offered
+	Span             int
+	Help             string
+	Placeholder      string
+	Readonly         bool
+	Default          any
+	NoTable          bool // 'table' => false: not a column of the table, handled in Saved
+	NoImport         bool // 'import' => false
+	HideForm         bool
+	Rows             int
+	Other            bool // the list plus "Other…"
+	OtherMax         int
 	OtherPlaceholder string
-	OneOf    string
-	OneOfMsg string
-	ShowWhen string
-	WideWhen string
-	Counter  bool
-	Remote   string // remote-select kind
-	Depends  string
-	Current  any
-	Rich     bool
-	Search   *bool
-	Partial  string // custom
-	Choices  []Opt  // multi
-	Empty    string
-	Example  string
-	Display  func(row db.Row) any
+	OneOf            string
+	OneOfMsg         string
+	ShowWhen         string
+	WideWhen         string
+	Counter          bool
+	Remote           string // remote-select kind
+	Depends          string
+	Current          any
+	Rich             bool
+	Search           *bool
+	Partial          string // custom
+	Choices          []Opt  // multi
+	Empty            string
+	Example          string
+	Display          func(row db.Row) any
 	// Extra values a custom partial or the picker needs
 	Extra M
 
@@ -450,7 +450,7 @@ func (r *Resource) Index(c *Ctx) {
 		"columns": r.Columns(c), "filters": r.filters(c), "rowActions": actions,
 		"perPage": r.pageSize(c), "page": max(1, php.Int(c.Query("page", "1"))),
 		"hidden": TablePrefs(c.MustUser().ID, r.Resource)["hidden"],
-		"sort": key, "dir": strings.ToLower(dir),
+		"sort":   key, "dir": strings.ToLower(dir),
 		"canDelete": c.Can(r.Resource, "delete"), "canSearch": len(r.Searchable) > 0,
 		"intro": "", "stats": []Stat(nil), "headerActions": template.HTML(""), "topExtra": template.HTML(""),
 	}
@@ -823,7 +823,7 @@ func (r *Resource) Import(c *Ctx) {
 	}
 	LogActivity(c, ActivityEntry{Action: "import", Type: r.Type, Label: php.Ucfirst(r.Plural), Text: "Imported :created of :total :type",
 		Params: []any{"created", created, "total", len(rows), "type", r.Plural},
-		Props: M{"created": created, "skipped": skipped, "failed": len(errs), "errors": first, "file": file.Filename}, Module: r.module()})
+		Props:  M{"created": created, "skipped": skipped, "failed": len(errs), "errors": first, "file": file.Filename}, Module: r.module()})
 	title := c.T("Imported :created of :total rows.", "created", created, "total", len(rows))
 	var detail []string
 	if skipped > 0 {

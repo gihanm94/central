@@ -116,10 +116,10 @@ func webauthnRegistrationOptions(c *app.Ctx, u *app.CurrentUser) app.M {
 		exclude = append(exclude, app.M{"type": "public-key", "id": r.Str("credential_id")})
 	}
 	return app.M{
-		"challenge": wsB64u(challenge),
-		"rp":        app.M{"name": app.Setting("company_name", config.String("app.name", "")), "id": webauthnRpID(c)},
-		"user":      app.M{"id": wsB64u(uid[:]), "name": u.Email, "displayName": u.Name},
-		"pubKeyCredParams": []app.M{{"type": "public-key", "alg": -7}, {"type": "public-key", "alg": -8}, {"type": "public-key", "alg": -257}},
+		"challenge":              wsB64u(challenge),
+		"rp":                     app.M{"name": app.Setting("company_name", config.String("app.name", "")), "id": webauthnRpID(c)},
+		"user":                   app.M{"id": wsB64u(uid[:]), "name": u.Email, "displayName": u.Name},
+		"pubKeyCredParams":       []app.M{{"type": "public-key", "alg": -7}, {"type": "public-key", "alg": -8}, {"type": "public-key", "alg": -257}},
 		"timeout":                60000,
 		"attestation":            "none",
 		"authenticatorSelection": app.M{"residentKey": "required", "requireResidentKey": true, "userVerification": "preferred"},

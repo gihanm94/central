@@ -314,7 +314,7 @@ func profileNotifications(c *app.Ctx) {
 		return !ok || v == nil || php.Truthy(v)
 	}
 	type cell struct {
-		Name, Aria string
+		Name, Aria  string
 		On, Allowed bool
 	}
 	type chRow struct {

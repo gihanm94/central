@@ -18,8 +18,8 @@ import (
 	"acme/internal/core"
 	"acme/internal/db"
 	"acme/internal/i18n"
-	"acme/internal/php"
 	_ "acme/internal/modules"
+	"acme/internal/php"
 )
 
 func main() {

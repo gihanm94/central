@@ -455,7 +455,9 @@ func (c *Ctx) Text(s string) { c.write("text/plain; charset=utf-8", []byte(s)) }
 func (c *Ctx) View(name string, data M) { c.HTML(Render(c, name, data)) }
 
 // Partial renders a template without the layout (partial()).
-func (c *Ctx) Partial(name string, data M) template.HTML { return template.HTML(RenderPartial(c, name, data)) }
+func (c *Ctx) Partial(name string, data M) template.HTML {
+	return template.HTML(RenderPartial(c, name, data))
+}
 
 // JSON sends JSON (json_response).
 func (c *Ctx) JSON(v any, status ...int) {

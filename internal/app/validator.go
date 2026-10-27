@@ -33,8 +33,8 @@ func (c *Clean) Set(k string, v any) {
 	c.Vals[k] = v
 }
 
-func (c *Clean) Has(k string) bool { _, ok := c.Vals[k]; return ok }
-func (c *Clean) Get(k string) any  { return c.Vals[k] }
+func (c *Clean) Has(k string) bool   { _, ok := c.Vals[k]; return ok }
+func (c *Clean) Get(k string) any    { return c.Vals[k] }
 func (c *Clean) Str(k string) string { return php.Str(c.Vals[k]) }
 func (c *Clean) Int(k string) int    { return php.Int(c.Vals[k]) }
 func (c *Clean) Bool(k string) bool  { return php.Bool(c.Vals[k]) }

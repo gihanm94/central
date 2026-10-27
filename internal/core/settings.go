@@ -23,7 +23,7 @@ func init() {
 		r.Get("/settings", settingsEdit)
 		r.Post("/settings", settingsUpdate)
 		r.Post("/settings/test-mail", settingsTestMail)
-		r.Get("/mail-log", settingsMailLog) // Administrator → Audit → Mail log
+		r.Get("/mail-log", settingsMailLog)                                       // Administrator → Audit → Mail log
 		r.Get("/settings/mail-log", func(c *app.Ctx) { c.Redirect("/mail-log") }) // the mail log used to be a tab of Company settings
 		r.Get("/settings/notifications", settingsNotifications)
 		r.Post("/settings/notifications", settingsSaveNotifications)
@@ -153,12 +153,12 @@ func settingsNotifications(c *app.Ctx) {
 		On         bool
 	}
 	type row struct {
-		First           bool
-		Module, Name    string
-		Icon            string
-		Enabled         bool
-		Channel         string
-		Cells           []cell
+		First        bool
+		Module, Name string
+		Icon         string
+		Enabled      bool
+		Channel      string
+		Cells        []cell
 	}
 	var rows []row
 	for _, m := range app.Modules() {

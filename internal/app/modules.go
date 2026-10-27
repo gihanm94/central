@@ -17,7 +17,6 @@ import (
 	"acme/internal/config"
 	"acme/internal/db"
 	"acme/internal/php"
-
 )
 
 // MenuItem is a sidebar entry or heading.

@@ -70,7 +70,9 @@ func newCurrentUser(r db.Row) *CurrentUser {
 
 func (u *CurrentUser) IsAdmin() bool { return u != nil && u.RoleSlug == "admin" }
 
-func (u *CurrentUser) HasRole(slugs ...string) bool { return u != nil && php.InList(u.RoleSlug, slugs...) }
+func (u *CurrentUser) HasRole(slugs ...string) bool {
+	return u != nil && php.InList(u.RoleSlug, slugs...)
+}
 
 // DeptID / TeamIDOrNil are the ids as SQL values (nil when unset).
 func (u *CurrentUser) DeptID() any {
