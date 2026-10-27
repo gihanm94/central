@@ -1,0 +1,34 @@
+{{- /* .row (kpi_submissions), .approvers []Opt, .submitter, .period, .approver/.criteria/.finished/.total/.note/.link (old input or the row) */ -}}
+{{- $row := .row -}}
+<div class="mx-auto max-w-3xl">
+    <h1 class="page-title">{{__ "Correct submission"}}</h1>
+    <p class="mt-1 text-sm text-steel">{{__ "Only the BU manager of the department can correct a submission. Every change is saved in its history and :name is notified." "name" .submitter}}</p>
+
+    <section class="panel mt-4 grid gap-3 p-5 text-sm sm:grid-cols-3">
+        <div><p class="text-xs text-steel">{{__ "Submitted by"}}</p><p class="font-medium">{{.submitter}}</p></div>
+        <div><p class="text-xs text-steel">{{__ "KPI / OKR"}}</p><p class="font-medium"><span class="badge mr-1 {{if eq (str $row.task_kind) "okr"}}bg-violet-50 text-violet-800{{else}}bg-sky-50 text-sky-800{{end}}">{{upper $row.task_kind}}</span>{{$row.task_title}}</p></div>
+        <div><p class="text-xs text-steel">{{__ "Month"}}</p><p class="font-medium">{{.period}} · <span class="{{if lt $row.percentage 100}}text-signal-700{{else}}text-emerald-700{{end}}">{{int $row.percentage}}%</span></p></div>
+    </section>
+
+    <form method="POST" action="{{url (printf "/kpi-submissions/%v" $row.id)}}" class="panel mt-4">
+        {{csrfField}}
+        <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+            <div><label class="label" for="e-approver">{{__ "Approver"}} <span class="text-signal-600">*</span></label>
+                {{select "approver_id" .approvers .approver "id" "e-approver" "required" true}}{{fieldError "approver_id"}}</div>
+            <div><label class="label" for="e-crit">{{__ "Criteria"}}</label>
+                <input id="e-crit" name="criteria" type="number" step="any" min="1" max="100" value="{{.criteria}}" class="input">{{fieldError "criteria"}}</div>
+            <div><label class="label" for="e-fin">{{__ "Finished"}} <span class="text-signal-600">*</span></label>
+                <input id="e-fin" name="finished" type="number" step="any" min="0" required value="{{.finished}}" class="input">{{fieldError "finished"}}</div>
+            <div><label class="label" for="e-total">{{__ "Total tasks"}} <span class="text-signal-600">*</span></label>
+                <input id="e-total" name="total" type="number" step="any" min="0" required value="{{.total}}" class="input">{{fieldError "total"}}</div>
+            <div class="sm:col-span-2"><label class="label" for="e-note">{{__ "Note"}}</label>
+                <textarea id="e-note" name="note" rows="3" maxlength="2000" class="input h-auto py-2">{{.note}}</textarea>{{fieldError "note"}}</div>
+            <div class="sm:col-span-2"><label class="label" for="e-link">{{__ "Related link"}}</label>
+                <input id="e-link" name="related_link" type="url" maxlength="500" value="{{.link}}" class="input" placeholder="https://">{{fieldError "related_link"}}</div>
+        </div>
+        <div class="flex items-center justify-end gap-2 border-t border-graphite-900/8 px-5 py-4 sm:px-6">
+            <a href="{{url "/kpi-submissions" "year" $row.period_year}}" class="btn-ghost mr-auto">{{__ "Cancel"}}</a>
+            <button class="btn-primary">{{__ "Save changes"}}</button>
+        </div>
+    </form>
+</div>
