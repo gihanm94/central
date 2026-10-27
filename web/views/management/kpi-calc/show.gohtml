@@ -1,0 +1,172 @@
+{{- /* KPI calculator for one person: see kcPage for the prepared values */ -}}
+{{- $p := .p -}}{{- $ro := .ro -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex min-w-0 items-center gap-4">
+        {{template "partials/avatar" (dict "name" $p.name "avatar" $p.avatar "size" "size-14" "extra" "text-base")}}
+        <div class="min-w-0"><h1 class="page-title break-words">{{$p.name}}</h1>
+            <p class="text-sm text-steel">{{or $p.department_name (__ "No department")}} · {{$p.role_name}}</p></div>
+    </div>
+    <a href="{{url "/management/kpi-calculator" "year" .year}}" class="btn-secondary">{{icon "arrowleft" "size-4"}}{{__ "All people"}}</a>
+</div>
+
+<form method="GET" action="{{url (printf "/management/kpi-calculator/%v" $p.id)}}" class="mt-4 flex flex-wrap items-end gap-3">
+    <div class="w-28"><label class="label" for="kc-y">{{__ "Year"}}</label>{{select "year" .years .yearS "id" "kc-y" "submit" true "search" false}}</div>
+    <div class="w-40"><label class="label" for="kc-m">{{__ "Up to month"}}</label>{{select "month" .months .month "id" "kc-m" "submit" true "search" false}}</div>
+    <div class="w-56"><label class="label" for="kc-g">{{__ "Employee group"}}</label>{{select "group" .groups .group "id" "kc-g" "submit" true "search" false}}</div>
+</form>
+
+{{if .preview}}<p class="mt-4 rounded-lg bg-sky-50 px-4 py-2.5 text-sm text-sky-900">{{__ "This is a calculation with the figures you entered. It is not saved yet — press \"Save score\" to keep it."}}</p>{{end}}
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+    <section class="panel p-5">
+        <p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "KPI score :year" "year" .year}}</p>
+        <p class="mt-1 font-display text-6xl font-semibold tabular-nums {{.scoreTone}}">{{.score}}<span class="text-2xl text-steel"> / 100</span></p>
+        <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full {{.bar}}" style="width: {{.barW}}%"></div></div>
+        <p class="mt-3 text-xs text-steel">{{.groupLine}}</p>
+        <p class="mt-1 text-xs {{if .savedLine}}text-steel{{else}}text-amber-700{{end}}">{{if .savedLine}}{{.savedLine}}{{else}}{{__ "Not saved yet: the list shows 0 until the score is saved."}}{{end}}</p>
+        {{if .noRaise}}<p class="mt-3 rounded-md bg-signal-50 px-3 py-2 text-xs text-signal-800">{{__ "Absence over 12 days (96 h): no yearly salary raise, decided case by case."}}</p>{{end}}
+        {{if .severe}}<p class="mt-2 rounded-md bg-signal-50 px-3 py-2 text-xs text-signal-800">{{__ "Severe warning: the result goes to the committee and may become \"needs improvement\"."}}</p>{{end}}
+    </section>
+
+    <section class="panel overflow-hidden lg:col-span-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Score by section"}}</h2><span class="text-xs text-steel">{{__ "rate × points"}}</span></div>
+        <table class="w-full text-sm">
+            <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-5 py-2 font-medium">{{__ "Section"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Rate"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Points"}}</th><th class="px-5 py-2 text-right font-medium">{{__ "Earned"}}</th></tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .secRows}}
+                <tr class="{{if not .has}}text-graphite-400{{end}}"><td class="px-5 py-2"><a href="#sec-{{.key}}" class="hover:text-signal-700">{{.label}}</a></td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{if .has}}{{.rate}}{{else}}—{{end}}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{.points}}</td>
+                    <td class="px-5 py-2 text-right font-medium tabular-nums">{{.earned}}</td></tr>
+            {{end}}
+            {{if .deduction}}<tr class="text-signal-700"><td class="px-5 py-2">{{__ "8. Warning deductions"}}</td><td></td><td></td><td class="px-5 py-2 text-right font-medium tabular-nums">−{{.deductionS}}</td></tr>{{end}}
+            <tr class="bg-mist/60 font-semibold"><td class="px-5 py-2.5">{{__ "Final score"}}</td><td></td><td class="px-3 py-2.5 text-right tabular-nums">100</td><td class="px-5 py-2.5 text-right font-display text-lg tabular-nums {{.scoreTone}}">{{.score}}</td></tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<section class="panel mt-4 overflow-hidden" id="sec-kpi">
+    <div class="panel-head"><h2 class="panel-title">{{__ "1. KPI"}} · {{.kpiPoints}} {{__ "points"}}</h2>
+        <span class="text-sm">{{__ "KPI total"}} <strong class="tabular-nums">{{.kpiRate}}</strong></span></div>
+    {{if .waiting}}<p class="border-b border-graphite-900/8 bg-amber-50 px-5 py-2 text-xs text-amber-900">{{__ ":n submissions are still waiting for approval and are not counted yet." "n" .waiting}}</p>{{end}}
+    {{if .scaled}}<p class="border-b border-graphite-900/8 bg-amber-50 px-5 py-2 text-xs text-amber-900">{{__ "The weights do not add up to 100%, so they were scaled to 100%. Set the weights in KPIs & OKRs."}}</p>{{end}}
+    {{if not .kpis}}
+        <p class="px-5 py-8 text-center text-sm text-steel">{{__ "No KPIs & OKRs for this person in :y. Add them in KPIs & OKRs." "y" .year}}</p>
+    {{end}}
+    <div class="divide-y divide-graphite-900/8">
+    {{range $k := .kpis}}
+        <details class="group" {{if $.openKPIs}}open{{end}}>
+            <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 hover:bg-mist/40">
+                {{icon "right" "size-4 text-steel transition group-open:rotate-90"}}
+                <span class="badge {{if $k.okr}}bg-violet-50 text-violet-800{{else}}bg-sky-50 text-sky-800{{end}}">{{$k.kind}}</span>
+                <a href="{{url (printf "/kpis/%v" $k.id)}}" class="min-w-0 flex-1 font-medium hover:text-signal-700">{{$k.title}}</a>
+                <span class="text-xs text-steel">{{$k.head}}</span>
+                <span class="text-xs text-steel">{{$k.weight}}</span>
+                <span class="inline-flex min-w-16 justify-center rounded-md px-2 py-0.5 text-sm font-semibold tabular-nums {{$k.resTone}}">{{$k.resText}}</span>
+                <span class="w-20 text-right text-xs tabular-nums text-steel">= {{$k.weighted}}</span>
+            </summary>
+            <div class="overflow-x-auto px-5 pb-4"><table class="w-full text-xs">
+                <thead class="text-left text-steel"><tr><th class="py-1.5 pr-3 font-medium">{{__ "Period"}}</th><th class="px-3 py-1.5 text-right font-medium">{{__ "Finished"}}</th><th class="px-3 py-1.5 text-right font-medium">{{__ "Total tasks"}}</th>
+                    <th class="px-3 py-1.5 text-right font-medium">{{__ "Actual"}}</th><th class="px-3 py-1.5 text-right font-medium">{{__ "Target"}}</th><th class="px-3 py-1.5 text-right font-medium">{{__ "Achievement"}}</th>
+                    <th class="px-3 py-1.5 text-right font-medium">{{__ "Multiplier"}}</th><th class="py-1.5 pl-3 text-right font-medium">{{__ "Result"}}</th></tr></thead>
+                <tbody class="divide-y divide-graphite-900/6">
+                {{range $k.rows}}
+                    <tr class="{{if .skipped}}text-graphite-400{{end}}">
+                        <td class="py-1.5 pr-3 font-medium">{{.label}}</td>
+                        <td class="px-3 py-1.5 text-right tabular-nums">{{.fin}}</td>
+                        <td class="px-3 py-1.5 text-right tabular-nums">{{.tot}}</td>
+                        {{if .skipped}}
+                            <td colspan="5" class="py-1.5 pl-3 text-right italic">{{__ "No data (0/0 or not approved): not counted"}}</td>
+                        {{else}}
+                            <td class="px-3 py-1.5 text-right tabular-nums">{{.actual}}</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums">{{.target}}</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums">{{.ach}}</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums">{{.mult}}</td>
+                            <td class="py-1.5 pl-3 text-right font-semibold tabular-nums">{{.result}}</td>
+                        {{end}}
+                    </tr>
+                {{end}}
+                </tbody>
+            </table></div>
+        </details>
+    {{end}}
+    </div>
+    <p class="border-t border-graphite-900/8 bg-mist/40 px-5 py-2.5 text-xs text-steel">{{__ "Tiers: achievement ≥100% → ×100%, ≥85% → ×85%, ≥70% → ×70%, ≥55% → ×50%, below → 0. \"Not more than\": 100% within the limit, else 0. Periods with no data (0/0) are not counted; only approved submissions count."}}</p>
+</section>
+
+<section class="panel mt-4 overflow-hidden" id="sec-ontime">
+    <div class="panel-head"><h2 class="panel-title">{{__ "2. KPI on time"}} · {{.ontimePoints}} {{__ "points"}}</h2>
+        <span class="text-sm">{{__ "Year average"}} <strong class="tabular-nums">{{.ontimeRate}}</strong></span></div>
+    {{if not .ontime}}<p class="px-5 py-6 text-center text-sm text-steel">{{__ "Nothing due yet in this period."}}</p>{{else}}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-5 py-2 font-medium">{{__ "Month"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "As submitter (due day 7)"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "As approver (due day 10)"}}</th><th class="px-5 py-2 text-right font-medium">{{__ "Month"}}</th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .ontime}}
+            <tr><td class="px-5 py-2 font-medium">{{.month}}</td>
+                <td class="px-3 py-2 text-right tabular-nums">{{.sub}}</td>
+                <td class="px-3 py-2 text-right tabular-nums">{{.app}}</td>
+                <td class="px-5 py-2 text-right"><span class="inline-flex min-w-16 justify-center rounded-md px-2 py-0.5 font-semibold tabular-nums {{.chip}}">{{.rate}}</span></td></tr>
+        {{end}}
+        </tbody>
+    </table></div>
+    {{end}}
+    <p class="border-t border-graphite-900/8 bg-mist/40 px-5 py-2.5 text-xs text-steel">{{__ "Each day late −20% (day 12 / day 15 = 0%). Not submitted, or corrected afterwards = 0% for that month. Submitter and approver: the average of both."}}</p>
+</section>
+
+<form method="POST" action="{{url (printf "/management/kpi-calculator/%v" $p.id)}}" class="mt-4 space-y-4">
+    {{csrfField}}
+    <input type="hidden" name="year" value="{{.year}}"><input type="hidden" name="month" value="{{.month}}"><input type="hidden" name="group" value="{{.group}}">
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <section class="panel {{if .qoDim}}opacity-60{{end}}" id="sec-qo">
+            <div class="panel-head"><h2 class="panel-title">{{__ "3. Department quality objective (QO)"}} · {{.qoPoints}}</h2><strong class="tabular-nums">{{.qoRate}}</strong></div>
+            <div class="grid gap-4 p-5 sm:grid-cols-2">{{template "management/kpi-calc/field" (dict "f" .qoActual "ro" $ro)}}{{template "management/kpi-calc/field" (dict "f" .qoTarget "ro" $ro)}}
+                <p class="text-xs text-steel sm:col-span-2">{{.qoLine}}</p></div>
+        </section>
+        <section class="panel {{if .salesDim}}opacity-60{{end}}" id="sec-sales">
+            <div class="panel-head"><h2 class="panel-title">{{__ "4. Sales performance"}} · {{.salesPoints}}</h2><strong class="tabular-nums">{{.salesRate}}</strong></div>
+            <div class="grid gap-4 p-5 sm:grid-cols-2">{{template "management/kpi-calc/field" (dict "f" .salesActual "ro" $ro)}}{{template "management/kpi-calc/field" (dict "f" .salesTarget "ro" $ro)}}
+                <p class="text-xs text-steel sm:col-span-2">{{.salesLine}}</p></div>
+        </section>
+    </div>
+
+    <section class="panel {{if .qmsDim}}opacity-60{{end}}" id="sec-qms">
+        <div class="panel-head"><h2 class="panel-title">{{__ "5. QMS (NCR / CAR)"}} · {{.qmsPoints}}</h2><strong class="tabular-nums">{{.qmsPts}} / 15</strong></div>
+        <div class="grid gap-4 p-5 sm:grid-cols-3 lg:grid-cols-6">
+            {{range .qms}}{{template "management/kpi-calc/field" (dict "f" . "ro" $ro)}}{{end}}
+        </div>
+    </section>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <section class="panel" id="sec-leader">
+            <div class="panel-head"><h2 class="panel-title">{{__ "6. Evaluation from leader"}} · {{.leaderPoints}}</h2><strong class="tabular-nums">{{.leaderRate}}</strong></div>
+            <div class="p-5">{{template "management/kpi-calc/field" (dict "f" .leader "ro" $ro)}}</div>
+        </section>
+        <section class="panel" id="sec-absence">
+            <div class="panel-head"><h2 class="panel-title">{{__ "7. Absence rate"}} · {{.absencePoints}}</h2><strong class="tabular-nums">{{.absRate}}</strong></div>
+            <div class="grid gap-4 p-5 sm:grid-cols-2">
+                {{range .abs}}{{template "management/kpi-calc/field" (dict "f" . "ro" $ro)}}{{end}}
+                <p class="text-xs text-steel sm:col-span-2">{{.absLine}}</p>
+            </div>
+        </section>
+    </div>
+
+    <section class="panel" id="sec-warn">
+        <div class="panel-head"><h2 class="panel-title">{{__ "8. Warnings"}}</h2><strong class="tabular-nums text-signal-700">−{{.deductionS}}</strong></div>
+        <div class="grid gap-4 p-5 sm:grid-cols-3">
+            {{template "management/kpi-calc/field" (dict "f" .warnWritten "ro" $ro)}}{{template "management/kpi-calc/field" (dict "f" .warnFinal "ro" $ro)}}
+            <label class="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" name="severe" value="1" class="size-4 accent-signal-600" {{if .severe}}checked{{end}} {{if $ro}}disabled{{end}}> {{__ "Severe warning (goes to the committee)"}}</label>
+            <div class="sm:col-span-3"><label class="label" for="kc-note">{{__ "Note"}}</label><textarea id="kc-note" name="note" rows="2" maxlength="2000" class="input h-auto py-2" {{if $ro}}disabled{{end}}>{{.note}}</textarea></div>
+        </div>
+    </section>
+
+    {{if .canEdit}}
+    <div class="sticky bottom-3 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg bg-white/95 p-3 shadow-lg ring-1 ring-graphite-900/10 backdrop-blur">
+        <span class="mr-auto text-sm text-steel">{{__ "Score now"}} <strong class="font-display text-xl tabular-nums {{.scoreTone}}">{{.score}}</strong></span>
+        <button name="action" value="calculate" class="btn-secondary">{{icon "calc" "size-4"}}{{__ "Calculate"}}</button>
+        <button name="action" value="save" class="btn-primary">{{icon "check" "size-4"}}{{__ "Save score"}}</button>
+    </div>
+    {{end}}
+</form>

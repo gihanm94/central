@@ -1,0 +1,218 @@
+{{- /* Account report: see accountReport / accountReportView for the prepared values */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Account report"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Income and expenses of the whole company: by year, type, department and month."}}</p></div>
+    {{if .canOpen}}<a href="{{url "/accounting/account-report"}}" class="btn-secondary">{{icon "doc" "size-4"}} {{__ "Open the lines"}}</a>{{end}}
+</div>
+
+{{if not .data}}
+    <section class="panel mt-4 px-5 py-10 text-center text-sm text-steel">{{__ "Account figures are not available right now (the Accounting module is off or unavailable). The rest of Management still works."}}</section>
+{{else if not .hasYears}}
+    <section class="panel mt-4 px-5 py-12 text-center text-sm text-steel">{{__ "No account lines yet. Import them in Accounting → Management → Account report."}}</section>
+{{else}}
+<form method="GET" action="{{url "/management/account-report"}}" class="mt-4 flex flex-wrap items-end gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-graphite-900/8" aria-label="{{__ "Year and department"}}">
+    <div class="w-36"><label class="label !mb-1 text-xs text-steel">{{__ "Year"}}</label>
+        {{select "year" .yearOpts .year "id" "ar-year" "placeholder" (__ "All years") "submit" true "search" false "aria" (__ "Year")}}</div>
+    <div class="w-60"><label class="label !mb-1 text-xs text-steel">{{__ "Department"}}</label>
+        {{select "department" .deptOpts .department "id" "ar-dept" "placeholder" (__ "All departments") "submit" true "aria" (__ "Department")}}</div>
+    {{if .filtered}}<a href="{{url "/management/account-report"}}" class="btn-ghost">{{__ "Clear"}}</a>{{end}}
+    <p class="ml-auto text-xs text-steel">{{__ ":n lines" "n" .lines}} · {{.scope}}</p>
+</form>
+
+<!-- Headline figures -->
+<section class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="{{__ "Totals"}}">
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <p class="flex items-center gap-2 text-xs text-steel"><span class="size-2.5 rounded-sm" style="background:#2a78d6"></span>{{__ "Total income"}}</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums" title="{{.incomeFull}}">{{.income}}</p>
+        <p class="mt-1 text-xs">{{.incomeDelta}}</p>
+    </div>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <p class="flex items-center gap-2 text-xs text-steel"><span class="size-2.5 rounded-sm" style="background:#eb6834"></span>{{__ "Total expenses"}}</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums" title="{{.expenseFull}}">{{.expense}}</p>
+        <p class="mt-1 text-xs">{{.expenseDelta}}</p>
+    </div>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <p class="text-xs text-steel">{{if .netNeg}}{{__ "Net loss"}}{{else}}{{__ "Net profit"}}{{end}}</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums {{if .netNeg}}text-signal-700{{end}}" title="{{.netFull}}">{{.net}}</p>
+        <p class="mt-1 text-xs text-steel">{{.margin}}</p>
+    </div>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <p class="text-xs text-steel">{{__ "Expenses per 100 of income"}}</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums">{{.per100}}</p>
+        <div class="mt-2 h-2 overflow-hidden rounded-full bg-graphite-900/6" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.ratioInt}}" aria-label="{{__ "Expenses per 100 of income"}}">
+            <div class="h-full rounded-full" style="width: {{.ratio}}%; background: #eb6834"></div></div>
+    </div>
+</section>
+
+<!-- Years -->
+<div class="mt-4 grid items-start gap-4 xl:grid-cols-3">
+    <section class="panel p-5 xl:col-span-2" aria-labelledby="ar-years">
+        <h2 class="panel-title" id="ar-years">{{__ "Income and expenses by year"}}</h2>
+        <p class="text-xs text-steel">{{.dLabel}}{{__ " · bars: income and expenses, line: net"}}</p>
+        <div class="relative mt-4 h-72"><canvas id="ar-chart-years" role="img" aria-label="{{__ "Income and expenses by year"}}"></canvas></div>
+    </section>
+    <section class="panel p-5" aria-labelledby="ar-net">
+        <h2 class="panel-title" id="ar-net">{{__ "Net result per year"}}</h2>
+        <ul class="mt-3 divide-y divide-graphite-900/6 text-sm">
+            {{range .netYears}}
+            <li class="flex items-center justify-between gap-3 py-2 {{if .on}}font-semibold{{end}}">
+                <a href="{{.url}}" class="tabular-nums hover:text-signal-700">{{.year}}</a>
+                <span class="text-xs text-steel">{{.margin}}</span>
+                <span class="w-28 text-right tabular-nums {{if .neg}}text-signal-700{{end}}">{{.short}}</span>
+            </li>
+            {{end}}
+        </ul>
+    </section>
+</div>
+
+<!-- Types and months -->
+<div class="mt-4 grid items-start gap-4 xl:grid-cols-2">
+    <section class="panel p-5" aria-labelledby="ar-types">
+        <h2 class="panel-title" id="ar-types">{{__ "Amount by type"}}</h2>
+        <p class="text-xs text-steel">{{.scope}}</p>
+        {{if not .hasTypes}}<p class="py-10 text-center text-sm text-steel">{{__ "Nothing for this selection."}}</p>
+        {{else}}<div class="relative mt-4" style="height: {{.typesHeight}}px"><canvas id="ar-chart-types" role="img" aria-label="{{__ "Amount by type"}}"></canvas></div>{{end}}
+    </section>
+    <section class="panel p-5" aria-labelledby="ar-months">
+        <h2 class="panel-title" id="ar-months">{{__ "Month by month :y" "y" .focus}}</h2>
+        <p class="text-xs text-steel">{{.dLabel}}{{__ " · dashed: :y" "y" .focusPrev}}</p>
+        <div class="relative mt-4 h-72"><canvas id="ar-chart-months" role="img" aria-label="{{__ "Month by month :y" "y" .focus}}"></canvas></div>
+    </section>
+</div>
+
+<!-- Departments -->
+<div class="mt-4 grid items-start gap-4 xl:grid-cols-3">
+    <section class="panel p-5 xl:col-span-2" aria-labelledby="ar-depts">
+        <h2 class="panel-title" id="ar-depts">{{__ "Departments"}}</h2>
+        <p class="text-xs text-steel">{{.yLabel}}</p>
+        {{if not .hasDepts}}<p class="py-10 text-center text-sm text-steel">{{__ "Nothing for this selection."}}</p>
+        {{else}}<div class="relative mt-4" style="height: {{.deptsHeight}}px"><canvas id="ar-chart-depts" role="img" aria-label="{{__ "Departments"}}"></canvas></div>{{end}}
+    </section>
+    <section class="panel p-5" aria-labelledby="ar-rank">
+        <h2 class="panel-title" id="ar-rank">{{__ "Net by department"}}</h2>
+        <ol class="mt-3 space-y-3 text-sm">
+            {{range .rank}}
+            <li>
+                <div class="flex items-center justify-between gap-3">
+                    <a href="{{.url}}" class="flex min-w-0 items-center gap-2 hover:text-signal-700 {{if .on}}font-semibold{{end}}">
+                        <span class="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-graphite-900/6 text-[11px] font-semibold text-graphite-700">{{.i}}</span>
+                        <span class="size-2.5 shrink-0 rounded-full" style="background: {{css .dot}}"></span>
+                        <span class="truncate">{{.name}}</span></a>
+                    <span class="shrink-0 tabular-nums {{if .neg}}text-signal-700{{end}}">{{.short}}</span>
+                </div>
+                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="width: {{.w}}%; background: {{css .bar}}"></div></div>
+            </li>
+            {{end}}
+        </ol>
+    </section>
+</div>
+
+<!-- Department × type -->
+{{if .gridRows}}
+<section class="panel mt-4 overflow-hidden" aria-labelledby="ar-grid">
+    <div class="panel-head"><div><h2 class="panel-title" id="ar-grid">{{__ "Department × type"}}</h2>
+        <p class="text-xs text-steel">{{.yLabel}} · {{__ "darker = larger amount"}}</p></div></div>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist text-left text-xs text-steel"><tr>
+            <th class="px-5 py-2 font-medium">{{__ "Department"}}</th>
+            {{range .gridHead}}<th class="px-3 py-2 text-right font-medium">{{.}}</th>{{end}}
+        </tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .gridRows}}
+            <tr class="{{if .on}}bg-amber-50/60{{end}}">
+                <td class="whitespace-nowrap px-5 py-2"><span class="mr-2 inline-block size-2.5 rounded-full align-middle" style="background: {{css .dot}}"></span>{{.name}}</td>
+                {{range .cells}}
+                {{if .has}}<td class="px-3 py-2 text-right tabular-nums" title="{{.title}}" style="{{.style}}">{{.short}}</td>
+                {{else}}<td class="px-3 py-2 text-right tabular-nums" title="" style=""><span class="text-graphite-300">·</span></td>{{end}}
+                {{end}}
+            </tr>
+        {{end}}
+        </tbody>
+    </table></div>
+</section>
+{{end}}
+
+<!-- Biggest accounts -->
+<div class="mt-4 grid items-start gap-4 lg:grid-cols-2">
+    {{range .tops}}
+    <section class="panel p-5">
+        <h2 class="panel-title flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: {{css .color}}"></span>{{.label}}</h2>
+        <p class="text-xs text-steel">{{$.scope}}</p>
+        {{if not .rows}}<p class="py-8 text-center text-sm text-steel">{{__ "Nothing for this selection."}}</p>{{else}}
+        <ul class="mt-3 space-y-3 text-sm">
+            {{$color := .color}}{{range .rows}}
+            <li><div class="flex items-baseline justify-between gap-3"><span class="min-w-0 truncate"><span class="tabular-nums text-steel">{{.account}}</span> · {{.name}}</span><span class="shrink-0 tabular-nums" title="{{.full}}">{{.short}}</span></div>
+                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="width: {{.w}}%; background: {{css $color}}"></div></div></li>
+            {{end}}
+        </ul>
+        {{end}}
+    </section>
+    {{end}}
+</div>
+
+<script src="{{asset "assets/vendor/chartjs/chart.umd.min.js"}}"></script>
+<script>
+(function () {
+    var IN = '#2a78d6', EX = '#eb6834', NET = '#1baf7a';
+    var L = {{.js.L}};
+    var years = {{.js.years}}, types = {{.js.types}}, typeLabels = {{.js.typeLabels}};
+    var depts = {{.js.depts}}, months = {{.js.months}};
+    var gap = function (m) { return m.income === 0 && m.expense === 0 ? { income: null, expense: null } : m; };   // a month with no lines is not reported yet
+    var cur = {{.js.cur}}.map(gap), prev = {{.js.prev}}.map(gap);
+    var focus = {{.js.focus}};
+    var compact = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+    var full = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.color = '#52514e';
+    var grid = { color: 'rgba(15,23,42,0.06)' };
+    var tip = { callbacks: { label: function (c) { return ' ' + c.dataset.label + ': ' + full.format(c.parsed[c.chart.options.indexAxis === 'y' ? 'x' : 'y']); } } };
+    var legend = { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } };
+    var bar = { borderRadius: 4, borderSkipped: 'start', maxBarThickness: 36, categoryPercentage: 0.7, barPercentage: 0.9 };
+
+    new Chart(document.getElementById('ar-chart-years'), {
+        data: { labels: years.map(function (r) { return r.year; }), datasets: [
+            Object.assign({ type: 'bar', label: L.income, data: years.map(function (r) { return r.income; }), backgroundColor: IN, order: 2 }, bar),
+            Object.assign({ type: 'bar', label: L.expense, data: years.map(function (r) { return r.expense; }), backgroundColor: EX, order: 2 }, bar),
+            { type: 'line', label: L.net, data: years.map(function (r) { return r.income - r.expense; }), borderColor: NET, backgroundColor: NET, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, order: 1 }
+        ] },
+        options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true, sort: function (a, b) { return a.datasetIndex - b.datasetIndex; } } }, tooltip: tip },
+            scales: { x: { grid: { display: false } }, y: { grid: grid, ticks: { callback: function (v) { return compact.format(v); } } } } }
+    });
+
+    var tEl = document.getElementById('ar-chart-types');
+    if (tEl) new Chart(tEl, {
+        type: 'bar',
+        data: { labels: types.map(function (r) { return typeLabels[r.type] || r.type; }), datasets: [
+            Object.assign({ label: L.income + ' / ' + L.expense, data: types.map(function (r) { return r.amount; }), backgroundColor: types.map(function (r) { return r.kind === 'income' ? IN : EX; }) }, bar, { categoryPercentage: 0.8 })
+        ] },
+        options: { indexAxis: 'y', maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, usePointStyle: true, generateLabels: function () { return [{ text: L.income, fillStyle: IN, strokeStyle: IN, pointStyle: 'circle' }, { text: L.expense, fillStyle: EX, strokeStyle: EX, pointStyle: 'circle' }]; } }, onClick: function () {} },
+                tooltip: { callbacks: { label: function (c) { return ' ' + (types[c.dataIndex].kind === 'income' ? L.income : L.expense) + ': ' + full.format(c.parsed.x); } } } },
+            scales: { x: { grid: grid, ticks: { callback: function (v) { return compact.format(v); } } }, y: { grid: { display: false } } } }
+    });
+
+    new Chart(document.getElementById('ar-chart-months'), {
+        type: 'line',
+        data: { labels: months, datasets: [
+            { label: L.income + ' ' + focus, data: cur.map(function (m) { return m.income; }), borderColor: IN, backgroundColor: IN, borderWidth: 2, pointRadius: 3, tension: 0.3 },
+            { label: L.expense + ' ' + focus, data: cur.map(function (m) { return m.expense; }), borderColor: EX, backgroundColor: EX, borderWidth: 2, pointRadius: 3, tension: 0.3 },
+            { label: L.income + ' ' + (focus - 1), data: prev.map(function (m) { return m.income; }), borderColor: 'rgba(42,120,214,0.45)', backgroundColor: 'rgba(42,120,214,0.45)', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0.3 },
+            { label: L.expense + ' ' + (focus - 1), data: prev.map(function (m) { return m.expense; }), borderColor: 'rgba(235,104,52,0.45)', backgroundColor: 'rgba(235,104,52,0.45)', borderDash: [5, 4], borderWidth: 2, pointRadius: 0, tension: 0.3 }
+        ] },
+        options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend, tooltip: tip },
+            scales: { x: { grid: { display: false } }, y: { grid: grid, ticks: { callback: function (v) { return compact.format(v); } } } } }
+    });
+
+    var dEl = document.getElementById('ar-chart-depts');
+    if (dEl) new Chart(dEl, {
+        type: 'bar',
+        data: { labels: depts.map(function (r) { return r.department; }), datasets: [
+            Object.assign({ label: L.income, data: depts.map(function (r) { return r.income; }), backgroundColor: IN }, bar),
+            Object.assign({ label: L.expense, data: depts.map(function (r) { return r.expense; }), backgroundColor: EX }, bar)
+        ] },
+        options: { indexAxis: 'y', maintainAspectRatio: false, interaction: { mode: 'index', intersect: false, axis: 'y' }, plugins: { legend: legend, tooltip: tip },
+            scales: { x: { grid: grid, ticks: { callback: function (v) { return compact.format(v); } } }, y: { grid: { display: false } } } }
+    });
+})();
+</script>
+{{end}}

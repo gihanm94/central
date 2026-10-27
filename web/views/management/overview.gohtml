@@ -1,0 +1,116 @@
+{{- /* management overview: see overviewIndex for the prepared values */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Overview"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{formatDate .from "j M Y"}} – {{formatDate .to "j M Y"}} · {{__ "Revenue from ERP invoices in THB, credit notes subtracted."}}</p></div>
+</div>
+
+<div class="mt-4 flex flex-wrap items-center gap-2">
+    <nav class="flex flex-wrap rounded-md bg-graphite-900/6 p-0.5 text-sm" aria-label="{{__ "Period"}}">
+        {{range .tabs}}<a href="{{.URL}}" class="rounded px-3 py-1.5 {{if .On}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}">{{.Label}}</a>{{end}}
+    </nav>
+    {{if eq .period "year"}}
+        <form method="GET" action="{{url "/management"}}" class="w-28"><input type="hidden" name="period" value="year">{{select "year" .years .year "id" "mg-year" "submit" true "search" false "aria" (__ "Year")}}</form>
+    {{end}}
+    <form method="GET" action="{{url "/management"}}" class="ml-auto flex flex-wrap items-center gap-2">
+        <input type="hidden" name="period" value="custom">
+        <input type="date" name="from" value="{{.from}}" class="input !w-40" aria-label="{{__ "From"}}"><span class="text-steel">→</span>
+        <input type="date" name="to" value="{{.to}}" class="input !w-40" aria-label="{{__ "To"}}">
+        <button class="btn-secondary">{{__ "Show"}}</button>
+    </form>
+</div>
+
+{{if not .data}}
+    <section class="panel mt-4 px-5 py-10 text-center text-sm text-steel">{{__ "Revenue is not available right now (the Accounting module is off or unavailable). The KPI calculator still works."}}</section>
+{{else}}
+<div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Revenue"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums" title="{{.totalFull}}">{{.total}}</p>
+        <p class="mt-1 text-xs {{if not .change}}text-steel{{else if .changeUp}}text-emerald-700{{else}}text-signal-700{{end}}">
+            {{if not .change}}{{__ "No revenue in the period before"}}{{else}}{{.change}}{{end}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Invoices"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums">{{.invoices}}</p>
+        <p class="mt-1 text-xs text-steel">{{__ "Average :v per invoice" "v" .perInvoice}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Customers billed"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums">{{.customersCount}}</p>
+        <p class="mt-1 text-xs text-steel">{{__ "Top 10 bring :p% of revenue" "p" .topShare}}</p></div>
+    <a href="{{url "/management/kpi-calculator" "year" .fromYear}}" class="panel block p-4 hover:ring-graphite-900/20"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "KPI scores :y" "y" .fromYear}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums">{{.kpiAvg}}</p>
+        <p class="mt-1 text-xs text-steel">{{__ "Average of :n saved scores · open the KPI calculator" "n" .kpiN}}</p></a>
+</div>
+
+{{if gt (len .months) 1}}
+<section class="panel mt-4 p-5">
+    <h2 class="panel-title">{{__ "Revenue by month"}}</h2>
+    <div class="mt-4 flex h-44 items-end gap-2">
+        {{range .months}}
+            <div class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title="{{.title}}">
+                <span class="truncate text-[10px] tabular-nums text-steel">{{.short}}</span>
+                <div class="w-full max-w-12 rounded-t {{if .neg}}bg-signal-400{{else}}bg-signal-600{{end}}" style="height: {{.h}}%"></div>
+                <span class="text-[11px] text-steel">{{.label}}</span>
+            </div>
+        {{end}}
+    </div>
+</section>
+{{end}}
+
+<div class="mt-4 grid gap-4 xl:grid-cols-2">
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Top sellers"}}</h2><span class="text-xs text-steel">{{__ "by revenue"}}</span></div>
+        {{if not .sellers}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No revenue in this period."}}</p>{{end}}
+        <ol class="divide-y divide-graphite-900/6">
+            {{range .sellers}}
+                <li class="flex items-center gap-3 px-5 py-2.5">
+                    <span class="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold {{.medal}}">{{.i}}</span>
+                    {{template "partials/avatar" (dict "name" .avName "avatar" .avatar "size" "size-9")}}
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-medium">{{.name}}</p>
+                        <p class="truncate text-xs text-steel">{{.line}}</p>
+                        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full bg-signal-600" style="width: {{.w}}%"></div></div>
+                    </div>
+                    <div class="text-right"><p class="font-display text-lg font-semibold tabular-nums" title="{{.full}}">{{.short}}</p>
+                        <p class="text-xs tabular-nums text-steel">{{.pct}}</p></div>
+                </li>
+            {{end}}
+        </ol>
+    </section>
+
+    <div class="space-y-4">
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Department ranking"}}</h2><span class="text-xs text-steel">{{__ "by revenue of their sellers"}}</span></div>
+            {{if not .departments}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No revenue in this period."}}</p>{{end}}
+            <ol class="divide-y divide-graphite-900/6">
+                {{range .departments}}
+                    <li class="flex items-center gap-3 px-5 py-2.5 {{if not .named}}bg-mist/40{{end}}">
+                        <span class="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold {{if .named}}{{.medal}}{{else}}bg-graphite-900/6 text-graphite-400{{end}}">{{if .named}}{{.rank}}{{else}}–{{end}}</span>
+                        <span class="size-3 shrink-0 rounded-full" style="background: {{css .color}}"></span>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-medium">{{.name}}</p>
+                            <p class="text-xs text-steel">{{.line}}</p>
+                            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="background: {{css .color}}; width: {{.w}}%"></div></div>
+                        </div>
+                        <div class="text-right"><p class="font-display text-lg font-semibold tabular-nums" title="{{.full}}">{{.short}}</p>
+                            <p class="text-xs tabular-nums text-steel">{{.pct}}</p></div>
+                    </li>
+                {{end}}
+            </ol>
+        </section>
+
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Top revenue customers"}}</h2><span class="text-xs text-steel">{{__ "top 10"}}</span></div>
+            {{if not .customers}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No revenue in this period."}}</p>{{end}}
+            <ol class="divide-y divide-graphite-900/6">
+                {{range .customers}}
+                    <li class="flex items-center gap-3 px-5 py-2.5">
+                        <span class="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold {{.medal}}">{{.i}}</span>
+                        <div class="min-w-0 flex-1"><p class="truncate font-medium">{{.name}}</p>
+                            <p class="text-xs text-steel">{{.line}}</p>
+                            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full bg-graphite-700" style="width: {{.w}}%"></div></div></div>
+                        <div class="text-right"><p class="font-display text-lg font-semibold tabular-nums" title="{{.full}}">{{.short}}</p>
+                            <p class="text-xs tabular-nums text-steel">{{.pct}}</p></div>
+                    </li>
+                {{end}}
+            </ol>
+        </section>
+    </div>
+</div>
+{{end}}
