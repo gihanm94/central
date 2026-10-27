@@ -112,7 +112,9 @@ func BootModules() {
 	for _, k := range cfg.Keys {
 		add(k)
 	}
-	for _, k := range order {
+	rest := append([]string(nil), order...)
+	sort.Strings(rest) // modules not named in config follow in folder-name order, like PHP's glob
+	for _, k := range rest {
 		add(k)
 	}
 	order = sorted

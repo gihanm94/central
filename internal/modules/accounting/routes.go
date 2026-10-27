@@ -1,10 +1,13 @@
 package accounting
 
-import "acme/internal/app"
+import (
+	"acme/internal/app"
+	"acme/internal/db"
+	"acme/internal/modules/crm"
+)
 
-// crmLeadsFor: CRM leads with the same tax id for the API's customer view. The CRM module is ported in parallel and does
-// not export its visibility rule yet, so the list stays empty (the PHP code also answers [] when the CRM link fails).
-func crmLeadsFor(c *app.Ctx, vat string) []any { return []any{} }
+// crmLeadsFor: CRM leads with the same tax id for the API's customer view (the CRM's own visibility rule).
+func crmLeadsFor(c *app.Ctx, vat string) []db.Row { return crm.LeadsByTax(c, vat) }
 
 // routes.php: inside the 'auth' group of the web routes.
 func routes(r app.Router) {
