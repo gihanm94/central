@@ -1,0 +1,49 @@
+{{set "crumbs" (list (list (__ "Members") "/members") (list .row.name (printf "/members/%v" .row.id)))}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title">{{.title}}</h1>
+        <p class="mt-1 max-w-2xl text-sm text-steel">{{.intro}}</p>
+    </div>
+    <a href="{{url "/roles"}}" class="btn-secondary w-full sm:w-auto">{{__ "Edit the role instead"}}</a>
+</div>
+
+{{if .isAdmin}}<p class="mt-6 rounded-md bg-graphite-900 px-4 py-3 text-sm text-white">{{__ "Admins always have full access. Change their role first if you need to limit them."}}</p>{{end}}
+
+<form method="POST" action="{{url (printf "/members/%v/access" .row.id)}}" class="mt-6 space-y-6">
+    {{csrfField}}
+    <fieldset {{if not .canChange}}disabled{{end}} class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Which records they can see"}}</h2></div>
+        <div class="grid gap-3 p-4 sm:flex sm:items-center sm:gap-4 sm:p-5">
+            {{.scopeSelect}}
+            <p class="text-sm text-steel">{{__ "Department"}}: {{or .row.department_name "—"}} · {{__ "Team"}}: {{or .row.team_name "—"}}</p>
+        </div>
+    </fieldset>
+
+    <fieldset {{if not .canChange}}disabled{{end}} class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "What they can do"}}</h2>
+            <span class="hidden gap-3 text-xs text-steel sm:flex"><span class="flex items-center gap-1"><span class="size-2.5 rounded-sm bg-graphite-800"></span>{{__ "Role allows"}}</span><span class="flex items-center gap-1"><span class="size-2.5 rounded-sm bg-signal-600"></span>{{__ "Exception"}}</span></span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table">
+                <thead class="bg-mist/60"><tr><th class="sticky left-0 z-10 bg-mist">{{__ "Area"}}</th>{{range .actionLabels}}<th class="text-center">{{.}}</th>{{end}}</tr></thead>
+                <tbody>
+                {{range .rows}}
+                    <tr>
+                        <td class="sticky left-0 z-10 bg-white font-medium">{{.Label}}</td>
+                        {{range .Cells}}
+                            <td class="text-center">
+                                {{.}}
+                            </td>
+                        {{end}}
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </fieldset>
+    {{if .canChange}}
+        <div class="flex justify-end gap-2"><a href="{{url (printf "/members/%v" .row.id)}}" class="btn-ghost">{{__ "Cancel"}}</a><button class="btn-primary">{{__ "Save access rules"}}</button></div>
+    {{else if not .isAdmin}}
+        <p class="text-sm text-steel">{{__ "You can view these rules. Changing them needs the “Roles & permissions: edit” permission."}}</p>
+    {{end}}
+</form>
