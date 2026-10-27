@@ -180,7 +180,7 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 	}
 	ago := func(d int) string { return php.Date("Y-m-d", php.Now().AddDate(0, 0, -d)) }
 	sq := func(x app.M) string {
-		q := app.M{"view": "stage", "stage": stage, "department": f.Department, "owner": f.Owner, "from": f.From, "to": f.To, "date": f.Date}
+		q := app.M{"view": "stage", "stage": stage, "department": nilZero(f.Department), "owner": nilZero(f.Owner), "from": f.From, "to": f.To, "date": f.Date}
 		for k, v := range x {
 			q[k] = v
 		}

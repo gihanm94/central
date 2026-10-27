@@ -442,7 +442,11 @@ func searchFind(c *app.Ctx) {
 		if r.Str("sub") != "" {
 			sub = r.Str("sub")
 		}
-		items = append(items, app.M{"id": r.Int("id"), "label": r.Str("label"), "sub": sub, "img": c.UploadURL(r["img"])})
+		var img any
+		if u := c.UploadURL(r["img"]); u != "" {
+			img = u
+		}
+		items = append(items, app.M{"id": r.Int("id"), "label": r.Str("label"), "sub": sub, "img": img})
 	}
 	c.JSON(app.M{"items": items, "more": more})
 }

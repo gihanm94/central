@@ -81,7 +81,7 @@ func init() {
 			{Name: "status", Label: c.T("Status"), Type: "select", Options: tr(c, activityStatuses), Rules: "required", Default: "PLANNED", Search: &no,
 				WideWhen: "activity_type=EMAIL,TASK"}, // e-mail and task have no fields beside it
 			{Name: "meeting_duration", Label: c.T("Meeting duration (min)"), Type: "number", Rules: "nullable|integer", ShowWhen: "activity_type=MEETING", Placeholder: "60"},
-			{Name: "call_duration", Label: c.T("Call duration (min)"), Type: "number", Rules: "nullable|integer", ShowWhen: "activity_type=CALL", Placeholder: "0"},
+			{Name: "call_duration", Label: c.T("Call duration (min)"), Type: "number", Rules: "nullable|integer", ShowWhen: "activity_type=CALL"},
 			{Name: "code", Label: c.T("Code"), Rules: "nullable|max:30", HideForm: true},
 
 			s.remoteField(c, "lead_id", row, app.Field{Label: c.T("Lead"), Rules: "required", Span: 2, Placeholder: c.T("Reference lead"),

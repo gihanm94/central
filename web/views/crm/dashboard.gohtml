@@ -69,7 +69,8 @@
             <li>
                 <div class="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
                     <a href="{{.URL}}" class="flex items-center gap-2 font-medium hover:text-signal-700"><span class="size-2.5 rounded-full" style="{{css (printf "background: %s" .Color)}}"></span>{{.Label}}</a>
-                    <span class="tabular-nums text-steel">{{.Counts}}</span>
+                    <span class="tabular-nums text-steel">{{.Counts}}<span class="font-medium text-graphite-900">{{.Money}}</span>
+                    </span>
                 </div>
                 <div class="h-5 rounded bg-graphite-900/5" title="{{.Title}}"><div class="h-full rounded-r" style="{{css (printf "width: %s%%; background: %s" .Width .Color)}}"></div></div>
             </li>

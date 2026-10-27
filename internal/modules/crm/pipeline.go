@@ -101,9 +101,10 @@ func pipeHTML(c *app.Ctx, rows []db.Row, stages []string) string {
 		if o["creator_name"] != nil {
 			creator = o.Str("creator_name")
 		}
-		owner := "—"
+		owner, avatarName := "—", "?"
 		if o["owner_name"] != nil {
 			owner = o.Str("owner_name")
+			avatarName = owner
 		}
 		var lead template.HTML
 		if o.Str("lead_name") != "" {
@@ -117,7 +118,7 @@ func pipeHTML(c *app.Ctx, rows []db.Row, stages []string) string {
 		}
 		b.WriteString(string(c.Partial("crm/pipeline-card", app.M{"o": o, "mine": mine, "movable": movable, "late": late, "creator": creator, "ownerName": owner, "lead": lead,
 			"stages": opts, "prob": o["probability"] != nil, "probText": php.NumberClean(o["probability"]), "money": h(uiMoney(o["amount"], o.Str("currency"))),
-			"closeShort": app.FormatDate(c, o["close_at"], "d M"), "ownerAvatar": owner,
+			"closeShort": app.FormatDate(c, o["close_at"], "d M"), "ownerAvatar": avatarName,
 		})))
 	}
 	return b.String()
@@ -149,7 +150,7 @@ func pipelineIndex(c *app.Ctx) {
 	dep := php.Int(c.Input("department", "0"))
 	mine := c.Input("mine") == "1"
 	link := func(m string) string {
-		q := app.M{"q": strings.TrimSpace(c.Input("q")), "department": dep, "mine": nil}
+		q := app.M{"q": strings.TrimSpace(c.Input("q")), "department": nilZero(dep), "mine": nil}
 		if m != "" {
 			q["mine"] = 1
 		}

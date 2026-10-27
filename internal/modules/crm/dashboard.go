@@ -298,6 +298,7 @@ func dashboardIndex(c *app.Ctx) {
 	// bars: stages
 	type stageBar struct {
 		Label, Color, URL, Counts, Title string
+		Money                            string
 		Width                            string
 	}
 	var bars []stageBar
@@ -307,7 +308,7 @@ func dashboardIndex(c *app.Ctx) {
 			qm["scope"] = "mine"
 		}
 		bars = append(bars, stageBar{s.Label, s.Color, c.URL("/crm/opportunities", map[string]any(qm)),
-			pl(s.N, ":n deal", ":n deals") + " · " + money(s.V), s.Label + ": " + php.NF(s.V, 0) + " " + cur, fmtFloat(phpRound(s.Width, 1))})
+			pl(s.N, ":n deal", ":n deals") + " · ", s.Label + ": " + php.NF(s.V, 0) + " " + cur, money(s.V), fmtFloat(phpRound(s.Width, 1))})
 	}
 	// bars: months
 	maxMonth := 1.0

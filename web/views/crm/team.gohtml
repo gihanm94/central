@@ -33,7 +33,7 @@
     <input type="hidden" name="type" value="{{.type}}">
     {{if not .openOnly}}<input type="hidden" name="all" value="1">{{end}}
     <label class="text-sm font-medium" for="team-user">{{__ "Person"}}</label>
-    <div class="w-full max-w-sm">{{select "user" .members (ternary (bool $from) (str $from) "") (dict "id" "team-user" "placeholder" (__ "Choose a person…") "submit" true "search" true)}}</div>
+    <div class="w-full max-w-sm">{{select "user" .members (ternary (gt $from 0) (str $from) "") (dict "id" "team-user" "placeholder" (__ "Choose a person…") "submit" true "search" true)}}</div>
     {{if $from}}
     <div class="ml-auto inline-flex rounded-lg bg-mist p-0.5 text-sm" role="group" aria-label="{{__ "Show"}}">
         <a href="{{.qsOpen}}" class="rounded-md px-3 py-1 {{if .openOnly}}bg-white font-medium shadow-sm{{else}}text-steel{{end}}">{{__ "Open only"}}</a>

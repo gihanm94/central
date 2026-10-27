@@ -104,7 +104,7 @@ func init() {
 
 			{Section: c.T("Products"), Icon: "box", Help: c.T("Products of Accounting and new products")},
 			{Name: "products", Label: c.T("Products"), Type: "custom", Partial: "crm/fields/product-lines", Span: 2, NoTable: true, NoImport: true, Rules: "nullable",
-				Extra: productLinesExtra(c, row), Display: func(r db.Row) any { return r["products"] }},
+				Extra: productLinesExtra(c, row)},
 
 			{Section: c.T("Next steps"), Icon: "tasks", Help: c.T("Action items and follow-up tasks")},
 			{Name: "next_steps", Label: c.T("Next steps"), Type: "custom", Partial: "crm/fields/next-steps", Span: 2, NoTable: true, NoImport: true, Rules: "nullable",
@@ -362,7 +362,7 @@ func productLinesExtra(c *app.Ctx, row db.Row) app.M {
 		units = append(units, app.Opt{Value: u, Label: u})
 	}
 	blank := line("__i__", prow{qty: "1"})
-	return app.M{"sections": sections, "units": units, "firstUnit": oppUnits[0], "count": len(rows), "blank": blank}
+	return app.M{"hide_show": true, "sections": sections, "units": units, "firstUnit": oppUnits[0], "count": len(rows), "blank": blank}
 }
 
 func nextStepsExtra(c *app.Ctx, row db.Row) app.M {
@@ -391,7 +391,7 @@ func nextStepsExtra(c *app.Ctx, row db.Row) app.M {
 			fresh = append(fresh, stepRow{I: php.Str(len(fresh)), Title: g("title"), Due: g("due_at"), Note: g("note"), Sub: joinNonEmpty(" · ", due, g("note"))})
 		}
 	}
-	return app.M{"existing": existing, "new": fresh, "blank": stepRow{I: "__i__"}}
+	return app.M{"hide_show": true, "existing": existing, "new": fresh, "blank": stepRow{I: "__i__"}}
 }
 
 func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
