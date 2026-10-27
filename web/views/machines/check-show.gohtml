@@ -1,0 +1,60 @@
+{{- /* .r record, .answers, .c, .mlink, .pills, .ng, .canApprove, .canDelete, .chain, .by */ -}}
+{{- set "crumbs" (list (list (__ "Checklists") .c.base)) -}}
+{{- $r := .r -}}
+<div class="mx-auto max-w-3xl">
+<div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+        <p class="text-sm text-steel">{{__ "Checklist"}} #{{$r.id}} · {{formatDate $r.created_at "d M Y H:i"}}</p>
+        <h1 class="page-title break-words"><a class="hover:underline" href="{{.mlink}}">{{$r.machine_code}}</a> <span class="font-normal text-steel">· {{$r.machine_name}}</span></h1>
+        <p class="mt-1 flex flex-wrap items-center gap-2">
+            {{index .pills 0}}
+            {{index .pills 1}} {{index .pills 2}}
+            {{if .ng}}{{.ngPill}}{{end}}</p>
+    </div>
+    {{if .canDelete}}<button type="button" class="btn-danger" data-delete-url="{{url (printf "%s/%v/delete" .c.base $r.id)}}" data-delete-name="{{.title}}" data-delete-kind="{{__ "checklist"}}">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>{{end}}
+</div>
+
+{{if gt (len .chain) 1}}
+<ol class="mt-5 flex flex-wrap items-stretch gap-2 sm:flex-nowrap">
+    {{range .chain}}
+    <li class="flex min-w-[9rem] flex-1 items-center gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-graphite-900/8">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{.tone}}">{{if eq .state "done"}}{{icon "check" "size-4"}}{{else}}{{.n}}{{end}}</span>
+        <span class="min-w-0"><span class="block text-xs text-steel">{{.label}}</span><span class="block truncate text-sm font-medium">{{.who}}</span>
+            <span class="block text-xs text-steel">{{.when}}</span></span>
+    </li>
+    {{end}}
+</ol>
+{{end}}
+
+{{if .canApprove}}
+<form method="POST" action="{{url (printf "%s/%v/approve" .c.base $r.id)}}" class="panel mt-5 space-y-3 border-l-4 border-amber-500 p-4">{{csrfField}}
+    <p class="text-sm font-semibold">{{__ "This checklist waits for your approval."}}</p>
+    <input name="note" maxlength="300" class="input" placeholder="{{__ "Note (optional)"}}" aria-label="{{__ "Note"}}">
+    <button class="btn-dark w-full sm:w-auto">{{icon "check" "size-4"}} {{__ "Approve"}}</button>
+</form>
+{{end}}
+
+<section class="panel mt-5 overflow-hidden">
+    <div class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel">{{__ "Answers"}} · {{__ "by :name" "name" .by}}</div>
+    {{if not .answers}}<p class="px-5 py-6 text-center text-sm text-steel">{{.emptyText}}</p>
+    {{else}}
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .answers}}
+        <li class="flex flex-wrap items-start gap-x-4 gap-y-1 px-5 py-3 text-sm">
+            <span class="min-w-0 flex-1">{{.Detail}}{{if .Remark}}<span class="mt-0.5 block text-xs {{if eq .V "NG"}}text-red-700{{else}}text-steel{{end}}">{{.Remark}}</span>{{end}}</span>
+            {{if .Choice}}{{call $.choicePill .V}}{{else}}<span class="font-medium tabular-nums">{{.V}}</span>{{end}}
+        </li>
+        {{end}}
+    </ul>
+    {{end}}
+</section>
+
+{{if .showNotes}}
+<section class="panel mt-5 p-5 text-sm">
+    {{if $r.job_detail}}<p class="text-xs text-steel">{{__ "Work done"}}</p><p class="mb-3 whitespace-pre-line">{{$r.job_detail}}</p>{{end}}
+    {{if $r.machine_note}}<p class="text-xs text-steel">{{__ "Note"}}</p><p class="mb-3 whitespace-pre-line">{{$r.machine_note}}</p>{{end}}
+    {{if and .answers $r.reason_not_checked}}<p class="text-xs text-steel">{{__ "Approver note"}}</p><p class="mb-3 whitespace-pre-line">{{$r.reason_not_checked}}</p>{{end}}
+    {{if $r.image}}<a href="{{uploadURL $r.image}}" target="_blank" rel="noopener"><img src="{{uploadURL $r.image}}" alt="{{__ "Photo"}}" class="max-h-72 rounded-lg ring-1 ring-graphite-900/10"></a>{{end}}
+</section>
+{{end}}
+</div>

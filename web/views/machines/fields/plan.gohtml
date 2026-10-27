@@ -1,0 +1,20 @@
+{{- /* Yearly plan rows. .f.Extra: maint (maintenance | calibration), rows, next */ -}}
+{{- define "machines/fields/plan#row" -}}
+    <div data-repeat-row class="grid grid-cols-12 items-start gap-2 rounded-md bg-mist/50 p-3">
+        <input type="hidden" name="{{.name}}[{{.i}}][id]" value="{{.p.id}}">
+        <div class="col-span-6 {{if .maint}}sm:col-span-3{{else}}sm:col-span-4{{end}}"><label class="mb-1 block text-xs text-steel">{{__ "Due date"}}</label><input type="date" name="{{.name}}[{{.i}}][due_date]" value="{{.p.due_date}}" class="input"></div>
+        {{if .maint}}<div class="col-span-6 sm:col-span-3"><label class="mb-1 block text-xs text-steel">{{__ "Plan date"}}</label><input type="date" name="{{.name}}[{{.i}}][plan_date]" value="{{.p.plan_date}}" class="input"></div>{{end}}
+        <div class="col-span-12 {{if .maint}}sm:col-span-5{{else}}sm:col-span-7{{end}}"><label class="mb-1 block text-xs text-steel">{{__ "Note"}}</label><input name="{{.name}}[{{.i}}][note]" value="{{.p.note}}" maxlength="500" class="input"></div>
+        <div class="col-span-12 flex justify-end sm:col-span-1 sm:pt-5"><button type="button" data-repeat-remove class="btn-ghost px-2 py-1.5 hover:text-signal-700" aria-label="{{__ "Remove"}}">{{icon "trash" "size-4"}}</button></div>
+    </div>
+{{- end -}}
+{{- $name := .name -}}{{- $maint := .f.Extra.maint -}}
+<span class="label">{{.f.Label}}</span>
+<div data-repeat data-min="0" class="space-y-2">
+    <div data-repeat-rows class="space-y-2">{{range .f.Extra.rows}}{{template "machines/fields/plan#row" (dict "name" $name "i" .i "p" . "maint" $maint)}}{{end}}</div>
+    <template data-repeat-template>{{template "machines/fields/plan#row" (dict "name" $name "i" "__i__" "p" (dict) "maint" $maint)}}</template>
+    <input type="hidden" data-repeat-next value="{{.f.Extra.next}}">
+    <button type="button" data-repeat-add class="btn-secondary py-1.5">{{icon "plus" "size-4"}} {{if $maint}}{{__ "Add a maintenance round"}}{{else}}{{__ "Add a calibration due date"}}{{end}}</button>
+    {{if .f.Help}}<p class="hint">{{.f.Help}}</p>{{end}}
+</div>
+{{if .err}}<p class="error">{{.err}}</p>{{end}}

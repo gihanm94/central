@@ -1,0 +1,19 @@
+{{- /* Several documents: the ones already saved (untick to remove) and new ones to add. .f.Extra: column, cur, max, types */ -}}
+{{- $col := .f.Extra.column -}}
+<span class="label">{{.f.Label}}</span>
+{{if .f.Extra.cur}}
+<ul class="mb-2 space-y-1">
+    {{range .f.Extra.cur}}
+    <li class="flex items-center gap-2 rounded-md bg-mist/60 px-3 py-1.5 text-sm">
+        <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2"><input type="checkbox" name="keep_{{$col}}[]" value="{{.F}}" class="size-4 accent-signal-600" {{if .On}}checked{{end}}>
+            <span class="truncate">{{.N}}</span></label>
+        <a class="shrink-0 text-xs text-signal-700 underline" href="{{url "/machines/file" "f" .F}}" target="_blank" rel="noopener">{{__ "Open"}}</a>
+        <span class="shrink-0 text-xs text-steel">{{.KB}} KB</span>
+    </li>
+    {{end}}
+</ul>
+<p class="hint mb-1">{{__ "Untick a document to remove it when you save."}}</p>
+{{end}}
+<input name="{{.name}}[]" type="file" multiple class="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-graphite-900 file:px-3 file:py-1.5 file:text-sm file:text-white">
+<p class="hint">{{__ "Up to :mb MB each: :types." "mb" .f.Extra.max "types" .f.Extra.types}}</p>
+{{if .err}}<p class="error">{{.err}}</p>{{end}}

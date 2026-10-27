@@ -1,0 +1,55 @@
+{{- /* .m machine, .plan (Recheck, Items, Empty, Weekend), .who approver, .questions, .err, .mstat, .statusChoices */ -}}
+{{- set "crumbs" (list (list (__ "Checklists") "/machines/checklists")) -}}
+{{- $m := .m -}}
+<form method="POST" action="{{url "/machines/checklists"}}" enctype="multipart/form-data" data-no-busy data-check class="mx-auto max-w-2xl pb-28">
+    {{csrfField}}
+    <input type="hidden" name="machine_code" value="{{$m.machine_code}}">
+
+    <section class="panel overflow-hidden">
+        <div class="flex items-center gap-4 p-4">
+            {{if $m.image}}<img src="{{uploadURL $m.image}}" alt="" class="size-16 shrink-0 rounded-lg bg-white object-contain ring-1 ring-graphite-900/10">{{else}}<span class="flex size-16 shrink-0 items-center justify-center rounded-lg bg-mist text-graphite-400">{{icon "gear" "size-8"}}</span>{{end}}
+            <div class="min-w-0">
+                <p class="text-xs tabular-nums text-steel">{{$m.machine_code}}</p>
+                <h1 class="text-lg font-semibold leading-tight">{{$m.machine_name}}</h1>
+                <p class="mt-1 text-xs text-steel">{{.typeLine}}</p>
+            </div>
+        </div>
+        <div class="border-t border-graphite-900/6 px-4 py-2.5 text-sm {{if .plan.Recheck}}bg-amber-50 text-amber-900{{else}}bg-sky-50 text-sky-900{{end}}">
+            {{if .plan.Recheck}}<strong>{{__ "Your re-check"}}</strong> · {{__ "after you save, it goes to :who for approval." "who" .who}}
+            {{else}}<strong>{{__ "General check"}}</strong> · {{__ "the quick check before or after you use the machine."}}
+                {{if .weekendNote}} {{__ "Re-checks are done on weekdays."}}{{end}}{{end}}
+        </div>
+    </section>
+
+    {{if .plan.Empty}}
+        <p class="mt-4 rounded-lg bg-white px-4 py-6 text-center text-sm text-steel shadow-sm ring-1 ring-graphite-900/8">{{__ "Nothing to check on this machine right now."}}
+            {{if can "machines_machines" "edit"}}<br><a class="text-signal-700 underline" href="{{url (printf "/machines/machines/%v/edit" $m.id)}}">{{__ "Add questions to the checklist"}}</a>{{end}}</p>
+    {{else}}
+
+    <h2 class="mb-2 mt-5 text-sm font-semibold">{{__ "Machine status"}}</h2>
+    <div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="{{__ "Machine status"}}">
+        {{range .statusChoices}}
+        <label class="cursor-pointer"><input type="radio" name="machine_status" value="{{.Value}}" class="peer sr-only" {{if eq $.mstat .Value}}checked{{end}}>
+            <span class="flex h-14 items-center justify-center rounded-xl bg-white px-2 text-center text-sm font-semibold ring-1 ring-graphite-900/15 transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-signal-600 {{.Class}}">{{.Label}}</span></label>
+        {{end}}
+    </div>
+
+    <h2 class="mb-2 mt-6 flex items-center justify-between text-sm font-semibold"><span>{{__ "Questions"}}</span><span class="text-xs font-normal text-steel" data-progress>{{len .plan.Items}}</span></h2>
+    {{if .err}}<p class="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{.err}}</p>{{end}}
+    {{template "machines/_questions" (dict "items" .questions)}}
+
+    <section class="panel mt-5 space-y-4 p-4">
+        <div><label class="label" for="f-photo">{{__ "Photo (optional)"}}</label>
+            <input id="f-photo" name="image" type="file" accept="image/*" capture="environment" class="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-graphite-900 file:px-3 file:py-2 file:text-sm file:text-white"></div>
+        <div><label class="label" for="f-note">{{__ "Note (optional)"}}</label><textarea id="f-note" name="machine_note" rows="3" maxlength="2000" class="input">{{.note}}</textarea></div>
+    </section>
+
+    <div class="fixed inset-x-0 bottom-0 z-30 border-t border-graphite-900/10 bg-white/95 px-4 py-3 backdrop-blur lg:left-64">
+        <div class="mx-auto flex max-w-2xl items-center gap-3">
+            <a href="{{url "/machines/scan"}}" class="btn-secondary">{{__ "Cancel"}}</a>
+            <button class="btn-primary !h-11 flex-1 text-base" data-submit>{{icon "check" "size-5"}} {{if .plan.Recheck}}{{__ "Save and send for approval"}}{{else}}{{__ "Save checklist"}}{{end}}</button>
+        </div>
+    </div>
+    {{end}}
+</form>
+<script src="{{asset "assets/machines.js"}}" defer></script>

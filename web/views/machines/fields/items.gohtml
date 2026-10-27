@@ -1,0 +1,18 @@
+{{- /* Checklist items of a machine: a question from the bank + (general list only) how often it is reset. .f.Extra: questions, resets, resetOpts, rows, next */ -}}
+{{- define "machines/fields/items#row" -}}
+    <div data-repeat-row class="grid grid-cols-12 items-center gap-2 rounded-md bg-mist/50 p-3">
+        <div class="col-span-12 {{if .resets}}sm:col-span-7{{else}}sm:col-span-10{{end}}">{{select (printf "%s[%s][question_id]" .name .i) .qs .p.question_id (dict "placeholder" (__ "Choose a question…") "aria" (__ "Question"))}}</div>
+        {{if .resets}}<div class="col-span-9 sm:col-span-4">{{select (printf "%s[%s][reset_time]" .name .i) .ro (or .p.reset_time .general) (dict "aria" (__ "When") "search" false)}}</div>{{end}}
+        <div class="col-span-3 flex justify-end sm:col-span-1"><button type="button" data-repeat-remove class="btn-ghost px-2 py-1.5 hover:text-signal-700" aria-label="{{__ "Remove"}}">{{icon "trash" "size-4"}}</button></div>
+    </div>
+{{- end -}}
+{{- $name := .name -}}{{- $x := .f.Extra -}}
+<span class="label">{{.f.Label}}</span>
+<div data-repeat data-min="0" class="space-y-2">
+    <div data-repeat-rows class="space-y-2">{{range $x.rows}}{{template "machines/fields/items#row" (dict "name" $name "i" .i "p" . "qs" $x.questions "resets" $x.resets "ro" $x.resetOpts "general" "0 0 0 * * 1")}}{{end}}</div>
+    <template data-repeat-template>{{template "machines/fields/items#row" (dict "name" $name "i" "__i__" "p" (dict) "qs" $x.questions "resets" $x.resets "ro" $x.resetOpts "general" "0 0 0 * * 1")}}</template>
+    <input type="hidden" data-repeat-next value="{{$x.next}}">
+    <button type="button" data-repeat-add class="btn-secondary py-1.5">{{icon "plus" "size-4"}} {{__ "Add a question"}}</button>
+    {{if .f.Help}}<p class="hint">{{.f.Help}}</p>{{end}}
+</div>
+{{if .err}}<p class="error">{{.err}}</p>{{end}}
