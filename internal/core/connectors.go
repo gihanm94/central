@@ -54,7 +54,7 @@ func connectorsSaveAdmin(c *app.Ctx) {
 
 func connectorsProfile(c *app.Ctx) {
 	u := c.MustUser()
-	c.View("profile/connectors", app.M{"title": c.T("Connectors"), "me": ProfileMe(u), "configured": google.Configured(), "conn": google.Connection(u.ID)})
+	c.View("profile/connectors", app.M{"title": c.T("Connectors"), "me": wsMe(c, u), "configured": google.Configured(), "conn": google.Connection(u.ID)})
 }
 
 // ProfileMe is what the profile header (profile/_header) shows of a person.
