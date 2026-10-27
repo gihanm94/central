@@ -101,8 +101,11 @@ func filesIndex(c *app.Ctx) {
 		if per != 20 {
 			vals["per_page"] = php.Str(per)
 		}
+		// PHP: [...] + $extra — keys already in the array win, so only new keys (page) are taken from extra
 		for i := 0; i+1 < len(extra); i += 2 {
-			vals[extra[i]] = extra[i+1]
+			if _, ok := vals[extra[i]]; !ok {
+				vals[extra[i]] = extra[i+1]
+			}
 		}
 		return c.URL("/files", "root", vals["root"], "path", vals["path"], "q", vals["q"], "sort", vals["sort"], "dir", vals["dir"], "per_page", vals["per_page"], "page", vals["page"])
 	}
@@ -189,7 +192,7 @@ func filesIndex(c *app.Ctx) {
 		"perPage": per, "page": page, "q": q, "folders": folders, "sort": sortKey, "dir": dir, "trail": trail, "up": up,
 		"clearURL": link("q", ""), "hName": head("name", c.T("Name")), "hExt": head("ext", c.T("Type")), "hSize": head("size", c.T("Size")), "hMtime": head("mtime", c.T("Modified")),
 		"bulkURL":  c.URL("/files/delete", "root", root, "path", path),
-		"labels":   template.JS(phpJSON(om("mkdir", c.T("New folder"), "rename", c.T("Rename"), "move", c.T("Move to…")))),
+		"labels":   template.JS("{ mkdir: " + phpJSONAscii(c.T("New folder")) + ", rename: " + phpJSONAscii(c.T("Rename")) + ", move: " + phpJSONAscii(c.T("Move to…")) + " }"),
 		"filesURL": template.JS(phpJSON(c.URL("/files/")))})
 }
 
