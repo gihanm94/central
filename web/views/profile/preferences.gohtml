@@ -1,0 +1,22 @@
+{{template "profile/_header" .}}
+<form method="POST" action="{{url "/profile/preferences"}}" class="panel mt-6 max-w-3xl">
+    {{csrfField}}
+    <div class="panel-head"><div><h2 class="panel-title">{{__ "Preferences"}}</h2><p class="text-xs text-steel">{{__ "How the app looks and where it opens for you."}}</p></div></div>
+    <div class="divide-y divide-graphite-900/6">
+        <div class="grid gap-3 p-4 sm:grid-cols-[1fr_16rem] sm:items-center sm:p-5">
+            <div><label for="pref-locale" class="text-sm font-medium">{{__ "Language"}}</label><p class="text-xs text-steel">{{__ "Used for menus, messages and the e-mails you receive."}}</p></div>
+            {{select "locale" .locales (old "locale" .locale) (dict "id" "pref-locale" "required" true)}}
+        </div>
+        <div class="grid gap-3 p-4 sm:grid-cols-[1fr_16rem] sm:items-center sm:p-5">
+            <div><label for="pref-module" class="text-sm font-medium">{{__ "Module to open after sign-in"}}</label><p class="text-xs text-steel">{{__ "Modules that are not live yet appear here when they launch."}}</p></div>
+            {{select "default_module" .modules .curMod (dict "id" "pref-module" "required" true)}}
+        </div>
+        {{range .dashboards}}
+            <div class="grid gap-3 p-4 sm:grid-cols-[1fr_16rem] sm:items-center sm:p-5" data-show-when="default_module={{.module}}" {{if not .show}}hidden{{end}}>
+                <div><label class="text-sm font-medium">{{__ "Dashboard to open"}}</label><p class="text-xs text-steel">{{.in}}</p></div>
+                {{select .name .boards (old "default_dashboard" $.defaultDashboard) (dict "placeholder" (__ "Automatic") "data-dash" .module)}}
+            </div>
+        {{end}}
+    </div>
+    <div class="flex justify-end border-t border-graphite-900/8 px-4 py-3 sm:px-5"><button class="btn-primary w-full sm:w-auto">{{__ "Save preferences"}}</button></div>
+</form>

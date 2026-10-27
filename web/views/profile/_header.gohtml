@@ -1,10 +1,11 @@
-{{- /* .me: name, avatar, username, email, role_name, job_title, has_job_title (core.ProfileMe) */ -}}
+{{- /* .me: {u: CurrentUser, who: job title or role} — used by every profile page */ -}}
 {{- set "crumbs" (list (list (__ "Profile") "/profile")) -}}
+{{- $u := .me.u -}}
 <div class="flex flex-wrap items-center gap-4">
-    {{template "partials/avatar" (dict "name" .me.name "avatar" .me.avatar "size" "size-14 sm:size-16" "extra" "text-lg")}}
+    {{template "partials/avatar" (dict "name" $u.Name "avatar" $u.Avatar "size" "size-14 sm:size-16" "extra" "text-lg")}}
     <div class="min-w-0">
-        <h1 class="page-title truncate">{{.me.name}}</h1>
-        <p class="truncate text-sm text-steel">{{if .me.has_job_title}}{{.me.job_title}}{{else}}{{__ .me.role_name}}{{end}} · {{if .me.username}}@{{.me.username}} · {{end}}{{.me.email}}</p>
+        <h1 class="page-title truncate">{{$u.Name}}</h1>
+        <p class="truncate text-sm text-steel">{{.me.who}} · {{if $u.Username}}@{{$u.Username}} · {{end}}{{$u.Email}}</p>
     </div>
 </div>
 {{template "partials/tabs" (dict "tabs" (list
