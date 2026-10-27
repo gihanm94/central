@@ -1,0 +1,52 @@
+{{- /* .p (nil = new), .people []Opt, .names {id: name}, .members [{ID Label Owner}], .locked */ -}}
+{{- set "crumbs" (list (list (__ "Everbetter") "/everbetter")) -}}
+{{- $p := .p -}}
+{{- $action := "/everbetter" -}}{{if $p}}{{$action = printf "/everbetter/%v" $p.id}}{{end}}
+<h1 class="page-title">{{if $p}}{{__ "Edit project"}}{{else}}{{__ "New Everbetter project"}}{{end}}</h1>
+<form method="POST" action="{{url $action}}" class="panel mt-6 max-w-3xl space-y-5 p-6" data-eb-form>
+    {{csrfField}}
+    <div><label class="label" for="eb-title">{{__ "Project title"}}</label>
+        <input id="eb-title" name="title" value="{{str (old "title" (get $p "title"))}}" maxlength="200" required class="input {{if errorFor "title"}}input-error{{end}}">{{fieldError "title"}}</div>
+    <div><label class="label" for="eb-desc">{{__ "What will it improve?"}} <span class="font-normal text-steel">({{__ "optional"}})</span></label>
+        <textarea id="eb-desc" name="description" rows="4" class="input">{{str (old "description" (get $p "description"))}}</textarea></div>
+    <div class="grid gap-4 sm:grid-cols-2">
+        <div><label class="label" for="eb-start">{{__ "Start date"}}</label><input id="eb-start" type="date" name="start_date" value="{{str (old "start_date" (get $p "start_date"))}}" required class="input" {{if .locked}}disabled{{end}}>{{fieldError "start_date"}}</div>
+        <div><label class="label" for="eb-end">{{__ "End date"}}</label><input id="eb-end" type="date" name="end_date" value="{{str (old "end_date" (get $p "end_date"))}}" required class="input" {{if .locked}}disabled{{end}}>{{fieldError "end_date"}}</div>
+        {{if .locked}}<p class="text-xs text-steel sm:col-span-2">{{__ "The project is approved: to change its end date, present \"Extend time\"."}}</p>{{end}}
+    </div>
+    <div>
+        <p class="label">{{__ "Project members"}}</p>
+        <ul class="mb-2 flex flex-wrap gap-2" data-eb-members>
+            {{range .members}}
+            <li class="flex items-center gap-2 rounded-full bg-mist py-1 pl-1 pr-2 text-sm" data-id="{{.ID}}">
+                {{template "partials/avatar" (dict "name" .Label "avatar" "" "size" "size-6" "extra" "text-[10px]")}}{{.Label}}
+                <input type="hidden" name="members[]" value="{{.ID}}">
+                {{if not .Owner}}<button type="button" class="text-steel hover:text-signal-700" data-eb-remove aria-label="{{__ "Remove"}}">×</button>{{else}}<span class="text-xs text-steel">({{__ "owner"}})</span>{{end}}
+            </li>
+            {{end}}
+        </ul>
+        <div class="max-w-sm" data-eb-add>{{select "_add_member" .people "" "placeholder" (__ "Add a member…") "search" true "aria" (__ "Add a member")}}</div>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-graphite-900/8 pt-4">
+        <a href="{{if $p}}{{url (printf "/everbetter/%v" $p.id)}}{{else}}{{url "/everbetter"}}{{end}}" class="btn-ghost">{{__ "Cancel"}}</a>
+        <button class="btn-primary">{{if $p}}{{__ "Save"}}{{else}}{{__ "Create project"}}{{end}}</button>
+    </div>
+</form>
+<script>
+(function () {
+    var f = document.querySelector('[data-eb-form]'); if (!f) return;
+    var list = f.querySelector('[data-eb-members]'), names = {{json .names}};
+    f.addEventListener('change', function (e) {
+        if (e.target.name !== '_add_member' || !e.target.value) return;
+        var id = e.target.value;
+        if (!list.querySelector('[data-id="' + id + '"]')) {
+            var li = document.createElement('li');
+            li.className = 'flex items-center gap-2 rounded-full bg-mist py-1 pl-3 pr-2 text-sm'; li.dataset.id = id;
+            li.textContent = names[id] || ('#' + id);
+            li.insertAdjacentHTML('beforeend', '<input type="hidden" name="members[]" value="' + id + '"><button type="button" class="text-steel hover:text-signal-700" data-eb-remove aria-label="{{__ "Remove"}}">×</button>');
+            list.appendChild(li);
+        }
+    });
+    f.addEventListener('click', function (e) { var b = e.target.closest('[data-eb-remove]'); if (b) b.closest('li').remove(); });
+})();
+</script>
