@@ -1,0 +1,41 @@
+{{- /* .projects (mine: owner or member), .day (next upcoming presentation day, else this quarter's, or nil) */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Everbetter"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Your improvement projects. Present them to Management on the quarter's presentation day: initiation, closure or more time."}}</p></div>
+    {{if can "everbetter" "create"}}<a href="{{url "/everbetter/new"}}" class="btn-primary w-full sm:w-auto">{{icon "plus" "size-4"}} {{__ "New project"}}</a>{{end}}
+</div>
+
+{{$day := .day}}
+<div class="mt-5 flex items-center gap-3 rounded-xl px-4 py-3 text-sm ring-1 {{if $day}}bg-sky-50 text-sky-900 ring-sky-600/20{{else}}bg-mist text-steel ring-graphite-900/8{{end}}">
+    {{icon "calendar" "size-5 shrink-0"}}
+    <p>{{if $day}}{{__ "Next presentation day: :date (Q:q :y)" "date" (formatDate $day.present_on "l d M Y") "q" $day.quarter "y" $day.year}}{{if $day.place}} · {{$day.place}}{{end}}{{else}}{{__ "Management has not set the next presentation day yet."}}{{end}}</p>
+</div>
+
+<div class="mt-4 grid gap-3 lg:grid-cols-2">
+    {{range $p := .projects}}{{$last := $p.last_request}}
+    <a href="{{url (printf "/everbetter/%v" $p.id)}}" class="panel block p-5 hover:ring-graphite-900/20">
+        <div class="flex items-start justify-between gap-3">
+            <h2 class="min-w-0 font-semibold leading-snug">{{$p.title}}</h2>
+            {{template "everbetter/status" (dict "p" $p)}}
+        </div>
+        <p class="mt-1 text-sm text-steel">{{formatDate $p.start_date}} – {{formatDate $p.end_date}} · {{$p.owner_name}}</p>
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span class="rounded-full px-2 py-0.5 font-medium {{if gt $p.presented 0}}bg-emerald-50 text-emerald-800{{else}}bg-graphite-900/6 text-steel{{end}}">{{if gt $p.presented 0}}✓ {{__ "Presented"}}{{else}}{{__ "Not presented yet"}}{{end}}</span>
+            {{if $last}}
+                <span class="rounded-full px-2 py-0.5 font-medium {{$p.last_tone}}">{{$p.last_kind}} · {{$p.last_label}}{{if not $last.result}} · {{formatDate $last.present_on "d M"}}{{end}}</span>
+            {{end}}
+        </div>
+        <div class="mt-3 flex -space-x-2">
+            {{range $p.shown}}{{template "partials/avatar" (dict "name" .name "avatar" .avatar "size" "size-7" "extra" "ring-2 ring-white")}}{{end}}
+            {{if gt $p.more 0}}<span class="flex size-7 items-center justify-center rounded-full bg-mist text-[11px] ring-2 ring-white">+{{$p.more}}</span>{{end}}
+        </div>
+    </a>
+    {{end}}
+    {{if not .projects}}
+        <div class="panel px-5 py-14 text-center lg:col-span-2">
+            <span class="mx-auto flex size-12 items-center justify-center rounded-full bg-mist text-steel">{{icon "bolt" "size-6"}}</span>
+            <p class="mt-3 font-medium">{{__ "No projects yet"}}</p>
+            <p class="mt-1 text-sm text-steel">{{__ "Start one with \"New project\", add your team, then ask to present its initiation."}}</p>
+        </div>
+    {{end}}
+</div>

@@ -1,0 +1,119 @@
+{{- /* .f {Year View Q}, .groups []*kpiGroup {UID Name Avatar Department Avg Count Approved Months[{M Count Approved MineToApprove Label Avg Rows[{r n lateApproval canApprove canEdit canDelete host finished total criteria}]}]}, .years []Opt, .year, .pending, .tabs [{Key Label URL}] */ -}}
+{{- $f := .f -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "KPI submissions"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Monthly KPI and OKR results. Each month is due on day :d of the next month; approvers approve by day :a." "d" .dueDay "a" .approveDay}}</p></div>
+    <div class="flex flex-wrap gap-2">
+        {{if can "kpi_submissions" "export"}}<a href="{{url "/kpi-submissions/export" "year" $f.Year "view" $f.View "q" $f.Q}}" class="btn-secondary">{{icon "download" "size-4"}}{{__ "Export"}}</a>{{end}}
+        {{if can "kpi_submissions" "create"}}<a href="{{url "/kpi-submissions/create"}}" class="btn-primary">{{icon "plus" "size-4"}}{{__ "Submit KPIs"}}</a>{{end}}
+    </div>
+</div>
+
+<div class="mt-4 flex flex-wrap items-center gap-2">
+    <nav class="flex rounded-md bg-graphite-900/6 p-0.5 text-sm" aria-label="{{__ "Show"}}">
+        {{range .tabs}}{{$on := eq $f.View .Key}}
+            <a href="{{.URL}}" class="flex items-center gap-1.5 rounded px-3 py-1.5 {{if $on}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}" {{if $on}}aria-current="page"{{end}}>
+                {{.Label}}{{if and (eq .Key "approve") $.pending}}<span class="rounded-full bg-signal-600 px-1.5 text-[11px] font-semibold leading-4 text-white">{{$.pending}}</span>{{end}}</a>
+        {{end}}
+    </nav>
+    <form method="GET" action="{{url "/kpi-submissions"}}" class="ml-auto flex flex-wrap items-center gap-2">
+        {{if ne $f.View "all"}}<input type="hidden" name="view" value="{{$f.View}}">{{end}}
+        <div class="w-28">{{select "year" .years .year "id" "k-y" "submit" true "search" false "aria" (__ "Year")}}</div>
+        <div class="relative"><span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-graphite-400">{{icon "search" "size-4"}}</span>
+            <input name="q" value="{{$f.Q}}" class="input w-56 pl-8" placeholder="{{__ "KPI, person, note…"}}" aria-label="{{__ "Search"}}"></div>
+    </form>
+</div>
+
+{{if not .groups}}
+    <section class="panel mt-4 px-5 py-12 text-center text-sm text-steel">
+        {{if eq $f.View "approve"}}{{__ "Nothing waiting for your approval in :y." "y" $f.Year}}{{else}}{{__ "No submissions in :y yet." "y" $f.Year}}{{end}}
+        {{if and (can "kpi_submissions" "create") (ne $f.View "approve")}}<div class="mt-3"><a href="{{url "/kpi-submissions/create"}}" class="btn-primary">{{__ "Submit KPIs"}}</a></div>{{end}}
+    </section>
+{{end}}
+
+{{range $g := .groups}}
+<details class="panel group/p mt-4 overflow-hidden" id="u{{$g.UID}}" open data-kpi-group>
+    <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 hover:bg-mist/50">
+        {{icon "right" "size-4 text-steel transition group-open/p:rotate-90"}}
+        {{template "partials/avatar" (dict "name" $g.Name "avatar" $g.Avatar "size" "size-8")}}
+        <span><span class="block font-semibold leading-tight">{{$g.Name}}</span><span class="block text-xs text-steel">{{or $g.Department "—"}}</span></span>
+        <span class="text-sm text-steel">{{if eq $g.Count 1}}{{__ "1 submission"}}{{else}}{{__ ":n submissions" "n" $g.Count}}{{end}}</span>
+        <span class="badge {{if eq $g.Approved $g.Count}}bg-emerald-50 text-emerald-800{{else}}bg-amber-50 text-amber-800{{end}}">{{__ ":a of :n approved" "a" $g.Approved "n" $g.Count}}</span>
+        <span class="text-sm text-steel">{{__ "Average"}} <strong class="tabular-nums text-graphite-900">{{$g.Avg}}%</strong></span>
+    </summary>
+{{range $mo := $g.Months}}
+<details class="group/m border-t border-graphite-900/8" id="u{{$g.UID}}-m{{$mo.M}}" open data-kpi-group>
+    <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 bg-mist/40 py-2.5 pl-10 pr-4 hover:bg-mist/70">
+        {{icon "right" "size-4 text-steel transition group-open/m:rotate-90"}}
+        <span class="font-display text-lg font-semibold">{{$mo.Label}}</span>
+        <span class="text-sm text-steel">{{if eq $mo.Count 1}}{{__ "1 submission"}}{{else}}{{__ ":n submissions" "n" $mo.Count}}{{end}}</span>
+        <span class="badge {{if eq $mo.Approved $mo.Count}}bg-emerald-50 text-emerald-800{{else}}bg-amber-50 text-amber-800{{end}}">{{__ ":a of :n approved" "a" $mo.Approved "n" $mo.Count}}</span>
+        <span class="text-sm text-steel">{{__ "Average"}} <strong class="tabular-nums text-graphite-900">{{$mo.Avg}}%</strong></span>
+        {{if $mo.MineToApprove}}
+            <form method="POST" action="{{url "/kpi-submissions/approve-month"}}" class="ml-auto" data-confirm="{{__ "Approve all :n submissions of :name waiting for you in this month?" "n" $mo.MineToApprove "name" $g.Name}}">
+                {{csrfField}}<input type="hidden" name="user_id" value="{{$g.UID}}"><input type="hidden" name="year" value="{{$f.Year}}"><input type="hidden" name="month" value="{{$mo.M}}">
+                <button class="btn-dark px-3 py-1 text-xs">{{icon "check" "size-3.5"}}{{__ "Approve all (:n)" "n" $mo.MineToApprove}}</button></form>
+        {{end}}
+    </summary>
+    <div class="overflow-x-auto border-t border-graphite-900/8"><table class="w-full min-w-[84rem] text-sm">
+        <thead class="whitespace-nowrap bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="w-10 px-3 py-2 font-medium">#</th>
+            <th class="px-3 py-2 font-medium">{{__ "Status"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Submitted by"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "KPIs & OKRs"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Approver"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Approved"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "Percentage"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "Finished"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "Total tasks"}}</th>
+            <th class="px-3 py-2 text-right font-medium">{{__ "Criteria"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Note"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Files & link"}}</th>
+            <th class="px-3 py-2"><span class="sr-only">{{__ "Actions"}}</span></th>
+        </tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range $x := $mo.Rows}}{{$r := $x.r}}
+            <tr class="align-top hover:bg-mist/40">
+                <td class="px-3 py-2.5 tabular-nums text-steel">{{$x.n}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5">
+                    {{if not (int $r.days_late)}}<span class="badge bg-emerald-50 text-emerald-800">{{icon "check" "size-3.5"}}{{__ "On time"}}</span>
+                    {{else}}<span class="badge {{if int $r.percentage}}bg-amber-50 text-amber-800{{else}}bg-signal-50 text-signal-800{{end}}">{{__ "Late :n days" "n" $r.days_late}}</span>{{end}}
+                    <span class="mt-0.5 block text-[11px] text-steel" title="{{__ "Submitted"}}">{{formatDate $r.submitted_at "j M Y H:i"}}</span></td>
+                <td class="px-3 py-2.5"><div class="flex items-center gap-2">
+                    {{template "partials/avatar" (dict "name" $r.submitter_name "avatar" $r.submitter_avatar "size" "size-7" "extra" "text-[11px]")}}
+                    <span class="min-w-0"><span class="block truncate font-medium">{{$r.submitter_name}}</span><span class="block truncate text-xs text-steel">{{or $r.department_name "—"}}</span></span></div></td>
+                <td class="min-w-[18rem] max-w-[26rem] px-3 py-2.5"><span class="badge mr-1 {{if eq (str $r.task_kind) "okr"}}bg-violet-50 text-violet-800{{else}}bg-sky-50 text-sky-800{{end}}">{{upper $r.task_kind}}</span>{{if and $r.kpi_id (can "kpis")}}<a href="{{url (printf "/kpis/%v" $r.kpi_id)}}" class="font-medium hover:text-signal-700">{{$r.task_title}}</a>{{else}}<span class="font-medium">{{$r.task_title}}</span>{{end}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5">{{if $r.approver_name}}<span class="flex items-center gap-2">{{template "partials/avatar" (dict "name" $r.approver_name "avatar" $r.approver_avatar "size" "size-7" "extra" "text-[11px]")}}<span>{{$r.approver_name}}</span></span>{{else}}—{{end}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5">
+                    {{if $r.approved_at}}
+                        <span class="inline-flex items-center gap-1.5 text-emerald-700"><span class="flex size-5 items-center justify-center rounded bg-emerald-600 text-white">{{icon "check" "size-3.5"}}</span><span class="tabular-nums text-xs text-steel">{{formatDate $r.approved_at "j M H:i"}}</span></span>
+                    {{else if $x.canApprove}}
+                        <form method="POST" action="{{url (printf "/kpi-submissions/%v/approve" $r.id)}}">{{csrfField}}<button class="btn-secondary px-2.5 py-1 text-xs">{{icon "check" "size-3.5"}}{{__ "Approve"}}</button></form>
+                    {{else}}<span class="text-xs text-steel">{{__ "Waiting"}}</span>{{end}}
+                    {{if $x.lateApproval}}<span class="mt-0.5 block text-[11px] text-amber-700">{{__ "After day :d" "d" $.approveDay}}</span>{{end}}</td>
+                <td class="px-3 py-2.5 text-right font-medium tabular-nums {{if lt $r.percentage 100}}text-signal-700{{end}}">{{int $r.percentage}}%</td>
+                <td class="px-3 py-2.5 text-right tabular-nums">{{$x.finished}}</td>
+                <td class="px-3 py-2.5 text-right tabular-nums">{{$x.total}}</td>
+                <td class="px-3 py-2.5 text-right tabular-nums">{{$x.criteria}}</td>
+                <td class="min-w-[10rem] max-w-[16rem] px-3 py-2.5 text-steel">{{if $r.note}}<span class="line-clamp-2" title="{{$r.note}}">{{$r.note}}</span>{{else}}—{{end}}</td>
+                <td class="px-3 py-2.5"><div class="flex max-w-[14rem] flex-col gap-1">
+                    {{range $file := $r.files}}
+                        <a href="{{url (printf "/kpi-submissions/%v/files/%v" $r.id $file.id)}}" class="inline-flex min-w-0 items-center gap-1 text-xs hover:text-signal-700">{{icon "doc" "size-3.5 shrink-0 text-graphite-400"}}<span class="truncate">{{$file.name}}</span></a>
+                    {{end}}
+                    {{if $r.related_link}}<a href="{{$r.related_link}}" target="_blank" rel="noopener noreferrer" class="inline-flex min-w-0 items-center gap-1 text-xs text-sky-700 hover:underline">{{icon "link" "size-3.5 shrink-0"}}<span class="truncate">{{$x.host}}</span></a>{{end}}
+                    {{if and (not $r.files) (not $r.related_link)}}<span class="text-steel">—</span>{{end}}</div></td>
+                <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                    {{if $x.canEdit}}<a href="{{url (printf "/kpi-submissions/%v/edit" $r.id)}}" class="btn-ghost !px-2" title="{{__ "Correct"}}" aria-label="{{__ "Correct"}}">{{icon "pencil" "size-4"}}</a>{{end}}
+                    {{if $x.canDelete}}
+                        <form class="inline" method="POST" action="{{url (printf "/kpi-submissions/%v/delete" $r.id)}}" data-confirm="{{__ "Delete this submission? :name can then submit this KPI again for the month." "name" $r.submitter_name}}">
+                            {{csrfField}}<button class="btn-ghost !px-2 text-signal-700" title="{{__ "Delete"}}" aria-label="{{__ "Delete"}}">{{icon "trash" "size-4"}}</button></form>
+                    {{end}}</td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table></div>
+</details>
+{{end}}
+</details>
+{{end}}
+<script src="{{asset "assets/kpi.js"}}" defer></script>

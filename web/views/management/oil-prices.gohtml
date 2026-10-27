@@ -1,0 +1,143 @@
+{{- /* Oil prices: see oilIndex for the prepared values */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Oil prices"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "PTT retail prices in Bangkok, baht per litre. Synced every morning; a price is saved only when it changes."}}</p></div>
+    <form method="POST" action="{{url "/management/oil-prices/sync"}}" class="flex items-center gap-3">
+        {{csrfField}}
+        <span class="text-right text-xs text-steel">{{.lastLine}}</span>
+        <button class="btn-primary">{{icon "refresh" "size-4"}} {{__ "Sync now"}}</button>
+    </form>
+</div>
+
+<section class="panel mt-6" aria-labelledby="oil-now">
+    <div class="panel-head"><h2 class="panel-title" id="oil-now">{{__ "Current prices"}}</h2></div>
+    {{if .oil}}{{template "partials/oil-prices" (dict "oil" .oil)}}
+    {{else}}<p class="px-5 py-10 text-center text-sm text-steel">{{__ "No prices yet. Press \"Sync now\", or load the history below."}}</p>{{end}}
+</section>
+
+<section class="panel mt-4 p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="panel-title">{{__ "Price changes"}}</h2>
+        <nav class="flex rounded-md bg-graphite-900/6 p-0.5 text-sm" aria-label="{{__ "Period"}}">
+            {{range .ranges}}
+                <a href="{{.url}}" class="rounded px-3 py-1 {{if .on}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}">{{.label}}</a>
+            {{end}}
+        </nav>
+    </div>
+    {{if lt .ndates 2}}
+        <p class="py-12 text-center text-sm text-steel">{{__ "Not enough history for a chart yet. Load past days below to fill it."}}</p>
+    {{else}}
+        <div class="relative mt-4 h-80"><canvas id="oil-chart" aria-label="{{__ "Oil price changes"}}" role="img"></canvas></div>
+        <p class="mt-2 text-xs text-steel">{{__ "Each step is a price change. Click a fuel in the legend to hide or show it."}}</p>
+    {{end}}
+</section>
+
+<div class="mt-4 grid items-start gap-4 xl:grid-cols-5">
+    <section class="panel overflow-hidden xl:col-span-3">
+        <div class="panel-head flex-wrap gap-2">
+            <h2 class="panel-title">{{__ "History"}}</h2>
+            <form method="GET" action="{{url "/management/oil-prices"}}" class="w-56"><input type="hidden" name="range" value="{{.range}}">
+                {{select "fuel" .fuels .fuel "placeholder" (__ "All fuels") "submit" true "aria" (__ "Fuel")}}</form>
+        </div>
+        {{if not .history}}<p class="px-5 py-10 text-center text-sm text-steel">{{__ "No price changes saved yet."}}</p>{{else}}
+        <div class="max-h-[32rem] overflow-y-auto"><table class="w-full text-sm">
+            <thead class="sticky top-0 bg-mist text-left text-xs text-steel"><tr>
+                <th class="px-5 py-2 font-medium">{{__ "Since"}}</th><th class="px-3 py-2 font-medium">{{__ "Fuel"}}</th>
+                <th class="px-3 py-2 text-right font-medium">{{__ "Before"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Price"}}</th><th class="px-5 py-2 text-right font-medium">{{__ "Change"}}</th></tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .history}}
+                <tr>
+                    <td class="whitespace-nowrap px-5 py-2 text-steel">{{.Date}}</td>
+                    <td class="px-3 py-2"><span class="inline-flex items-center gap-2"><span class="size-2.5 rounded-full" style="background: {{css .Color}}"></span>{{.Name}}</span></td>
+                    <td class="px-3 py-2 text-right tabular-nums text-steel">{{.Before}}</td>
+                    <td class="px-3 py-2 text-right font-medium tabular-nums">{{.Price}}</td>
+                    <td class="px-5 py-2 text-right tabular-nums {{.Tone}}">{{if .First}}{{__ "first"}}{{else}}{{.Change}}{{end}}</td>
+                </tr>
+            {{end}}
+            </tbody>
+        </table></div>
+        {{end}}
+    </section>
+
+    <div class="space-y-4 xl:col-span-2">
+        <section class="panel p-5">
+            <h2 class="panel-title">{{__ "Morning sync"}}</h2>
+            <p class="mt-1 text-xs text-steel">{{__ "Every day at these times (Bangkok). A run that finds no change saves nothing."}}</p>
+            <form method="POST" action="{{url "/management/oil-prices/times"}}" class="mt-3" data-oil-times>
+                {{csrfField}}
+                <ul class="space-y-2" data-list>
+                    {{range .times}}
+                    <li class="flex items-center gap-2"><div class="w-40"><input type="time" name="times[]" value="{{.}}" class="input" required aria-label="{{__ "Sync time"}}"></div>
+                        <button type="button" class="btn-ghost px-2 text-steel" data-remove aria-label="{{__ "Remove"}}">{{icon "x" "size-4"}}</button></li>
+                    {{end}}
+                </ul>
+                {{fieldError "times"}}
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button type="button" class="btn-secondary" data-add>{{icon "plus" "size-4"}} {{__ "Add time"}}</button>
+                    <button class="btn-primary">{{__ "Save times"}}</button>
+                </div>
+            </form>
+            <p class="mt-3 text-xs text-steel">{{.dueLine}}</p>
+        </section>
+
+        <section class="panel p-5">
+            <h2 class="panel-title">{{__ "Load past prices"}}</h2>
+            <p class="mt-1 text-xs text-steel">{{__ "Ask PTT for earlier days to fill the history and the chart. Takes up to a few minutes."}}</p>
+            <form method="POST" action="{{url "/management/oil-prices/history"}}" class="mt-3 flex flex-wrap items-center gap-2" data-busy-text="{{__ "Loading…"}}">
+                {{csrfField}}
+                <div class="w-40">{{select "days" .days "90" "search" false "aria" (__ "How far back")}}</div>
+                <button class="btn-secondary">{{icon "download" "size-4"}} {{__ "Load"}}</button>
+            </form>
+        </section>
+
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Sync log"}}</h2></div>
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                {{range .syncs}}
+                <li class="flex items-start gap-3 px-5 py-2.5">
+                    <span class="mt-1.5 size-2 shrink-0 rounded-full {{if .ok}}bg-emerald-500{{else}}bg-signal-600{{end}}"></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate">{{.head}}</p>
+                        <p class="truncate text-xs {{if .ok}}text-steel{{else}}text-signal-700{{end}}" title="{{.msg}}">{{.line}}</p>
+                    </div>
+                </li>
+                {{end}}
+                {{if not .syncs}}<li class="px-5 py-6 text-center text-steel">{{__ "No syncs yet."}}</li>{{end}}
+            </ul>
+        </section>
+    </div>
+</div>
+
+{{if ge .ndates 2}}
+<script src="{{asset "assets/vendor/chartjs/chart.umd.min.js"}}"></script>
+<script>
+(function () {
+    var dates = {{json .dates}}, series = {{json .series}};
+    var loc = {{.loc}};
+    var label = function (d) { return new Date(d + 'T00:00:00').toLocaleDateString(loc, { day: 'numeric', month: 'short', year: '2-digit' }); };
+    new Chart(document.getElementById('oil-chart'), {
+        type: 'line',
+        data: { labels: dates.map(label), datasets: series.map(function (s) { return { label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.color, stepped: 'before', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, hidden: !s.active, spanGaps: true }; }) },
+        options: {
+            maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } },
+                tooltip: { itemSort: function (a, b) { return b.parsed.y - a.parsed.y; }, callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : c.parsed.y.toFixed(2)); } } } },
+            scales: { x: { ticks: { maxTicksLimit: 10, autoSkip: true }, grid: { display: false } }, y: { ticks: { callback: function (v) { return v.toFixed(2); } } } }
+        }
+    });
+})();
+</script>
+{{end}}
+<script>
+(function () {
+    var f = document.querySelector('[data-oil-times]'); if (!f) return;
+    var list = f.querySelector('[data-list]');
+    f.addEventListener('click', function (e) {
+        if (e.target.closest('[data-remove]')) { if (list.children.length > 1) e.target.closest('li').remove(); return; }
+        if (e.target.closest('[data-add]')) {
+            var li = list.lastElementChild.cloneNode(false), tpl = {{.timeTpl}};
+            li.innerHTML = tpl; list.appendChild(li);
+        }
+    });
+})();
+</script>

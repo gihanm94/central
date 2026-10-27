@@ -1,6 +1,6 @@
 {{- /* success / status / warning / error messages are shown as toasts (public/assets/toast.js); a line break splits title and description */ -}}
-{{range list (strs "success" "success") (strs "status" "info") (strs "warning" "warning") (strs "error" "error")}}{{with flash (index . 0)}}
-    <div data-toast data-type="{{index $ 1}}" hidden>{{.}}</div>
+{{range $t := list (strs "success" "success") (strs "status" "info") (strs "warning" "warning") (strs "error" "error")}}{{with flash (index $t 0)}}
+    <div data-toast data-type="{{index $t 1}}" hidden>{{.}}</div>
 {{end}}{{end}}
 {{- $errors := errors -}}
 {{if and $errors.Len (not $.hideErrorSummary)}}

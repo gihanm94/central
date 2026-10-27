@@ -1,0 +1,40 @@
+{{template "profile/_header" .}}
+<form method="POST" action="{{url "/profile/notifications"}}" class="mt-6 space-y-6">
+    {{csrfField}}
+    <p class="max-w-2xl text-sm text-steel">{{__ "Choose what you hear about. You get a message when you do something, and when someone changes a record that belongs to you. Greyed-out boxes are switched off for the whole company."}}</p>
+
+    {{range .mods}}
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title flex items-center gap-2">{{icon .Icon "size-4 text-signal-600"}}{{.Name}}</h2></div>
+        <div class="overflow-x-auto">
+            <table class="table">
+                <thead class="bg-mist/60"><tr><th>{{__ "Channel"}}</th>{{range $.actions}}<th class="text-center">{{.}}</th>{{end}}</tr></thead>
+                <tbody>
+                    {{range .Rows}}
+                        <tr><td class="font-medium"><span class="flex items-center gap-2">{{icon .Icon "size-4 text-steel"}}{{.Label}}</span></td>
+                            {{range .Cells}}<td class="text-center"><label class="inline-flex items-center justify-center p-1 {{if .Allowed}}cursor-pointer{{else}}opacity-40{{end}}" title="{{if not .Allowed}}{{__ "Turned off by your company"}}{{end}}"><input type="checkbox" name="{{.Name}}" value="1" class="size-4 accent-signal-600" {{if .On}}checked{{end}} {{if not .Allowed}}disabled{{end}} aria-label="{{.Aria}}"></label></td>{{end}}</tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {{end}}
+
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><div><h2 class="panel-title flex items-center gap-2">{{icon "lock" "size-4 text-signal-600"}}{{__ "Security alerts"}}</h2><p class="text-xs text-steel">{{__ "Password e-mails are always sent, to protect your account."}}</p></div></div>
+        <div class="overflow-x-auto">
+            <table class="table">
+                <thead class="bg-mist/60"><tr><th>{{__ "Event"}}</th>{{range .secChannels}}<th class="text-center">{{.}}</th>{{end}}</tr></thead>
+                <tbody>
+                {{range .security}}
+                    <tr><td class="font-medium">{{.Label}}</td>
+                        {{range .Cells}}<td class="text-center"><input type="checkbox" name="{{.Name}}" value="1" class="size-4 accent-signal-600" {{if .On}}checked{{end}} {{if not .Allowed}}disabled{{end}} aria-label="{{.Aria}}"></td>{{end}}
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {{if not .larkOn}}<p class="text-xs text-steel">{{__ "Lark messages to you personally are available when your company connects a Lark app."}}</p>{{end}}
+    <div class="flex justify-end"><button class="btn-primary w-full sm:w-auto">{{__ "Save my notifications"}}</button></div>
+</form>

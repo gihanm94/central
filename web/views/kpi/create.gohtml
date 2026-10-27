@@ -1,0 +1,83 @@
+{{- /* .year, .month, .years / .months []Opt, .period, .tasks []Opt, .criteria {id: text}, .approvers []Opt (rich), .approver, .due, .lateDays, .pct */ -}}
+<div class="mx-auto max-w-3xl">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div><h1 class="page-title">{{__ "Submit KPIs"}}</h1>
+            <p class="mt-1 text-sm text-steel">{{__ "Send your monthly result for each KPI and OKR. Once sent it cannot be changed."}}</p></div>
+        <a href="{{url "/kpi-submissions" "year" .year "view" "mine"}}" class="btn-secondary">{{__ "My submissions"}}</a>
+    </div>
+
+    <details class="panel mt-4 group">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 text-sm font-medium">
+            <span class="flex items-center gap-2">{{icon "alert" "size-4 text-signal-600"}}{{__ "Read the rules before you submit"}}</span>
+            {{icon "right" "size-4 text-steel transition group-open:rotate-90"}}</summary>
+        <ol class="list-decimal space-y-1.5 border-t border-graphite-900/8 px-5 py-4 pl-10 text-sm text-graphite-700">
+            <li>{{__ "Submit only your own results, never for someone else: the system counts by the person who submits."}}</li>
+            <li>{{__ "Submit once for every KPI / OKR you have: if you have 5, submit 5 times (use \"Submit and continue\")."}}</li>
+            <li>{{__ "A sent result cannot be changed. If it is wrong, ask your approver to delete it, then submit again."}}</li>
+            <li>{{__ "A result counts only after your approver has approved it. Approvers approve by day :d of the next month." "d" .approveDay}}</li>
+            <li>{{__ "Approved results are final; changes later affect the approver's year-end review."}}</li>
+            <li>{{__ "Each month is due on day :d of the next month. On time = 100%, 1 day late = 80%, 2 = 60%, 3 = 40%, 4 = 20%, 5 days or more = 0%." "d" .dueDay}}</li>
+        </ol>
+    </details>
+
+    <form method="POST" action="{{url "/kpi-submissions"}}" enctype="multipart/form-data" class="panel mt-4" data-kpi-form
+          data-kpi-criteria="{{jsonAttr .criteria}}" data-kpi-url="{{url "/kpi-submissions/create"}}">
+        {{csrfField}}
+        <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+            <div><label class="label" for="k-year">{{__ "Year"}} <span class="text-signal-600">*</span></label>
+                {{select "year" .years .year "id" "k-year" "required" true "search" false}}{{fieldError "year"}}</div>
+            <div><label class="label" for="k-month">{{__ "Month"}} <span class="text-signal-600">*</span></label>
+                {{select "month" .months .month "id" "k-month" "required" true "search" false}}{{fieldError "month"}}</div>
+
+            <div class="sm:col-span-2 rounded-md px-4 py-3 text-sm {{if .lateDays}}{{if .pct}}bg-amber-50 text-amber-900{{else}}bg-signal-50 text-signal-800{{end}}{{else}}bg-emerald-50 text-emerald-900{{end}}">
+                {{__ ":period is due on :date." "period" .period "date" .due}}
+                <strong>{{if .lateDays}}{{__ "Sending today is :n days late and counts :p%." "n" .lateDays "p" .pct}}{{else}}{{__ "Sending today is on time (100%)."}}{{end}}</strong>
+            </div>
+
+            <div class="sm:col-span-2"><label class="label" for="k-task">{{__ "KPI / OKR"}} <span class="text-signal-600">*</span></label>
+                {{if .tasks}}
+                    {{select "kpi_id" .tasks (old "kpi_id") "id" "k-task" "required" true "placeholder" (__ "Choose a KPI or OKR…")}}
+                    <p class="hint">{{__ ":n left to submit for :period. Ones already sent are not listed." "n" (len .tasks) "period" .period}}</p>
+                {{else}}
+                    <div class="rounded-md bg-mist px-4 py-3 text-sm text-steel">{{__ "Nothing left to submit for :period: every KPI and OKR assigned to you is sent. If one is missing, ask your manager to add it in KPIs & OKRs." "period" .period}}</div>
+                {{end}}
+                {{fieldError "kpi_id"}}</div>
+
+            <div><label class="label" for="k-approver">{{__ "Approver"}} <span class="text-signal-600">*</span></label>
+                {{select "approver_id" .approvers .approver "id" "k-approver" "required" true "placeholder" (__ "Choose a person…")}}
+                <p class="hint">{{__ "Gets an e-mail for every submission."}}</p>{{fieldError "approver_id"}}</div>
+            <div><span class="label">{{__ "Criteria"}}</span>
+                <p class="flex h-9 items-center rounded-md bg-mist px-3 text-sm tabular-nums" data-kpi-criteria-out>—</p>
+                <p class="hint">{{__ "Set in KPIs & OKRs; copied into the submission."}}</p></div>
+
+            <div><label class="label" for="k-fin">{{__ "Finished"}} <span class="text-signal-600">*</span></label>
+                <input id="k-fin" name="finished" type="number" step="any" min="0" inputmode="decimal" required value="{{str (old "finished")}}" class="input" placeholder="0">
+                <p class="hint">{{__ "Total work done for this KPI."}}</p>{{fieldError "finished"}}</div>
+            <div><label class="label" for="k-total">{{__ "Total tasks"}} <span class="text-signal-600">*</span></label>
+                <input id="k-total" name="total" type="number" step="any" min="0" inputmode="decimal" required value="{{str (old "total")}}" class="input" placeholder="0">
+                <p class="hint">{{__ "All work assigned for this KPI. For sales, enter the full amount."}}</p>{{fieldError "total"}}</div>
+
+            <div class="sm:col-span-2"><label class="label" for="k-note">{{__ "Note"}}</label>
+                <textarea id="k-note" name="note" rows="3" maxlength="2000" class="input h-auto py-2">{{str (old "note")}}</textarea>{{fieldError "note"}}</div>
+
+            <div class="sm:col-span-2"><span class="label">{{__ "Attachments"}}</span>
+                <label class="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-graphite-900/20 bg-mist/50 px-4 py-6 text-center text-sm text-steel hover:border-signal-600/60 hover:bg-mist" data-kpi-drop>
+                    {{icon "upload" "size-5 text-graphite-400"}}
+                    <span><strong class="text-graphite-900">{{__ "Choose files"}}</strong> {{__ "or drag them here"}}</span>
+                    <span class="text-xs">{{__ "Up to :n files, :mb MB each: PDF, images, Office, CSV, TXT, ZIP." "n" .maxFiles "mb" .maxMB}}</span>
+                    <input type="file" name="files[]" multiple class="sr-only" data-kpi-files accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip">
+                </label>
+                <ul class="mt-2 space-y-1 text-sm" data-kpi-file-list></ul>{{fieldError "files"}}</div>
+
+            <div class="sm:col-span-2"><label class="label" for="k-link">{{__ "Related link"}}</label>
+                <div class="relative"><input id="k-link" name="related_link" type="url" maxlength="500" value="{{str (old "related_link")}}" class="input pr-9" placeholder="https://">
+                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-graphite-400">{{icon "link" "size-4"}}</span></div>{{fieldError "related_link"}}</div>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-graphite-900/8 px-5 py-4 sm:px-6">
+            <a href="{{url "/kpi-submissions"}}" class="btn-ghost mr-auto">{{__ "Cancel"}}</a>
+            <button name="next" value="continue" class="btn-secondary" {{if not .tasks}}disabled{{end}}>{{__ "Submit and continue"}}</button>
+            <button name="next" value="finish" class="btn-primary" {{if not .tasks}}disabled{{end}}>{{__ "Submit and finish"}}</button>
+        </div>
+    </form>
+</div>
+<script src="{{asset "assets/kpi.js"}}" defer></script>

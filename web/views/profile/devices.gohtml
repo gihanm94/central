@@ -1,0 +1,28 @@
+{{- /* .me, .subtitle, .allowed, .devices — the profile header (profile/_header.php) is inlined here */ -}}
+{{- set "crumbs" (list (list (__ "Profile") "/profile")) -}}
+<div class="flex flex-wrap items-center gap-4">
+    {{template "partials/avatar" (dict "name" .me.Name "avatar" .me.Avatar "size" "size-14 sm:size-16" "extra" "text-lg")}}
+    <div class="min-w-0">
+        <h1 class="page-title truncate">{{.me.Name}}</h1>
+        <p class="truncate text-sm text-steel">{{.subtitle}} · {{if .me.Username}}@{{.me.Username}} · {{end}}{{.me.Email}}</p>
+    </div>
+</div>
+{{template "partials/tabs" (dict "tabs" (list
+    (list "/profile" (__ "Profile") "user") (list "/profile/security" (__ "Security") "lock") (list "/profile/sessions" (__ "Sessions") "clock") (list "/profile/devices" (__ "Mobile devices") "id") (list "/profile/connectors" (__ "Connectors") "link")
+    (list "/profile/preferences" (__ "Preferences") "sliders") (list "/profile/notifications" (__ "Notifications") "bell")))}}
+<section class="panel mt-6">
+    <div class="panel-head"><div><h2 class="panel-title">{{__ "Mobile devices"}}</h2>
+        <p class="text-xs text-steel">{{if .allowed}}{{__ "Phones and tablets signed in to the mobile app with your account. Lost a phone? Sign it out here."}}{{else}}{{__ "Your account may not use the mobile app. Ask an administrator if you need it."}}{{end}}</p></div></div>
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .devices}}
+            <li class="flex items-center gap-3 px-5 py-3 text-sm">
+                {{icon "id" "size-5 shrink-0 text-steel"}}
+                <span class="min-w-0 flex-1"><span class="block font-medium">{{.name}}</span>
+                    <span class="block text-xs text-steel">{{__ "Signed in :a · last used :b · from :ip" "a" (formatDate .created_at "d M Y") "b" (timeAgo .last_used_at) "ip" (str .last_ip)}}</span></span>
+                <form method="POST" action="{{url (printf "/profile/devices/%v/revoke" .id)}}" data-confirm="{{__ "Sign this device out?"}}">{{csrfField}}<button class="btn-secondary py-1 text-xs">{{__ "Sign out"}}</button></form>
+            </li>
+        {{end}}
+        {{if not .devices}}<li class="px-5 py-8 text-center text-sm text-steel">{{__ "No device is signed in to the mobile app."}}</li>{{end}}
+    </ul>
+    <p class="border-t border-graphite-900/8 px-5 py-3 text-xs text-steel">{{__ "Changing your password or “Sign out all others” also signs out every mobile device."}}</p>
+</section>

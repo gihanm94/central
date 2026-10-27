@@ -1,0 +1,38 @@
+{{- /* Table of signed PDFs (signatures.RowsData): .rows [{r, size}], .page, .pages, .base (detail pages), .showPerson, .prev / .next (page links) */ -}}
+{{- $d := . -}}
+<div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+        <th class="px-4 py-2 font-medium">{{__ "Document"}}</th>
+        {{if .showPerson}}<th class="px-3 py-2 font-medium">{{__ "Signed by"}}</th>{{end}}
+        <th class="px-3 py-2 font-medium">{{__ "Signed"}}</th>
+        <th class="px-3 py-2 text-right font-medium">{{__ "Pages"}}</th>
+        <th class="px-3 py-2 text-right font-medium">{{__ "Signatures"}}</th>
+        <th class="px-4 py-2 font-medium"><span class="sr-only">{{__ "Actions"}}</span></th></tr></thead>
+    <tbody class="divide-y divide-graphite-900/6">
+    {{range .rows}}{{$r := .r}}{{$file := url (printf "/sign-pdf/%v/file/signed" $r.id)}}
+        <tr class="hover:bg-mist/40">
+            <td class="max-w-[20rem] px-4 py-2.5"><a href="{{url (printf "%s/%v" $d.base $r.id)}}" class="flex items-center gap-2 font-medium hover:text-signal-700">
+                {{icon "doc" "size-4 shrink-0 text-signal-700"}}<span class="truncate">{{$r.title}}</span></a>
+                <span class="block pl-6 text-xs text-steel">{{.size}}</span></td>
+            {{if $d.showPerson}}
+                <td class="px-3 py-2.5"><span class="flex items-center gap-2">{{template "partials/avatar" (dict "name" $r.user_name "avatar" $r.avatar "size" "size-7")}}
+                    <span class="min-w-0"><span class="block truncate font-medium">{{$r.user_name}}</span><span class="block truncate text-xs text-steel">{{or $r.department_name "—"}}</span></span></span></td>
+            {{end}}
+            <td class="whitespace-nowrap px-3 py-2.5 text-steel">{{formatDate $r.created_at "d M Y H:i"}}</td>
+            <td class="px-3 py-2.5 text-right tabular-nums">{{int $r.pages}}</td>
+            <td class="px-3 py-2.5 text-right tabular-nums">{{int $r.signs}}</td>
+            <td class="whitespace-nowrap px-4 py-2.5 text-right">
+                <a href="{{url (printf "%s/%v" $d.base $r.id)}}" class="btn-ghost h-8 px-2 text-xs">{{icon "eye" "size-4"}} {{__ "Preview"}}</a>
+                <a href="{{$file}}?download=1" class="btn-ghost h-8 px-2 text-xs" aria-label="{{__ "Download"}}">{{icon "download" "size-4"}}</a></td>
+        </tr>
+    {{end}}
+    {{if not .rows}}<tr><td colspan="6" class="px-4 py-12 text-center text-steel">{{__ "No signed PDFs yet."}}</td></tr>{{end}}
+    </tbody>
+</table></div>
+{{if gt .pages 1}}
+    <div class="flex items-center justify-end gap-2 border-t border-graphite-900/8 px-4 py-2 text-sm">
+        <a class="btn-secondary !h-8 !px-3 {{if le .page 1}}pointer-events-none opacity-40{{end}}" href="{{.prev}}">‹</a>
+        <span>{{.page}} / {{.pages}}</span>
+        <a class="btn-secondary !h-8 !px-3 {{if ge .page .pages}}pointer-events-none opacity-40{{end}}" href="{{.next}}">›</a>
+    </div>
+{{end}}

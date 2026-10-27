@@ -1,0 +1,29 @@
+{{- /* .f {Q From To Page}, .rows (signatures.RowsData), .signature (own row or nil) */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Sign PDF"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Put your signature on a PDF. Every PDF you sign is kept here with the original."}}</p></div>
+    {{if and .signature (can "pdf_sign" "create")}}<a href="{{url "/sign-pdf/new"}}" class="btn-primary w-full sm:w-auto">{{icon "pencil" "size-4"}} {{__ "Sign a PDF"}}</a>{{end}}
+</div>
+
+<div class="mt-6 grid items-start gap-6 lg:grid-cols-3">
+    <section class="panel overflow-hidden lg:order-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "My signature"}}</h2></div>
+        {{with .signature}}
+            <div class="flex h-32 items-center justify-center bg-[repeating-linear-gradient(45deg,#fafafa,#fafafa_8px,#f3f4f6_8px,#f3f4f6_16px)] p-4">
+                <img src="{{url "/sign-pdf/my-signature"}}?v={{date "U" .updated_at}}" alt="{{__ "My signature"}}" class="max-h-full max-w-full object-contain"></div>
+            <p class="border-t border-graphite-900/8 px-5 py-3 text-xs text-steel">{{__ "Set by Management on :date. Only you can place it on PDFs." "date" (formatDate .updated_at "d M Y")}}</p>
+        {{else}}
+            <p class="px-5 py-8 text-center text-sm text-steel">{{__ "You have no signature yet. Management adds it in Management → Member signatures."}}</p>
+        {{end}}
+    </section>
+
+    <section class="panel overflow-hidden lg:col-span-2 lg:order-1">
+        <form method="GET" action="{{url "/sign-pdf"}}" class="flex flex-wrap items-end gap-2 border-b border-graphite-900/8 p-3">
+            <div class="min-w-[12rem] flex-1"><label class="label" for="sp-q">{{__ "Search"}}</label><input id="sp-q" name="q" value="{{.f.Q}}" class="input" placeholder="{{__ "File name"}}"></div>
+            <div><label class="label" for="sp-from">{{__ "From"}}</label><input id="sp-from" type="date" name="from" value="{{.f.From}}" class="input"></div>
+            <div><label class="label" for="sp-to">{{__ "To"}}</label><input id="sp-to" type="date" name="to" value="{{.f.To}}" class="input"></div>
+            <button class="btn-secondary">{{__ "Show"}}</button>
+        </form>
+        {{template "pdf-sign/rows" .rows}}
+    </section>
+</div>

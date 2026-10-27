@@ -1,0 +1,94 @@
+{{- /* .syncs .everyone .tables .accounts .configured .officeLabel .paused .admin */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Google Sheets"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Send tables to your own Google spreadsheets on a schedule. Each sync replaces the whole tab with the latest data."}}</p></div>
+    {{if and .tables .accounts}}<a href="{{url "/sheets/new"}}" class="btn-primary">{{icon "plus" "size-4"}} {{__ "New sync"}}</a>{{end}}
+</div>
+
+<p class="mt-4 flex items-center gap-2 rounded-lg {{if .paused}}bg-amber-50 text-amber-900{{else}}bg-mist text-steel{{end}} px-4 py-2.5 text-sm">
+    {{icon "clock" "size-4 shrink-0"}}
+    {{if .paused}}{{__ "Office hours now (:h): syncing is paused and starts again when they end." "h" .officeLabel}}{{else}}{{__ "Syncs never run during office hours (:h)." "h" .officeLabel}}{{end}}
+</p>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+    <!-- Syncs -->
+    <section class="panel overflow-hidden lg:col-span-2">
+        <div class="panel-head">
+            <h2 class="panel-title">{{if .everyone}}{{__ "Everyone's syncs"}}{{else}}{{__ "My syncs"}}{{end}}</h2>
+            {{if .admin}}
+                <a href="{{if .everyone}}{{url "/sheets"}}{{else}}{{url "/sheets" "all" 1}}{{end}}" class="text-xs font-medium text-signal-700 hover:underline">{{if .everyone}}{{__ "Show mine"}}{{else}}{{__ "Show everyone's"}}{{end}}</a>
+            {{end}}
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+            <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+                <th class="px-4 py-2 font-medium">{{__ "Table"}}</th><th class="px-3 py-2 font-medium">{{__ "Google Sheet"}}</th>
+                <th class="px-3 py-2 font-medium">{{__ "When"}}</th><th class="px-3 py-2 font-medium">{{__ "Last run"}}</th><th class="px-3 py-2"></th></tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range $v := .syncs}}{{$s := $v.Row}}
+                <tr class="align-top">
+                    <td class="px-4 py-2.5"><span class="font-medium">{{$v.Label}}</span>
+                        <span class="block text-xs text-steel">{{$s.db}}.{{$s.table_name}}{{if $.everyone}} · {{$s.owner_name}}{{end}}</span></td>
+                    <td class="px-3 py-2.5"><a href="{{$v.SheetURL}}" target="_blank" rel="noopener" class="font-medium hover:text-signal-700">{{or $s.spreadsheet_name $s.spreadsheet_id}}</a>
+                        <span class="block text-xs text-steel">{{__ "Tab"}}: {{$s.sheet_tab}} · {{$s.google_email}}</span></td>
+                    <td class="px-3 py-2.5">{{$v.When}}
+                        <span class="block text-xs text-steel">{{$v.Next}}</span></td>
+                    <td class="px-3 py-2.5">
+                        {{if $s.running_since}}<span class="badge bg-sky-50 text-sky-800">{{__ "Running"}}</span>
+                        {{else if eqs $s.last_status "ok"}}<span class="badge bg-emerald-50 text-emerald-800">{{__ "OK"}}</span>
+                        {{else if eqs $s.last_status "error"}}<span class="badge bg-signal-50 text-signal-800">{{__ "Failed"}}</span>
+                        {{else}}<span class="text-steel">—</span>{{end}}
+                        {{if $s.last_run_at}}<span class="block text-xs text-steel" title="{{$v.LastTitle}}">{{$v.LastAgo}}</span>{{end}}
+                        {{if $s.last_message}}<span class="block max-w-xs text-xs {{if eqs $s.last_status "error"}}text-signal-800{{else}}text-steel{{end}}">{{$s.last_message}}</span>{{end}}
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                        <form method="POST" action="{{url (printf "/sheets/%v/run" $s.id)}}" class="inline">{{csrfField}}<button class="btn-ghost px-2 py-1 text-xs" {{if $.paused}}disabled title="{{__ "Not during office hours"}}"{{end}}>{{icon "refresh" "size-4"}} {{__ "Sync now"}}</button></form>
+                        <form method="POST" action="{{url (printf "/sheets/%v/toggle" $s.id)}}" class="inline">{{csrfField}}<button class="btn-ghost px-2 py-1 text-xs">{{if $v.Active}}{{__ "Pause"}}{{else}}{{__ "Resume"}}{{end}}</button></form>
+                        {{if $v.Mine}}<a href="{{url (printf "/sheets/%v/edit" $s.id)}}" class="btn-ghost px-2 py-1 text-xs">{{icon "pencil" "size-4"}}</a>{{end}}
+                        <form method="POST" action="{{url (printf "/sheets/%v/delete" $s.id)}}" class="inline" data-confirm="{{__ "Remove this sync? The Google Sheet itself is kept."}}">{{csrfField}}<button class="btn-ghost px-2 py-1 text-xs text-signal-700" aria-label="{{__ "Remove"}}">{{icon "trash" "size-4"}}</button></form>
+                    </td>
+                </tr>
+            {{end}}
+            {{if not .syncs}}<tr><td colspan="5" class="px-4 py-10 text-center text-steel">
+                {{if .tables}}{{if .accounts}}{{__ "No syncs yet. Pick a table on the right to start."}}{{else}}{{__ "Connect a Google account first (on the right)."}}{{end}}{{else}}{{__ "No table has been opened for you yet. Ask an administrator."}}{{end}}</td></tr>{{end}}
+            </tbody>
+        </table></div>
+    </section>
+
+    <div class="grid content-start gap-4">
+        <!-- Google accounts -->
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Google accounts"}}</h2><span class="text-xs text-steel">{{len .accounts}}</span></div>
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                {{range $a := .accounts}}
+                    <li class="flex items-center gap-2 px-5 py-2.5">
+                        <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{$a.google_email}}</span>
+                            <span class="block text-xs {{if $a.last_error}}text-signal-700{{else}}text-steel{{end}}">{{if $a.last_error}}{{$a.last_error}}{{else}}{{__ "Connected :t" "t" (timeAgo $a.connected_at)}}{{end}}</span></span>
+                        <form method="POST" action="{{url (printf "/sheets/accounts/%v/disconnect" $a.id)}}" data-confirm="{{__ "Disconnect :e? Its syncs are removed too." "e" $a.google_email}}">{{csrfField}}<button class="btn-ghost px-2 py-1 text-xs">{{__ "Disconnect"}}</button></form>
+                    </li>
+                {{end}}
+            </ul>
+            <div class="border-t border-graphite-900/8 px-5 py-3">
+                {{if .configured}}
+                    <a href="{{url "/sheets/connect"}}" class="btn-secondary w-full justify-center">{{icon "plus" "size-4"}} {{if .accounts}}{{__ "Connect another Google account"}}{{else}}{{__ "Connect a Google account"}}{{end}}</a>
+                {{else}}
+                    <p class="text-xs text-steel">{{__ "The administrator has not set up the Google connector yet."}}{{if .admin}} <a href="{{url "/connectors"}}" class="text-signal-700 hover:underline">{{__ "Set it up"}}</a>{{end}}</p>
+                {{end}}
+            </div>
+        </section>
+
+        <!-- Tables I may sync -->
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Tables you can sync"}}</h2><span class="text-xs text-steel">{{len .tables}}</span></div>
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                {{range $t := .tables}}
+                    <li class="flex items-center gap-2 px-5 py-2.5">
+                        {{icon "table" "size-4 shrink-0 text-steel"}}
+                        <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{$t.Label}}</span><span class="block text-xs text-steel">{{$t.Row.db}}.{{$t.Row.table_name}}</span></span>
+                        {{if $.accounts}}<a href="{{url "/sheets/new" "table" $t.Row.id}}" class="btn-ghost px-2 py-1 text-xs">{{__ "Sync to a sheet"}}</a>{{end}}
+                    </li>
+                {{end}}
+                {{if not .tables}}<li class="px-5 py-6 text-center text-steel">{{__ "None yet."}}{{if .admin}} <a href="{{url "/sheets/tables"}}" class="text-signal-700 hover:underline">{{__ "Open tables"}}</a>{{end}}</li>{{end}}
+            </ul>
+        </section>
+    </div>
+</div>

@@ -1,0 +1,61 @@
+{{- /* .f .result (nil = unavailable) .rows .depNames .myDept .isAdmin .allDepartments .page .pages .prev .next .depSelect */ -}}
+{{- $docLabel := dict "388" (__ "Tax invoice") "t01" (__ "Receipt") "81" (__ "Credit note") -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Invoices"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{if .isAdmin}}{{__ "Tax invoices, receipts and credit notes stamped by INET, for every department."}}{{else}}{{__ "Tax invoices, receipts and credit notes stamped by INET for your department: :d." "d" (or .myDept (__ "none"))}}{{end}}</p></div>
+</div>
+
+{{if not .result}}
+    <section class="panel mt-4 px-5 py-10 text-center text-sm text-steel">{{__ "Invoices are temporarily unavailable. Everything else keeps working."}}</section>
+{{else if and (not .isAdmin) (not .myDept)}}
+    <section class="panel mt-4 px-5 py-10 text-center text-sm text-steel">{{__ "Your account has no department yet, so there are no invoices to show. Ask an administrator."}}</section>
+{{else}}
+<section class="panel mt-4 overflow-hidden">
+    <form method="GET" action="{{url "/erp/invoices"}}" class="flex flex-wrap items-end gap-2 border-b border-graphite-900/8 p-3">
+        <div class="min-w-[14rem] flex-1"><label class="label" for="f-q">{{__ "Search"}}</label><input id="f-q" name="q" value="{{.f.q}}" class="input" placeholder="{{__ "Invoice no., customer, order no."}}"></div>
+        <div><label class="label" for="f-from">{{__ "From"}}</label><input id="f-from" type="date" name="from" value="{{.f.from}}" class="input"></div>
+        <div><label class="label" for="f-to">{{__ "To"}}</label><input id="f-to" type="date" name="to" value="{{.f.to}}" class="input"></div>
+        {{if .isAdmin}}
+            <div><label class="label" for="f-dep">{{__ "Department"}}</label>
+                <div class="min-w-[12rem]">{{.depSelect}}</div></div>
+        {{end}}
+        <button class="btn-secondary">{{__ "Show"}}</button>
+        <span class="ml-auto self-center text-sm text-steel">{{int .result.total}} {{__ "invoices"}}</span>
+    </form>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="px-4 py-2 font-medium">{{__ "Invoice"}}</th><th class="px-3 py-2 font-medium">{{__ "Date"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Customer"}}</th>
+            {{if .allDepartments}}<th class="px-3 py-2 font-medium">{{__ "Department"}}</th>{{end}}
+            <th class="px-3 py-2 text-right font-medium">{{__ "Total"}}</th><th class="px-3 py-2 font-medium">{{__ "Stamped PDF"}}</th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range $r := .rows}}
+            <tr>
+                <td class="px-4 py-2.5"><span class="font-medium tabular-nums">{{$r.no_invoice}}</span>{{if bool $r.is_credit}} <span class="badge bg-amber-50 text-amber-800">CN</span>{{end}}
+                    <span class="block text-xs text-steel">{{or $r.customer_order_number ""}}</span></td>
+                <td class="whitespace-nowrap px-3 py-2.5 text-steel">{{formatDate $r.invoice_date}}</td>
+                <td class="px-3 py-2.5">{{or $r.customer_name "—"}}<span class="block text-xs text-steel">{{or $r.customer_code ""}}</span></td>
+                {{if $.allDepartments}}<td class="px-3 py-2.5 text-steel">{{or (get $.depNames (int $r.app_department_id)) "—"}}</td>{{end}}
+                <td class="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{{nf $r.total_amount 2}} {{or $r.currency_code ""}}</td>
+                <td class="px-3 py-2.5"><div class="flex flex-wrap gap-1.5">
+                    {{range $d := $r.documents}}{{$u := url (printf "/erp/invoices/%v/pdf/%v" (int $r.id) $d)}}
+                        <span class="inline-flex overflow-hidden rounded-md ring-1 ring-graphite-900/10">
+                            <a href="{{$u}}" target="_blank" rel="noopener" class="px-2 py-1 text-xs font-medium hover:bg-mist">{{get $docLabel $d}}</a>
+                            <a href="{{$u}}?download=1" class="border-l border-graphite-900/10 px-1.5 py-1 hover:bg-mist" title="{{__ "Download"}}" aria-label="{{__ "Download :d" "d" (get $docLabel $d)}}">{{icon "download" "size-3.5"}}</a>
+                        </span>
+                    {{end}}
+                </div></td>
+            </tr>
+        {{end}}
+        {{if not .rows}}<tr><td colspan="6" class="px-4 py-10 text-center text-steel">{{__ "No stamped invoices found."}}</td></tr>{{end}}
+        </tbody>
+    </table></div>
+    {{if gt .pages 1}}
+        <div class="flex items-center justify-end gap-2 border-t border-graphite-900/8 px-4 py-2 text-sm">
+            <a class="btn-secondary !h-8 !px-3 {{if le .page 1}}pointer-events-none opacity-40{{end}}" href="{{.prev}}">‹</a>
+            <span>{{.page}} / {{.pages}}</span>
+            <a class="btn-secondary !h-8 !px-3 {{if ge .page .pages}}pointer-events-none opacity-40{{end}}" href="{{.next}}">›</a>
+        </div>
+    {{end}}
+</section>
+{{end}}

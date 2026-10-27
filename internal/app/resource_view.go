@@ -166,7 +166,14 @@ func formField(c *Ctx, f Field, row db.Row) FormField {
 		}
 		if val != "" {
 			if _, known := OptLabel(opts, val); !known {
-				opts = append(append([]Opt{}, f.AllOptions...), opts...)
+				// PHP all_options + options: a value already offered keeps its place in the list
+				var extra []Opt
+				for _, o := range f.AllOptions {
+					if _, dup := OptLabel(opts, o.Value); !dup {
+						extra = append(extra, o)
+					}
+				}
+				opts = append(extra, opts...)
 			}
 		}
 		ff.Opts = opts

@@ -1,0 +1,16 @@
+{{- /* .f {Q User From To Page}, .user (selected person id or ""), .total, .rows (signatures.RowsData), .people []Opt, .base (/pdf-sign-log or /management/pdf-signs) */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "PDF signing log"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Every PDF signed in User Management → Sign PDF: who signed it, when, and the signed copy to preview."}}</p></div>
+</div>
+<section class="panel mt-6 overflow-hidden">
+    <form method="GET" action="{{url .base}}" class="flex flex-wrap items-end gap-2 border-b border-graphite-900/8 p-3">
+        <div class="min-w-[12rem] flex-1"><label class="label" for="pl-q">{{__ "Search"}}</label><input id="pl-q" name="q" value="{{.f.Q}}" class="input" placeholder="{{__ "File name or person"}}"></div>
+        <div class="w-full sm:w-56"><label class="label" for="pl-user">{{__ "Person"}}</label>{{select "user" .people .user "id" "pl-user" "placeholder" (__ "Everyone") "search" true}}</div>
+        <div><label class="label" for="pl-from">{{__ "From"}}</label><input id="pl-from" type="date" name="from" value="{{.f.From}}" class="input"></div>
+        <div><label class="label" for="pl-to">{{__ "To"}}</label><input id="pl-to" type="date" name="to" value="{{.f.To}}" class="input"></div>
+        <button class="btn-secondary">{{__ "Show"}}</button>
+        <span class="ml-auto self-center text-sm text-steel">{{__ ":n signed PDFs" "n" .total}}</span>
+    </form>
+    {{template "pdf-sign/rows" .rows}}
+</section>

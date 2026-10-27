@@ -1,0 +1,34 @@
+{{- /* .row, .c, .canEdit, .canDelete, .canMake, .info1-3, .maint, .cal */ -}}
+{{- set "crumbs" (list (list (__ "Register requests") .c.base)) -}}
+{{- $row := .row -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title break-words">{{.title}}</h1>
+        <p class="text-sm text-steel">{{__ "Request"}} #{{$row.id}} · {{__ "by :name" "name" (coalesce $row.created_by_name "—")}} · {{formatDate $row.created_at}}</p>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        {{if .canMake}}<a href="{{url (printf "/machines/machines/create?register=%v" $row.id)}}" class="btn-dark flex-1 sm:flex-none">{{icon "gear" "size-4"}} {{__ "Create the machine"}}</a>{{end}}
+        {{if .canDelete}}<button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="{{url (printf "%s/%v/delete" .c.base $row.id)}}" data-delete-name="{{.title}}" data-delete-kind="{{__ "register request"}}">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>{{end}}
+        {{if .canEdit}}<a href="{{url (printf "%s/%v/edit" .c.base $row.id)}}" class="btn-primary flex-1 sm:flex-none">{{icon "pencil" "size-4"}} {{__ "Edit"}}</a>{{end}}
+    </div>
+</div>
+
+{{if gt (int $row.machine_count) 0}}
+<p class="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{__ "Machine created:"}} <strong>{{$row.machine_codes}}</strong></p>
+{{end}}
+
+<section class="panel mt-5">
+    <h2 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel">{{__ "Machine"}}</h2>
+    {{template "machines/_info" (dict "items" .info1)}}
+    <h2 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel">{{__ "Who looks after it"}}</h2>
+    {{template "machines/_info" (dict "items" .info2)}}
+    <h2 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel">{{__ "Maintenance and calibration plan"}}</h2>
+    <div class="grid gap-0 sm:grid-cols-2">
+        <div class="border-b border-graphite-900/6 px-5 py-3.5"><p class="text-xs text-steel">{{__ "Maintenance rounds"}}</p>
+            {{if not .maint}}<p class="mt-1 text-sm text-graphite-400">—</p>{{else}}<ol class="mt-1 space-y-0.5 text-sm">{{range .maint}}<li><span class="text-steel">#{{.n}}</span> {{.due}}{{if .plan}} <span class="text-steel">· {{__ "plan"}} {{.plan}}</span>{{end}}{{if .note}} · {{.note}}{{end}}</li>{{end}}</ol>{{end}}</div>
+        <div class="border-b border-graphite-900/6 px-5 py-3.5"><p class="text-xs text-steel">{{__ "Calibration due dates"}}</p>
+            {{if not .cal}}<p class="mt-1 text-sm text-graphite-400">—</p>{{else}}<ol class="mt-1 space-y-0.5 text-sm">{{range .cal}}<li>{{.due}}{{if .note}} · {{.note}}{{end}}</li>{{end}}</ol>{{end}}</div>
+    </div>
+    <h2 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel">{{__ "Documents"}}</h2>
+    {{template "machines/_info" (dict "items" .info3)}}
+</section>

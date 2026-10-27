@@ -1,0 +1,19 @@
+{{- /* .crm .canCreate .google .configured .lost .inCrm .mine .cfg (JSON) .legend .toggleURL */ -}}
+<link rel="stylesheet" href="{{asset "assets/calendar.css"}}">
+<div class="cal-page flex flex-col" id="cal-page">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-3">
+        <div class="min-w-0"><h1 class="page-title">{{__ "Calendar"}}</h1>
+            <ul class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-steel">{{range .legend}}<li class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background:{{css .Color}}"></span>{{.Label}}</li>{{end}}</ul></div>
+        <div class="flex flex-wrap items-center gap-2">
+            {{if .crm}}<a class="btn-secondary !h-9" href="{{.toggleURL}}">{{if .mine}}{{__ "Show everyone"}}{{else}}{{__ "Only mine"}}{{end}}</a>{{end}}
+            {{if .canCreate}}<a class="btn-primary !h-9" href="{{url "/crm/activities/create"}}" data-sheet data-sheet-title="{{__ "New activity"}}">+ {{__ "New activity"}}</a>{{end}}
+        </div>
+    </div>
+    {{if not .google}}<p class="mb-3 rounded-lg bg-white px-4 py-2.5 text-sm text-steel shadow-sm ring-1 ring-graphite-900/10">
+        {{if .lost}}<span class="text-signal-800">{{__ "Your Google connection ended: :why" "why" .lost}}</span> {{end}}
+        {{if .configured}}<a class="font-medium text-signal-700 underline" href="{{url "/connect/google" "back" "calendar"}}">{{if .lost}}{{__ "Connect again"}}{{else}}{{__ "Connect Google"}}{{end}}</a> {{__ "to see your Google Calendar here and put every activity on it."}}{{else}}{{__ "The administrator has not set up the Google connector yet — only CRM activities are shown."}}{{end}}</p>{{end}}
+    <div class="panel min-h-0 flex-1 p-3 sm:p-4"><div id="cal" data-config="{{.cfg}}" style="height:100%"></div></div>
+</div>
+<div id="cal-pop" class="fixed z-50 hidden w-72 rounded-xl bg-white p-4 text-sm shadow-xl ring-1 ring-graphite-900/15"></div>
+<script src="{{asset "assets/vendor/fullcalendar/index.global.min.js"}}"></script>
+<script src="{{asset "assets/calendar.js"}}" defer></script>
