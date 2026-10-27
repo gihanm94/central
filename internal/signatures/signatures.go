@@ -85,7 +85,9 @@ func randHex(n int) string {
 /* ------------------------------------------------------------ signatures */
 
 // Of is a person's user_signatures row (or nil).
-func Of(userID int) db.Row { return db.First("SELECT * FROM user_signatures WHERE user_id = ?", userID) }
+func Of(userID int) db.Row {
+	return db.First("SELECT * FROM user_signatures WHERE user_id = ?", userID)
+}
 
 var sigFile = regexp.MustCompile(`^[a-f0-9]{24}\.png$`)
 

@@ -1,10 +1,10 @@
 package core
 
 import (
-	"strings"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 )
 
 func randHex(n int) string {
