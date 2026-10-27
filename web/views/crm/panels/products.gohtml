@@ -1,0 +1,26 @@
+{{- /* .row .items (opportunity_products + _qty _price _total) .complete .total */ -}}
+<section class="panel overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Products"}} <span class="ml-1 text-sm font-normal text-steel">{{len .items}}</span></h2></div>
+    {{if not .items}}
+        <p class="px-5 py-6 text-center text-sm text-steel">{{__ "No products added. Edit the opportunity to add products."}}</p>
+    {{else}}
+    <div class="overflow-x-auto">
+        <table class="table">
+            <thead class="bg-mist/60"><tr><th>{{__ "Product"}}</th><th class="text-right">{{__ "Qty"}}</th><th class="text-right">{{__ "Unit price"}}</th><th class="text-right">{{__ "Total"}}</th></tr></thead>
+            <tbody>
+            {{range .items}}
+                <tr>
+                    <td><span class="font-medium">{{.name}}</span>
+                        {{if not .product_id}}<span class="badge ml-1 bg-amber-50 text-amber-800">{{__ "Not registered"}}</span>{{end}}
+                        {{if .note}}<span class="block text-xs text-steel">{{.note}}</span>{{end}}</td>
+                    <td class="text-right tabular-nums">{{._qty}}</td>
+                    <td class="text-right tabular-nums">{{._price}}</td>
+                    <td class="text-right tabular-nums">{{._total}}</td>
+                </tr>
+            {{end}}
+            </tbody>
+            <tfoot><tr class="bg-mist/40"><td colspan="3" class="px-5 py-3 text-right text-xs font-medium text-steel">{{if .complete}}{{__ "Total"}}{{else}}{{__ "Total of priced lines"}}{{end}} ({{.row.currency}})</td><td class="border-t border-graphite-900/6 px-5 py-3 text-right font-semibold tabular-nums">{{.total}}</td></tr></tfoot>
+        </table>
+    </div>
+    {{end}}
+</section>

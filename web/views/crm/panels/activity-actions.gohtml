@@ -1,0 +1,9 @@
+{{- /* .row — a planned activity; .late .text */ -}}
+<section class="panel mt-6 flex flex-wrap items-center justify-between gap-3 p-4 {{if .late}}ring-signal-600/40{{end}}">
+    <p class="flex items-center gap-2 text-sm">{{icon "clock" "size-4 text-steel"}}
+        {{.text}}</p>
+    <form method="POST" action="{{url (printf "/crm/activities/%v/status" .row.id)}}" class="flex gap-2">{{csrfField}}
+        <button name="status" value="CANCELLED" class="btn-secondary py-1.5">{{__ "Cancel activity"}}</button>
+        <button name="status" value="DONE" class="btn-dark py-1.5">{{icon "tick" "size-4"}} {{__ "Mark as done"}}</button>
+    </form>
+</section>

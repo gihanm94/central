@@ -1,0 +1,53 @@
+{{- /* .stages [Code Color Mobile Label Badge Use] .deps []Opt .editable (set of dept ids) .anyEdit .canColor .tabs */ -}}
+{{- set "crumbs" (list (list (__ "CRM settings") "/crm/settings")) -}}
+{{- $deps := .deps -}}{{- $editable := .editable -}}{{- $anyEdit := .anyEdit -}}{{- $canColor := .canColor -}}
+<div><h1 class="page-title">{{__ "Opportunity stages"}}</h1>
+    <p class="mt-1 max-w-3xl text-sm text-steel">{{__ "The stages and their names are fixed. Choose which stages each department can use: a department that does not use a stage cannot pick it on an opportunity and does not see it in the pipeline."}}</p></div>
+{{template "partials/tabs" (dict "tabs" .tabs)}}
+
+<form method="POST" action="{{url "/crm/settings/stages"}}" class="mt-5">
+    {{csrfField}}
+    {{fieldError "use"}}
+    <section class="panel overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="table w-max min-w-full">
+                <thead><tr>
+                    <th class="sticky left-0 z-[1] bg-white">{{__ "Stage"}}</th>
+                    <th title="{{__ "Short name shown in the mobile app"}}">{{__ "Mobile text"}}</th>
+                    {{range $deps}}{{$edit := get $editable .Value}}
+                        <th class="text-center {{if not $edit}}text-graphite-400{{end}}">{{.Label}}{{if and (not $edit) $anyEdit}}<span class="block text-[10px] font-normal text-steel">{{__ "view only"}}</span>{{end}}</th>
+                    {{end}}
+                </tr></thead>
+                <tbody>
+                {{range $st := .stages}}
+                    <tr>
+                        <td class="sticky left-0 z-[1] bg-white">
+                            <div class="flex items-center gap-3">
+                                <input type="color" name="color[{{$st.Code}}]" value="{{$st.Color}}" class="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60" {{if not $canColor}}disabled{{end}} aria-label="{{__ "Colour of :stage" "stage" $st.Label}}">
+                                {{raw $st.Badge}}
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" name="mobile[{{$st.Code}}]" value="{{$st.Mobile}}" maxlength="24" placeholder="{{$st.Label}}"
+                                   aria-label="{{__ "Mobile text for :stage" "stage" $st.Label}}" class="input h-8 w-36 text-xs" {{if not $canColor}}disabled{{end}}>
+                        </td>
+                        {{range $deps}}{{$edit := get $editable .Value}}
+                            <td class="text-center">
+                                <label class="inline-flex size-8 items-center justify-center {{if $edit}}cursor-pointer{{else}}cursor-not-allowed opacity-60{{end}}">
+                                    <input type="checkbox" name="use[{{.Value}}][{{$st.Code}}]" value="1" class="size-4 accent-signal-600" {{if get $st.Use .Value}}checked{{end}} {{if not $edit}}disabled{{end}} aria-label="{{.Label}} · {{$st.Label}}">
+                                </label>
+                            </td>
+                        {{end}}
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {{if $anyEdit}}
+    <div class="mt-4 flex items-center justify-between gap-3">
+        <p class="text-xs text-steel">{{if $canColor}}{{__ "You can change colours and any department."}}{{else}}{{__ "You can change your own department."}}{{end}} {{__ "Records already in a stage keep it."}}</p>
+        <button class="btn-primary">{{__ "Save stage settings"}}</button>
+    </div>
+    {{end}}
+</form>

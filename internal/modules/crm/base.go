@@ -737,7 +737,7 @@ func recordPanel(c *app.Ctx, row db.Row, typ string) string {
 	}
 	data := app.M{"row": row, "type": typ, "canHand": canHand, "before": before, "dlg": "owner-history-" + typ + "-" + row.Str("id"),
 		"history": historyDialog(c, "owner-history-"+typ+"-"+row.Str("id"), c.T("Owner history"), before, app.M{"at": row["created_at"], "by": row["creator_name"]}),
-		"path": entities[typ].Path, "all": seesAll(u)}
+		"path":    entities[typ].Path, "all": seesAll(u)}
 	if canHand {
 		data["targets"] = withoutOpt(assignable(u), php.Str(row.Int("owner_id")))
 	}

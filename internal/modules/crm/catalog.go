@@ -282,3 +282,5 @@ var digitsOnly = regexp.MustCompile(`^\d+$`)
 func ctypeDigit(s string) bool { return digitsOnly.MatchString(s) }
 
 var nonDigit = regexp.MustCompile(`\D`)
+
+var regexpUpper3 = regexp.MustCompile(`^[A-Z]{3}$`)

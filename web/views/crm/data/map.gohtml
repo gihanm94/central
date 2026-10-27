@@ -1,0 +1,100 @@
+{{- /* .token .fileName .sheets .sheet .table .tables .tableLabel .header .rowCount .withHeader .saved .isSql .main .audit .samples .headerToggle .errMap .errMode */ -}}
+{{- $header := .header -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <p class="text-sm text-steel"><a href="{{url "/crm/data"}}" class="hover:text-signal-700">{{__ "Data tools"}}</a> › {{__ "Import"}}</p>
+        <h1 class="page-title">{{__ "Match your file to a table"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{.fileName}} · {{__ ":n rows in this sheet" "n" .rowCount}}</p>
+    </div>
+    <form method="POST" action="{{url "/crm/data/discard"}}">{{csrfField}}<input type="hidden" name="token" value="{{.token}}"><button class="btn-ghost text-signal-700">{{icon "trash" "size-4"}} {{__ "Remove the uploaded file"}}</button></form>
+</div>
+
+<section class="panel mt-4">
+    <div class="grid gap-4 p-5 lg:grid-cols-2">
+        <div>
+            <p class="label">{{if .isSql}}{{__ "Table in the SQL file"}}{{else}}{{__ "Sheet"}}{{end}}</p>
+            <div class="flex flex-wrap gap-1.5">
+                {{range .sheets}}
+                <a href="{{.URL}}" class="rounded-lg px-3 py-1.5 text-sm ring-1 {{if .On}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/15 hover:bg-mist{{end}}">{{.Name}} <span class="text-xs opacity-70">{{.Count}}</span></a>
+                {{end}}
+            </div>
+            {{if not .isSql}}
+            <label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 accent-signal-600" {{if .withHeader}}checked{{end}} data-href="{{.headerToggle}}" onchange="location.href = this.dataset.href"> {{__ "The first row holds the column names"}}</label>
+            {{end}}
+        </div>
+        <form method="GET" action="{{url "/crm/data/map"}}">
+            <input type="hidden" name="token" value="{{.token}}"><input type="hidden" name="sheet" value="{{.sheet}}">{{if not .withHeader}}<input type="hidden" name="header" value="0">{{end}}
+            <p class="label">{{__ "Import into"}}</p>
+            {{select "table" .tables .table (dict "placeholder" (__ "Choose a CRM table…") "submit" true "search" true)}}
+            <p class="hint">{{__ "Each sheet goes to one table. Import the next sheet afterwards."}}</p>
+        </form>
+    </div>
+</section>
+
+{{if .table}}
+<form method="POST" action="{{url "/crm/data/run"}}" class="mt-4" data-map-form data-samples="{{.samples}}">
+    {{csrfField}}
+    <input type="hidden" name="token" value="{{.token}}"><input type="hidden" name="sheet" value="{{.sheet}}"><input type="hidden" name="table" value="{{.table}}"><input type="hidden" name="header" value="{{if .withHeader}}1{{else}}0{{end}}">
+    {{if .errMap}}<p class="error mb-2">{{.errMap}}</p>{{else if .errMode}}<p class="error mb-2">{{.errMode}}</p>{{end}}
+
+    {{if .saved}}
+    <div class="mb-3 flex flex-wrap items-center gap-2 text-sm"><span class="text-steel">{{__ "Saved mappings"}}:</span>
+        {{range .saved}}
+        <span class="inline-flex items-center overflow-hidden rounded-full ring-1 {{if .On}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/15{{end}}"><a href="{{.URL}}" class="px-3 py-1">{{.Name}}</a><button type="submit" formaction="{{url (printf "/crm/data/mappings/%s/delete" .ID)}}" class="px-2 py-1 opacity-60 hover:opacity-100" aria-label="{{__ "Delete"}}" data-confirm="{{__ "Delete this saved mapping?"}}">&times;</button></span>
+        {{end}}
+    </div>
+    {{end}}
+
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Match columns"}} · {{.tableLabel}}</h2><span class="text-xs text-steel">{{__ "* needed. Cells that stay empty use the fixed value, then the default."}}</span></div>
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-4 py-2 font-medium">{{__ "Table column"}}</th><th class="px-3 py-2 font-medium">{{__ "Column in your file"}}</th><th class="px-3 py-2 font-medium">{{__ "First values"}}</th><th class="px-3 py-2 font-medium">{{__ "Fixed value"}}</th></tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+                {{range .main}}{{template "crm/data/map-row" (dict "r" . "header" $header)}}{{end}}
+                <tr><td colspan="4" class="bg-mist/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel">{{__ "Owner, department, ids and dates (optional)"}}</td></tr>
+                {{range .audit}}{{template "crm/data/map-row" (dict "r" . "header" $header)}}{{end}}
+            </tbody>
+        </table>
+        </div>
+        <p class="border-t border-graphite-900/8 bg-mist/50 px-5 py-2 text-xs text-steel">{{__ "Without a column, the owner is you, the department is the owner's, and the code is numbered automatically."}}</p>
+    </section>
+
+    <section class="panel mt-4">
+        <div class="grid gap-4 p-5 lg:grid-cols-3">
+            <div>
+                <label class="label" for="imp-mode">{{__ "If the row already exists"}}</label>
+                <select id="imp-mode" name="mode" class="input">
+                    <option value="insert">{{__ "Always add a new row"}}</option>
+                    <option value="update_code">{{__ "Update the row with the same code"}}</option>
+                    <option value="update_id">{{__ "Update the row with the same id"}}</option>
+                </select>
+            </div>
+            <div>
+                <label class="label" for="imp-save">{{__ "Save this mapping as"}}</label>
+                <input id="imp-save" name="save_as" class="input" maxlength="120" placeholder="{{__ "e.g. Old CRM leads (optional)"}}">
+            </div>
+            <div class="flex flex-wrap items-end gap-2 lg:justify-end">
+                <button type="submit" name="action" value="check" class="btn-secondary">{{icon "check" "size-4"}} {{__ "Check only"}}</button>
+                <button type="submit" name="action" value="import" class="btn-primary">{{icon "upload" "size-4"}} {{__ "Import"}}</button>
+            </div>
+        </div>
+    </section>
+</form>
+{{end}}
+{{- define "crm/data/map-row"}}{{$r := .r}}
+    <tr class="align-top">
+        <td class="px-4 py-2.5">
+            <span class="font-medium">{{$r.Name}}</span>{{if $r.Required}} <span class="text-signal-600" title="{{__ "required"}}">*</span>{{end}}
+            <span class="block text-xs text-steel">{{$r.Type}}{{if $r.Lookup}} · {{__ "id or name"}}{{end}}</span>
+        </td>
+        <td class="px-3 py-2.5">
+            <select name="map[{{$r.Name}}]" class="input" data-map aria-label="{{$r.Name}}">
+                <option value="">{{__ "— not imported —"}}</option>
+                {{range $i, $h := .header}}<option value="{{$i}}" {{if eq $r.Sel $i}}selected{{end}}>{{$h}}</option>{{end}}
+            </select>
+        </td>
+        <td class="px-3 py-2.5 text-xs text-steel"><span data-preview class="block max-w-[16rem] truncate"></span></td>
+        <td class="px-3 py-2.5"><input name="fixed[{{$r.Name}}]" value="{{$r.Fixed}}" class="input" placeholder="{{__ "empty cells get…"}}" aria-label="{{__ "Fixed value for :c" "c" $r.Name}}"></td>
+    </tr>
+{{end -}}

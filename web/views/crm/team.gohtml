@@ -1,0 +1,127 @@
+{{- $from := .from -}}{{- $canEdit := .canEdit -}}{{- $wc := .wholeCompany -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title">{{__ "Sales control"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{if .wholeCompany}}{{__ "Hand records to somebody else, or find opportunities stuck in a stage and move them on — every department."}}{{else}}{{__ "Hand records to somebody else, or find opportunities stuck in a stage and move them on — your department."}}{{end}}</p>
+    </div>
+</div>
+
+<nav class="mt-4 grid gap-3 sm:grid-cols-2" aria-label="{{__ "Sales control"}}">
+    {{$onP := eq .view "person"}}
+    <a href="{{.personLink}}" {{if $onP}}aria-current="page"{{end}}
+       class="flex items-start gap-3 rounded-xl p-4 shadow-sm ring-1 transition-colors {{if $onP}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/8 hover:bg-mist{{end}}">
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg {{if $onP}}bg-white/10{{else}}bg-mist text-steel{{end}}">{{icon "users" "size-5"}}</span>
+        <span class="min-w-0"><span class="block font-semibold">{{__ "By person"}}</span>
+            <span class="mt-0.5 block text-sm {{if $onP}}text-white/70{{else}}text-steel{{end}}">{{__ "Pick a person, see everything they have and move it to someone else with a reason."}}</span>
+            <span class="mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-medium {{if $onP}}bg-white/10{{else}}bg-mist{{end}}">{{.personMeta}}</span></span>
+    </a>
+    {{$onS := eq .view "stage"}}
+    <a href="{{.stageLink}}" {{if $onS}}aria-current="page"{{end}}
+       class="flex items-start gap-3 rounded-xl p-4 shadow-sm ring-1 transition-colors {{if $onS}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/8 hover:bg-mist{{end}}">
+        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg {{if $onS}}bg-white/10{{else}}bg-mist text-steel{{end}}">{{icon "columns" "size-5"}}</span>
+        <span class="min-w-0"><span class="block font-semibold">{{__ "By stage"}}</span>
+            <span class="mt-0.5 block text-sm {{if $onS}}text-white/70{{else}}text-steel{{end}}">{{__ "See how many opportunities are in each stage for a date range, then change the stage of the ones that sat too long."}}</span>
+            <span class="mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-medium {{if $onS}}bg-white/10{{else}}bg-mist{{end}}">{{.stageMeta}}</span></span>
+    </a>
+</nav>
+
+{{if eq .view "stage"}}
+{{template "crm/team-stage" .}}
+{{else}}
+
+<form method="GET" action="{{url "/crm/control"}}" class="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-graphite-900/8">
+    <input type="hidden" name="type" value="{{.type}}">
+    {{if not .openOnly}}<input type="hidden" name="all" value="1">{{end}}
+    <label class="text-sm font-medium" for="team-user">{{__ "Person"}}</label>
+    <div class="w-full max-w-sm">{{select "user" .members (ternary (bool $from) (str $from) "") (dict "id" "team-user" "placeholder" (__ "Choose a person…") "submit" true "search" true)}}</div>
+    {{if $from}}
+    <div class="ml-auto inline-flex rounded-lg bg-mist p-0.5 text-sm" role="group" aria-label="{{__ "Show"}}">
+        <a href="{{.qsOpen}}" class="rounded-md px-3 py-1 {{if .openOnly}}bg-white font-medium shadow-sm{{else}}text-steel{{end}}">{{__ "Open only"}}</a>
+        <a href="{{.qsAll}}" class="rounded-md px-3 py-1 {{if not .openOnly}}bg-white font-medium shadow-sm{{else}}text-steel{{end}}">{{__ "Everything"}}</a>
+    </div>
+    {{end}}
+</form>
+
+{{if not $from}}
+    <div class="mt-6 rounded-xl bg-white p-10 text-center shadow-sm ring-1 ring-graphite-900/8">
+        <span class="mx-auto flex size-12 items-center justify-center rounded-full bg-mist text-steel">{{icon "users" "size-6"}}</span>
+        <p class="mt-3 font-medium">{{__ "Choose a person above"}}</p>
+        <p class="mt-1 text-sm text-steel">{{__ "People who left or are switched off are listed too, so their records can be handed over."}}</p>
+    </div>
+{{else}}
+
+<nav class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7" aria-label="{{__ "Record types"}}">
+    {{range .tiles}}
+    <a href="{{.URL}}" class="rounded-lg px-3 py-2 ring-1 transition-colors {{if .On}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/10 hover:bg-mist{{end}}" {{if .On}}aria-current="page"{{end}}>
+        <span class="block text-xs {{if .On}}text-white/70{{else}}text-steel{{end}}">{{.Name}}</span>
+        <span class="block text-lg font-semibold tabular-nums">{{.Open}}<span class="text-xs font-normal {{if .On}}text-white/70{{else}}text-steel{{end}}"> / {{.Total}}</span></span>
+    </a>
+    {{end}}
+</nav>
+<p class="mt-1 text-xs text-steel">{{__ "Open / all records"}}</p>
+
+<form method="POST" action="{{url "/crm/control/reassign"}}" class="mt-4" data-team>
+    {{csrfField}}
+    <input type="hidden" name="type" value="{{.type}}"><input type="hidden" name="from" value="{{$from}}">
+
+    {{if $canEdit}}
+    <section class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <div class="grid gap-4 lg:grid-cols-2">
+            <div>
+                <h2 class="text-sm font-semibold">{{__ "Hand to somebody else"}}</h2>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                    {{select "to" .targets "" (dict "placeholder" (__ "New owner…") "aria" (__ "New owner") "search" true)}}
+                    <input name="note" class="input" maxlength="250" placeholder="{{__ "Reason (required), e.g. resigned"}}" aria-label="{{__ "Reason"}}" value="{{old "note"}}">
+                </div>
+                {{if $wc}}<label class="mt-2 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="move_department" value="1" class="size-4 accent-signal-600"> {{__ "Also move the records to the new owner's department"}}</label>{{end}}
+                <div class="mt-2 flex flex-wrap gap-2">
+                    <button type="submit" class="btn-primary" data-needs-ticked>{{icon "users" "size-4"}} {{__ "Hand over ticked"}} (<span data-ticked>0</span>)</button>
+                    <button type="submit" class="btn-secondary" formaction="{{url "/crm/control/handover"}}" data-confirm="{{__ "Hand over everything this person has to the chosen owner?"}}">{{__ "Hand over everything"}}</button>
+                </div>
+                <label class="mt-2 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="include_closed" value="1" class="size-4 accent-signal-600"> {{__ "\"Everything\" also includes closed records"}}</label>
+            </div>
+            {{if .hasStatus}}
+            <div>
+                <h2 class="text-sm font-semibold">{{if eq .type "opportunity"}}{{__ "Change stage"}}{{else}}{{__ "Change status"}}{{end}}</h2>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                    {{select "status" .statuses "" (dict "placeholder" (ternary (eq .type "opportunity") (__ "New stage…") (__ "New status…")) "aria" (__ "New status") "search" false)}}
+                    <input name="status_note" class="input" maxlength="500" placeholder="{{__ "Reason (needed to close, cancel or hold)"}}" aria-label="{{__ "Reason"}}">
+                </div>
+                <div class="mt-2"><button type="submit" class="btn-secondary" formaction="{{url "/crm/control/status"}}" data-needs-ticked>{{icon "check" "size-4"}} {{__ "Apply to ticked"}} (<span data-ticked>0</span>)</button></div>
+            </div>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+
+    <section class="panel mt-4 overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{.tname}} · {{.personName}}{{if .personInactive}} <span class="text-signal-700">({{__ "inactive"}})</span>{{end}}</h2></div>
+        {{if not .rows}}
+            <p class="px-5 py-8 text-center text-sm text-steel">{{__ "Nothing here."}}</p>
+        {{else}}
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+                <th class="w-10 px-4 py-2"><input type="checkbox" class="size-4 accent-signal-600" data-tick-all aria-label="{{__ "Tick all"}}"></th>
+                <th class="px-3 py-2 font-medium">{{__ "Name"}}</th>
+                {{if .hasStatus}}<th class="px-3 py-2 font-medium">{{if eq .type "opportunity"}}{{__ "Stage"}}{{else}}{{__ "Status"}}{{end}}</th>{{end}}
+                <th class="px-3 py-2 font-medium">{{__ "Updated"}}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .rows}}
+                <tr class="hover:bg-mist/40">
+                    <td class="px-4 py-2"><input type="checkbox" name="ids[]" value="{{.id}}" class="size-4 accent-signal-600" data-tick aria-label="{{__ "Tick"}}"></td>
+                    <td class="px-3 py-2"><a href="{{._url}}" class="font-medium hover:text-signal-700">{{.label}}</a></td>
+                    {{if $.hasStatus}}<td class="px-3 py-2">{{._badge}}</td>{{end}}
+                    <td class="px-3 py-2 text-steel">{{._ago}}</td>
+                </tr>
+            {{end}}
+            </tbody>
+        </table>
+        </div>
+        {{if .limitNote}}<p class="border-t border-graphite-900/8 px-5 py-2 text-xs text-steel">{{__ "Showing the 300 most recently changed. Use \"Hand over everything\" for the rest."}}</p>{{end}}
+        {{end}}
+    </section>
+</form>
+{{end}}
+{{end}}
