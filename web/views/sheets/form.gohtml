@@ -1,0 +1,87 @@
+{{- /* .sync (nil = new) .tables .accounts .accountId .mode .days .target .action .newName .link .tab .runDate .today .runTime .officeLabel */ -}}
+{{- $s := .sync -}}
+<div class="mx-auto max-w-3xl">
+<a href="{{url "/sheets"}}" class="text-sm text-steel hover:text-graphite-900">← {{__ "Google Sheets"}}</a>
+<h1 class="page-title mt-1">{{.title}}</h1>
+
+{{if or (not .tables) (not .accounts)}}
+    <section class="panel mt-4 p-6 text-sm text-steel">
+        {{if not .tables}}{{__ "No table has been opened for you yet. Ask an administrator."}}{{else}}{{__ "Connect a Google account first."}}{{end}}
+        {{if .tables}}<a href="{{url "/sheets/connect"}}" class="btn-primary ml-2">{{__ "Connect a Google account"}}</a>{{end}}
+    </section>
+{{else}}
+<form method="POST" action="{{url .action}}" class="panel mt-4" data-sheet-form data-files-url="{{url "/sheets/accounts/__ID__/files"}}" data-tabs-url="{{url "/sheets/accounts/__ID__/tabs"}}">{{csrfField}}
+    <div class="grid gap-5 p-5">
+        <!-- 1. table -->
+        <div><label class="label" for="f-table">1. {{__ "Table"}}</label>
+            <select id="f-table" name="table_id" class="input" data-table>
+                {{range .tables}}<option value="{{.ID}}" data-label="{{.Label}}" {{if .Selected}}selected{{end}}>{{.Text}}</option>{{end}}
+            </select>{{fieldError "table_id"}}</div>
+
+        <!-- 2. Google account -->
+        <div><label class="label" for="f-account">2. {{__ "Google account"}}</label>
+            <div class="flex gap-2">
+                <select id="f-account" name="account_id" class="input" data-account>
+                    {{range .accounts}}<option value="{{.id}}" {{if eq (int .id) $.accountId}}selected{{end}}>{{.google_email}}</option>{{end}}
+                </select>
+                <a href="{{url "/sheets/connect"}}" class="btn-secondary shrink-0" title="{{__ "Connect another Google account"}}">{{icon "plus" "size-4"}}</a>
+            </div>{{fieldError "account_id"}}</div>
+
+        <!-- 3. spreadsheet -->
+        <fieldset><legend class="label">3. {{__ "Spreadsheet"}}</legend>
+            <div class="flex flex-wrap gap-4 text-sm">
+                <label class="flex items-center gap-2"><input type="radio" name="target" value="new" class="accent-signal-600" data-target {{if eq .target "new"}}checked{{end}}> {{__ "Create a new spreadsheet"}}</label>
+                <label class="flex items-center gap-2"><input type="radio" name="target" value="existing" class="accent-signal-600" data-target {{if eq .target "existing"}}checked{{end}}> {{__ "Use one of my spreadsheets"}}</label>
+            </div>
+            <div data-pane-new class="mt-3" {{if ne .target "new"}}hidden{{end}}>
+                <input name="new_name" value="{{.newName}}" class="input" data-new-name placeholder="{{__ "Name of the new spreadsheet"}}">{{fieldError "new_name"}}
+            </div>
+            <div data-pane-existing class="mt-3 grid gap-2" {{if ne .target "existing"}}hidden{{end}}>
+                <div class="flex gap-2"><input type="search" class="input" data-file-search placeholder="{{__ "Search by name…"}}" aria-label="{{__ "Search spreadsheets"}}"></div>
+                <select name="spreadsheet_id" class="input" data-files size="6" aria-label="{{__ "Spreadsheet"}}">
+                    {{if and $s $s.spreadsheet_id}}<option value="{{$s.spreadsheet_id}}" selected>{{or $s.spreadsheet_name $s.spreadsheet_id}}</option>{{end}}
+                </select>
+                <p class="text-xs text-steel" data-files-note></p>
+                <input name="spreadsheet_link" value="{{.link}}" class="input text-xs" placeholder="{{__ "…or paste the link of a Google Sheet"}}">
+                {{fieldError "spreadsheet_id"}}
+            </div>
+        </fieldset>
+
+        <!-- 4. tab -->
+        <div><label class="label" for="f-tab">4. {{__ "Tab (sheet) name"}}</label>
+            <input id="f-tab" name="sheet_tab" value="{{.tab}}" list="f-tabs" class="input" maxlength="100" data-tab>
+            <datalist id="f-tabs" data-tabs></datalist>
+            <p class="mt-1 text-xs text-steel">{{__ "The tab is created if it does not exist. Every sync replaces everything on it, so do not type in it; use other tabs for your formulas and charts."}}</p>
+            {{fieldError "sheet_tab"}}</div>
+
+        <!-- 5. schedule -->
+        <fieldset><legend class="label">5. {{__ "When"}}</legend>
+            <div class="flex flex-wrap gap-4 text-sm">
+                <label class="flex items-center gap-2"><input type="radio" name="mode" value="daily" class="accent-signal-600" data-mode {{if eq .mode "daily"}}checked{{end}}> {{__ "Every day, once"}}</label>
+                <label class="flex items-center gap-2"><input type="radio" name="mode" value="once" class="accent-signal-600" data-mode {{if eq .mode "once"}}checked{{end}}> {{__ "One day only"}}</label>
+            </div>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <div data-pane-daily {{if ne .mode "daily"}}hidden{{end}} class="sm:col-span-2">
+                    <span class="text-xs text-steel">{{__ "On these days"}}</span>
+                    <div class="mt-1 flex flex-wrap gap-1.5">
+                        {{range .days}}
+                            <label class="flex cursor-pointer items-center gap-1.5 rounded-md border border-graphite-900/10 px-2.5 py-1 text-sm has-[:checked]:border-signal-600 has-[:checked]:bg-signal-50"><input type="checkbox" name="days[]" value="{{.N}}" class="size-4 accent-signal-600" {{if .Checked}}checked{{end}}> {{.Label}}</label>
+                        {{end}}
+                    </div>{{fieldError "days"}}
+                </div>
+                <div data-pane-once {{if ne .mode "once"}}hidden{{end}}><label class="label" for="f-date">{{__ "Date"}}</label>
+                    <input id="f-date" type="date" name="run_date" value="{{.runDate}}" min="{{.today}}" class="input">{{fieldError "run_date"}}</div>
+                <div><label class="label" for="f-time">{{__ "Time"}}</label>
+                    <input id="f-time" type="time" name="run_time" value="{{.runTime}}" class="input" step="300">{{fieldError "run_time"}}</div>
+            </div>
+            <p class="mt-2 text-xs text-steel">{{__ "Office hours (:h) are kept free: syncs cannot be set inside them and never run in them." "h" .officeLabel}}</p>
+        </fieldset>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-graphite-900/8 bg-mist/50 px-5 py-3">
+        <a href="{{url "/sheets"}}" class="btn-ghost">{{__ "Cancel"}}</a>
+        <button class="btn-primary">{{__ "Save sync"}}</button>
+    </div>
+</form>
+{{end}}
+</div>
+<script src="{{asset "assets/sheets.js"}}" defer></script>
