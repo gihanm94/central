@@ -30,7 +30,7 @@ var maintBy = []pair{{"INTERNAL", "Internal"}, {"EXTERNAL", "External"}}
 var maintTypes = []pair{{"PREVENTIVE", "Preventive"}, {"CORRECTIVE", "Corrective"}, {"PREDICTIVE", "Predictive"}, {"CONDITION_BASED", "Condition based"}, {"PRESCRIPTIVE", "Prescriptive"}}
 
 // The day rule of a checklist item (cron "0 0 0 <day-of-month> * <day-of-week>"): label per preset. '0 0 0 * * 1' = general check, done at every use.
-const general = "0 0 0 * * 1"
+const generalRule = "0 0 0 * * 1"
 
 var resets = []pair{
 	{"0 0 0 * * 1", "General (at every use)"}, {"0 0 0 * * *", "Every day"}, {"0 0 0 * * 2", "Every Tuesday"}, {"0 0 0 * * 3", "Every Wednesday"}, {"0 0 0 * * 4", "Every Thursday"},

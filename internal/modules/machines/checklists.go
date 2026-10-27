@@ -30,7 +30,7 @@ func plan(m db.Row, u *app.CurrentUser, now time.Time) checkPlan {
 	weekend := wd == time.Saturday || wd == time.Sunday
 	recheck := m.Int("responsible_person_id") == u.ID && m.Str("check_status") == "PENDING" && !weekend
 	cond := "i.reset_time = ?"
-	params := []any{m["machine_code"], general}
+	params := []any{m["machine_code"], generalRule}
 	if recheck {
 		cond = "NOT i.check_status"
 		params = []any{m["machine_code"]}

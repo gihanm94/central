@@ -227,7 +227,7 @@ func saveCheck(c *app.Ctx) int {
 		if p.Recheck {
 			var ids []string
 			for _, a := range ans {
-				if php.Str(a.ResetTime) != general && a.ID != 0 {
+				if php.Str(a.ResetTime) != generalRule && a.ID != 0 {
 					ids = append(ids, php.Str(a.ID))
 				}
 			}

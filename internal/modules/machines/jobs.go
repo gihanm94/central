@@ -153,7 +153,7 @@ func markJob(name string, at time.Time) {
 // resetItems: questions that came due today start again.
 func resetItems(now time.Time) int {
 	n := 0
-	for _, i := range mdb().Select("SELECT id, reset_time FROM machine_checklist WHERE check_status AND reset_time <> ?", general) {
+	for _, i := range mdb().Select("SELECT id, reset_time FROM machine_checklist WHERE check_status AND reset_time <> ?", generalRule) {
 		if resetsOn(i.Str("reset_time"), now) {
 			mdb().Exec("UPDATE machine_checklist SET check_status = FALSE, updated_at = now() WHERE id = ?", i["id"])
 			n++

@@ -1,0 +1,52 @@
+{{- /* .m, .plan, .facts, .checks, .due, .canCheck, .canOpen */ -}}
+{{- set "crumbs" (list) -}}
+{{- $m := .m -}}
+<div class="mx-auto max-w-xl">
+    <section class="panel overflow-hidden">
+        <div class="flex items-center gap-4 p-4">
+            {{if $m.image}}<img src="{{uploadURL $m.image}}" alt="" class="size-20 shrink-0 rounded-xl bg-white object-contain ring-1 ring-graphite-900/10">{{else}}<span class="flex size-20 shrink-0 items-center justify-center rounded-xl bg-mist text-graphite-400">{{icon "gear" "size-10"}}</span>{{end}}
+            <div class="min-w-0">
+                <p class="text-sm tabular-nums text-steel">{{$m.machine_code}}</p>
+                <h1 class="text-xl font-semibold leading-tight">{{$m.machine_name}}</h1>
+                <p class="mt-1.5 flex flex-wrap gap-1.5">{{index .pills 0}} {{index .pills 1}}</p>
+            </div>
+        </div>
+        <dl class="grid grid-cols-2 gap-px border-t border-graphite-900/6 bg-graphite-900/6 text-sm">
+            {{range .facts}}
+            <div class="bg-white px-4 py-2.5"><dt class="text-xs text-steel">{{.l}}</dt><dd class="truncate font-medium">{{or .v "—"}}</dd></div>
+            {{end}}
+        </dl>
+    </section>
+
+    {{if .canCheck}}
+        <a href="{{.checkURL}}" class="mt-4 flex items-center gap-4 rounded-2xl p-5 text-white shadow-sm {{if .plan.Recheck}}bg-amber-600 hover:bg-amber-700{{else}}bg-signal-600 hover:bg-signal-700{{end}}">
+            {{icon "check" "size-9 shrink-0"}}
+            <span class="min-w-0"><span class="block text-lg font-semibold">{{if .plan.Recheck}}{{__ "Do your re-check"}}{{else}}{{__ "Do the checklist"}}{{end}}</span>
+                <span class="block text-sm text-white/85">{{if .plan.Empty}}{{__ "No questions yet"}}{{else}}{{__ ":n questions" "n" (len .plan.Items)}}{{end}}{{if .plan.Recheck}} · {{__ "goes to approval"}}{{end}}</span></span>
+            <span class="ml-auto text-2xl">›</span>
+        </a>
+    {{else if not .active}}
+        <p class="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{{__ "This machine is not in use any more (:status)." "status" .statusLow}}</p>
+    {{end}}
+
+    {{if .due}}
+    <section class="panel mt-4 divide-y divide-graphite-900/6 text-sm">
+        {{range .due}}
+        <div class="flex items-center gap-3 px-4 py-3">{{icon .icon "size-5 text-steel"}}<span class="flex-1">{{.label}}</span><span class="font-medium tabular-nums">{{.date}}</span>{{if .late}}{{$.overdue}}{{end}}</div>
+        {{end}}
+    </section>
+    {{end}}
+
+    <section class="panel mt-4 overflow-hidden">
+        <h2 class="border-b border-graphite-900/6 bg-mist/50 px-4 py-2 text-xs font-semibold text-steel">{{__ "Latest checks"}}</h2>
+        {{if not .checks}}<p class="px-4 py-5 text-center text-sm text-steel">{{__ "Nobody has checked this machine yet."}}</p>{{else}}
+        <ul class="divide-y divide-graphite-900/6">{{range .checks}}
+            <li class="flex flex-wrap items-center gap-x-3 px-4 py-2.5 text-sm"><span class="tabular-nums text-steel">{{formatDate .created_at "d M H:i"}}</span><span class="min-w-0 flex-1 truncate">{{or .user_name "—"}}</span>{{._pill}}</li>
+        {{end}}</ul>{{end}}
+    </section>
+
+    <div class="mt-4 flex flex-wrap gap-2">
+        {{if .canOpen}}<a class="btn-secondary flex-1" href="{{url (printf "/machines/machines/%v" $m.id)}}">{{icon "gear" "size-4"}} {{__ "Machine details"}}</a>{{end}}
+        <a class="btn-secondary flex-1" href="{{url "/machines/scan"}}">{{icon "qr" "size-4"}} {{__ "Scan another"}}</a>
+    </div>
+</div>

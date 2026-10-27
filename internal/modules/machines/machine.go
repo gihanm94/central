@@ -190,7 +190,7 @@ func itemsField(c *app.Ctx, name, label string, qs []app.Opt, withResets bool, r
 	rs := formRows(c, name, rows)
 	var view []app.M
 	for i, p := range rs {
-		rt := php.Str(php.Coalesce(p["reset_time"], general))
+		rt := php.Str(php.Coalesce(p["reset_time"], generalRule))
 		view = append(view, app.M{"i": php.Str(i), "question_id": php.Str(p["question_id"]), "reset_time": rt})
 	}
 	return app.Field{Name: name, Label: label, Type: "custom", Partial: "machines/fields/items", NoTable: true, NoImport: true, Span: 2, Rules: "nullable", Help: help,
@@ -556,7 +556,7 @@ func syncItems(c *app.Ctx, table, code string, rows []any, withReset bool) {
 			if _, ok := lookup(resets, rt); ok {
 				reset = rt
 			} else {
-				reset = general
+				reset = generalRule
 			}
 		}
 		k := php.Str(qid) + "|" + php.Str(reset)
@@ -624,11 +624,53 @@ func machineShow(c *app.Ctx) {
 	today := php.Today()
 	maintRecords := mdb().Select("SELECT * FROM maintenance_record WHERE machine_code = ? AND NOT is_canceled ORDER BY years DESC, round, due_date", code)
 	for _, x := range maintRecords {
-		x["_late"] = php.Empty(x["actual_date"]) && !php.Empty(x["due_date"]) && x.Str("due_date") < today
+		late := php.Empty(x["actual_date"]) && !php.Empty(x["due_date"]) && x.Str("due_date") < today
+		switch {
+		case !php.Empty(x["status"]):
+			x["_pill"] = pillH(c, x["status"], "")
+		case late:
+			x["_pill"] = pillH(c, c.T("Overdue"), "bad")
+		default:
+			x["_pill"] = pillH(c, c.T("Planned"), "neutral")
+		}
 	}
 	calRecords := mdb().Select("SELECT * FROM calibration_record WHERE machine_code = ? AND NOT is_canceled ORDER BY due_date DESC", code)
 	for _, x := range calRecords {
-		x["_late"] = php.Empty(x["certificate_date"]) && !php.Empty(x["due_date"]) && x.Str("due_date") < today
+		late := php.Empty(x["certificate_date"]) && !php.Empty(x["due_date"]) && x.Str("due_date") < today
+		switch {
+		case !php.Empty(x["results"]):
+			x["_pill"] = pillH(c, x["results"], "")
+		case late:
+			x["_pill"] = pillH(c, c.T("Overdue"), "bad")
+		default:
+			x["_pill"] = pillH(c, c.T("Planned"), "neutral")
+		}
+	}
+	general := items("machine_checklist")
+	for _, i := range general {
+		tone := "neutral"
+		if i.Str("reset_time") == generalRule {
+			tone = "info"
+		}
+		i["_reset"] = pillH(c, resetLabel(c, i["reset_time"]), tone)
+		i["_state"] = template.HTML("")
+		if i.Str("reset_time") != generalRule {
+			if i.Bool("check_status") {
+				i["_state"] = pillH(c, c.T("Checked"), "ok")
+			} else {
+				i["_state"] = pillH(c, c.T("Not yet"), "warn")
+			}
+		}
+	}
+	checks := mdb().Select("SELECT id, check_type, recheck, checklist_status, machine_status, user_name, created_at FROM checklist_record WHERE machine_code = ? ORDER BY created_at DESC LIMIT 12", code)
+	for _, k := range checks {
+		k["_pill"] = pillH(c, k["checklist_status"], "")
+	}
+	listURL := func(perm, path string) string {
+		if !c.Can(perm, "view") {
+			return ""
+		}
+		return c.URL(path + "?q=" + url.PathEscape(m.Str("machine_code")))
 	}
 	warranty := ""
 	switch m.Str("has_warranty") {
@@ -683,13 +725,15 @@ func machineShow(c *app.Ctx) {
 		"title": r.LabelOf(c, m), "m": m, "c": r.Meta(c),
 		"canEdit": canEdit, "canDelete": c.Can(r.Resource, "delete") && c.MustUser().Scope() == "all",
 		"canCheck": isActive(m["machine_status"]) && c.Can("machines_checklists", "create"),
-		"general":  items("machine_checklist"), "maint": items("maintenance_checklist"),
+		"general":  general, "maint": items("maintenance_checklist"),
 		"maintRecords": maintRecords, "calRecords": calRecords,
-		"checks":  mdb().Select("SELECT id, check_type, recheck, checklist_status, machine_status, user_name, created_at FROM checklist_record WHERE machine_code = ? ORDER BY created_at DESC LIMIT 12", code),
+		"checks":  checks,
 		"history": hist, "people": people(), "canChange": canEdit && isActive(m["machine_status"]),
 		"qrText": qr(m.Str("machine_code")), "link": c.URL("/machines/m/" + url.PathEscape(m.Str("machine_code"))),
-		"info": info, "general_code": general, "codeQ": url.QueryEscape(m.Str("machine_code")),
-		"canMaintList": c.Can("machines_maintenance", "view"), "canCalList": c.Can("machines_calibration", "view"), "canCheckList": c.Can("machines_checklists", "view"),
+		"info": info, "pill": func(v any, tone string) template.HTML { return pillH(c, v, tone) },
+		"typeLine": strings.Trim(m.Str("machine_group_name")+" / "+m.Str("machine_type_name"), " /"),
+		"checkURL": c.URL("/machines/checklists/new?machine=" + url.PathEscape(m.Str("machine_code"))), "labelURL": c.URL("/machines/label?ids=" + m.Str("id")),
+		"maintListURL": listURL("machines_maintenance", "/machines/maintenance"), "calListURL": listURL("machines_calibration", "/machines/calibration"), "checkListURL": listURL("machines_checklists", "/machines/checklists"),
 	})
 }
 
