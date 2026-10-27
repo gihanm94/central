@@ -81,7 +81,10 @@ func logException(ch string, err error, what string, ctx ...*config.Map) {
 	}
 	_, file, line, _ := runtime.Caller(1)
 	m.Set("exception", fmt.Sprintf("%T", err))
-	m.Set("at", strings.TrimPrefix(file, app.BasePath+"/")+":"+php.Str(line))
+	if i := strings.Index(file, "/internal/"); i >= 0 {
+		file = file[i+1:]
+	}
+	m.Set("at", file+":"+php.Str(line))
 	logWrite("error", ch, msg, m)
 }
 

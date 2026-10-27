@@ -269,21 +269,21 @@ func erpSync(args []string) int {
 			}
 		case "hot", "cold", "full", "all":
 			force := ""
-			if arg(3) == "latest" || arg(3) == "all" {
-				force = arg(3)
+			if arg(2) == "latest" || arg(2) == "all" {
+				force = arg(2)
 			}
-			id := runGroup(cmd, "manual", php.Int(arg(2)), force)
+			id := runGroup(cmd, "manual", php.Int(arg(1)), force)
 			if id != 0 {
 				fmt.Printf("%s run #%d finished\n", php.Date("c", php.Now()), id)
 			} else {
 				fmt.Print(php.Date("c", php.Now()) + " already running\n")
 			}
 		case "entity":
-			mode := arg(3)
+			mode := arg(2)
 			if mode == "" {
 				mode = "latest"
 			}
-			id := runEntity(arg(2), mode, arg(4), 0)
+			id := runEntity(arg(1), mode, arg(3), 0)
 			fmt.Printf("%s run #%d finished\n", php.Date("c", php.Now()), id)
 		case "generate":
 			jobRun(c, arg(1))
