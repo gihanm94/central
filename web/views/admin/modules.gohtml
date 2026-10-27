@@ -1,0 +1,40 @@
+{{- /* .modules (without core): key, name, icon, home, dir, state, problems; .hasStatus */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Modules"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Every module in app/Modules. A module that fails is switched off on its own pages only; everything else keeps working. Fix the file, then press Try again."}}</p></div>
+    {{if .hasStatus}}
+        <form method="POST" action="{{url "/modules/retry"}}">{{csrfField}}<button class="btn-secondary">{{__ "Try all again"}}</button></form>
+    {{end}}
+</div>
+<section class="panel mt-4 overflow-hidden">
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-4 py-2 font-medium">{{__ "Module"}}</th><th class="px-3 py-2 font-medium">{{__ "Folder"}}</th><th class="px-3 py-2 font-medium">{{__ "Status"}}</th><th class="px-3 py-2 font-medium">{{__ "Problems"}}</th><th class="px-3 py-2"></th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .modules}}
+            <tr class="align-top">
+                <td class="px-4 py-2.5"><span class="flex items-center gap-2 font-medium">{{icon .icon "size-4 text-steel"}}{{.name}}</span><span class="block text-xs text-steel">{{.home}}</span></td>
+                <td class="px-3 py-2.5 text-xs text-steel">{{if .dir}}{{.dir}}{{else}}{{__ "Not built yet"}}{{end}}</td>
+                <td class="px-3 py-2.5">
+                    {{if eq .state "off"}}<span class="badge bg-graphite-900/6 text-graphite-700">{{__ "Off"}}</span>
+                    {{else if eq .state "blocked"}}<span class="badge bg-signal-50 text-signal-800">{{__ "Unavailable"}}</span>
+                    {{else if eq .state "warnings"}}<span class="badge bg-amber-50 text-amber-800">{{__ "Warnings"}}</span>
+                    {{else}}<span class="badge bg-emerald-50 text-emerald-800">{{__ "Working"}}</span>{{end}}
+                </td>
+                <td class="px-3 py-2.5">
+                    {{range .problems}}
+                        <p class="mb-1.5 last:mb-0"><span class="font-medium">{{.label}}</span>
+                            <span class="text-xs text-steel"> · {{timeAgo .at}}</span>
+                            <span class="block break-all text-xs text-signal-800">{{.message}}</span>
+                            <span class="block text-xs text-steel">{{.where}}</span></p>
+                    {{end}}
+                    {{if not .problems}}<span class="text-steel">—</span>{{end}}
+                </td>
+                <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                    {{if .problems}}<form method="POST" action="{{url "/modules/retry"}}" class="inline">{{csrfField}}<input type="hidden" name="module" value="{{.key}}"><button class="btn-ghost px-3 py-1 text-xs">{{__ "Try again"}}</button></form>{{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table></div>
+</section>
+<p class="mt-3 text-xs text-steel">{{__ "Switch a module on or off in config/modules.php. Full error traces are in storage/logs/php-error.log."}}</p>

@@ -7,5 +7,5 @@
     <h1 class="mt-5 font-display text-3xl font-semibold tracking-tight">{{$headline}}</h1>
     <p class="mt-2 text-sm {{if $dark}}text-graphite-400{{else}}text-steel{{end}}">{{or .message (__ "Error :code." "code" .status)}}{{if eq .status 403}} {{__ "Ask an administrator if you need it."}}{{end}}</p>
     {{if and .ref auth (isAdmin)}}<p class="mt-3"><a href="{{url "/system-logs" "ref" .ref}}" class="text-sm font-medium text-signal-700 underline">{{__ "Open the full error in System logs"}}</a></p>{{end}}
-    <a href="{{url (ternary (bool auth) "/dashboard" "/login")}}" class="btn-primary mt-6">{{if auth}}{{__ "Go to dashboard"}}{{else}}{{__ "Go to sign in"}}{{end}}</a>
+    <a href="{{if auth}}{{url "/dashboard"}}{{else}}{{url "/login"}}{{end}}" class="btn-primary mt-6">{{if auth}}{{__ "Go to dashboard"}}{{else}}{{__ "Go to sign in"}}{{end}}</a>
 </div>

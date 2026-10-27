@@ -15,8 +15,7 @@ var formulaStart = regexp.MustCompile(`^[=+\-@]`)
 func (c *Ctx) CsvDownload(filename string, header []string, rows [][]any) {
 	var buf bytes.Buffer
 	buf.WriteString("\xEF\xBB\xBF")
-	w := csv.NewWriter(&buf)
-	_ = w.Write(header)
+	writeCsvLine(&buf, anyStrings(header))
 	for _, r := range rows {
 		line := make([]string, len(r))
 		for i, v := range r {
@@ -26,9 +25,8 @@ func (c *Ctx) CsvDownload(filename string, header []string, rows [][]any) {
 			}
 			line[i] = s
 		}
-		_ = w.Write(line)
+		writeCsvLine(&buf, line)
 	}
-	w.Flush()
 	c.W.Header().Set("Cache-Control", "no-store")
 	c.W.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	c.write("text/csv; charset=UTF-8", buf.Bytes())
@@ -119,4 +117,22 @@ func combine(header []string, lines [][]string, maxRows int) []CsvRow {
 		out = append(out, row)
 	}
 	return out
+}
+
+func anyStrings(h []string) []string { return h }
+
+// writeCsvLine writes one line the way PHP's fputcsv does: a field is quoted when it holds a space,
+// comma, quote, tab, line break or backslash; quotes inside are doubled.
+func writeCsvLine(buf *bytes.Buffer, fields []string) {
+	for i, f := range fields {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		if strings.ContainsAny(f, " ,\"\t\r\n\\") {
+			buf.WriteString(`"` + strings.ReplaceAll(f, `"`, `""`) + `"`)
+		} else {
+			buf.WriteString(f)
+		}
+	}
+	buf.WriteByte('\n')
 }

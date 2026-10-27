@@ -1,0 +1,24 @@
+{{set "crumbs" (list (list (__ "Roles & access") "/roles"))}}
+{{- $role := .role -}}{{- $isAdmin := and $role (eq (str $role.slug) "admin") -}}
+<h1 class="page-title">{{.title}}</h1>
+<form method="POST" action="{{if $role}}{{url (printf "/roles/%v" $role.id)}}{{else}}{{url "/roles"}}{{end}}" class="panel mt-6 max-w-2xl">
+    {{csrfField}}
+    <div class="grid gap-5 p-4 sm:grid-cols-2 sm:p-6">
+        <div class="sm:col-span-2"><label for="name" class="label">{{__ "Role name"}}</label><input id="name" name="name" value="{{old "name" (coalesce (get $role "name") "")}}" required class="input">{{fieldError "name"}}</div>
+        <div class="sm:col-span-2"><label for="description" class="label">{{__ "What this role is for"}} <span class="font-normal text-steel">({{__ "optional"}})</span></label><input id="description" name="description" value="{{old "description" (coalesce (get $role "description") "")}}" class="input"></div>
+        <div>
+            <label for="data_scope" class="label">{{__ "Records they can see"}}</label>
+            {{if $isAdmin}}
+                <input type="hidden" name="data_scope" value="all"><p class="input bg-mist">{{__ "Whole company"}}</p>
+            {{else}}
+                {{select "data_scope" .scopes (old "data_scope" (coalesce (get $role "data_scope") "own")) "id" "data_scope" "required" true}}
+            {{end}}
+        </div>
+        <div>
+            <label for="level" class="label">{{__ "Rank (1–99)"}}</label>
+            <input id="level" name="level" type="number" min="1" max="99" inputmode="numeric" value="{{old "level" (coalesce (get $role "level") 20)}}" class="input" {{if $isAdmin}}readonly{{end}}>
+            <p class="hint">{{__ "People can only manage members with a lower rank. Management 80, BU Manager 60, Manager 40, Member 10."}}</p>
+        </div>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-graphite-900/8 px-4 py-3 sm:px-6"><a href="{{url "/roles"}}" class="btn-ghost">{{__ "Cancel"}}</a><button class="btn-primary">{{if $role}}{{__ "Save role"}}{{else}}{{__ "Create role"}}{{end}}</button></div>
+</form>

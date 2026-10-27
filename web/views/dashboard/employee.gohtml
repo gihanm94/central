@@ -1,0 +1,107 @@
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+        <h1 class="page-title">{{.greeting}}</h1>
+        <p class="mt-1 text-sm text-steel">{{.who}}</p>
+    </div>
+    <p class="flex items-center gap-2 text-sm text-steel">{{__ "Data you can see"}}: {{template "partials/scope-badge" (dict "scope" .scope)}}</p>
+</div>
+
+{{if .figures}}
+<section class="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-graphite-900/8 ring-1 ring-graphite-900/8 {{.lg}} [&>div]:bg-white [&>div]:p-5 [&>div:last-child:nth-child(odd)]:col-span-2 lg:[&>div:last-child:nth-child(odd)]:col-span-1">
+    {{range .figures}}<div><p class="text-sm text-steel">{{.Label}}</p><p class="figure mt-2 text-4xl {{if .Alert}}text-signal-600{{end}}">{{.Value}}</p></div>{{end}}
+</section>
+{{end}}
+
+<section class="panel mt-6" aria-labelledby="my-kpi-score">
+    <div class="panel-head"><h2 class="panel-title" id="my-kpi-score">{{__ "My KPI score :year (so far)" "year" .year}}</h2>
+        {{if can "kpi_submissions"}}<a href="{{url "/kpi-submissions"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "My KPI submissions"}}</a>{{end}}</div>
+    <div class="grid gap-6 p-5 md:grid-cols-[14rem_1fr]">
+        <div>
+            <p class="figure text-5xl {{.tone}}">{{.score}}<span class="ml-1 text-lg font-normal text-steel">/ 100</span></p>
+            <div class="mt-3">{{template "partials/progress" (dict "value" .scorePct)}}</div>
+            <p class="mt-2 text-xs text-steel">{{.scoreNote}}</p>
+        </div>
+        {{if .sections}}
+        <ul class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+            {{range .sections}}
+                <li>
+                    <div class="flex items-baseline justify-between gap-3 text-sm"><span class="min-w-0 truncate">{{.label}}</span>
+                        <span class="shrink-0 tabular-nums"><strong>{{.got}}</strong><span class="text-steel"> / {{.pts}}</span></span></div>
+                    <div class="mt-1.5">{{template "partials/progress" (dict "value" .pct)}}</div>
+                </li>
+            {{end}}
+            {{if .deduction}}
+                <li class="text-sm text-signal-700">{{.deductionText}}</li>
+            {{end}}
+        </ul>
+        {{else}}
+        <p class="self-center text-sm text-steel">{{__ "The score is made of your KPIs, KPIs sent on time, quality objective, sales, QMS, your leader's evaluation and absence. Send your monthly KPI submissions on time to raise it."}}</p>
+        {{end}}
+    </div>
+</section>
+
+{{if .oil}}
+<section class="panel mt-6" aria-labelledby="oil-prices">
+    <div class="panel-head">
+        <h2 class="panel-title" id="oil-prices">{{__ "Oil prices today"}} <span class="ml-1 text-sm font-normal text-steel">{{__ "PTT · baht per litre"}}</span></h2>
+        {{if .oilSync}}<span class="flex items-center gap-1.5 text-xs text-steel">{{icon "refresh" "size-3.5"}}{{__ "Last synced :t" "t" (formatDate .oilSync.run_at "d M Y H:i")}}</span>{{end}}
+    </div>
+    {{template "partials/oil-prices" (dict "oil" .oil)}}
+</section>
+{{end}}
+
+<div class="mt-6 grid gap-6 xl:grid-cols-5">
+    <section class="panel flex flex-col xl:col-span-3">
+        <div class="panel-head"><h2 class="panel-title">{{__ "My open tasks"}}</h2>{{if can "tasks"}}<a href="{{url "/tasks"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "See all tasks"}}</a>{{end}}</div>
+        <ul class="flex flex-1 flex-col divide-y divide-graphite-900/6">
+            {{range .tasks}}
+                <li class="flex items-center gap-4 px-5 py-3">
+                    <span class="h-9 w-1 shrink-0 rounded-full {{.bar}}" title="{{.priority}}"></span>
+                    <div class="min-w-0 flex-1">
+                        <a href="{{if can "tasks"}}{{url (printf "/tasks/%v" .row.id)}}{{else}}#{{end}}" class="block truncate text-sm font-medium hover:text-signal-700">{{.row.title}}</a>
+                        <p class="text-xs text-steel">{{.status}} · {{.priority}}</p>
+                    </div>
+                    {{if .due}}<span class="shrink-0 text-xs tabular-nums {{if .overdue}}font-semibold text-signal-700{{else}}text-steel{{end}}">{{.due}}</span>{{end}}
+                </li>
+            {{end}}
+            {{if not .tasks}}<li class="flex flex-1 items-center justify-center px-5 py-10 text-center text-sm text-steel">{{__ "No open tasks. New assignments will show up here."}}</li>{{end}}
+        </ul>
+    </section>
+
+    <section class="panel flex flex-col xl:col-span-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "My KPIs"}}</h2>{{if can "kpis"}}<a href="{{url "/kpis"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "Details"}}</a>{{end}}</div>
+        <ul class="flex flex-1 flex-col gap-5 p-5">
+            {{range .kpis}}
+                <li>
+                    <div class="flex items-baseline justify-between gap-3"><p class="text-sm font-medium">{{.title}}</p><p class="figure text-xl">{{.pct}}%</p></div>
+                    <div class="mt-2">{{template "partials/progress" (dict "value" .pct)}}</div>
+                    <p class="mt-1.5 text-xs text-steel">{{.line}}</p>
+                </li>
+            {{end}}
+            {{if not .kpis}}<li class="flex flex-1 items-center justify-center py-6 text-center text-sm text-steel">{{__ "No active KPIs. Your manager sets these."}}</li>{{end}}
+        </ul>
+    </section>
+</div>
+
+<div class="mt-6 grid gap-6 xl:grid-cols-5">
+    {{if .teammates}}
+    <section class="panel flex flex-col xl:col-span-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "People you can see"}}</h2></div>
+        <ul class="flex flex-1 flex-col divide-y divide-graphite-900/6">
+            {{range .teammates}}
+                <li class="flex items-center gap-3 px-5 py-2.5">
+                    {{template "partials/avatar" (dict "name" .name "avatar" .avatar "size" "size-8")}}
+                    <div class="min-w-0"><a href="{{url (printf "/members/%v" .id)}}" class="block truncate text-sm font-medium hover:text-signal-700">{{.name}}</a><p class="truncate text-xs text-steel">{{coalesce .job_title "—"}}</p></div>
+                </li>
+            {{end}}
+        </ul>
+    </section>
+    {{end}}
+    <section class="panel flex flex-col {{if .teammates}}xl:col-span-3{{else}}xl:col-span-5{{end}}">
+        <div class="panel-head"><h2 class="panel-title">{{if eq .scope "own"}}{{__ "Your recent activity"}}{{else}}{{__ "Recent activity"}}{{end}}</h2></div>
+        <ul class="flex flex-1 flex-col divide-y divide-graphite-900/6">
+            {{range .activity}}{{template "partials/activity-row" (dict "log" . "showUser" (ne $.scope "own"))}}{{end}}
+            {{if not .activity}}<li class="flex flex-1 items-center justify-center px-5 py-10 text-center text-sm text-steel">{{__ "No activity yet."}}</li>{{end}}
+        </ul>
+    </section>
+</div>

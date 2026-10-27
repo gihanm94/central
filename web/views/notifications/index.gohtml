@@ -1,0 +1,15 @@
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><h1 class="page-title">{{__ "Notifications"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ ":n unread" "n" .unread}} · <a href="{{url "/profile/notifications"}}" class="underline underline-offset-2 hover:text-graphite-900">{{__ "Choose what you receive"}}</a></p></div>
+    <div class="flex items-center gap-2">
+        <div class="inline-flex rounded-md bg-white p-0.5 text-sm ring-1 ring-graphite-900/15" role="group">
+            <a href="{{url "/notifications"}}" class="rounded px-3 py-1 {{if not .only}}bg-graphite-900 font-medium text-white{{else}}text-steel hover:text-graphite-900{{end}}">{{__ "All"}}</a>
+            <a href="{{url "/notifications" "show" "unread"}}" class="rounded px-3 py-1 {{if .only}}bg-graphite-900 font-medium text-white{{else}}text-steel hover:text-graphite-900{{end}}">{{__ "Unread"}}</a>
+        </div>
+        {{if .unread}}<form method="POST" action="{{url "/notifications/read-all"}}">{{csrfField}}<button class="btn-secondary">{{icon "tick" "size-4"}} {{__ "Mark all as read"}}</button></form>{{end}}
+    </div>
+</div>
+<section class="panel mt-4 overflow-hidden">
+    {{template "partials/notification-list" (dict "items" .rows)}}
+    {{template "partials/pagination" (dict "total" .total "perPage" .perPage "page" .page)}}
+</section>

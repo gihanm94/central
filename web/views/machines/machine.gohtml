@@ -1,0 +1,113 @@
+{{- /* .m, .c, .canEdit, .canDelete, .canCheck, .general, .maint, .maintRecords, .calRecords, .checks, .history, .people, .canChange, .qrText, .link, .info */ -}}
+{{- set "crumbs" (list (list (__ "Machines") .c.base)) -}}
+{{- define "machines/machine#section" -}}<div class="flex items-center justify-between border-b border-graphite-900/6 bg-mist/50 px-5 py-2"><h2 class="text-xs font-semibold text-steel">{{.t}}</h2>{{if .href}}<a class="text-xs text-signal-700 underline" href="{{.href}}">{{__ "Open list"}}</a>{{end}}</div>{{- end -}}
+{{- define "machines/machine#empty" -}}<p class="px-5 py-6 text-center text-sm text-steel">{{.}}</p>{{- end -}}
+{{- $m := .m -}}{{- $p := .pill -}}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="flex min-w-0 items-center gap-4">
+        {{if $m.image}}<img src="{{uploadURL $m.image}}" alt="" class="size-16 shrink-0 rounded-lg bg-white object-contain ring-1 ring-graphite-900/10">{{end}}
+        <div class="min-w-0">
+            <p class="text-sm tabular-nums text-steel">{{$m.machine_code}}</p>
+            <h1 class="page-title break-words">{{$m.machine_name}}</h1>
+            <p class="mt-1 flex flex-wrap items-center gap-2">{{call $p $m.machine_status ""}} {{call $p $m.check_status ""}}
+                <span class="text-sm text-steel">{{.typeLine}}</span></p>
+        </div>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        {{if .canCheck}}<a href="{{.checkURL}}" class="btn-dark flex-1 sm:flex-none">{{icon "check" "size-4"}} {{__ "Check now"}}</a>{{end}}
+        <a href="{{.labelURL}}" target="_blank" class="btn-secondary flex-1 sm:flex-none">{{icon "qr" "size-4"}} {{__ "QR label"}}</a>
+        {{if .canDelete}}<button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="{{url (printf "%s/%v/delete" .c.base $m.id)}}" data-delete-name="{{$m.machine_code}}" data-delete-kind="{{__ "machine"}}">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>{{end}}
+        {{if .canEdit}}<a href="{{url (printf "%s/%v/edit" .c.base $m.id)}}" class="btn-primary flex-1 sm:flex-none">{{icon "pencil" "size-4"}} {{__ "Edit"}}</a>{{end}}
+    </div>
+</div>
+
+<div class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+<div class="min-w-0 space-y-5">
+    <section class="panel overflow-hidden">
+        {{template "machines/machine#section" (dict "t" (__ "Machine"))}}
+        {{template "machines/_info" (dict "items" .info)}}
+        {{if $m.reason_cancel}}<p class="px-5 py-3 text-sm text-red-800">{{$m.reason_cancel}}</p>{{end}}
+    </section>
+
+    <section class="panel overflow-hidden">
+        {{template "machines/machine#section" (dict "t" (__ "Checklist"))}}
+        {{if not .general}}{{template "machines/machine#empty" (__ "No checklist items yet. Edit the machine to add questions.")}}{{else}}
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .general}}
+            <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5 text-sm">
+                <span class="min-w-0 flex-1">{{.detail}}{{if .description}}<span class="block text-xs text-steel">{{.description}}</span>{{end}}</span>
+                {{._reset}}
+                {{._state}}
+            </li>
+            {{end}}
+        </ul>
+        {{end}}
+        {{template "machines/machine#section" (dict "t" (__ "Maintenance checklist"))}}
+        {{if not .maint}}{{template "machines/machine#empty" (__ "No maintenance items.")}}{{else}}
+        <ul class="divide-y divide-graphite-900/6">{{range .maint}}<li class="px-5 py-2.5 text-sm">{{.detail}}</li>{{end}}</ul>
+        {{end}}
+    </section>
+
+    <section class="panel overflow-hidden">
+        {{template "machines/machine#section" (dict "t" (__ "Maintenance") "href" .maintListURL)}}
+        {{if not .maintRecords}}{{template "machines/machine#empty" (__ "No maintenance planned.")}}{{else}}
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-xs text-steel"><tr><th class="px-5 py-2 font-medium">{{__ "Year"}}</th><th class="px-3 py-2 font-medium">{{__ "Round"}}</th><th class="px-3 py-2 font-medium">{{__ "Due"}}</th><th class="px-3 py-2 font-medium">{{__ "Done"}}</th><th class="px-3 py-2 font-medium">{{__ "Status"}}</th></tr></thead><tbody class="divide-y divide-graphite-900/6">
+            {{range .maintRecords}}
+            <tr class="hover:bg-mist/40"><td class="px-5 py-2 tabular-nums">{{.years}}</td><td class="px-3 py-2 tabular-nums">{{.round}}</td><td class="px-3 py-2">{{if .due_date}}{{formatDate .due_date}}{{else}}—{{end}}</td><td class="px-3 py-2">{{if .actual_date}}{{formatDate .actual_date}}{{else}}—{{end}}</td>
+                <td class="px-3 py-2">{{._pill}}</td></tr>
+            {{end}}</tbody></table></div>
+        {{end}}
+    </section>
+
+    {{if or $m.is_calibration .calRecords}}
+    <section class="panel overflow-hidden">
+        {{template "machines/machine#section" (dict "t" (__ "Calibration") "href" .calListURL)}}
+        {{if not .calRecords}}{{template "machines/machine#empty" (__ "No calibration planned.")}}{{else}}
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-xs text-steel"><tr><th class="px-5 py-2 font-medium">{{__ "Due"}}</th><th class="px-3 py-2 font-medium">{{__ "Certificate"}}</th><th class="px-3 py-2 font-medium">{{__ "Result"}}</th></tr></thead><tbody class="divide-y divide-graphite-900/6">
+            {{range .calRecords}}
+            <tr class="hover:bg-mist/40"><td class="px-5 py-2">{{if .due_date}}{{formatDate .due_date}}{{else}}—{{end}}</td><td class="px-3 py-2">{{if .certificate_date}}{{formatDate .certificate_date}}{{else}}—{{end}}</td>
+                <td class="px-3 py-2">{{._pill}}</td></tr>
+            {{end}}</tbody></table></div>
+        {{end}}
+    </section>
+    {{end}}
+
+    <section class="panel overflow-hidden">
+        {{template "machines/machine#section" (dict "t" (__ "Latest checks") "href" .checkListURL)}}
+        {{if not .checks}}{{template "machines/machine#empty" (__ "Nobody has checked this machine yet.")}}{{else}}
+        <ul class="divide-y divide-graphite-900/6">{{range .checks}}
+            <li><a class="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5 text-sm hover:bg-mist/40" href="{{url (printf "/machines/checklists/%v" .id)}}">
+                <span class="tabular-nums text-steel">{{formatDate .created_at "d M Y H:i"}}</span><span class="min-w-0 flex-1 truncate">{{or .user_name "—"}}{{if eq (str .check_type) "MAINTENANCE"}} · {{__ "Maintenance"}}{{else if .recheck}} · {{__ "Re-check"}}{{end}}</span>
+                {{._pill}}</a></li>
+        {{end}}</ul>
+        {{end}}
+    </section>
+</div>
+
+<aside class="space-y-5">
+    <section class="panel p-5 text-center">
+        <div id="qr" data-qr="{{.qrText}}" class="mx-auto w-44 max-w-full"></div>
+        <p class="mt-2 text-sm font-semibold tabular-nums">{{$m.machine_code}}</p>
+        <p class="text-xs text-steel">{{__ "Scan to do the checklist"}}</p>
+        <div class="mt-3 flex gap-2"><a class="btn-secondary flex-1" target="_blank" href="{{.labelURL}}">{{icon "download" "size-4"}} {{__ "Print"}}</a>
+            <button type="button" class="btn-secondary flex-1" data-copy="{{.link}}">{{icon "link" "size-4"}} {{__ "Copy link"}}</button></div>
+    </section>
+    {{if .canChange}}
+    <section class="panel p-5">
+        <h2 class="text-sm font-semibold">{{__ "Change the responsible person"}}</h2>
+        <form method="POST" action="{{url (printf "%s/%v/responsible" .c.base $m.id)}}" class="mt-3 space-y-3">{{csrfField}}
+            {{select "responsible_person_id" .people (str $m.responsible_person_id) (dict "placeholder" (__ "Choose…") "aria" (__ "Responsible person"))}}
+            <button class="btn-dark w-full">{{__ "Change"}}</button>
+        </form>
+    </section>
+    {{end}}
+    <section class="panel overflow-hidden">
+        {{template "machines/machine#section" (dict "t" (__ "Who was responsible"))}}
+        {{if not .history}}{{template "machines/machine#empty" "—"}}{{else}}
+        <ul class="divide-y divide-graphite-900/6">{{range .history}}<li class="px-5 py-2.5 text-sm"><span class="font-medium">{{.name}}</span><span class="block text-xs text-steel">{{formatDate .effective_from}} → {{if .effective_to}}{{formatDate .effective_to}}{{else}}{{__ "now"}}{{end}}</span></li>{{end}}</ul>
+        {{end}}
+    </section>
+</aside>
+</div>
+<script src="{{asset "assets/vendor/qr/qrcode.js"}}"></script>
+<script src="{{asset "assets/machines.js"}}" defer></script>

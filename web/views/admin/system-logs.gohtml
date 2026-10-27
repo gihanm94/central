@@ -1,0 +1,98 @@
+{{- /* .files .name .file .level .q .ref .rows .total .all .page .pages .cards .php .newer .older .filtered */ -}}
+{{- $tone := dict "error" "bg-signal-50 text-signal-800 ring-signal-600/20" "warning" "bg-amber-50 text-amber-800 ring-amber-600/20" "notice" "bg-sky-50 text-sky-800 ring-sky-600/20" "info" "bg-graphite-900/6 text-graphite-700 ring-graphite-900/10" -}}
+{{- $dot := dict "error" "bg-signal-600" "warning" "bg-amber-500" "notice" "bg-sky-500" "info" "bg-graphite-400" -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "System logs"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Errors and messages written by PHP and the system, newest first — no need to log in to the server."}}</p></div>
+    {{if .file.Path}}
+    <div class="flex flex-wrap gap-2">
+        <a href="{{url "/system-logs/download" "file" .name}}" class="btn-secondary">{{icon "download" "size-4"}}{{__ "Download"}}</a>
+        {{if not .file.Extra}}
+            <form method="POST" action="{{url "/system-logs/clear"}}" data-confirm="{{__ "Empty :name? Its entries are gone for good (download it first if you need them)." "name" .name}}">
+                {{csrfField}}<input type="hidden" name="file" value="{{.name}}"><button class="btn-danger">{{icon "trash" "size-4"}}{{__ "Clear log"}}</button></form>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+
+<div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    {{range .cards}}
+        <a href="{{.URL}}" class="panel flex items-center gap-3 p-4 hover:ring-graphite-900/20 {{if .On}}ring-2 !ring-signal-600{{end}}">
+            <span class="size-3 rounded-full {{get $dot .Key}}"></span>
+            <span class="flex-1 text-sm text-steel">{{.Label}} <span class="text-xs">({{__ "24 h"}})</span></span>
+            <span class="font-display text-3xl font-semibold tabular-nums {{if and (eq .Key "error") .Count}}text-signal-700{{end}}">{{.Count}}</span>
+        </a>
+    {{end}}
+</div>
+
+<div class="mt-4 grid items-start gap-4 xl:grid-cols-4">
+    <aside class="space-y-4 xl:col-span-1">
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Log files"}}</h2></div>
+            {{if not .files}}<p class="px-5 py-6 text-sm text-steel">{{__ "No log files yet."}}</p>{{end}}
+            <ul class="divide-y divide-graphite-900/6 text-sm">
+                {{range .files}}
+                    <li><a href="{{.URL}}" class="flex items-center gap-2 px-4 py-2.5 hover:bg-mist {{if .On}}bg-mist font-medium{{end}}">
+                        {{icon "doc" "size-4 shrink-0 text-graphite-400"}}<span class="min-w-0 flex-1 truncate">{{.Name}}</span>
+                        <span class="shrink-0 text-xs text-steel">{{.Size}}</span></a></li>
+                {{end}}
+            </ul>
+            <p class="border-t border-graphite-900/8 px-4 py-2.5 text-xs text-steel">{{__ "To show the web server's log too, add its path to config/config.php: 'logs' => ['extra' => ['/var/log/apache2/error.log']] (PHP must be allowed to read it)."}}</p>
+        </section>
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "This server"}}</h2></div>
+            <dl class="divide-y divide-graphite-900/6 text-xs">
+                {{range .php}}<div class="flex gap-3 px-4 py-2"><dt class="w-32 shrink-0 text-steel">{{index . 0}}</dt><dd class="min-w-0 break-all font-medium">{{index . 1}}</dd></div>{{end}}
+            </dl>
+        </section>
+    </aside>
+
+    <section class="panel overflow-hidden xl:col-span-3">
+        <form method="GET" action="{{url "/system-logs"}}" class="flex flex-wrap items-center gap-2 border-b border-graphite-900/8 p-3">
+            <input type="hidden" name="file" value="{{.name}}">{{if .level}}<input type="hidden" name="level" value="{{.level}}">{{end}}
+            <div class="relative min-w-[14rem] flex-1"><span class="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-graphite-400">{{icon "search" "size-4"}}</span>
+                <input name="q" value="{{.q}}" class="input pl-8" placeholder="{{__ "Search the log (message, file, user…)"}}" aria-label="{{__ "Search"}}"></div>
+            <input name="ref" value="{{.ref}}" class="input !w-36 uppercase" placeholder="{{__ "Reference"}}" aria-label="{{__ "Reference code"}}" maxlength="12">
+            <button class="btn-secondary">{{__ "Search"}}</button>
+            {{if .filtered}}<a href="{{url "/system-logs" "file" .name}}" class="btn-ghost">{{__ "Clear filters"}}</a>{{end}}
+            <span class="ml-auto text-sm text-steel">{{__ ":n of :all entries" "n" .total "all" .all}}</span>
+        </form>
+        {{if not .rows}}
+            <p class="px-5 py-12 text-center text-sm text-steel">{{if .all}}{{__ "No entries match."}}{{else}}{{__ "This log is empty. Good news."}}{{end}}</p>
+        {{end}}
+        <ol class="divide-y divide-graphite-900/6">
+            {{range .rows}}
+                <li>
+                    <details class="group" {{if .Open}}open{{end}}>
+                        <summary class="flex cursor-pointer list-none items-start gap-3 px-4 py-2.5 hover:bg-mist/50">
+                            <span class="mt-0.5 inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase ring-1 ring-inset {{get $tone .Level}}">{{__ .Level}}</span>
+                            <span class="min-w-0 flex-1 break-words font-mono text-xs leading-5 text-graphite-900">{{.Head}}</span>
+                            <span class="shrink-0 whitespace-nowrap text-xs tabular-nums text-steel" title="{{.Time}}">{{if .Time}}{{.Short}}{{else}}—{{end}}</span>
+                            {{icon "right" "mt-0.5 size-4 shrink-0 text-steel transition group-open:rotate-90"}}
+                        </summary>
+                        <div class="border-t border-graphite-900/6 bg-graphite-950 px-4 py-3">
+                            <div class="mb-2 flex items-center justify-between gap-2 text-xs text-graphite-400"><span>{{.Long}}</span>
+                                <button type="button" class="rounded px-2 py-0.5 text-graphite-300 ring-1 ring-white/15 hover:bg-white/10" data-copy-log>{{__ "Copy"}}</button></div>
+                            <pre class="max-h-[32rem] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-white/90" data-log-text>{{.Body}}</pre>
+                            {{if not .Multi}}<p class="mt-2 text-xs text-graphite-400">{{__ "Single-line entry: this is the full message."}}</p>{{end}}
+                        </div>
+                    </details>
+                </li>
+            {{end}}
+        </ol>
+        {{if gt .pages 1}}
+            <div class="flex items-center justify-end gap-2 border-t border-graphite-900/8 px-4 py-2 text-sm">
+                {{if .newer}}<a class="btn-ghost" href="{{.newer}}">‹ {{__ "Newer"}}</a>{{end}}
+                <span class="text-steel">{{__ "Page :p of :n" "p" .page "n" .pages}}</span>
+                {{if .older}}<a class="btn-ghost" href="{{.older}}">{{__ "Older"}} ›</a>{{end}}
+            </div>
+        {{end}}
+    </section>
+</div>
+<script>
+document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy-log]'); if (!b) return;
+    var t = b.closest('div').parentNode.querySelector('[data-log-text]').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { window.toast && toast({{__ "Copied."}}, 'success'); }, function () {});
+});
+</script>

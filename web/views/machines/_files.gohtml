@@ -1,0 +1,6 @@
+{{- /* .list: decoded file list */ -}}
+{{if not .list}}—{{else}}
+<ul class="space-y-1">{{range .list}}
+    <li><a class="inline-flex items-center gap-1.5 text-signal-700 underline-offset-2 hover:underline" href="{{url "/machines/file" "f" .F}}" target="_blank" rel="noopener">{{icon "doc" "size-4"}}{{.N}}</a> <span class="text-xs text-steel">{{.KB}} KB</span></li>
+{{end}}</ul>
+{{end}}

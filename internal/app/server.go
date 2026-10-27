@@ -197,6 +197,9 @@ func NewServer(routes func(r Router), api func(r chi.Router), installer http.Han
 			http.Redirect(w, r, BasePrefix()+"/install", http.StatusFound)
 			return
 		}
+		if NeedsConfig != nil && NeedsConfig(w, r) {
+			return
+		}
 		c.API = isAPI
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, c))
 		c.R = r
