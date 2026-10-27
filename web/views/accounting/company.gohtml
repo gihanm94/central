@@ -1,0 +1,29 @@
+{{- /* .fields [{key,label,wide,secret,required,value}], .chromium, .chromiumSet, .scheme */ -}}
+<div class="min-w-0">
+    <p class="text-sm text-steel"><a href="{{url "/accounting"}}" class="hover:text-signal-700">{{__ "Accounting"}}</a> › {{__ "Setup"}}</p>
+    <h1 class="page-title">{{__ "Company"}}</h1>
+    <p class="mt-1 text-sm text-steel">{{__ "The seller printed on every e-tax invoice, receipt and credit note, and written in the INET text file."}}</p>
+</div>
+<form method="POST" action="{{url "/accounting/company"}}" class="panel mt-4">
+    {{csrfField}}
+    <div class="grid gap-4 p-5 sm:grid-cols-2">
+        {{range .fields}}
+        <div class="{{if .wide}}sm:col-span-2{{end}}">
+            <label class="label" for="co-{{.key}}">{{.label}}{{if .required}} <span class="text-signal-600">*</span>{{end}}</label>
+            {{if .wide}}<textarea id="co-{{.key}}" name="{{.key}}" rows="2" class="input">{{old .key .value}}</textarea>
+            {{else}}<input id="co-{{.key}}" name="{{.key}}" value="{{old .key .value}}" class="input" {{if .secret}}autocomplete="off"{{end}}>{{end}}
+            {{fieldError .key}}
+        </div>
+        {{end}}
+    </div>
+    <div class="panel-head border-t border-graphite-900/8"><h2 class="panel-title">{{__ "PDF and INET"}}</h2></div>
+    <div class="grid gap-4 p-5 sm:grid-cols-2">
+        <div class="sm:col-span-2"><label class="label" for="co-chromium">{{__ "Chrome / Chromium program (for the PDF)"}}</label>
+            <input id="co-chromium" name="chromium" value="{{old "chromium" .chromiumSet}}" class="input font-mono text-xs" placeholder="/usr/bin/chromium">{{fieldError "chromium"}}
+            <p class="hint">{{if .chromium}}{{__ "Found: :p" "p" .chromium}}{{else}}{{__ "Not found. Install Chromium on the server and enter its path."}}{{end}}</p></div>
+        <div><label class="label" for="co-scheme">{{__ "Authorization header starts with"}}</label>
+            <select id="co-scheme" name="scheme" class="input"><option value="Bearer" {{if eq .scheme "Bearer"}}selected{{end}}>Bearer</option><option value="Basic" {{if eq .scheme "Basic"}}selected{{end}}>Basic</option></select>
+            <p class="hint">{{__ "Used when the key under ERP connection does not already start with Bearer or Basic."}}</p></div>
+    </div>
+    <div class="flex justify-end border-t border-graphite-900/8 bg-mist/50 px-5 py-3"><button class="btn-primary">{{__ "Save company"}}</button></div>
+</form>

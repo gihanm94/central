@@ -18,14 +18,14 @@ import (
 
 func overviewPage(c *app.Ctx) {
 	show := app.M{"finance": c.Can("accounting_invoices", "view"), "orders": c.Can("accounting_orders", "view"), "inet": c.Can("accounting_inet", "view"), "billing": c.Can("accounting_billing", "view")}
-	any := false
+	anyShown := false
 	for _, v := range show {
 		if v.(bool) {
-			any = true
+			anyShown = true
 		}
 	}
 	data := app.M{}
-	if any {
+	if anyShown {
 		data = dashboardGet(c.Query("refresh") == "1" && c.MustUser().IsAdmin())
 	}
 	f := func(v any) string { return php.NF(v, 0) }

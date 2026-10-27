@@ -194,8 +194,6 @@ func billingEdit(c *app.Ctx) {
 		app.Abort(404)
 	}
 	choices := billingChoices(note)
-	picked := app.InList(c.Sess.Get("_old_invoices_unused"))
-	_ = picked
 	type ch struct {
 		No       int
 		OrderNo  string

@@ -1,0 +1,171 @@
+{{- /* .apis, .configured, .inWindow, .cron, .hasPassword, .hasInet, .tokenState, .tokenSession, .tokenGot, .hasToken, .days, .conn, .sched, .inet, .stats, .runningLabel, .schedText, .endpointCount */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <p class="text-sm text-steel"><a href="{{url "/accounting"}}" class="hover:text-signal-700">{{__ "Accounting"}}</a> › {{__ "Setup"}}</p>
+        <h1 class="page-title">{{__ "ERP connection"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Administrators only. The ERP is read through its API and copied into this system on a schedule."}}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <form method="POST" action="{{url "/accounting/erp/login"}}">{{csrfField}}<button class="btn-secondary">{{icon "shield" "size-4"}} {{__ "Test login / get a new token"}}</button></form>
+        <form method="POST" action="{{url "/accounting/erp/run"}}">{{csrfField}}<input type="hidden" name="group" value="all"><input type="hidden" name="mode" value="latest"><button class="btn-secondary" {{if not .configured}}disabled{{end}} title="{{__ "The newest rows of everything, now, even outside the working hours"}}">{{icon "upload" "size-4"}} {{__ "Force sync now"}}</button></form>
+        <form method="POST" action="{{url "/accounting/erp/run"}}" onsubmit="return confirm('{{__ "Copy EVERY row of every API? This can take a long time."}}')">{{csrfField}}<input type="hidden" name="group" value="all"><input type="hidden" name="mode" value="all"><button class="btn-primary" {{if not .configured}}disabled{{end}}>{{icon "upload" "size-4"}} {{__ "Force full copy (all rows)"}}</button></form>
+    </div>
+</div>
+
+<nav class="mt-4 flex flex-wrap gap-1 border-b border-graphite-900/10" role="tablist" id="erp-tabs">
+    <button type="button" role="tab" data-tab="status" class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-steel hover:text-graphite-900 aria-selected:border-signal-600 aria-selected:text-signal-700">{{__ "Status"}}</button>
+    <button type="button" role="tab" data-tab="connection" class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-steel hover:text-graphite-900 aria-selected:border-signal-600 aria-selected:text-signal-700">{{__ "Connection"}}</button>
+    <button type="button" role="tab" data-tab="schedule" class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-steel hover:text-graphite-900 aria-selected:border-signal-600 aria-selected:text-signal-700">{{__ "Schedule"}}</button>
+    <button type="button" role="tab" data-tab="inet" class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-steel hover:text-graphite-900 aria-selected:border-signal-600 aria-selected:text-signal-700">{{__ "e-Tax portal"}}</button>
+    <button type="button" role="tab" data-tab="apis" class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-steel hover:text-graphite-900 aria-selected:border-signal-600 aria-selected:text-signal-700">{{__ "APIs"}}</button>
+</nav>
+
+<div data-pane="status">
+<div id="erp-live" data-url="{{url "/accounting/erp/status"}}" data-l-saved="{{__ "saved"}}" data-l-read="{{__ "read"}}" data-l-syncing="{{__ "Syncing now"}}" data-l-idle="{{__ "Idle"}}" data-l-on="{{__ "Schedule on"}}" data-l-off="{{__ "Schedule off"}}" data-l-looked="{{__ "looked"}}" data-l-ago="{{__ "ago"}}" data-l-never="{{__ "has not run yet"}}" data-l-stale="{{__ "The scheduler is not running: set up the cron line below, or keep an accounting page open."}}" data-l-outside="{{__ "outside the working window"}}" class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-graphite-900/8">
+    <span class="inline-flex items-center gap-1.5 font-medium"><span data-live-dot class="size-2 rounded-full bg-emerald-500"></span><span data-live-running>{{.runningLabel}}</span></span>
+    <span class="text-steel" data-live-sched>{{.schedText}}</span>
+    <span class="ml-auto text-xs text-steel" data-live-clock></span>
+</div>
+<section class="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+    {{range .stats}}
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel">{{.label}}</p><p data-stat="{{.key}}" class="truncate text-xl font-semibold tabular-nums {{.cls}}">{{.value}}</p></div>
+    {{end}}
+</section>
+
+<section class="panel mt-3">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Live sync log"}}</h2><a href="{{url "/accounting/logs"}}" class="text-xs text-steel hover:text-signal-700">{{__ "Open all logs"}} →</a></div>
+    <div id="erp-log" data-empty="{{__ "No sync lines yet today."}}" class="h-56 overflow-auto rounded-b-xl bg-graphite-900 p-3 font-mono text-xs leading-5 text-white"></div>
+</section>
+<section class="panel mt-3" id="erp-runs" data-url="{{url "/accounting/erp/runs"}}">
+    <div class="panel-head">
+        <h2 class="panel-title">{{__ "Recent runs"}}</h2>
+        <div class="flex items-center gap-2">
+            <label class="sr-only" for="runs-status">{{__ "Status"}}</label>
+            <select id="runs-status" data-runs-status class="input !h-8 !w-auto !py-0 text-sm"><option value="">{{__ "All"}}</option><option value="ok">{{__ "Success"}}</option><option value="warning">{{__ "Warning"}}</option><option value="failed">{{__ "Failed"}}</option><option value="running">{{__ "Running"}}</option></select>
+        </div>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+        <th class="px-4 py-2 font-medium">#</th><th class="px-3 py-2 font-medium">{{__ "Run"}}</th><th class="px-3 py-2 font-medium">{{__ "Status"}}</th><th class="px-3 py-2 font-medium">{{__ "Started"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Time"}}</th>
+        <th class="px-3 py-2 text-right font-medium">{{__ "Read"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Saved"}}</th><th class="px-3 py-2 font-medium">{{__ "Message"}}</th></tr></thead>
+        <tbody data-runs-body class="divide-y divide-graphite-900/6"><tr><td colspan="8" class="px-4 py-8 text-center text-steel">{{__ "Loading…"}}</td></tr></tbody></table></div>
+    <div class="flex items-center justify-between gap-3 border-t border-graphite-900/8 px-4 py-2.5 text-sm text-steel">
+        <span data-runs-info></span>
+        <div class="flex items-center gap-1"><button type="button" class="btn-secondary !h-8 !px-3" data-runs-prev aria-label="{{__ "Previous"}}">‹</button><span class="min-w-16 text-center tabular-nums" data-runs-page>1 / 1</span><button type="button" class="btn-secondary !h-8 !px-3" data-runs-next aria-label="{{__ "Next"}}">›</button></div>
+    </div>
+</section>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3" data-pane="connection schedule inet" hidden>
+    <!-- connection -->
+    <form method="POST" action="{{url "/accounting/erp/connection"}}" class="panel lg:col-span-2">
+        {{csrfField}}
+        <div data-pane="connection">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Connection"}}</h2><span class="text-xs text-steel">{{or .conn.base (__ "not set")}}</span></div>
+        <div class="grid gap-4 p-5 sm:grid-cols-2">
+            <div><label class="label" for="erp-ip">{{__ "Server address"}}</label><input id="erp-ip" name="ip" value="{{.conn.ip}}" class="input" placeholder="5.223.76.93">{{fieldError "ip"}}</div>
+            <div><label class="label" for="erp-port">{{__ "Port"}}</label><input id="erp-port" name="port" value="{{.conn.port}}" class="input" inputmode="numeric" placeholder="8001"></div>
+            <div><label class="label" for="erp-user">{{__ "User name"}}</label><input id="erp-user" name="username" value="{{.conn.username}}" class="input" autocomplete="off"></div>
+            <div><label class="label" for="erp-pass">{{__ "Password"}}</label><input id="erp-pass" name="password" type="password" class="input" autocomplete="new-password" placeholder="{{if .hasPassword}}•••••••• ({{__ "saved — leave empty to keep"}}){{end}}"></div>
+            <div><label class="label" for="erp-timeout">{{__ "Wait for an answer (seconds)"}}</label><input id="erp-timeout" name="timeout" value="{{.conn.timeout}}" class="input" inputmode="numeric"></div>
+            <label class="flex items-start gap-2 text-sm sm:pt-6"><input type="checkbox" name="verify_tls" value="1" class="mt-0.5 size-4 accent-signal-600" {{if .conn.verify}}checked{{end}}> <span>{{__ "Check the server certificate"}}<span class="block text-xs text-steel">{{__ "Leave off for an ERP with a self-signed certificate (as the old system did)."}}</span></span></label>
+        </div>
+
+        </div>
+        <div data-pane="schedule" hidden>
+        <div class="panel-head"><h2 class="panel-title">{{__ "Schedule"}}</h2><span class="text-xs {{if .inWindow}}text-emerald-700{{else}}text-steel{{end}}">{{if .inWindow}}{{__ "inside the working window now"}}{{else}}{{__ "outside the working window now"}}{{end}}</span></div>
+        <div class="grid gap-4 p-5 sm:grid-cols-2">
+            <label class="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" name="enabled" value="1" class="mt-0.5 size-4 accent-signal-600" {{if .sched.enabled}}checked{{end}}> <span class="font-medium">{{__ "Run the schedule"}}<span class="block text-xs font-normal text-steel">{{__ "Needs the cron line below. Hot = newest rows of orders, invoices, customers …; cold = reference data."}}</span></span></label>
+            <div><label class="label" for="s-hot">{{__ "Hot sync every (minutes)"}}</label><input id="s-hot" name="hot_minutes" value="{{.sched.hot}}" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-cold">{{__ "Cold sync every (minutes)"}}</label><input id="s-cold" name="cold_minutes" value="{{.sched.cold}}" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-from">{{__ "From hour"}}</label><input id="s-from" name="hour_start" value="{{.sched.from}}" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-to">{{__ "Until hour (not included)"}}</label><input id="s-to" name="hour_end" value="{{.sched.to}}" class="input" inputmode="numeric"></div>
+            <div><label class="label" for="s-tz">{{__ "Time zone"}}</label><input id="s-tz" name="tz" value="{{.sched.tz}}" class="input"></div>
+            <div><p class="label">{{__ "Days"}}</p><div class="flex flex-wrap gap-1.5">
+                {{range .days}}<label class="cursor-pointer"><input type="checkbox" name="days[]" value="{{.n}}" class="peer sr-only" {{if .on}}checked{{end}}><span class="inline-flex h-8 items-center rounded-full px-3 text-sm ring-1 ring-graphite-900/15 peer-checked:bg-graphite-900 peer-checked:text-white peer-checked:ring-graphite-900">{{.label}}</span></label>{{end}}
+            </div></div>
+            <div class="sm:col-span-2"><p class="label">{{__ "Cron line (run every minute)"}} <span class="font-normal text-steel">— {{__ "optional: without it the website starts the schedule while someone has an accounting page open"}}</span></p><code class="block overflow-x-auto rounded-lg bg-graphite-900 px-3 py-2 text-xs text-white">{{.cron}}</code></div>
+        </div>
+
+        </div>
+        <div data-pane="inet" hidden>
+        <div class="panel-head"><h2 class="panel-title">{{__ "e-Tax portal (INET)"}}</h2><span class="text-xs text-steel">{{__ "used by the e-tax invoice step that follows"}}</span></div>
+        <div class="grid gap-4 p-5">
+            <div><label class="label" for="inet-sendApi">{{__ "Send document"}}</label><input id="inet-sendApi" name="inet_sendApi" value="{{.inet.sendApi}}" class="input">{{fieldError "inet_sendApi"}}</div>
+            <div><label class="label" for="inet-statusApi">{{__ "Document status"}}</label><input id="inet-statusApi" name="inet_statusApi" value="{{.inet.statusApi}}" class="input">{{fieldError "inet_statusApi"}}</div>
+            <div><label class="label" for="inet-paramsApi">{{__ "Document parameters"}}</label><input id="inet-paramsApi" name="inet_paramsApi" value="{{.inet.paramsApi}}" class="input">{{fieldError "inet_paramsApi"}}</div>
+            <div><label class="label" for="inet-auth">{{__ "Authorization key"}}</label><input id="inet-auth" name="inet_authorization" type="password" class="input" autocomplete="new-password" placeholder="{{if .hasInet}}•••••••• ({{__ "saved — leave empty to keep"}}){{end}}"></div>
+        </div>
+        </div>
+        <div class="flex justify-end border-t border-graphite-900/8 bg-mist/50 px-5 py-3"><button class="btn-primary">{{__ "Save"}}</button></div>
+    </form>
+
+    <!-- token -->
+    <div class="space-y-4" data-pane="connection">
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Token (session)"}}</h2></div>
+            <dl class="divide-y divide-graphite-900/6 text-sm">
+                <div class="flex justify-between gap-3 px-5 py-3"><dt class="text-steel">{{__ "Status"}}</dt><dd class="font-medium">
+                    {{if not .hasToken}}{{__ "No token yet"}}
+                    {{else if eq .tokenState "expired"}}<span class="text-signal-700">{{__ "Expired — a new one is requested when needed"}}</span>
+                    {{else}}<span class="text-emerald-700">{{__ "Valid"}}</span>{{end}}</dd></div>
+                {{if .hasToken}}
+                <div class="flex justify-between gap-3 px-5 py-3"><dt class="text-steel">{{__ "Session"}}</dt><dd class="font-mono text-xs">{{.tokenSession}}…</dd></div>
+                <div class="flex justify-between gap-3 px-5 py-3"><dt class="text-steel">{{__ "Got"}}</dt><dd>{{.tokenGot}}</dd></div>
+                {{end}}
+                <div class="px-5 py-3 text-xs text-steel">{{__ "The session is saved in the database and reused for an hour, like the old system. A 401 answer gets a new login automatically."}}</div>
+            </dl>
+        </section>
+    </div>
+</div>
+
+<!-- all APIs -->
+<form method="POST" action="{{url "/accounting/erp/endpoints"}}" class="panel mt-4 overflow-hidden" id="apis" data-pane="apis" hidden>
+    {{csrfField}}<input type="hidden" name="mode" value="latest" data-mode><input type="hidden" name="overwrite_form" value="1">
+    <div class="panel-head">
+        <h2 class="panel-title">{{__ "APIs"}} <span class="ml-1 text-sm font-normal text-steel">{{.endpointCount}}</span></h2>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="submit" formaction="{{url "/accounting/erp/run"}}" name="group" value="hot" class="btn-secondary py-1" {{if not .configured}}disabled{{end}}>{{__ "Run hot now"}}</button>
+            <button type="submit" formaction="{{url "/accounting/erp/run"}}" name="group" value="cold" class="btn-secondary py-1" {{if not .configured}}disabled{{end}}>{{__ "Run cold now"}}</button>
+            <button type="submit" formaction="{{url "/accounting/erp/run"}}" name="group" value="full" class="btn-secondary py-1" {{if not .configured}}disabled{{end}}>{{__ "Run the rest (full)"}}</button>
+            <button class="btn-primary py-1">{{__ "Save addresses"}}</button>
+        </div>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="px-4 py-2 font-medium">{{__ "API"}}</th><th class="px-3 py-2 font-medium">{{__ "Address (added to the server address)"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Copied into"}}</th><th class="px-3 py-2 font-medium">{{__ "Last sync"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Rows"}}</th><th class="px-3 py-2"></th>
+        </tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{$configured := .configured}}
+        {{range .apis}}{{$ents := .ents}}
+            <tr class="align-top">
+                <td class="px-4 py-2.5"><span class="font-medium">{{.label}}</span><span class="block font-mono text-[11px] text-steel">{{.key}}</span></td>
+                <td class="px-3 py-2.5"><input name="api[{{.key}}]" value="{{.value}}" class="input font-mono text-xs" aria-label="{{.label}}"></td>
+                <td class="px-3 py-2.5">
+                    {{range $ents}}<span class="mb-1 flex items-center gap-1.5"><span class="badge {{.groupTone}}">{{.group}}</span><span class="text-xs">{{.label}}</span>
+                        <label class="ml-1 inline-flex cursor-pointer items-center gap-1 text-[11px] text-steel" title="{{__ "Off: only new rows are added. On: rows that already exist are updated too."}}"><input type="checkbox" name="overwrite[{{.key}}]" value="1" class="size-3.5 accent-signal-600" {{if .overwrite}}checked{{end}}> {{__ "Overwrite"}}</label></span>{{end}}
+                    {{if not $ents}}<span class="text-xs text-steel">{{if .isToken}}{{__ "login"}}{{else}}{{__ "not copied yet"}}{{end}}</span>{{end}}
+                </td>
+                <td class="px-3 py-2.5">
+                    {{range $ents}}
+                    <span class="mb-1 block text-xs" data-state="{{.key}}"><span class="badge {{.statusTone}}">{{.status}}</span>{{.line}}
+                        {{if .error}}<span class="block max-w-xs truncate text-signal-700" title="{{.error}}">{{.error}}</span>{{end}}</span>
+                    {{end}}
+                </td>
+                <td class="px-3 py-2.5 text-right tabular-nums">{{range $ents}}<span class="mb-1 block text-xs">{{.count}}</span>{{end}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                    {{if not .isToken}}
+                    <button type="submit" formaction="{{url "/accounting/erp/test"}}" name="key" value="{{.key}}" class="btn-ghost !h-7 px-2 text-xs" {{if not $configured}}disabled{{end}} title="{{__ "Ask this API for one row"}}">{{__ "Test"}}</button>
+                    {{range $ents}}
+                    <button type="submit" formaction="{{url "/accounting/erp/run"}}" name="entity" value="{{.key}}" class="btn-secondary !h-7 px-2 text-xs" {{if not $configured}}disabled{{end}} title="{{__ "Newest :n rows" "n" .size}}">{{__ "Sync"}}</button>
+                    <button type="submit" formaction="{{url "/accounting/erp/run"}}" name="entity" value="{{.key}}" formnovalidate onclick="this.form.querySelector('[data-mode]').value='all'" class="btn-ghost !h-7 px-2 text-xs" {{if not $configured}}disabled{{end}} title="{{__ "Copy every row of this API"}}">{{__ "Full"}}</button>
+                    {{end}}
+                    {{end}}
+                </td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table></div>
+    <p class="border-t border-graphite-900/8 bg-mist/50 px-5 py-2 text-xs text-steel">{{__ "\"Sync\" copies the newest rows (the number is in config/erp.php); \"Full\" copies every row. The numbers show how many rows each run read and saved."}}</p>
+</form>
+<script src="{{asset "assets/erp-live.js"}}" defer></script>

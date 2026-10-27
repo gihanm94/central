@@ -1,0 +1,42 @@
+{{- /* .show, .has, .cards, .payload, .built, .isAdmin */ -}}
+{{- $box := "rounded-xl bg-white p-5 shadow-sm ring-1 ring-graphite-900/8" -}}
+{{- $tone := dict "up" "text-emerald-700" "down" "text-signal-700" "neutral" "text-steel" -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title">{{__ "Accounting overview"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{if .has}}{{__ "Figures in THB, from the ERP copy. Updated :t." "t" .built}}{{else}}{{__ "You do not have access to any accounting screen yet."}}{{end}}</p>
+    </div>
+    {{if and .has .isAdmin}}<a href="{{url "/accounting" "refresh" 1}}" class="btn-secondary">{{icon "bolt" "size-4"}} {{__ "Refresh"}}</a>{{end}}
+</div>
+
+{{if .has}}
+<section class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+    {{range .cards}}
+    <div class="{{$box}} !p-4"><p class="text-xs text-steel">{{.Label}}</p><p class="mt-1 truncate text-xl font-semibold tabular-nums">{{.Value}}</p><p class="mt-0.5 truncate text-xs {{get $tone .Tone}}">{{.Sub}}</p></div>
+    {{end}}
+</section>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-12">
+    {{if .show.finance}}
+    <section class="{{$box}} lg:col-span-7"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Revenue by year"}}</h2><p class="text-xs text-steel">{{__ "Net of credit notes"}}</p></div><div class="h-72"><canvas id="ch-year" aria-label="{{__ "Revenue by year"}}" role="img"></canvas></div></section>
+    <section class="{{$box}} lg:col-span-5"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Revenue by month"}}</h2><p class="text-xs text-steel">{{__ "This year against last year"}}</p></div><div class="h-72"><canvas id="ch-month" aria-label="{{__ "Revenue by month"}}" role="img"></canvas></div></section>
+    <section class="{{$box}} lg:col-span-4"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Top customers"}}</h2><p class="text-xs text-steel">{{__ "Last 12 months"}}</p></div><div class="h-80"><canvas id="ch-cust" role="img" aria-label="{{__ "Top customers"}}"></canvas></div></section>
+    <section class="{{$box}} lg:col-span-4"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Revenue by seller"}}</h2><p class="text-xs text-steel">{{__ "Last 12 months"}}</p></div><div class="h-80"><canvas id="ch-seller" role="img" aria-label="{{__ "Revenue by seller"}}"></canvas></div></section>
+    <section class="{{$box}} lg:col-span-4"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Top products"}}</h2><p class="text-xs text-steel">{{__ "Last 12 months"}}</p></div><div class="h-80"><canvas id="ch-prod" role="img" aria-label="{{__ "Top products"}}"></canvas></div></section>
+    <section class="{{$box}} lg:col-span-6"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Receivable ageing"}}</h2><p class="text-xs text-steel">{{__ "Open amount by days past due"}}</p></div><div class="h-64"><canvas id="ch-aging" role="img" aria-label="{{__ "Receivable ageing"}}"></canvas></div></section>
+    {{end}}
+    {{if .show.orders}}
+    <section class="{{$box}} {{if .show.finance}}lg:col-span-6{{else}}lg:col-span-12{{end}}"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Orders per month"}}</h2><p class="text-xs text-steel">{{__ "Number of customer orders, last 12 months"}}</p></div><div class="h-64"><canvas id="ch-orders" role="img" aria-label="{{__ "Orders per month"}}"></canvas></div></section>
+    {{end}}
+    {{if .show.inet}}
+    <section class="{{$box}} lg:col-span-4"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "E-tax documents"}}</h2><p class="text-xs text-steel">{{__ "Where each invoice stands"}}</p></div><div class="h-64"><canvas id="ch-inet" role="img" aria-label="{{__ "E-tax documents"}}"></canvas></div></section>
+    {{end}}
+    {{if .show.billing}}
+    <section class="{{$box}} lg:col-span-4"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Billing notes"}}</h2><p class="text-xs text-steel">{{__ "By status"}}</p></div><div class="h-64"><canvas id="ch-bstatus" role="img" aria-label="{{__ "Billing notes"}}"></canvas></div></section>
+    <section class="{{$box}} lg:col-span-4"><div class="mb-3"><h2 class="text-sm font-semibold">{{__ "Billed per month"}}</h2><p class="text-xs text-steel">{{__ "Billing note totals, last 12 months"}}</p></div><div class="h-64"><canvas id="ch-bmonth" role="img" aria-label="{{__ "Billed per month"}}"></canvas></div></section>
+    {{end}}
+</div>
+<script type="application/json" id="dash-data">{{.payload}}</script>
+<script src="{{asset "assets/vendor/chartjs/chart.umd.min.js"}}"></script>
+<script src="{{asset "assets/dashboard.js"}}"></script>
+{{end}}

@@ -1,0 +1,36 @@
+{{- /* .enabled, .time, .mode, .users [{id,name,email,checked}], .today [{billing_number,total,customer_name}], .last */ -}}
+<div class="min-w-0">
+    <p class="text-sm text-steel"><a href="{{url "/accounting"}}" class="hover:text-signal-700">{{__ "Accounting"}}</a> › {{__ "Setup"}}</p>
+    <h1 class="page-title">{{__ "Notifications"}}</h1>
+    <p class="mt-1 text-sm text-steel">{{__ "Every day at the chosen time, the billing notes whose remind date is today are sent on Lark, with their details."}}</p>
+</div>
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+    <form method="POST" action="{{url "/accounting/notify"}}" class="panel lg:col-span-2">
+        {{csrfField}}
+        <div class="space-y-5 p-5">
+            <label class="flex cursor-pointer items-center justify-between gap-4"><span><span class="block text-sm font-medium">{{__ "Send the daily billing list"}}</span><span class="block text-xs text-steel">{{__ "Needs the scheduler (cron line on the ERP connection page, or an open accounting page)."}}</span></span>
+                <span class="relative inline-flex h-6 w-11 items-center"><input type="checkbox" name="enabled" value="1" class="peer sr-only" {{if .enabled}}checked{{end}}><span class="absolute inset-0 rounded-full bg-graphite-900/15 transition-colors peer-checked:bg-signal-600"></span><span class="absolute left-0.5 size-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"></span></span></label>
+            <div><label class="label" for="n-time">{{__ "Time of day (Bangkok)"}}</label><input id="n-time" type="time" name="time" value="{{.time}}" class="input max-w-[10rem]"></div>
+            <div>
+                <p class="label">{{__ "Send to"}}</p>
+                {{if eq .mode "webhook"}}<p class="mb-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{{__ "Lark is in group (webhook) mode: the list is posted to the group once; the people below are not used."}}</p>{{end}}
+                <div class="max-h-72 divide-y divide-graphite-900/8 overflow-auto rounded-lg ring-1 ring-graphite-900/10">
+                    {{range .users}}
+                    <label class="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-mist/60"><input type="checkbox" name="users[]" value="{{.id}}" class="size-4 accent-signal-600" {{if .checked}}checked{{end}}>
+                        <span class="min-w-0"><span class="block truncate text-sm font-medium">{{.name}}</span><span class="block truncate text-xs text-steel">{{.email}}</span></span></label>
+                    {{end}}
+                </div>
+                <p class="mt-1 text-xs text-steel">{{__ "Lark finds each person by this work e-mail."}}</p>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-3 border-t border-graphite-900/8 bg-mist/50 px-5 py-3">
+            <span class="text-xs text-steel">{{if .last}}{{__ "Last sent on :d" "d" .last}}{{else}}{{__ "Not sent yet."}}{{end}} · {{__ "Lark mode"}}: <strong>{{.mode}}</strong> <a href="{{url "/settings"}}" class="ml-1 hover:text-signal-700">({{__ "Lark settings"}})</a></span>
+            <div class="flex gap-2"><button type="submit" formaction="{{url "/accounting/notify/send"}}" class="btn-secondary" data-confirm="{{__ "Send today's list to Lark now?"}}">{{icon "send" "size-4"}} {{__ "Send now"}}</button><button class="btn-primary">{{__ "Save"}}</button></div>
+        </div>
+    </form>
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Today's list"}}</h2><span class="text-xs text-steel">{{len .today}}</span></div>
+        {{if not .today}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No billing notes are due today."}}</p>{{else}}
+        <ul class="divide-y divide-graphite-900/8 text-sm">{{range .today}}<li class="px-5 py-3"><p class="font-medium">{{.billing_number}} <span class="text-steel">· ฿{{.total}}</span></p><p class="truncate text-xs text-steel">{{.customer_name}}</p></li>{{end}}</ul>{{end}}
+    </section>
+</div>
