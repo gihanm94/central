@@ -37,7 +37,10 @@ func notificationsIndex(c *app.Ctx) {
 // Polled every minute by the page: unread count + the dropdown's list. Also gives every module its 'tick'.
 func notificationsFeed(c *app.Ctx) {
 	u := c.MustUser()
-	answer := app.M{"unread": app.NotificationsUnread(u.ID), "html": string(c.Partial("partials/notification-list", app.M{"items": app.NotificationsLatest(u.ID, 8)}))}
+	answer := struct { // key order like PHP's array
+		Unread int    `json:"unread"`
+		HTML   string `json:"html"`
+	}{app.NotificationsUnread(u.ID), string(c.Partial("partials/notification-list", app.M{"items": app.NotificationsLatest(u.ID, 8)}))}
 	// module background work (CRM reminders, machine jobs …); one failing never stops the others
 	app.RunHooks("tick", "", func(_ string, fn any) any {
 		if f, ok := fn.(app.HookTick); ok {
