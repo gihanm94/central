@@ -1,0 +1,38 @@
+{{set "crumbs" (list (list (__ "Members") "/members"))}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><h1 class="page-title">{{__ "Account requests"}}</h1><p class="mt-1 text-sm text-steel">{{__ "People who asked for an account on the sign-in page. Approving creates the member with the password they chose; you never see it."}}</p></div>
+    <a href="{{url "/members"}}" class="btn-secondary">{{icon "users" "size-4"}} {{__ "Members"}}</a>
+</div>
+<section class="panel mt-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-graphite-900/8 p-3">
+        <nav class="inline-flex gap-1 rounded-lg bg-mist p-1">{{range .tabs}}<a href="{{.URL}}" class="rounded-md px-3 py-1.5 text-sm {{if eq .Key $.status}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}">{{.Label}} <span class="ml-1 text-xs text-steel">{{.N}}</span></a>{{end}}</nav>
+        <form method="GET" class="flex items-center gap-2"><input type="hidden" name="status" value="{{.status}}"><input name="q" value="{{.q}}" type="search" placeholder="{{__ "Search…"}}" class="input w-56"><button class="btn-secondary">{{__ "Search"}}</button></form>
+    </div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+        <thead class="text-xs text-steel"><tr><th class="px-4 py-2.5 font-medium">{{__ "Person"}}</th><th class="px-3 py-2.5 font-medium">{{__ "Employee ID"}}</th><th class="px-3 py-2.5 font-medium">{{__ "Department (typed)"}}</th><th class="px-3 py-2.5 font-medium">{{__ "Phone"}}</th><th class="px-3 py-2.5 font-medium">{{__ "Sent"}}</th><th class="px-4 py-2.5"></th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range $r := .rows}}
+            <tr class="hover:bg-mist/40">
+                <td class="px-4 py-3"><span class="block font-medium">{{$r.name}}</span><span class="block text-xs text-steel">{{$r.email}}</span></td>
+                <td class="px-3 py-3 tabular-nums">{{$r.employee_code}}</td>
+                <td class="px-3 py-3">{{coalesce $r.department_text "—"}}</td>
+                <td class="px-3 py-3">{{coalesce $r.phone "—"}}</td>
+                <td class="px-3 py-3 text-xs text-steel">{{formatDate $r.created_at "d M Y H:i"}}{{if $r.reviewed_at}}<span class="block">{{__ "by :n" "n" (coalesce $r.reviewer "—")}} · {{formatDate $r.reviewed_at "d M"}}</span>{{end}}{{if $r.reject_reason}}<span class="block">{{$r.reject_reason}}</span>{{end}}</td>
+                <td class="px-4 py-3 text-right">
+                    {{if eq $r.status "pending"}}<a class="btn-primary !h-8 px-3" href="{{url (printf "/members/requests/%v" $r.id)}}">{{__ "Review"}}</a>
+                    {{else if $r.user_id}}<a class="btn-secondary !h-8 px-3" href="{{url (printf "/members/%v" $r.user_id)}}">{{__ "Open member"}}</a>
+                    {{else}}<form method="POST" action="{{url (printf "/members/requests/%v/delete" $r.id)}}" class="inline">{{csrfField}}<input type="hidden" name="status" value="{{$.status}}"><button class="btn-ghost !h-8 px-3 text-signal-700">{{__ "Remove"}}</button></form>{{end}}
+                </td>
+            </tr>
+        {{end}}
+        {{if not .rows}}<tr><td colspan="6" class="px-4 py-10 text-center text-steel">{{__ "Nothing here."}}</td></tr>{{end}}
+        </tbody></table></div>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-t border-graphite-900/8 px-4 py-3 text-sm text-steel">
+        <span>{{__ ":count total" "count" .total}}</span>
+        <span class="flex items-center gap-2">
+            <a class="btn-secondary !h-8 !px-3 {{if le .page 1}}pointer-events-none opacity-40{{end}}" href="{{.prevURL}}">‹</a>
+            {{__ "Page :p of :t" "p" .page "t" .pages}}
+            <a class="btn-secondary !h-8 !px-3 {{if ge .page .pages}}pointer-events-none opacity-40{{end}}" href="{{.nextURL}}">›</a>
+        </span>
+    </div>
+</section>
