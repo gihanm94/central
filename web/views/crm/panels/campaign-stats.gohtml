@@ -1,0 +1,13 @@
+{{- /* .tiles [][label value note over] .meter (html or "") */ -}}
+<section class="panel">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Budget and results"}}</h2></div>
+    <dl class="grid grid-cols-2 gap-px bg-graphite-900/6 sm:grid-cols-3">
+        {{range .tiles}}
+        <div class="bg-white px-5 py-4"><dt class="text-xs text-steel">{{index . 0}}</dt><dd class="figure mt-1.5 text-2xl">{{index . 1}}</dd>
+            {{if index . 2}}<p class="mt-1 text-xs {{if index . 3}}font-medium text-signal-700{{else}}text-steel{{end}}">{{index . 2}}</p>{{end}}</div>
+        {{end}}
+    </dl>
+    {{if .meter}}
+    <div class="border-t border-graphite-900/6 px-5 py-4">{{.meter}}</div>
+    {{end}}
+</section>

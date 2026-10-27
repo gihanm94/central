@@ -1,0 +1,94 @@
+{{- /* Sales control → By stage. From crm/team: .f .stage .stageTiles .chips .stageRows .members .deps .dateOpts .wholeCompany .canEdit .return .otherStages */ -}}
+{{- $wc := .wholeCompany -}}{{- $f := .f -}}
+<form method="GET" action="{{url "/crm/control"}}" class="mt-4 rounded-xl bg-white p-3 shadow-sm ring-1 ring-graphite-900/8">
+    <input type="hidden" name="view" value="stage"><input type="hidden" name="stage" value="{{.stage}}">
+    <div class="flex flex-wrap items-end gap-2">
+        {{if $wc}}
+            <div class="w-full sm:w-48"><label class="label" for="st-dep">{{__ "Department"}}</label>
+                {{select "department" .deps $f.department (dict "id" "st-dep" "placeholder" (__ "All departments"))}}</div>
+        {{end}}
+        <div class="w-full sm:w-56"><label class="label" for="st-owner">{{__ "Owner"}}</label>
+            {{select "owner" .members $f.owner (dict "id" "st-owner" "placeholder" (__ "Everyone") "search" true)}}</div>
+        <div class="w-full sm:w-44"><label class="label" for="st-date">{{__ "Date"}}</label>
+            {{select "date" .dateOpts $f.date (dict "id" "st-date" "required" true)}}</div>
+        <div><label class="label" for="st-from">{{__ "From"}}</label><input id="st-from" type="date" name="from" value="{{$f.from}}" class="input"></div>
+        <div><label class="label" for="st-to">{{__ "To"}}</label><input id="st-to" type="date" name="to" value="{{$f.to}}" class="input"></div>
+        <button class="btn-secondary">{{__ "Show"}}</button>
+        {{if .hasFilters}}
+            <a href="{{.clearURL}}" class="btn-ghost">{{__ "Clear filters"}}</a>
+        {{end}}
+    </div>
+    <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+        <span class="text-steel">{{__ "In this stage for more than"}}</span>
+        {{range .chips}}
+            <a href="{{.URL}}" class="rounded-full px-2.5 py-1 ring-1 {{if .On}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/10 hover:bg-mist{{end}}">{{__ ":n days" "n" .Days}}</a>
+        {{end}}
+    </div>
+</form>
+
+<nav class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8" aria-label="{{__ "Stages"}}">
+    {{range .stageTiles}}
+    <a href="{{.URL}}" class="rounded-lg px-3 py-2 ring-1 transition-colors {{if .On}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white ring-graphite-900/10 hover:bg-mist{{end}}" {{if .On}}aria-current="page"{{end}}>
+        <span class="flex items-center gap-1.5 text-xs {{if .On}}text-white/70{{else}}text-steel{{end}}">{{.Label}}{{if .Open}}<span class="size-1.5 rounded-full bg-amber-500" title="{{__ "Open"}}"></span>{{end}}</span>
+        <span class="block text-xl font-semibold tabular-nums">{{.N}}</span>
+        <span class="block truncate text-[11px] tabular-nums {{if .On}}text-white/60{{else}}text-steel{{end}}">{{.Amount}}</span>
+    </a>
+    {{end}}
+</nav>
+<p class="mt-1 text-xs text-steel">{{__ "Count and amount per stage for the filters above. The dot marks stages that are still open."}}</p>
+
+<form method="POST" action="{{url "/crm/control/status"}}" class="mt-4" data-team>
+    {{csrfField}}
+    <input type="hidden" name="type" value="opportunity"><input type="hidden" name="return" value="{{.return}}">
+    {{if .canEdit}}
+    <section class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <h2 class="text-sm font-semibold">{{__ "Change stage of the ticked opportunities"}}</h2>
+        <div class="mt-2 grid gap-2 sm:grid-cols-[14rem_1fr_auto]">
+            {{select "status" .otherStages .statusOld (dict "placeholder" (__ "New stage…") "aria" (__ "New stage"))}}
+            <input name="status_note" class="input" maxlength="500" value="{{.noteOld}}" placeholder="{{__ "Reason (needed to close, cancel or hold), e.g. no reply for 6 months"}}" aria-label="{{__ "Reason"}}">
+            <button type="submit" class="btn-primary" data-needs-ticked data-confirm="{{__ "Change the stage of the ticked opportunities?"}}">{{icon "check" "size-4"}} {{__ "Apply to ticked"}} (<span data-ticked>0</span>)</button>
+        </div>
+        {{fieldError "status"}}{{fieldError "note"}}
+    </section>
+    {{end}}
+
+    <section class="panel mt-4 overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Opportunities"}} · {{.stageLabel}}</h2>
+            <span class="text-sm text-steel">{{__ "Longest in this stage first"}}</span></div>
+        {{if not .stageRows}}
+            <p class="px-5 py-8 text-center text-sm text-steel">{{__ "No opportunities in this stage for these filters."}}</p>
+        {{else}}
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+                <th class="w-10 px-4 py-2"><input type="checkbox" class="size-4 accent-signal-600" data-tick-all aria-label="{{__ "Tick all"}}"></th>
+                <th class="px-3 py-2 font-medium">{{__ "Opportunity"}}</th>
+                <th class="px-3 py-2 font-medium">{{__ "Owner"}}</th>
+                {{if $wc}}<th class="px-3 py-2 font-medium">{{__ "Department"}}</th>{{end}}
+                <th class="px-3 py-2 text-right font-medium">{{__ "Amount"}}</th>
+                <th class="px-3 py-2 font-medium">{{__ "In stage since"}}</th>
+                <th class="px-3 py-2 font-medium">{{__ "Created"}}</th>
+                <th class="px-3 py-2 font-medium">{{__ "Updated"}}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .stageRows}}
+                <tr class="hover:bg-mist/40">
+                    <td class="px-4 py-2"><input type="checkbox" name="ids[]" value="{{.id}}" class="size-4 accent-signal-600" data-tick aria-label="{{__ "Tick"}}"></td>
+                    <td class="px-3 py-2"><a href="{{._url}}" class="font-medium hover:text-signal-700">{{.name}}</a>
+                        <span class="block text-xs text-steel">{{._ref}}</span></td>
+                    <td class="px-3 py-2">{{._owner}}</td>
+                    {{if $wc}}<td class="px-3 py-2 text-steel">{{._dept}}</td>{{end}}
+                    <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums">{{._amount}}</td>
+                    <td class="whitespace-nowrap px-3 py-2">{{._since}}
+                        {{if ._days}}<span class="ml-1 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums {{._dayClass}}">{{._days}}</span>{{end}}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-steel">{{._created}}</td>
+                    <td class="whitespace-nowrap px-3 py-2 text-steel">{{._ago}}</td>
+                </tr>
+            {{end}}
+            </tbody>
+        </table>
+        </div>
+        {{if .stageLimit}}<p class="border-t border-graphite-900/8 px-5 py-2 text-xs text-steel">{{__ "Showing the first 300. Narrow the dates to see the rest."}}</p>{{end}}
+        {{end}}
+    </section>
+</form>

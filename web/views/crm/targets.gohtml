@@ -1,0 +1,80 @@
+{{- /* .deps .dep .depName .year .cur .canEdit .pickDept .source .note .prev .next .rows .total .qsum .liveT .savedTotal .yearMeter .savedAt .history */ -}}
+{{- $canEdit := .canEdit -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div><h1 class="page-title">{{__ "Sales targets"}}</h1>
+        <p class="mt-1 max-w-3xl text-sm text-steel">{{__ "Set the target for each quarter and the year. The achieved amount is the invoiced revenue of the ERP department of this department in that quarter (in :cur), or the opportunities won when no ERP department is set; save it at year end to keep the record." "cur" .cur}}</p></div>
+    <div class="flex flex-wrap items-center gap-2">
+        {{if .pickDept}}
+        <form method="GET" class="w-56"><input type="hidden" name="year" value="{{.year}}">{{select "department" .deps .dep (dict "submit" true "required" true "aria" (__ "Department"))}}</form>
+        {{else}}<span class="badge bg-graphite-900/6 text-graphite-800">{{.depName}}</span>{{end}}
+        <div class="inline-flex items-center rounded-md bg-white ring-1 ring-graphite-900/15">
+            <a href="{{.prev}}" class="btn-ghost px-2" aria-label="{{__ "Previous year"}}">{{icon "arrowleft" "size-4"}}</a>
+            <span class="px-2 text-sm font-semibold tabular-nums">{{.year}}</span>
+            <a href="{{.next}}" class="btn-ghost px-2" aria-label="{{__ "Next year"}}">{{icon "right" "size-4"}}</a>
+        </div>
+    </div>
+</div>
+<p class="mt-4 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm ring-1 {{if eq .source "accounting"}}bg-emerald-50 text-emerald-900 ring-emerald-600/20{{else}}bg-amber-50 text-amber-900 ring-amber-600/20{{end}}">
+    {{if eq .source "accounting"}}{{icon "calc" "size-4"}}{{else}}{{icon "target" "size-4"}}{{end}}
+    {{.note}}</p>
+
+<form method="POST" action="{{url "/crm/targets"}}" class="mt-5">
+    {{csrfField}}
+    <input type="hidden" name="year" value="{{.year}}"><input type="hidden" name="department" value="{{.dep}}">
+    <button name="action" value="targets" class="hidden" tabindex="-1" aria-hidden="true"></button>
+    <section class="panel overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="table w-max min-w-full">
+                <thead><tr><th>{{__ "Quarter"}}</th><th class="text-right">{{__ "Target"}} ({{.cur}})</th><th class="text-right">{{if eq .source "accounting"}}{{__ "Revenue so far"}}{{else}}{{__ "Won so far"}}{{end}}</th><th class="text-right">{{__ "Saved actual"}}</th><th class="min-w-48">{{__ "Achieved"}}</th></tr></thead>
+                <tbody>
+                {{range .rows}}
+                    <tr>
+                        <td class="font-medium">Q{{.Q}} <span class="text-xs font-normal text-steel">{{.Months}}</span></td>
+                        <td class="text-right"><input name="q{{.Q}}" value="{{.Target}}" inputmode="decimal" class="input ml-auto w-40 text-right tabular-nums" {{if not $canEdit}}readonly{{end}} aria-label="{{__ "Target for quarter :q" "q" .Q}}">{{fieldError (printf "q%d" .Q)}}</td>
+                        <td class="text-right tabular-nums">{{.Live}}</td>
+                        <td class="text-right"><input name="a{{.Q}}" value="{{.Saved}}" inputmode="decimal" placeholder="—" class="input ml-auto w-40 text-right tabular-nums" {{if not $canEdit}}readonly{{end}} aria-label="{{__ "Saved actual for quarter :q" "q" .Q}}"></td>
+                        <td>{{if .HasMeter}}{{.Meter}}{{else}}<span class="text-graphite-400">—</span>{{end}}</td>
+                    </tr>
+                {{end}}
+                </tbody>
+                <tfoot>
+                    <tr class="bg-mist/50">
+                        <td class="font-semibold">{{__ "Year"}} {{.year}}</td>
+                        <td class="text-right"><input name="total" value="{{.total}}" inputmode="decimal" class="input ml-auto w-40 text-right font-semibold tabular-nums" {{if not $canEdit}}readonly{{end}} aria-label="{{__ "Target for the year"}}">
+                            <span class="mt-1 block text-[11px] text-steel">{{__ "Quarters add up to :n; leave the year empty to use that." "n" .qsum}}</span></td>
+                        <td class="text-right font-semibold tabular-nums">{{.liveT}}</td>
+                        <td class="text-right font-semibold tabular-nums">{{.savedTotal}}</td>
+                        <td>{{if .yearMeter}}{{.yearMeter}}{{else}}<span class="text-graphite-400">—</span>{{end}}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+    {{if $canEdit}}
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs text-steel">{{.savedAt}}</p>
+        <div class="flex flex-wrap gap-2">
+            <button name="action" value="actuals_live" class="btn-secondary">{{icon "tick" "size-4"}} {{__ "Save the achieved amount"}}</button>
+            <button name="action" value="actuals" class="btn-secondary">{{__ "Save typed actuals"}}</button>
+            <button name="action" value="targets" class="btn-primary">{{__ "Save targets"}}</button>
+        </div>
+    </div>
+    {{end}}
+</form>
+
+{{if .history}}
+<section class="panel mt-6 overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Saved years"}}</h2></div>
+    <div class="overflow-x-auto"><table class="table w-max min-w-full">
+        <thead><tr><th>{{__ "Year"}}</th><th class="text-right">{{__ "Target"}}</th><th class="text-right">Q1</th><th class="text-right">Q2</th><th class="text-right">Q3</th><th class="text-right">Q4</th><th class="text-right">{{__ "Actual"}}</th><th class="min-w-40">{{__ "Achieved"}}</th></tr></thead>
+        <tbody>
+        {{range .history}}
+            <tr><td class="font-medium"><a href="{{.URL}}" class="hover:text-signal-700">{{.Year}}</a></td>
+                <td class="text-right tabular-nums">{{.Total}}</td>
+                {{range .A}}<td class="text-right tabular-nums">{{.}}</td>{{end}}
+                <td class="text-right font-medium tabular-nums">{{.Actual}}</td>
+                <td>{{if .HasMeter}}{{.Meter}}{{else}}<span class="text-graphite-400">—</span>{{end}}</td></tr>
+        {{end}}
+        </tbody></table></div>
+</section>
+{{end}}

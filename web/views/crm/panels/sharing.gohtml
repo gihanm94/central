@@ -1,0 +1,50 @@
+{{- /* Who can open this record. .c .row .shares .canManage .userOpts .departments */ -}}
+{{- $base := url (printf "%s/%v" .c.base .row.id) -}}{{- $canManage := .canManage -}}
+<section id="sharing" class="panel">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Who can see this"}}</h2></div>
+    <ul class="divide-y divide-graphite-900/6 text-sm">
+        <li class="flex items-start gap-3 px-5 py-3">{{icon "building" "mt-0.5 size-4 shrink-0 text-steel"}}
+            <span>{{if .row.department_name}}<span class="font-medium">{{__ ":dept department" "dept" .row.department_name}}</span><span class="block text-xs text-steel">{{__ "Everyone in it, by default."}}</span>
+                {{else}}<span class="font-medium">{{__ "No department"}}</span><span class="block text-xs text-steel">{{__ "Only the owner and the people below."}}</span>{{end}}</span></li>
+        <li class="flex items-start gap-3 px-5 py-3">{{icon "shield" "mt-0.5 size-4 shrink-0 text-steel"}}
+            <span><span class="font-medium">{{__ "Admin and management"}}</span><span class="block text-xs text-steel">{{__ "Roles that see the whole company."}}</span></span></li>
+        {{range .shares}}
+        <li class="flex items-center justify-between gap-3 px-5 py-3">
+            <span class="flex min-w-0 items-center gap-3">{{if eq .target_type "user"}}{{icon "user" "size-4 shrink-0 text-steel"}}{{else}}{{icon "team" "size-4 shrink-0 text-steel"}}{{end}}
+                <span class="min-w-0"><span class="block truncate font-medium">{{.target_name}}</span><span class="block text-xs text-steel">{{if eq .target_type "user"}}{{__ "Person"}}{{else}}{{__ "Department"}}{{end}}</span></span></span>
+            <span class="flex shrink-0 items-center gap-1">
+                <span class="badge {{if eq .access "edit"}}bg-amber-50 text-amber-800{{else}}bg-graphite-900/6 text-graphite-800{{end}}">{{if eq .access "edit"}}{{__ "Can edit"}}{{else}}{{__ "View only"}}{{end}}</span>
+                {{if $canManage}}
+                <form method="POST" action="{{$base}}/shares/{{.id}}/delete" data-confirm="{{__ "Remove access for :who?" "who" .target_name}}">{{csrfField}}
+                    <button class="btn-ghost px-1.5 py-1 hover:text-signal-700" title="{{__ "Remove access"}}" aria-label="{{__ "Remove access for :who" "who" .target_name}}">{{icon "x" "size-4"}}</button></form>
+                {{end}}
+            </span>
+        </li>
+        {{end}}
+    </ul>
+    {{if .canManage}}
+    <form method="POST" action="{{$base}}/shares" class="space-y-3 border-t border-graphite-900/8 p-5">
+        {{csrfField}}
+        <p class="text-sm font-medium">{{__ "Share with someone else"}}</p>
+        <div class="inline-flex rounded-md bg-mist p-0.5 text-sm" role="radiogroup" aria-label="{{__ "Share with"}}">
+            <label class="cursor-pointer"><input type="radio" name="target_type" value="user" class="peer sr-only" checked><span class="block rounded px-3 py-1 peer-checked:bg-white peer-checked:font-medium peer-checked:shadow-sm">{{__ "A person"}}</span></label>
+            <label class="cursor-pointer"><input type="radio" name="target_type" value="department" class="peer sr-only"><span class="block rounded px-3 py-1 peer-checked:bg-white peer-checked:font-medium peer-checked:shadow-sm">{{__ "A department"}}</span></label>
+        </div>
+        <div data-crm-show="target_type=user">
+            {{select "user_id" .userOpts "" (dict "placeholder" (__ "Choose a person…") "id" "share-user" "aria" (__ "Person"))}}
+            {{fieldError "user_id"}}
+        </div>
+        <div data-crm-show="target_type=department" hidden>
+            {{select "department_id" .departments "" (dict "placeholder" (__ "Choose a department…") "id" "share-dept" "aria" (__ "Department"))}}
+            {{fieldError "department_id"}}
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="inline-flex rounded-md bg-mist p-0.5 text-sm" role="radiogroup" aria-label="{{__ "Access level"}}">
+                <label class="cursor-pointer"><input type="radio" name="access" value="view" class="peer sr-only" checked><span class="block rounded px-3 py-1 peer-checked:bg-white peer-checked:font-medium peer-checked:shadow-sm">{{__ "View only"}}</span></label>
+                <label class="cursor-pointer"><input type="radio" name="access" value="edit" class="peer sr-only"><span class="block rounded px-3 py-1 peer-checked:bg-white peer-checked:font-medium peer-checked:shadow-sm">{{__ "Can edit"}}</span></label>
+            </div>
+            <button class="btn-dark ml-auto">{{icon "plus" "size-4"}} {{__ "Share"}}</button>
+        </div>
+    </form>
+    {{end}}
+</section>

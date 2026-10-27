@@ -1,0 +1,5 @@
+{{- /* Small neutral progress bar with a number: .pct (0-100, int), .w (width, rounded to 0.1), .label — build it with crm.meter() */ -}}
+<div class="flex min-w-24 items-center gap-2" title="{{.label}}">
+    <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-graphite-900/8" role="progressbar" aria-valuenow="{{.pct}}" aria-valuemin="0" aria-valuemax="100"><div class="h-full rounded-full bg-graphite-700" style="width: {{.w}}%"></div></div>
+    <span class="w-10 text-right text-xs tabular-nums text-steel">{{.label}}</span>
+</div>

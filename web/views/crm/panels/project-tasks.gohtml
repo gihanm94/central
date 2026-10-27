@@ -1,0 +1,31 @@
+{{- /* .project .tasks (rows + _closed _late _period _badge _avatars) .canAdd .canEdit .statuses []Opt */ -}}
+{{- $statuses := .statuses -}}{{- $canEdit := .canEdit -}}
+<section class="panel" id="tasks">
+    <div class="panel-head">
+        <h2 class="panel-title">{{__ "Tasks"}} <span class="ml-1 text-sm font-normal text-steel">{{len .tasks}}</span></h2>
+        {{if .canAdd}}<a href="{{url (printf "/crm/tasks/create?project_id=%v" .project.id)}}" data-sheet data-sheet-title="{{__ "Add task"}}" class="btn-secondary py-1">{{icon "plus" "size-4"}} {{__ "Add task"}}</a>{{end}}
+    </div>
+    {{if not .tasks}}
+        <p class="px-5 py-6 text-center text-sm text-steel">{{__ "No tasks yet."}}</p>
+    {{else}}
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .tasks}}
+        <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+            <div class="min-w-0 flex-1 basis-56">
+                <a href="{{url (printf "/crm/tasks/%v" .id)}}" class="block truncate text-sm font-medium hover:text-signal-700 {{if ._closed}}text-steel line-through{{end}}">{{.name}}</a>
+                <span class="block text-xs tabular-nums {{if ._late}}font-medium text-signal-700{{else}}text-steel{{end}}">{{._period}}{{if ._late}} · {{__ "Overdue"}}{{end}}</span>
+            </div>
+            {{._avatars}}
+            {{if $canEdit}}
+            <form method="POST" action="{{url (printf "/crm/tasks/%v/status" .id)}}" class="shrink-0">
+                {{csrfField}}
+                <select name="status" data-autosubmit class="input !h-7 !w-36 !py-0 text-xs" aria-label="{{__ "Status"}}">
+                    {{$st := .status}}{{range $statuses}}<option value="{{.Value}}" {{if eq $st .Value}}selected{{end}}>{{.Label}}</option>{{end}}
+                </select>
+            </form>
+            {{else}}{{._badge}}{{end}}
+        </li>
+        {{end}}
+    </ul>
+    {{end}}
+</section>

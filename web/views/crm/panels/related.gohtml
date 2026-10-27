@@ -1,0 +1,19 @@
+{{- /* .title .items []relItem (Href Title Meta MetaHTML Badge) .createUrl .empty .createLabel */ -}}
+<section class="panel">
+    <div class="panel-head">
+        <h2 class="panel-title">{{.title}} <span class="ml-1 text-sm font-normal text-steel">{{len .items}}</span></h2>
+        {{if .createUrl}}<a href="{{url .createUrl}}" data-sheet data-sheet-title="{{or .createLabel (__ "Add")}}" class="btn-secondary py-1">{{icon "plus" "size-4"}} {{or .createLabel (__ "Add")}}</a>{{end}}
+    </div>
+    {{if not .items}}
+        <p class="px-5 py-6 text-center text-sm text-steel">{{.empty}}</p>
+    {{else}}
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .items}}
+        <li><a href="{{url .Href}}" class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-mist/50">
+            <span class="min-w-0"><span class="block truncate text-sm font-medium">{{.Title}}</span>{{if .MetaHTML}}<span class="block truncate text-xs text-steel">{{.MetaHTML}}</span>{{else if .Meta}}<span class="block truncate text-xs text-steel">{{.Meta}}</span>{{end}}</span>
+            <span class="shrink-0">{{.Badge}}</span>
+        </a></li>
+        {{end}}
+    </ul>
+    {{end}}
+</section>

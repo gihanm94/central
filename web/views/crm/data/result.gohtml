@@ -1,0 +1,38 @@
+{{- /* .dry .result .tableLabel .fileName .hidden [K V] .errors [Line Msg] .ok .total .inserted .updated .skipped .importLabel .backURL .token .mapURL .errNote */ -}}
+<div class="min-w-0">
+    <p class="text-sm text-steel"><a href="{{url "/crm/data"}}" class="hover:text-signal-700">{{__ "Data tools"}}</a> › {{__ "Import"}}</p>
+    <h1 class="page-title">{{if .dry}}{{__ "Check result"}}{{else}}{{__ "Import finished"}}{{end}}</h1>
+    <p class="mt-1 text-sm text-steel">{{.fileName}} → {{.tableLabel}}{{if .dry}} · {{__ "nothing has been saved yet"}}{{end}}</p>
+</div>
+
+<section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel">{{__ "Rows read"}}</p><p class="text-2xl font-semibold tabular-nums">{{.total}}</p></div>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel">{{if .dry}}{{__ "Would be added"}}{{else}}{{__ "Added"}}{{end}}</p><p class="text-2xl font-semibold tabular-nums">{{.inserted}}</p></div>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel">{{if .dry}}{{__ "Would be updated"}}{{else}}{{__ "Updated"}}{{end}}</p><p class="text-2xl font-semibold tabular-nums">{{.updated}}</p></div>
+    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8"><p class="text-xs text-steel">{{__ "Skipped (problems)"}}</p><p class="text-2xl font-semibold tabular-nums {{if .result.Skipped}}text-signal-700{{end}}">{{.skipped}}</p></div>
+</section>
+
+{{if .errors}}
+<section class="panel mt-4 overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Rows with problems"}}</h2><span class="text-xs text-steel">{{.errNote}}</span></div>
+    <div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><tbody class="divide-y divide-graphite-900/6">
+        {{range .errors}}<tr><td class="w-24 px-4 py-2 tabular-nums text-steel">{{__ "Row"}} {{.Line}}</td><td class="px-3 py-2">{{.Msg}}</td></tr>{{end}}
+    </tbody></table></div>
+</section>
+{{end}}
+
+<div class="mt-4 flex flex-wrap items-center gap-2">
+    {{if .dry}}
+    <form method="POST" action="{{url "/crm/data/run"}}" class="contents">
+        {{csrfField}}
+        {{range .hidden}}<input type="hidden" name="{{.K}}" value="{{.V}}">{{end}}
+        <input type="hidden" name="action" value="import">
+        <button class="btn-primary" {{if eq .ok 0}}disabled{{end}}>{{icon "upload" "size-4"}} {{.importLabel}}</button>
+    </form>
+    <a href="{{.backURL}}" class="btn-secondary">{{__ "Back to the matching"}}</a>
+    {{if .result.Skipped}}<span class="text-sm text-steel">{{__ "Rows with problems are skipped; the others are imported."}}</span>{{end}}
+    {{else}}
+    <a href="{{.mapURL}}" class="btn-secondary">{{__ "Import another sheet from this file"}}</a>
+    <form method="POST" action="{{url "/crm/data/discard"}}" class="contents">{{csrfField}}<input type="hidden" name="token" value="{{.token}}"><button class="btn-primary">{{__ "Done — remove the file"}}</button></form>
+    {{end}}
+</div>

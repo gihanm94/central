@@ -1,0 +1,74 @@
+{{- $singular := __ .c.singular -}}
+{{- set "crumbs" (list (list (__ (ucfirst .c.plural)) .c.base)) -}}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="flex min-w-0 items-center gap-4">
+        {{.media}}
+        <div class="min-w-0">
+            <h1 class="page-title break-words">{{.title}}</h1>
+            {{if .subtitle}}<p class="mt-0.5 text-sm text-steel">{{.subtitle}}</p>{{end}}
+            {{if .badges}}<div class="mt-2 flex flex-wrap items-center gap-1.5">{{range .badges}}{{.}}{{end}}</div>{{end}}
+        </div>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        {{range .links}}
+            {{if .Post}}
+                <form method="POST" action="{{url .URL}}" class="flex flex-1 sm:flex-none" {{with .Confirm}}data-confirm="{{.}}"{{end}}>{{csrfField}}
+                    <button class="btn-secondary w-full">{{icon (or .Icon "eye") "size-4"}} {{.Label}}</button></form>
+            {{else}}
+                <a href="{{url .URL}}" {{if contains .URL "/create"}}data-sheet{{end}} data-sheet-title="{{.Label}}" class="btn-secondary flex-1 sm:flex-none">{{icon (or .Icon "eye") "size-4"}} {{.Label}}</a>
+            {{end}}
+        {{end}}
+        {{if .canDownload}}<a href="{{url (printf "%s/%v/download" .c.base .row.id)}}" class="btn-secondary flex-1 sm:flex-none">{{icon "download" "size-4"}} {{__ "Download"}}</a>{{end}}
+        {{if .canDelete}}
+            <button type="button" class="btn-danger flex-1 sm:flex-none" data-delete-url="{{url (printf "%s/%v/delete" .c.base .row.id)}}" data-delete-name="{{.title}}" data-delete-kind="{{$singular}}">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>
+        {{end}}
+        {{if .canEdit}}<a href="{{url (printf "%s/%v/edit" .c.base .row.id)}}" class="btn-primary w-full sm:w-auto">{{icon "pencil" "size-4"}} {{__ "Edit"}}</a>{{end}}
+    </div>
+</div>
+
+{{.top}}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="min-w-0 space-y-6 lg:col-span-2" {{if .tabs}}data-tabs{{end}}>
+        {{if .tabs}}
+        <nav class="flex gap-7 overflow-x-auto rounded-xl bg-white px-6 shadow-sm ring-1 ring-graphite-900/8" role="tablist" aria-label="{{__ "Sections"}}">
+            {{template "crm/show-tab" (dict "k" "details" "label" (__ "Details") "has" false "count" 0)}}
+            {{range .tabs}}{{template "crm/show-tab" (dict "k" .Key "label" .Label "has" .HasCount "count" .Count)}}{{end}}
+        </nav>
+        {{end}}
+        <section class="panel overflow-hidden" {{if .tabs}}role="tabpanel" id="panel-details" aria-labelledby="tab-details" data-tab-panel="details"{{end}}>
+            <div class="panel-head"><h2 class="panel-title">{{__ "Details"}}</h2></div>
+            {{if not .rows}}
+                <p class="px-5 py-8 text-center text-sm text-steel">{{__ "Nothing more has been filled in yet."}}</p>
+            {{else}}
+            <dl class="grid sm:grid-cols-2">
+                {{range .rows}}
+                    {{if .Heading}}<h3 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel sm:col-span-2">{{.Heading}}</h3>{{end}}
+                    <div class="min-w-0 border-b border-graphite-900/6 px-5 py-3.5 {{if eq .Span 2}}sm:col-span-2{{end}}">
+                        <dt class="text-xs text-steel">{{.Label}}</dt>
+                        <dd class="mt-1 break-words text-sm {{if ne .Type "richtext"}}whitespace-pre-line font-medium{{end}}">
+                            {{if eq .Type "richtext"}}<div class="rt-content">{{.Rich}}</div>
+                            {{else if .Href}}<a href="{{url .Href}}" class="hover:text-signal-700">{{.Text}}</a>
+                            {{else if eq .Type "email"}}<a href="mailto:{{.Text}}" class="hover:text-signal-700">{{.Text}}</a>
+                            {{else}}{{.Text}}{{end}}
+                        </dd>
+                    </div>
+                {{end}}
+            </dl>
+            {{end}}
+        </section>
+        {{range .tabs}}
+            <div role="tabpanel" id="panel-{{.Key}}" aria-labelledby="tab-{{.Key}}" data-tab-panel="{{.Key}}" hidden>{{.HTML}}</div>
+        {{end}}
+        {{.main}}
+    </div>
+    <aside class="min-w-0 space-y-6">{{.side}}</aside>
+</div>
+{{- define "crm/show-tab" -}}
+                <button type="button" role="tab" id="tab-{{.k}}" aria-controls="panel-{{.k}}" aria-selected="{{if eq .k "details"}}true{{else}}false{{end}}" data-tab="{{.k}}"
+                    class="group relative flex shrink-0 items-center gap-1.5 py-4 text-sm text-graphite-700 hover:text-graphite-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-600/40
+                           after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-full after:bg-transparent
+                           aria-selected:font-semibold aria-selected:text-signal-700 aria-selected:after:bg-signal-600">
+                    {{.label}}{{if .has}}<span class="rounded-full bg-graphite-900/6 px-1.5 text-xs font-medium tabular-nums text-steel group-aria-selected:bg-signal-50 group-aria-selected:text-signal-700">{{.count}}</span>{{end}}
+                </button>
+{{- end -}}

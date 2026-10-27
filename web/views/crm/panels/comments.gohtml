@@ -1,0 +1,37 @@
+{{- /* .c .row .items [id body author created_by created_at _iso] .canPost */ -}}
+{{- $base := url (printf "%s/%v" .c.base .row.id) -}}{{- $me := auth -}}
+<section id="comments" class="panel">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Comments"}} <span class="ml-1 text-sm font-normal text-steel">{{len .items}}</span></h2></div>
+    {{if .canPost}}
+    <form method="POST" action="{{$base}}/comments" class="flex gap-3 border-b border-graphite-900/8 p-5">
+        {{csrfField}}
+        {{template "partials/avatar" (dict "name" $me.Name "avatar" $me.Avatar "size" "size-8" "extra" "mt-0.5")}}
+        <div class="min-w-0 flex-1">
+            <label for="comment-body" class="sr-only">{{__ "Write a comment"}}</label>
+            <textarea id="comment-body" name="body" rows="2" maxlength="5000" required placeholder="{{__ "Write a comment…"}}" class="input {{if errorFor "body"}}input-error{{end}}"></textarea>
+            {{fieldError "body"}}
+            <div class="mt-2 flex justify-end"><button class="btn-dark py-1.5">{{icon "chat" "size-4"}} {{__ "Post comment"}}</button></div>
+        </div>
+    </form>
+    {{end}}
+    {{if not .items}}
+        <p class="px-5 py-8 text-center text-sm text-steel">{{__ "No comments yet. Start the conversation."}}</p>
+    {{else}}
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .items}}
+        <li class="flex gap-3 px-5 py-4">
+            {{template "partials/avatar" (dict "name" .author "size" "size-8" "extra" "mt-0.5")}}
+            <div class="min-w-0 flex-1">
+                <p class="flex flex-wrap items-baseline gap-x-2 text-sm"><span class="font-medium">{{.author}}</span>
+                    <time class="text-xs text-steel" datetime="{{._iso}}" title="{{formatDate .created_at "d M Y H:i"}}">{{timeAgo .created_at}}</time></p>
+                <p class="mt-1 whitespace-pre-line break-words text-sm text-graphite-800">{{.body}}</p>
+            </div>
+            {{if or (eq (int .created_by) $me.ID) $me.IsAdmin}}
+            <form method="POST" action="{{$base}}/comments/{{.id}}/delete" data-confirm="{{__ "Delete this comment?"}}" class="shrink-0">{{csrfField}}
+                <button class="btn-ghost px-1.5 py-1 hover:text-signal-700" title="{{__ "Delete comment"}}" aria-label="{{__ "Delete comment"}}">{{icon "trash" "size-4"}}</button></form>
+            {{end}}
+        </li>
+        {{end}}
+    </ul>
+    {{end}}
+</section>

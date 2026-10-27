@@ -1,0 +1,53 @@
+{{- /* Opportunity products in two lists (crm.js [data-lines]): "Products" picked from Accounting (ERP products) and
+   "New products" typed by hand. Each line is hidden inputs products[i][…]; "+ Add" opens a small card to fill in.
+   .f.Extra: sections []lineSection, units []Opt, firstUnit, count, blank */ -}}
+{{- $x := .f.Extra -}}
+<div data-lines data-counter="{{$x.count}}" data-msg-name="{{__ "Type the product name."}}" data-msg-qty="{{__ "Quantity must be a number above 0."}}" data-msg-price="{{__ "Unit price must be a number."}}">
+    {{range $x.sections}}{{$cat := eq .Kind "catalog"}}
+    <section class="{{if not $cat}}mt-6 border-t border-graphite-900/8 pt-6{{end}}" data-line-kind="{{.Kind}}">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2"><span class="flex size-7 items-center justify-center rounded-md bg-signal-50 text-signal-700">{{icon .Icon "size-4"}}</span>
+                <span><span class="block text-sm font-semibold">{{.Title}}</span><span class="block text-xs text-steel">{{.Hint}}</span></span></div>
+            <button type="button" data-line-open="{{.Kind}}" class="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium ring-1 {{if $cat}}text-signal-700 ring-signal-600/40 hover:bg-signal-50{{else}}ring-graphite-900/15 hover:bg-mist{{end}}">{{icon "plus" "size-4"}} {{.Add}}</button>
+        </div>
+        <div class="mt-3">
+    <div data-line-form="{{.Kind}}" hidden class="rounded-lg p-4 ring-1 {{if $cat}}bg-signal-50/40 ring-signal-600/30{{else}}bg-mist/50 ring-graphite-900/10{{end}}">
+        <p class="text-xs font-semibold uppercase tracking-wide {{if $cat}}text-signal-700{{else}}text-steel{{end}}">{{if $cat}}{{__ "New product line"}}{{else}}{{__ "New product"}}{{end}}</p>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            {{if $cat}}
+            <div class="sm:col-span-2"><span class="label">{{__ "Product"}}</span>
+                {{template "partials/remote-select" (dict "name" "_pick_product" "value" "" "current" nil "kind" "erp-products" "o" (dict "id" "pick-product" "placeholder" (__ "Search product")))}}
+                <input type="hidden" data-l="erp_product_id"></div>
+            {{end}}
+            <label class="sm:col-span-2"><span class="label">{{__ "Product name"}} <span class="text-signal-600">*</span></span><input data-l="name" maxlength="200" class="input" placeholder="{{__ "Product name"}}"></label>
+            <label><span class="label">{{__ "Product no."}}</span><input data-l="part_number" maxlength="80" class="input" placeholder="{{__ "e.g. SKU-001"}}"></label>
+            <label><span class="label">{{__ "Qty"}}</span><input data-l="quantity" value="1" inputmode="decimal" class="input"></label>
+            <label><span class="label">{{__ "Unit price"}}</span><input data-l="unit_price" inputmode="decimal" class="input" placeholder="0.00"></label>
+            <div data-l-unit data-first="{{$x.firstUnit}}"><span class="label">{{__ "Unit"}}</span>
+                {{select (printf "_unit_%s" .Kind) $x.units $x.firstUnit (dict "id" (printf "unit-%s" .Kind) "aria" (__ "Unit") "search" false)}}</div>
+        </div>
+        <p data-l-error hidden class="error"></p>
+        <div class="mt-3 flex justify-end gap-2">
+            <button type="button" class="btn-ghost" data-line-cancel>{{__ "Cancel"}}</button>
+            <button type="button" class="btn-primary" data-line-add>{{icon "plus" "size-4"}} {{__ "Add"}}</button>
+        </div>
+    </div>
+        </div>
+        <ul data-line-list="{{.Kind}}" class="mt-3 space-y-2">{{range .Lines}}{{template "crm/fields/product-line" .}}{{end}}</ul>
+        <div data-line-empty="{{.Kind}}" {{if .Lines}}hidden{{end}} class="mt-3 flex flex-col items-center gap-2 rounded-lg border border-dashed border-graphite-900/15 px-4 py-8 text-sm text-steel">
+            {{icon .Icon "size-7 text-graphite-300"}}{{.Empty}}</div>
+    </section>
+    {{end}}
+    <template data-line-template>{{template "crm/fields/product-line" $x.blank}}</template>
+    <p class="mt-4 text-right text-sm">{{__ "Total"}}: <span class="font-semibold tabular-nums" data-lines-total>0.00</span></p>
+</div>
+{{if .err}}<p class="error">{{.err}}</p>{{end}}
+{{- define "crm/fields/product-line"}}
+    <li data-line class="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 ring-1 ring-graphite-900/10">
+        {{$l := .}}{{range .Hidden}}<input type="hidden" name="products[{{$l.I}}][{{.K}}]" value="{{.L}}">{{end}}
+        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium" data-l-name>{{.Name}}</span>
+            <span class="block truncate text-xs text-steel" data-l-sub>{{.Sub}}</span></span>
+        <span class="shrink-0 text-sm font-medium tabular-nums" data-l-total>{{.Total}}</span>
+        <button type="button" data-line-remove class="btn-ghost shrink-0 px-2 py-1 hover:text-signal-700" aria-label="{{__ "Remove"}}">{{icon "trash" "size-4"}}</button>
+    </li>
+{{end -}}

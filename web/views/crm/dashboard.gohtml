@@ -1,0 +1,185 @@
+{{- set "crumbs" (list) -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title">{{__ "CRM overview"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Showing"}} <span class="font-medium text-graphite-900">{{.scopeName}}</span>{{if .memberName}} · {{.memberName}}{{end}}{{if .mine}} · {{__ "my records only"}}{{end}} · {{.periodFrom}} → {{.periodTo}}</p>
+    </div>
+    {{if not .hasPeople}}
+    <div class="inline-flex rounded-md bg-white p-0.5 text-sm ring-1 ring-graphite-900/15" role="group" aria-label="{{__ "Whose records"}}">
+        <a href="{{.linkAll}}" class="rounded px-3 py-1.5 {{if not .mine}}bg-graphite-900 font-medium text-white{{else}}text-steel hover:text-graphite-900{{end}}">{{__ "Department"}}</a>
+        <a href="{{.linkMine}}" class="rounded px-3 py-1.5 {{if .mine}}bg-graphite-900 font-medium text-white{{else}}text-steel hover:text-graphite-900{{end}}">{{__ "My records"}}</a>
+    </div>
+    {{end}}
+</div>
+{{template "partials/range-bar" (dict "action" .rangeAction "range" .range "from" .from "to" .to "keep" .keep "selects" .selects)}}
+
+{{if .reminders}}
+<section class="mt-5 rounded-lg bg-amber-50 p-4 ring-1 ring-amber-600/25" aria-label="{{__ "Reminders"}}">
+    <h2 class="flex items-center gap-2 text-sm font-semibold text-amber-900">{{icon "bell" "size-4"}} {{__ "Reminders"}}</h2>
+    <ul class="mt-2 space-y-1 text-sm text-amber-900">
+        {{range .reminders}}
+        <li><a href="{{.URL}}" class="font-medium underline-offset-2 hover:underline">{{.Topic}}</a> · {{.Meta}}</li>
+        {{end}}
+    </ul>
+</section>
+{{end}}
+
+<div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    {{range .tiles}}
+    <section class="panel p-5">
+        <h2 class="text-xs font-medium text-steel">{{.Label}}</h2>
+        <p class="figure mt-2 text-4xl {{.Tone}}">{{.Figure}}</p>
+        <p class="mt-2 text-xs text-steel">{{.Note}}</p>
+    </section>
+    {{end}}
+</div>
+
+{{with .target}}
+<section class="panel mt-6 w-full">
+    <div class="panel-head">
+        <div><h2 class="panel-title">{{__ "Revenue vs target :year" "year" .year}}</h2>
+            <p class="text-xs text-steel">{{.sub}}</p></div>
+        {{if .setURL}}<a href="{{.setURL}}" class="text-sm text-steel hover:text-graphite-900">{{__ "Set targets"}}</a>{{end}}
+    </div>
+    <div class="grid gap-px bg-graphite-900/6 sm:grid-cols-2 lg:grid-cols-5">
+        {{range .cells}}
+        <div class="bg-white px-5 py-4 {{if .Now}}bg-signal-50/40{{end}}">
+            <p class="flex items-center justify-between text-xs font-medium text-steel"><span>Q{{.Q}}{{if .Now}} · {{__ "now"}}{{end}}</span><span class="tabular-nums">{{.Pct}}</span></p>
+            <p class="figure mt-2 text-2xl">{{.Actual}}</p>
+            <p class="mt-1 text-xs text-steel">{{.Of}}</p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full" style="{{css (printf "width: %d%%; background: %s" .Width .Color)}}"></div></div>
+        </div>
+        {{end}}
+        <div class="bg-white px-5 py-4">
+            <p class="flex items-center justify-between text-xs font-medium text-steel"><span>{{__ "Year"}}</span><span class="tabular-nums">{{.yearPct}}</span></p>
+            <p class="figure mt-2 text-2xl">{{.yearActual}}</p>
+            <p class="mt-1 text-xs text-steel">{{.yearOf}}</p>
+            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-graphite-900/8"><div class="h-full rounded-full" style="{{css (printf "width: %d%%; background: %s" .yearWidth .yearColor)}}"></div></div>
+        </div>
+    </div>
+    {{if .none}}<p class="border-t border-graphite-900/6 px-5 py-3 text-xs text-steel">{{__ "No target set for this year yet."}}</p>{{end}}
+</section>
+{{end}}
+
+<div class="mt-6 grid gap-6 lg:grid-cols-5">
+    <section class="panel lg:col-span-3">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Open pipeline by stage"}}</h2><span class="text-xs text-steel">{{__ "Value in :cur" "cur" .cur}}</span></div>
+        <ul class="space-y-4 p-5">
+            {{range .bars}}
+            <li>
+                <div class="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                    <a href="{{.URL}}" class="flex items-center gap-2 font-medium hover:text-signal-700"><span class="size-2.5 rounded-full" style="{{css (printf "background: %s" .Color)}}"></span>{{.Label}}</a>
+                    <span class="tabular-nums text-steel">{{.Counts}}<span class="font-medium text-graphite-900">{{.Money}}</span>
+                    </span>
+                </div>
+                <div class="h-5 rounded bg-graphite-900/5" title="{{.Title}}"><div class="h-full rounded-r" style="{{css (printf "width: %s%%; background: %s" .Width .Color)}}"></div></div>
+            </li>
+            {{end}}
+        </ul>
+        {{if .holdN}}<p class="border-t border-graphite-900/6 px-5 py-3 text-xs text-steel">{{.holdText}}</p>{{end}}
+    </section>
+
+    <section class="panel lg:col-span-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Won by month"}}</h2><span class="text-xs text-steel">{{__ "Value in :cur" "cur" .cur}}</span></div>
+        {{if .monthsEmpty}}
+            <p class="px-5 py-12 text-center text-sm text-steel">{{__ "No opportunities won in the last 6 months."}}</p>
+        {{else}}
+        <div class="flex h-52 items-end gap-3 px-5 pb-4 pt-6" role="img" aria-label="{{__ "Won value by month"}}">
+            {{range .months}}
+            <div class="flex h-full min-w-0 flex-1 flex-col justify-end text-center" title="{{.Title}}">
+                <span class="mb-1 truncate text-[11px] tabular-nums text-steel">{{if .HasV}}{{.Compact}}{{end}}</span>
+                <div class="rounded-t" style="{{css (printf "height: %s%%; background: #2a78d6" .Height)}}"></div>
+                <span class="mt-2 text-xs text-steel">{{.Label}}</span>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </section>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Activities to do"}}</h2><a href="{{url "/crm/activities" "status" "PLANNED"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "See all"}}</a></div>
+        {{if not .ups}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "Nothing planned."}}</p>{{else}}
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .ups}}
+            <li><a href="{{.URL}}" class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-mist/50">
+                <span class="min-w-0"><span class="block truncate text-sm font-medium">{{.Topic}}</span>
+                    <span class="block truncate text-xs text-steel">{{.Meta}}</span></span>
+                <span class="shrink-0 text-right text-xs tabular-nums {{if .IsLate}}font-medium text-signal-700{{else}}text-steel{{end}}">{{.When}}{{if .IsLate}}<span class="block">{{.Late}}</span>{{end}}</span>
+            </a></li>
+            {{end}}
+        </ul>
+        {{end}}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Biggest open opportunities"}}</h2><a href="{{url "/crm/opportunities"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "See all"}}</a></div>
+        {{if not .tops}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No open opportunities."}}</p>{{else}}
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .tops}}
+            <li><a href="{{.URL}}" class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-mist/50">
+                <span class="min-w-0"><span class="block truncate text-sm font-medium">{{.Name}}</span>
+                    <span class="block truncate text-xs text-steel">{{.Meta}}</span></span>
+                <span class="shrink-0 text-right"><span class="block text-sm font-medium tabular-nums">{{.Money}}</span>{{.Stage}}</span>
+            </a></li>
+            {{end}}
+        </ul>
+        {{end}}
+    </section>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+    {{template "crm/dash-dist" (dict "heading" (__ "Leads by industry") "list" .industries)}}
+    {{template "crm/dash-dist" (dict "heading" (__ "Leads by source") "list" .sources)}}
+
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Active campaigns"}}</h2><a href="{{url "/crm/campaigns"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "See all"}}</a></div>
+        {{if not .camps}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No active campaigns."}}</p>{{else}}
+        <ul class="divide-y divide-graphite-900/6">
+            {{range .camps}}
+            <li class="px-5 py-3"><a href="{{.URL}}" class="text-sm font-medium hover:text-signal-700">{{.Name}}</a>
+                <p class="text-xs text-steel">{{.Ends}}</p>
+                {{if .HasMeter}}<div class="mt-1.5">{{.Meter}}</div>{{end}}</li>
+            {{end}}
+        </ul>
+        {{end}}
+    </section>
+</div>
+
+{{if .compare}}
+<section class="panel mt-6 overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Departments"}}</h2><span class="text-xs text-steel">{{__ "Value in :cur" "cur" .cur}}</span></div>
+    <div class="overflow-x-auto">
+        <table class="table">
+            <thead class="bg-mist/60"><tr><th>{{__ "Department"}}</th><th class="text-right">{{__ "Leads"}}</th><th class="text-right">{{__ "Open opportunities"}}</th><th class="text-right">{{__ "Open pipeline"}}</th><th class="text-right">{{__ "Won this year"}}</th><th class="text-right">{{__ "Overdue activities"}}</th></tr></thead>
+            <tbody>
+            {{range .compare}}
+                <tr class="hover:bg-mist/40">
+                    <td class="font-medium">{{if .ID}}<a href="{{.URL}}" class="hover:text-signal-700">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td>
+                    <td class="text-right tabular-nums">{{.Leads}}</td>
+                    <td class="text-right tabular-nums">{{.Open}}</td>
+                    <td class="text-right tabular-nums">{{.Pipeline}}</td>
+                    <td class="text-right tabular-nums">{{.Won}}</td>
+                    <td class="text-right tabular-nums {{if .HasOverdue}}font-medium text-signal-700{{end}}">{{.Overdue}}</td>
+                </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+</section>
+{{end}}
+<p class="mt-4 text-xs text-steel">{{.footnote}}</p>
+{{- define "crm/dash-dist"}}
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{.heading}}</h2></div>
+        {{if not .list}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No data yet."}}</p>{{else}}
+        <ul class="space-y-3 p-5">
+            {{range .list}}
+            <li><div class="mb-1 flex items-center justify-between gap-3 text-sm"><span class="flex min-w-0 items-center gap-2"><span class="size-2.5 shrink-0 rounded-full" style="{{css (printf "background: %s" .Color)}}"></span><span class="truncate">{{.Name}}</span></span><span class="tabular-nums font-medium">{{.N}}</span></div>
+                <div class="h-1.5 rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="{{css (printf "width: %s%%; background: %s" .Width .Color)}}"></div></div></li>
+            {{end}}
+        </ul>
+        {{end}}
+    </section>
+{{end -}}
