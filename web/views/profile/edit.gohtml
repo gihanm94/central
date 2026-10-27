@@ -1,0 +1,51 @@
+{{template "profile/_header" .}}{{set "crumbs" (list)}}
+{{- $u := .me.u -}}
+<div class="mt-6 grid items-start gap-6 xl:grid-cols-3">
+    <form method="POST" action="{{url "/profile"}}" enctype="multipart/form-data" class="panel xl:col-span-2">
+        {{csrfField}}
+        <div class="panel-head"><h2 class="panel-title">{{__ "Personal details"}}</h2></div>
+        <div class="grid gap-5 p-4 sm:grid-cols-2 sm:p-5">
+            <div class="flex items-center gap-4 sm:col-span-2">
+                <img id="avatar-preview" src="{{uploadURL $u.Avatar}}" alt="" {{if not $u.Avatar}}hidden{{end}} class="size-14 rounded-full object-cover">
+                <div class="min-w-0">
+                    <label for="avatar" class="label">{{__ "Photo"}}</label>
+                    <input id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp" data-preview="#avatar-preview" class="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-graphite-900 file:px-3 file:py-1.5 file:text-sm file:text-white">
+                    <p class="hint">{{__ "JPG, PNG or WebP, up to 2 MB."}}</p>
+                    {{fieldError "avatars"}}
+                    {{if $u.Avatar}}<label class="mt-1 flex items-center gap-2 text-xs text-steel"><input type="checkbox" name="remove_avatar" value="1" class="accent-signal-600"> {{__ "Remove current photo"}}</label>{{end}}
+                </div>
+            </div>
+            {{range .first}}
+                <div class="{{if .Wide}}sm:col-span-2{{end}}">
+                    <label for="p-{{.Name}}" class="label">{{.Label}}</label>
+                    <input id="p-{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{old .Name .Value}}" class="input {{if errorFor .Name}}input-error{{end}}">
+                    {{fieldError .Name}}
+                </div>
+            {{end}}
+            <div>
+                <label for="p-gender" class="label">{{__ "Gender"}}</label>
+                {{select "gender" .genders (old "gender" (str .profile.gender)) (dict "id" "p-gender" "placeholder" (__ "Choose…"))}}
+                {{fieldError "gender"}}
+            </div>
+            {{range .second}}
+                <div class="{{if .Wide}}sm:col-span-2{{end}}">
+                    <label for="p-{{.Name}}" class="label">{{.Label}}</label>
+                    <input id="p-{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{old .Name .Value}}" class="input">
+                    {{fieldError .Name}}
+                </div>
+            {{end}}
+        </div>
+        <div class="flex justify-end border-t border-graphite-900/8 px-4 py-3 sm:px-5"><button class="btn-primary w-full sm:w-auto">{{__ "Save details"}}</button></div>
+    </form>
+
+    <aside class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Employment"}}</h2></div>
+        <dl class="divide-y divide-graphite-900/6 text-sm">
+            {{range .facts}}
+                <div class="flex justify-between gap-4 px-5 py-2.5"><dt class="text-steel">{{index . 0}}</dt><dd class="text-right font-medium">{{index . 1}}</dd></div>
+            {{end}}
+            <div class="flex items-center justify-between gap-4 px-5 py-2.5"><dt class="text-steel">{{__ "Data you can see"}}</dt><dd>{{template "partials/scope-badge" (dict "scope" .scope)}}</dd></div>
+        </dl>
+        <p class="border-t border-graphite-900/8 px-5 py-3 text-xs text-steel">{{__ "Something wrong here? Ask your administrator to update it."}}</p>
+    </aside>
+</div>

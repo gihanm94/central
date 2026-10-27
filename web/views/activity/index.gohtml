@@ -1,0 +1,22 @@
+{{- /* .logs, .total, .page, .perPage, .users, .mine (own entries only), .base (/activity or /my-activity), .canExport */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{.title}}</h1><p class="mt-1 text-sm text-steel">{{.sub}}</p></div>
+    {{if .canExport}}<a href="{{.exportURL}}" class="btn-secondary w-full sm:w-auto">{{icon "download" "size-4"}} {{__ "Export"}}</a>{{end}}
+</div>
+
+<form method="GET" class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+    <input name="q" type="search" value="{{query "q"}}" placeholder="{{__ "Search description or IP"}}" class="input sm:col-span-2">
+    {{select "action" .actions (query "action") (dict "placeholder" (__ "All actions") "aria" (__ "Action"))}}
+    {{if not .mine}}{{select "user" .users (query "user") (dict "placeholder" (__ "Everyone") "aria" (__ "Person"))}}{{end}}
+    <input type="date" name="from" value="{{query "from"}}" class="input" aria-label="{{__ "From date"}}">
+    <input type="date" name="to" value="{{query "to"}}" class="input {{if .mine}}lg:col-span-2{{end}}" aria-label="{{__ "To date"}}">
+    <div class="flex gap-2 sm:col-span-2 lg:col-span-6"><button class="btn-dark">{{__ "Filter"}}</button>{{if .filtered}}<a href="{{url .base}}" class="btn-ghost">{{__ "Clear"}}</a>{{end}}</div>
+</form>
+
+<section class="panel mt-4">
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .logs}}{{template "partials/activity-row" (dict "log" . "showUser" (not $.mine) "base" $.base)}}{{end}}
+        {{if not .logs}}<li class="px-5 py-14 text-center text-sm text-steel">{{__ "No activity matches these filters."}}</li>{{end}}
+    </ul>
+    {{template "partials/pagination" (dict "total" .total "perPage" .perPage "page" .page)}}
+</section>

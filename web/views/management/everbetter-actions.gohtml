@@ -1,0 +1,9 @@
+{{- /* Accept / Record result buttons of a request row (.x with waiting, decidable, title, kind_label) */ -}}
+<div class="flex flex-wrap justify-end gap-1.5">
+    {{if .x.waiting}}
+        <form method="POST" action="{{url (printf "/management/everbetter/requests/%v/acknowledge" .x.id)}}">{{csrfField}}<button class="btn-secondary h-8 px-3 text-xs">{{icon "check" "size-4"}} {{__ "Accept"}}</button></form>
+    {{end}}
+    {{if .x.decidable}}
+        <button type="button" class="btn-primary h-8 px-3 text-xs" data-open-dialog="eb-decide" data-eb-decide="{{.x.id}}" data-eb-title="{{.x.title}}" data-eb-kind="{{.x.kind_label}}">{{__ "Record result"}}</button>
+    {{end}}
+</div>

@@ -1,0 +1,26 @@
+{{- /* One activity log entry. .log (activity_logs row + user_name, avatar), .showUser (default true), .base ('/my-activity' links to the own entry page) */ -}}
+{{- $tones := dict "created" "bg-emerald-50 text-emerald-800" "updated" "bg-sky-50 text-sky-800" "deleted" "bg-signal-50 text-signal-800" "login_failed" "bg-signal-50 text-signal-800" "password_reset" "bg-amber-50 text-amber-800" "password_changed" "bg-amber-50 text-amber-800" "import" "bg-violet-50 text-violet-800" "export" "bg-violet-50 text-violet-800" "download" "bg-violet-50 text-violet-800" -}}
+{{- /* ActivityController::ACTIONS (core.ActivityActions) */ -}}
+{{- $actions := dict "created" "Created" "updated" "Updated" "deleted" "Deleted" "login" "Signed in" "logout" "Signed out" "login_failed" "Failed sign-in" "password_reset" "Password reset" "password_changed" "Password changed" "import" "Import" "export" "Export" "download" "Download" "passkey_added" "Passkey added" "passkey_removed" "Passkey removed" "password_reset_requested" "Reset link requested" -}}
+{{- $log := .log -}}
+{{- $showUser := true}}{{if has . "showUser"}}{{$showUser = bool .showUser}}{{end -}}
+{{- $link := ""}}{{if .base}}{{$link = url (printf "%s/%v" .base $log.id)}}{{else if can "activity_logs" "view"}}{{$link = url (printf "/activity/%v" $log.id)}}{{end -}}
+{{- $who := or $log.user_name (__ "System") -}}
+{{- $txt := activityText $log}}{{if and $showUser (eq locale "en")}}{{$txt = printf "%s%s" (lower (substr $txt 0 1)) (substr $txt 1)}}{{end -}}
+{{- $act := str $log.action -}}
+<li class="flex items-start gap-3 px-5 py-3">
+    {{if $showUser}}{{template "partials/avatar" (dict "name" $who "avatar" $log.avatar "size" "size-8" "extra" "mt-0.5")}}{{end}}
+    <div class="min-w-0 flex-1">
+        <p class="text-sm">
+            {{if $showUser}}<span class="font-medium">{{$who}}</span>{{end}}
+            {{if $link}}<a href="{{$link}}" class="text-graphite-800 hover:text-signal-700">{{end}}
+            {{$txt}}
+            {{if $link}}</a>{{end}}
+        </p>
+        <p class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-steel">
+            <span class="badge {{or (get $tones $act) "bg-graphite-900/6 text-graphite-800"}}">{{if has $actions $act}}{{__ (get $actions $act)}}{{else}}{{__ (replace $act "_" " ")}}{{end}}</span>
+            <time datetime="{{date "c" $log.created_at}}" title="{{formatDate $log.created_at "d M Y H:i"}}">{{timeAgo $log.created_at}}</time>
+            {{if $log.ip_address}}<span class="hidden sm:inline">{{$log.ip_address}}</span>{{end}}
+        </p>
+    </div>
+</li>

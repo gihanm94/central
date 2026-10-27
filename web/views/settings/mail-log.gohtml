@@ -1,0 +1,27 @@
+{{- $m := .mail -}}
+<div class="min-w-0"><h1 class="page-title">{{__ "Mail log"}}</h1>
+    <p class="mt-1 text-sm text-steel">{{__ "Every e-mail the system sent or tried to send. Mail settings are in config/config.php (mail)."}}</p></div>
+<section class="panel mt-4 overflow-hidden">
+    <div class="panel-head">
+        <div><h2 class="panel-title">{{__ "Mail log"}}</h2>
+            <p class="text-xs text-steel">{{__ "Driver"}}: <strong>{{$m.driver}}</strong>{{if eq $m.driver "smtp"}} · {{$m.host}} · {{__ "from"}} {{$m.from}}{{end}}. {{__ "The last 100 messages and what happened to them."}}</p></div>
+        {{if can "settings" "edit"}}<form method="POST" action="{{url "/settings/test-mail"}}">{{csrfField}}<button class="btn-secondary">{{icon "mail" "size-4"}} {{__ "Send me a test e-mail"}}</button></form>{{end}}
+    </div>
+    {{if not .rows}}
+        <p class="px-5 py-12 text-center text-sm text-steel">{{__ "Nothing sent yet. Create a record or send a test e-mail."}}</p>
+    {{else}}
+    <div class="overflow-x-auto"><table class="table w-full">
+        <thead><tr><th>{{__ "When"}}</th><th>{{__ "To"}}</th><th>{{__ "Subject"}}</th><th>{{__ "Result"}}</th></tr></thead>
+        <tbody>
+        {{range .rows}}{{$bad := eq (str .status) "failed"}}
+            <tr class="{{if $bad}}bg-signal-50/40{{end}}">
+                <td class="whitespace-nowrap tabular-nums text-steel">{{formatDate .created_at "d M H:i:s"}}</td>
+                <td class="whitespace-nowrap">{{.to_email}}</td>
+                <td class="max-w-md truncate" title="{{.subject}}">{{.subject}}</td>
+                <td>{{if $bad}}<span class="badge bg-signal-50 text-signal-800">{{__ "Failed"}}</span><span class="mt-1 block max-w-md break-words text-xs text-signal-800">{{.error}}</span>
+                    {{else}}<span class="badge bg-emerald-50 text-emerald-800">{{if eq (str .driver) "log"}}{{__ "Saved to storage/mail"}}{{else}}{{__ "Sent"}}{{end}}</span>{{end}}</td>
+            </tr>
+        {{end}}
+        </tbody></table></div>
+    {{end}}
+</section>

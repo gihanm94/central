@@ -1,0 +1,13 @@
+{{- /* .me: {u: CurrentUser, who: job title or role} — used by every profile page */ -}}
+{{- set "crumbs" (list (list (__ "Profile") "/profile")) -}}
+{{- $u := .me.u -}}
+<div class="flex flex-wrap items-center gap-4">
+    {{template "partials/avatar" (dict "name" $u.Name "avatar" $u.Avatar "size" "size-14 sm:size-16" "extra" "text-lg")}}
+    <div class="min-w-0">
+        <h1 class="page-title truncate">{{$u.Name}}</h1>
+        <p class="truncate text-sm text-steel">{{.me.who}} · {{if $u.Username}}@{{$u.Username}} · {{end}}{{$u.Email}}</p>
+    </div>
+</div>
+{{template "partials/tabs" (dict "tabs" (list
+    (list "/profile" (__ "Profile") "user") (list "/profile/security" (__ "Security") "lock") (list "/profile/sessions" (__ "Sessions") "clock") (list "/profile/devices" (__ "Mobile devices") "id") (list "/profile/connectors" (__ "Connectors") "link")
+    (list "/profile/preferences" (__ "Preferences") "sliders") (list "/profile/notifications" (__ "Notifications") "bell")))}}

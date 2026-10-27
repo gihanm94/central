@@ -1,0 +1,35 @@
+{{- /* .dbs .db .q .tables .error */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Tables & access"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "Every table of every module. Open a table and choose who may sync it to Google Sheets. Tables with passwords, tokens or sessions are never listed."}}</p></div>
+</div>
+<nav class="mt-4 flex flex-wrap gap-1 border-b border-graphite-900/10">
+    {{range .dbs}}
+        <a href="{{url "/sheets/tables" "db" .Key}}" class="-mb-px border-b-2 px-4 py-2 text-sm font-medium {{if eq .Key $.db}}border-signal-600 text-signal-700{{else}}border-transparent text-steel hover:text-graphite-900{{end}}">{{.Name}}</a>
+    {{end}}
+</nav>
+<section class="panel mt-4 overflow-hidden">
+    <form method="GET" action="{{url "/sheets/tables"}}" class="flex flex-wrap items-center gap-2 border-b border-graphite-900/8 p-3">
+        <input type="hidden" name="db" value="{{.db}}">
+        <input name="q" value="{{.q}}" class="input max-w-xs" placeholder="{{__ "Search tables…"}}"><button class="btn-secondary">{{__ "Search"}}</button>
+        <span class="ml-auto text-sm text-steel">{{len .tables}} {{__ "tables"}}</span>
+    </form>
+    {{if .error}}<p class="px-4 py-3 text-sm text-signal-800">{{.error}}</p>{{end}}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-4 py-2 font-medium">{{__ "Table"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Rows (approx.)"}}</th><th class="px-3 py-2 text-right font-medium">{{__ "Columns"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Google Sheets"}}</th><th class="px-3 py-2 font-medium">{{__ "Who"}}</th><th class="px-3 py-2"></th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .tables}}
+            <tr>
+                <td class="px-4 py-2.5"><span class="font-medium">{{.Label}}</span><span class="block font-mono text-xs text-steel">{{.Name}}</span></td>
+                <td class="px-3 py-2.5 text-right tabular-nums text-steel">{{.Rows}}</td>
+                <td class="px-3 py-2.5 text-right tabular-nums text-steel">{{.Columns}}</td>
+                <td class="px-3 py-2.5">{{if .Open}}<span class="badge bg-emerald-50 text-emerald-800">{{__ "Open"}}</span>{{else}}<span class="badge bg-graphite-900/6 text-graphite-700">{{__ "Closed"}}</span>{{end}}</td>
+                <td class="px-3 py-2.5 text-xs text-steel">{{.Who}}</td>
+                <td class="px-3 py-2.5 text-right"><a href="{{.Edit}}" class="btn-ghost px-3 py-1 text-xs">{{__ "Set access"}}</a></td>
+            </tr>
+        {{end}}
+        {{if and (not .tables) (not .error)}}<tr><td colspan="6" class="px-4 py-8 text-center text-steel">{{__ "No tables."}}</td></tr>{{end}}
+        </tbody>
+    </table></div>
+</section>

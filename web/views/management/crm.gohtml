@@ -1,0 +1,143 @@
+{{- /* CRM overview: see overviewCRM for the prepared values */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "CRM overview"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{formatDate .from "j M Y"}} – {{formatDate .to "j M Y"}} · {{__ "Opportunities of every department, amounts in :cur." "cur" .cur}}</p></div>
+</div>
+
+<div class="mt-4 flex flex-wrap items-center gap-2">
+    <nav class="flex flex-wrap rounded-md bg-graphite-900/6 p-0.5 text-sm" aria-label="{{__ "Period"}}">
+        {{range .tabs}}<a href="{{.URL}}" class="rounded px-3 py-1.5 {{if .On}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}">{{.Label}}</a>{{end}}
+    </nav>
+    {{if eq .period "year"}}
+        <form method="GET" action="{{url "/management/crm"}}" class="w-28"><input type="hidden" name="period" value="year">{{select "year" .years .year "id" "mg-year" "submit" true "search" false "aria" (__ "Year")}}</form>
+    {{end}}
+    <form method="GET" action="{{url "/management/crm"}}" class="ml-auto flex flex-wrap items-center gap-2">
+        <input type="hidden" name="period" value="custom">
+        <input type="date" name="from" value="{{.from}}" class="input !w-40" aria-label="{{__ "From"}}"><span class="text-steel">→</span>
+        <input type="date" name="to" value="{{.to}}" class="input !w-40" aria-label="{{__ "To"}}">
+        <button class="btn-secondary">{{__ "Show"}}</button>
+    </form>
+</div>
+
+{{if not .data}}
+    <section class="panel mt-4 px-5 py-10 text-center text-sm text-steel">{{__ "CRM figures are not available right now (the CRM module is off or unavailable). The rest of Management still works."}}</section>
+{{else}}{{$k := .cards}}
+<div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Open pipeline"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums" title="{{$k.openFull}}">{{$k.openV}}</p>
+        <p class="mt-1 text-xs text-steel">{{$k.openLine}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Won in period"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums text-emerald-700" title="{{$k.wonFull}}">{{$k.wonV}}</p>
+        <p class="mt-1 text-xs text-steel">{{$k.wonLine}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "Win rate"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums">{{$k.winRate}}</p>
+        <p class="mt-1 text-xs text-steel">{{$k.lostLine}}</p></div>
+    <div class="panel p-4"><p class="text-xs font-medium uppercase tracking-wide text-steel">{{__ "New opportunities"}}</p>
+        <p class="mt-1 font-display text-4xl font-semibold tabular-nums">{{$k.newN}}</p>
+        <p class="mt-1 text-xs {{if $k.stale}}text-signal-700{{else}}text-steel{{end}}">{{$k.newLine}}</p></div>
+</div>
+
+{{with .target}}
+<section class="panel mt-4 p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="panel-title">{{__ "Sales target :y" "y" .year}}</h2>
+        <p class="text-sm tabular-nums"><strong>{{.actual}}</strong> <span class="text-steel">/ {{.total}} · {{.pct}}%</span></p>
+    </div>
+    <div class="mt-3 h-3 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full {{if .done}}bg-emerald-600{{else}}bg-signal-600{{end}}" style="width: {{.w}}%"></div></div>
+    <p class="mt-1.5 text-xs text-steel">{{__ "All departments' targets added up (CRM → Sales targets)."}}</p>
+</section>
+{{end}}
+
+<div class="mt-4 grid gap-4 xl:grid-cols-5">
+    <section class="panel p-5 xl:col-span-3">
+        <div class="flex items-baseline justify-between gap-2"><h2 class="panel-title">{{__ "Won by month"}}</h2><span class="text-xs text-steel">{{__ "last 12 months · new opportunities below"}}</span></div>
+        <div class="mt-4 flex h-48 items-end gap-1.5">
+            {{range .months}}
+                <div class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title="{{.title}}">
+                    <span class="hidden truncate text-[10px] tabular-nums text-steel sm:block">{{.short}}</span>
+                    <div class="w-full max-w-10 rounded-t {{if .won}}bg-emerald-600{{else}}bg-graphite-900/8{{end}}" style="height: {{.h}}%"></div>
+                    <span class="text-[11px] text-steel">{{.label}}</span>
+                    <span class="text-[10px] tabular-nums text-graphite-500">{{.newN}}</span>
+                </div>
+            {{end}}
+        </div>
+    </section>
+    <section class="panel p-5 xl:col-span-2">
+        <h2 class="panel-title">{{__ "Pipeline by stage"}}</h2>
+        <ul class="mt-4 space-y-3">
+            {{range .stages}}
+                <li>
+                    <div class="flex items-baseline justify-between gap-2 text-sm"><span>{{.label}} <span class="text-xs text-steel">· {{.n}}</span></span>
+                        <span class="tabular-nums" title="{{.full}}">{{.short}}</span></div>
+                    <div class="mt-1 h-2 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full {{.tone}}" style="width: {{.w}}%"></div></div>
+                </li>
+            {{end}}
+        </ul>
+        <a href="{{url "/crm/control" "view" "stage"}}" class="mt-4 inline-block text-xs text-steel hover:text-graphite-900">{{__ "Find stuck opportunities in CRM → Sales control"}} →</a>
+    </section>
+</div>
+
+<div class="mt-4 grid gap-4 xl:grid-cols-2">
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Top sales people"}}</h2><span class="text-xs text-steel">{{__ "by won amount"}}</span></div>
+        {{if not .sellers}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No opportunities in this period."}}</p>{{end}}
+        <ol class="divide-y divide-graphite-900/6">
+            {{range .sellers}}
+                <li class="flex items-center gap-3 px-5 py-2.5">
+                    <span class="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold {{.medal}}">{{.i}}</span>
+                    {{template "partials/avatar" (dict "name" .who "avatar" .avatar "size" "size-9")}}
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-medium {{if not .known}}text-steel{{end}}">{{.who}}</p>
+                        <p class="truncate text-xs text-steel">{{.line}}</p>
+                    </div>
+                    <p class="font-display text-lg font-semibold tabular-nums {{if .won}}text-emerald-700{{else}}text-steel{{end}}" title="{{.full}}">{{.short}}</p>
+                </li>
+            {{end}}
+        </ol>
+    </section>
+
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Department ranking"}}</h2><span class="text-xs text-steel">{{__ "by won amount"}}</span></div>
+        {{if not .departments}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No opportunities in this period."}}</p>{{end}}
+        <ol class="divide-y divide-graphite-900/6">
+            {{range .departments}}
+                <li class="flex items-center gap-3 px-5 py-2.5">
+                    <span class="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold {{.medal}}">{{.i}}</span>
+                    <span class="size-3 shrink-0 rounded-full" style="background: {{css .color}}"></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-medium">{{.name}}</p>
+                        <p class="truncate text-xs text-steel">{{.line}}</p>
+                        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="background: {{css .color}}; width: {{.w}}%"></div></div>
+                    </div>
+                    <p class="font-display text-lg font-semibold tabular-nums {{if .won}}text-emerald-700{{else}}text-steel{{end}}" title="{{.full}}">{{.short}}</p>
+                </li>
+            {{end}}
+        </ol>
+    </section>
+</div>
+
+<section class="panel mt-4 overflow-hidden">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Biggest open opportunities"}}</h2><span class="text-xs text-steel">{{__ "top 8 by amount"}}</span></div>
+    {{if not .top}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No open opportunities."}}</p>{{else}}
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr>
+            <th class="px-5 py-2 font-medium">{{__ "Opportunity"}}</th><th class="px-3 py-2 font-medium">{{__ "Stage"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "Owner"}}</th><th class="px-3 py-2 font-medium">{{__ "Department"}}</th>
+            <th class="px-3 py-2 font-medium">{{__ "In stage since"}}</th><th class="px-5 py-2 text-right font-medium">{{__ "Amount"}}</th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .top}}
+            <tr>
+                <td class="px-5 py-2.5"><a href="{{url (printf "/crm/opportunities/%v" .id)}}" class="font-medium hover:text-signal-700">{{.name}}</a>
+                    <span class="block text-xs text-steel">{{.sub}}</span></td>
+                <td class="whitespace-nowrap px-3 py-2.5"><span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full {{.tone}}"></span>{{.stage}}</span></td>
+                <td class="px-3 py-2.5">{{.owner}}</td>
+                <td class="px-3 py-2.5 text-steel">{{.dep}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5">{{.since}} <span class="ml-1 rounded px-1.5 py-0.5 text-xs tabular-nums {{.age}}">{{__ ":n days" "n" .days}}</span></td>
+                <td class="whitespace-nowrap px-5 py-2.5 text-right font-medium tabular-nums" title="{{.full}}">{{.short}}</td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table></div>
+    {{end}}
+</section>
+{{end}}

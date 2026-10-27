@@ -1,0 +1,129 @@
+{{- /* Control room. Values prepared in dashboardAdmin (core/dashboard.go). */ -}}
+<div class="flex flex-wrap items-end justify-between gap-3">
+    <div class="min-w-0">
+        <h1 class="page-title">{{__ "Control room"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{.sub}}</p>
+    </div>
+</div>
+
+<!-- filters -->
+<form method="GET" id="ctl-filter" class="panel mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 p-3">
+    <input type="hidden" name="range" value="{{.range}}" data-range>
+    <nav class="flex flex-wrap gap-1 rounded-lg bg-mist p-1" aria-label="{{__ "Period"}}">
+        {{range .presets}}<a href="{{.url}}" class="rounded-md px-3 py-1.5 text-sm {{if eq .key $.range}}bg-white font-medium shadow-sm{{else}}text-steel hover:text-graphite-900{{end}}">{{.label}}</a>{{end}}
+    </nav>
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+        <label class="sr-only" for="ctl-from">{{__ "From"}}</label><input id="ctl-from" type="date" name="from" value="{{.from.Format "2006-01-02"}}" class="input !w-40" data-custom>
+        <span class="text-steel">→</span>
+        <label class="sr-only" for="ctl-to">{{__ "To"}}</label><input id="ctl-to" type="date" name="to" value="{{.to.Format "2006-01-02"}}" class="input !w-40" data-custom>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+        <span class="hidden text-sm text-steel sm:inline">{{__ "Department"}}</span>
+        <div class="min-w-[12rem]">{{select "department" .deptOpts .dept (dict "aria" (__ "Department") "submit" true "class" "input")}}</div>
+    </div>
+</form>
+
+<!-- key figures -->
+<section class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{__ "Key figures"}}">
+    {{range .tiles}}
+    {{if .Href}}<a href="{{.Href}}" class="panel block p-4 transition-shadow hover:shadow-md">{{else}}<div class="panel block p-4 transition-shadow ">{{end}}
+        <div class="flex items-start justify-between gap-2"><p class="text-sm text-steel">{{.Label}}</p><span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{.Tone}}" title="{{$.compared}}">{{.Txt}}</span></div>
+        <p class="figure mt-2 text-4xl sm:text-5xl">{{nf .Value}}</p>
+        <p class="mt-1.5 truncate text-xs text-steel">{{.Sub}}</p>
+    {{if .Href}}</a>{{else}}</div>{{end}}
+    {{end}}
+</section>
+
+<!-- sign-ins by department over time + department ranking -->
+<div class="mt-4 grid items-stretch gap-4 xl:grid-cols-3">
+    <section class="panel xl:col-span-2">
+        <div class="panel-head"><div><h2 class="panel-title">{{__ "Sign-ins by department"}}</h2><p class="text-xs text-steel">{{.unitLabel}}</p></div><span class="text-sm tabular-nums text-steel">{{.loginsTotal}}</span></div>
+        {{if not .series}}<p class="px-5 py-16 text-center text-sm text-steel">{{__ "No sign-ins in this period."}}</p>{{else}}
+        <div class="px-3 pt-4 sm:px-5"><div class="relative h-64 sm:h-72"><canvas id="ctl-stack" role="img" aria-label="{{__ "Sign-ins by department"}}"></canvas></div></div>
+        <ul class="flex flex-wrap gap-2 px-5 py-4" id="ctl-legend">
+            {{range $i, $s := .series}}<li><button type="button" data-ds="{{$i}}" class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ring-graphite-900/12 hover:bg-mist aria-pressed:opacity-100" aria-pressed="true"><span class="size-2.5 rounded-full" style="background:{{css $s.Color}}"></span>{{$s.Name}} <span class="tabular-nums text-steel">{{$s.Total}}</span></button></li>{{end}}
+        </ul>
+        {{end}}
+    </section>
+
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Most active department"}}</h2></div>
+        {{if .best}}
+        <div class="m-4 rounded-xl p-4 text-white" style="background: {{css .best.color}}">
+            <p class="text-xs uppercase tracking-wide text-white/80">{{__ "Top of the period"}}</p>
+            <p class="mt-1 font-display text-3xl font-semibold leading-tight">{{.best.name}}</p>
+            <p class="mt-2 text-sm text-white/90">{{.best.line}}</p>
+        </div>
+        <ol class="space-y-3 px-5 pb-5">
+            {{range .rank}}
+            <li>
+                <div class="flex items-center justify-between gap-3 text-sm"><span class="flex min-w-0 items-center gap-2"><span class="w-4 text-xs tabular-nums text-steel">{{.pos}}</span><span class="inline-block size-2.5 shrink-0 rounded-full" style="background:{{css .color}}"></span><span class="truncate font-medium">{{.name}}</span></span><span class="shrink-0 tabular-nums text-steel">{{nf .total}}</span></div>
+                <div class="mt-1.5 h-2 rounded-full bg-graphite-900/6"><div class="h-2 rounded-full" style="width: {{css .width}}%; background: {{css .color}}"></div></div>
+                <p class="mt-1 pl-6 text-[11px] text-steel">{{.line}}</p>
+            </li>
+            {{end}}
+        </ol>
+        {{else}}<p class="px-5 py-12 text-center text-sm text-steel">{{__ "No activity in this period."}}</p>{{end}}
+    </section>
+</div>
+
+<!-- people + hours -->
+<div class="mt-4 grid items-stretch gap-4 xl:grid-cols-3">
+    <section class="panel xl:col-span-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Most active people"}}</h2><span class="text-xs text-steel">{{__ "by sign-ins and changes"}}</span></div>
+        <ol class="divide-y divide-graphite-900/6">
+            {{range .people}}{{$p := .row}}
+            <li class="flex items-center gap-3 px-5 py-3">
+                <span class="w-5 text-center font-display text-lg font-semibold tabular-nums {{if lt .pos 4}}text-signal-600{{else}}text-steel{{end}}">{{.pos}}</span>
+                {{template "partials/avatar" (dict "name" $p.name "avatar" $p.avatar "size" "size-9")}}
+                <div class="min-w-0 flex-1">
+                    <a href="{{url (printf "/members/%v" $p.id)}}" class="block truncate text-sm font-medium hover:text-signal-700">{{$p.name}}</a>
+                    <span class="mt-0.5 inline-flex items-center gap-1.5 text-xs text-steel"><span class="inline-block size-2.5 shrink-0 rounded-full" style="background:{{css .color}}"></span>{{.dept}} · {{timeAgo $p.last_at}}</span>
+                    <div class="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div style="width: {{css .lw}}%; background: {{css .color}}"></div><div style="width: {{css .cw}}%; background: {{css .color}}; opacity:.45"></div></div>
+                </div>
+                <div class="text-right"><p class="figure text-2xl">{{$p.total}}</p><p class="text-[11px] text-steel">{{$p.logins}} {{__ "in"}} · {{$p.changes}} {{__ "changes"}}</p></div>
+            </li>
+            {{end}}
+            {{if not .people}}<li class="px-5 py-10 text-center text-sm text-steel">{{__ "No activity in this period."}}</li>{{end}}
+        </ol>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Busiest hours"}}</h2><span class="text-xs text-steel">{{__ "sign-ins"}}</span></div>
+        <div class="px-3 pb-4 pt-4 sm:px-5"><div class="relative h-56"><canvas id="ctl-hours" role="img" aria-label="{{__ "Busiest hours"}}"></canvas></div></div>
+    </section>
+</div>
+
+<!-- each department's most frequent sign-ins -->
+<section class="mt-6" aria-label="{{__ "Most sign-ins in each department"}}">
+    <div class="mb-3 flex items-end justify-between"><h2 class="text-base font-semibold">{{__ "Most sign-ins in each department"}}</h2></div>
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {{range .cards}}
+        <article class="panel overflow-hidden">
+            <div class="flex items-center justify-between gap-3 px-4 py-3" style="border-top: 3px solid {{css .color}}">
+                <h3 class="flex min-w-0 items-center gap-2 text-sm font-semibold"><span class="inline-block size-2.5 shrink-0 rounded-full" style="background:{{css .color}}"></span><span class="truncate">{{.name}}</span></h3><span class="text-xs tabular-nums text-steel">{{.logins}}</span>
+            </div>
+            <ol class="divide-y divide-graphite-900/6 border-t border-graphite-900/6">
+                {{range .list}}
+                <li class="flex items-center gap-3 px-4 py-2.5"><span class="w-4 text-center text-xs font-semibold tabular-nums text-steel">{{.rk}}</span>{{template "partials/avatar" (dict "name" .name "avatar" .avatar "size" "size-8")}}
+                    <span class="min-w-0 flex-1"><a href="{{url (printf "/members/%v" .id)}}" class="block truncate text-sm font-medium hover:text-signal-700">{{.name}}</a><span class="block text-xs text-steel">{{timeAgo .last_at}}</span></span>
+                    <span class="figure text-xl">{{.logins}}</span></li>
+                {{end}}
+            </ol>
+        </article>
+        {{end}}
+        {{if not .anyTop}}<p class="rounded-lg bg-white px-5 py-10 text-center text-sm text-steel shadow-sm ring-1 ring-graphite-900/8 sm:col-span-2 xl:col-span-3">{{__ "No sign-ins in this period."}}</p>{{end}}
+    </div>
+</section>
+
+<section class="panel mt-6">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Latest activity"}}</h2><a href="{{url "/activity"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "Open the activity log"}} ›</a></div>
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .recent}}{{template "partials/activity-row" (dict "log" .)}}{{end}}
+        {{if not .recent}}<li class="px-5 py-10 text-center text-sm text-steel">{{__ "Nothing logged in this period."}}</li>{{end}}
+    </ul>
+</section>
+
+<script type="application/json" id="ctl-data">{{json .chart}}</script>
+<script src="{{asset "assets/vendor/chartjs/chart.umd.min.js"}}"></script>
+<script src="{{asset "assets/control.js"}}" defer></script>

@@ -1,0 +1,6 @@
+{{- /* Project approval badge. .p */ -}}
+{{- $st := str .p.status -}}
+{{- $tone := get (dict "draft" "bg-amber-50 text-amber-800" "approved" "bg-emerald-50 text-emerald-800" "rejected" "bg-signal-50 text-signal-800" "closed" "bg-graphite-900/8 text-graphite-700") $st -}}
+{{- $label := get (dict "draft" "Not approved yet" "approved" "Approved" "rejected" "Not approved" "closed" "Closed") $st -}}
+<span class="badge shrink-0 {{str $tone}}">{{__ (str (or $label $st))}}</span>
+{{if not (empty .p.award_rank)}}{{$r := int .p.award_rank}}<span class="badge shrink-0 bg-amber-50 text-amber-900 ring-1 ring-amber-400/50">{{if eq $r 1}}🥇{{else if eq $r 2}}🥈{{else if eq $r 3}}🥉{{end}} {{if eq $r 1}}{{__ "1st"}}{{else if eq $r 2}}{{__ "2nd"}}{{else if eq $r 3}}{{__ "3rd"}}{{end}} {{int .p.award_year}}</span>{{end}}

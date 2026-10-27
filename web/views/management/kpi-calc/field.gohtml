@@ -1,0 +1,3 @@
+{{- /* one typed figure: .f {name label hint step value}, .ro */ -}}
+<div><label class="label" for="kc-{{.f.name}}">{{.f.label}}</label><input id="kc-{{.f.name}}" name="{{.f.name}}" type="number" min="0" step="{{.f.step}}" inputmode="decimal" value="{{.f.value}}" class="input" {{if .ro}}disabled{{end}}>
+{{if .f.hint}}<p class="hint">{{.f.hint}}</p>{{end}}</div>

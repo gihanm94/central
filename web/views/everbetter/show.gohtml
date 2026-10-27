@@ -1,0 +1,122 @@
+{{- /* .p, .members, .presentations (with state, tone, kind_label), .open (waiting request or nil), .sessions []Opt (upcoming days), .firstSession, .canEdit, .allowed [{Key Label Help}], .presented, .extFirst, .minEnd */ -}}
+{{- set "crumbs" (list (list (__ "Everbetter") "/everbetter")) -}}
+{{- $p := .p -}}{{- $open := .open -}}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title break-words">{{$p.title}}</h1>
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            {{template "everbetter/status" (dict "p" $p)}}
+            <span class="badge {{if .presented}}bg-emerald-50 text-emerald-800{{else}}bg-graphite-900/6 text-steel{{end}}">{{if .presented}}✓ {{__ "Presented"}}{{else}}{{__ "Not presented yet"}}{{end}}</span>
+            <span class="text-steel">{{formatDate $p.start_date}} – {{formatDate $p.end_date}}</span>
+        </div>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        {{if .canEdit}}<a href="{{url (printf "/everbetter/%v/edit" $p.id)}}" class="btn-secondary flex-1 sm:flex-none">{{icon "pencil" "size-4"}} {{__ "Edit"}}</a>{{end}}
+        {{if and .canEdit .allowed (not $open)}}
+            <button type="button" class="btn-primary flex-1 sm:flex-none" data-open-dialog="eb-present">{{icon "chat" "size-4"}} {{__ "Present"}}</button>
+        {{end}}
+    </div>
+</div>
+
+{{if $open}}{{$ack := eq (str $open.status) "acknowledged"}}
+<div class="mt-5 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-sm ring-1 {{if $ack}}bg-sky-50 text-sky-900 ring-sky-600/20{{else}}bg-amber-50 text-amber-900 ring-amber-600/20{{end}}">
+    {{if $ack}}{{icon "check" "size-5 shrink-0"}}{{else}}{{icon "clock" "size-5 shrink-0"}}{{end}}
+    <p class="min-w-0 flex-1"><strong>{{$open.kind_label}}</strong> · {{formatDate $open.present_on "l d M Y"}} — {{$open.state}}
+        {{if $ack}}{{__ "(by :name)" "name" $open.acknowledged_name}}{{end}}</p>
+    {{if and .canEdit (eq (str $open.status) "submitted")}}
+        <form method="POST" action="{{url (printf "/everbetter/%v/requests/%v/withdraw" $p.id $open.id)}}" data-confirm="{{__ "Withdraw this request?"}}">{{csrfField}}<button class="btn-ghost h-8 px-2 text-xs">{{__ "Withdraw"}}</button></form>
+    {{end}}
+</div>
+{{else if and .canEdit (not .allowed) (eq (str $p.status) "closed")}}
+<p class="mt-5 rounded-xl bg-mist px-4 py-3 text-sm text-steel">{{__ "This project is closed."}}</p>
+{{end}}
+
+<div class="mt-6 grid items-start gap-6 lg:grid-cols-3">
+    <div class="space-y-6 lg:col-span-2">
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "About the project"}}</h2></div>
+            <div class="whitespace-pre-line px-5 py-4 text-sm">{{if $p.description}}{{$p.description}}{{else}}<span class="text-steel">{{__ "No description yet."}}</span>{{end}}</div>
+        </section>
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Presentations"}}</h2></div>
+            {{if not .presentations}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "Not presented yet. Use \"Present\" to ask for the next presentation day."}}</p>{{end}}
+            <ol class="divide-y divide-graphite-900/6">
+                {{range $x := .presentations}}
+                <li class="px-5 py-3.5">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="font-medium">{{$x.kind_label}} <span class="font-normal text-steel">· {{__ "Q:q :y presentation, :date" "q" $x.quarter "y" $x.year "date" (formatDate $x.present_on "d M Y")}}</span></p>
+                        <span class="badge {{$x.tone}}">{{$x.state}}</span>
+                    </div>
+                    <p class="mt-1 text-xs text-steel">{{__ "Asked by :name on :date" "name" $x.requested_name "date" (formatDate $x.requested_at "d M Y H:i")}}
+                        {{if and (eq (str $x.kind) "extension") $x.new_end_date}} · {{__ "new end date :d" "d" (formatDate $x.new_end_date)}}{{end}}
+                        {{if $x.acknowledged_at}} · {{__ "accepted by :name :date" "name" $x.acknowledged_name "date" (formatDate $x.acknowledged_at "d M")}}{{end}}
+                        {{if $x.decided_at}} · {{__ "decided by :name :date" "name" $x.decided_name "date" (formatDate $x.decided_at "d M")}}{{end}}</p>
+                    {{if $x.note}}<p class="mt-1.5 whitespace-pre-line text-sm">{{$x.note}}</p>{{end}}
+                    {{if $x.result_note}}<p class="mt-1.5 rounded-md bg-mist px-3 py-2 text-sm"><span class="text-xs font-semibold text-steel">{{__ "Management"}}:</span> {{$x.result_note}}</p>{{end}}
+                </li>
+                {{end}}
+            </ol>
+        </section>
+    </div>
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Team"}} <span class="ml-1 text-sm font-normal text-steel">{{len .members}}</span></h2></div>
+        <ul class="divide-y divide-graphite-900/6">
+            {{range $m := .members}}
+            <li class="flex items-center gap-3 px-5 py-2.5">{{template "partials/avatar" (dict "name" $m.name "avatar" $m.avatar "size" "size-8")}}
+                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{$m.name}}</span>{{if eq (int $m.id) (int $p.owner_id)}}<span class="text-xs text-steel">{{__ "owner"}}</span>{{end}}</li>
+            {{end}}
+        </ul>
+        <dl class="divide-y divide-graphite-900/6 border-t border-graphite-900/8 text-sm">
+            <div class="flex justify-between gap-3 px-5 py-2.5"><dt class="text-steel">{{__ "Department"}}</dt><dd class="font-medium">{{or $p.department_name "—"}}</dd></div>
+            <div class="flex justify-between gap-3 px-5 py-2.5"><dt class="text-steel">{{__ "Created"}}</dt><dd>{{formatDate $p.created_at "d M Y"}}</dd></div>
+        </dl>
+    </section>
+</div>
+
+{{if and .canEdit .allowed (not $open)}}
+<dialog id="eb-present" data-light-dismiss class="m-auto w-[min(36rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-labelledby="eb-present-title">
+    <form method="POST" action="{{url (printf "/everbetter/%v/present" $p.id)}}" data-eb-present>
+        {{csrfField}}
+        <div class="flex items-center justify-between gap-3 border-b border-graphite-900/8 px-5 py-3.5">
+            <h2 id="eb-present-title" class="text-base font-semibold">{{__ "Present to Management"}}</h2>
+            <button type="button" class="btn-ghost -mr-2 px-2" data-close-dialog aria-label="{{__ "Close"}}">{{icon "x" "size-5"}}</button>
+        </div>
+        <div class="space-y-5 px-5 py-4">
+            {{if not .sessions}}
+                <p class="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-900">{{__ "Management has not set an upcoming presentation day yet. Try again later."}}</p>
+            {{else}}
+            <fieldset><legend class="label">{{__ "What are you presenting?"}}</legend>
+                <div class="grid gap-2">
+                    {{range $i, $k := .allowed}}
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-graphite-900/15 p-3 has-[:checked]:border-signal-600 has-[:checked]:bg-signal-50/40">
+                        <input type="radio" name="kind" value="{{$k.Key}}" {{if eq $i 0}}checked{{end}} class="mt-1 size-4 accent-signal-600" data-eb-kind>
+                        <span><span class="block font-medium">{{$k.Label}}</span><span class="block text-xs text-steel">{{$k.Help}}</span></span>
+                    </label>
+                    {{end}}
+                </div></fieldset>
+            <div><label class="label" for="eb-session">{{__ "Presentation day"}}</label>
+                {{select "session_id" .sessions .firstSession "id" "eb-session" "search" false}}</div>
+            <div data-eb-newend {{if not .extFirst}}hidden{{end}}><label class="label" for="eb-newend">{{__ "New end date"}}</label>
+                <input id="eb-newend" type="date" name="new_end_date" class="input" min="{{.minEnd}}">
+                <p class="mt-1 text-xs text-steel">{{__ "Now ends :d." "d" (formatDate $p.end_date)}}</p></div>
+            <div><label class="label" for="eb-note">{{__ "Note for Management"}} <span class="font-normal text-steel">({{__ "optional"}})</span></label>
+                <textarea id="eb-note" name="note" rows="3" class="input" placeholder="{{__ "What will you show? Anything they should know?"}}"></textarea></div>
+            {{end}}
+        </div>
+        <div class="flex justify-end gap-2 rounded-b-xl bg-mist/60 px-5 py-3">
+            <button type="button" class="btn-secondary" data-close-dialog>{{__ "Cancel"}}</button>
+            {{if .sessions}}<button class="btn-primary">{{icon "chat" "size-4"}} {{__ "Send request"}}</button>{{end}}
+        </div>
+    </form>
+</dialog>
+<script>
+(function () {
+    var f = document.querySelector('[data-eb-present]'); if (!f) return;
+    f.addEventListener('change', function (e) {
+        if (!e.target.matches('[data-eb-kind]')) return;
+        var box = f.querySelector('[data-eb-newend]'), on = e.target.value === 'extension';
+        box.hidden = !on; box.querySelector('input').required = on;
+    });
+})();
+</script>
+{{end}}

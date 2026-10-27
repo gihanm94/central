@@ -1,0 +1,20 @@
+{{- /* The questions of a checklist as big tap targets. .items []questionView (with the answers posted before) */ -}}
+<ol class="space-y-3">
+        {{range .items}}{{$i := .}}
+        <li class="panel p-4" data-q>
+            <p class="text-sm font-medium"><span class="mr-1 text-steel">{{.N}}.</span>{{.Detail}}</p>
+            {{if .Desc}}<p class="mt-0.5 text-xs text-steel">{{.Desc}}</p>{{end}}
+            {{if .Choice}}
+            <div class="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="{{.Detail}}">
+                {{range (list (list "OK" "OK" "peer-checked:bg-emerald-600 peer-checked:ring-emerald-600") (list "NG" "NG" "peer-checked:bg-red-600 peer-checked:ring-red-600") (list "NA" "N/A" "peer-checked:bg-graphite-600 peer-checked:ring-graphite-600"))}}
+                <label class="cursor-pointer"><input type="radio" name="answers[{{$i.ID}}][answer]" value="{{index . 0}}" class="peer sr-only" data-ans {{if eqs $i.Ans (index . 0)}}checked{{end}}>
+                    <span class="flex h-12 items-center justify-center rounded-xl bg-white text-base font-semibold ring-1 ring-graphite-900/15 transition-colors peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-signal-600 {{index . 2}}">{{index . 1}}</span></label>
+                {{end}}
+            </div>
+            <div data-remark class="mt-2" {{if ne .Ans "NG"}}hidden{{end}}><input name="answers[{{.ID}}][remark]" value="{{.Remark}}" maxlength="500" placeholder="{{__ "What is wrong?"}}" class="input !h-11" aria-label="{{__ "What is wrong?"}}"></div>
+            {{else}}
+            <input name="answers[{{.ID}}][answer]" value="{{.Ans}}" maxlength="200" inputmode="decimal" data-ans-text placeholder="{{__ "Type the reading"}}" class="input mt-3 !h-11" aria-label="{{.Detail}}">
+            {{end}}
+        </li>
+        {{end}}
+    </ol>

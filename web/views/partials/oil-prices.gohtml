@@ -1,0 +1,16 @@
+{{- /* Fuel price tiles (PTT style). .oil = oil.Current(). The fuels changed in the newest update get a red "Latest" tag. */ -}}
+{{- $newest := 0}}{{range .oil}}{{$ts := int (date "U" .effective_at)}}{{if gt $ts $newest}}{{$newest = $ts}}{{end}}{{end -}}
+<ul class="grid gap-x-6 gap-y-2.5 p-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    {{range .oil}}{{$name := str .name_en}}{{if and (eq locale "th") .name_th}}{{$name = str .name_th}}{{end}}{{$isNew := eq (int (date "U" .effective_at)) $newest}}{{$chg := float .change}}
+    <li class="flex items-stretch overflow-hidden rounded-lg ring-1 ring-graphite-900/8">
+        <span class="flex w-36 shrink-0 items-center px-3 py-2 text-sm font-bold leading-tight text-white" style="background: {{css .color}}">{{$name}}</span>
+        <span class="flex min-w-0 flex-1 items-center justify-between gap-2 bg-white px-3 py-1.5">
+            <span class="min-w-0">
+                <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{if $isNew}}bg-signal-50 text-signal-700{{else}}bg-graphite-900/6 text-steel{{end}}">{{__ "Latest"}} · {{formatDate .effective_at "d M"}}</span>
+                {{if ne $chg 0.0}}<span class="mt-0.5 block text-xs tabular-nums {{if gt $chg 0.0}}text-signal-700{{else}}text-emerald-700{{end}}">{{if gt $chg 0.0}}▲ +{{else}}▼ {{end}}{{nf $chg 2}}</span>{{end}}
+            </span>
+            <span class="font-display text-2xl font-semibold italic tabular-nums text-[#1e3a8a]">{{nf .price 2}}</span>
+        </span>
+    </li>
+    {{end}}
+</ul>

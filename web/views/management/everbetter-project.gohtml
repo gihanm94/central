@@ -1,0 +1,73 @@
+{{- /* Management → Everbetter → one project. .p, .members, .presentations (with state, tone, kind_label ...), .presented, .done */ -}}
+{{- set "crumbs" (list (list (__ "Everbetter") "/management/everbetter")) -}}
+{{- $p := .p -}}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="page-title break-words">{{$p.title}}</h1>
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            {{template "everbetter/status" (dict "p" $p)}}
+            <span class="badge {{if .presented}}bg-emerald-50 text-emerald-800{{else}}bg-graphite-900/6 text-steel{{end}}">{{if .presented}}✓ {{__ "Presented"}}{{else}}{{__ "Not presented yet"}}{{end}}</span>
+            <span class="text-steel">{{$p.owner_name}} · {{or $p.department_name "—"}}</span>
+        </div>
+    </div>
+    <a href="{{url "/management/everbetter"}}" class="btn-secondary">{{icon "arrowleft" "size-4"}} {{__ "All projects"}}</a>
+</div>
+
+<div class="mt-6 grid items-start gap-6 lg:grid-cols-3">
+    <div class="space-y-6 lg:col-span-2">
+        <section class="panel">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Details"}}</h2></div>
+            <dl class="grid text-sm sm:grid-cols-3">
+                <div class="border-b border-graphite-900/6 px-5 py-3"><dt class="text-xs text-steel">{{__ "Start date"}}</dt><dd class="mt-0.5 font-medium">{{formatDate $p.start_date "d M Y"}}</dd></div>
+                <div class="border-b border-graphite-900/6 px-5 py-3"><dt class="text-xs text-steel">{{__ "End date"}}</dt><dd class="mt-0.5 font-medium">{{formatDate $p.end_date "d M Y"}}</dd></div>
+                <div class="border-b border-graphite-900/6 px-5 py-3"><dt class="text-xs text-steel">{{__ "Time used"}}</dt>
+                    <dd class="mt-1.5"><div class="h-1.5 overflow-hidden rounded-full bg-graphite-900/6"><div class="h-full rounded-full bg-signal-600" style="width: {{.done}}%"></div></div><span class="text-xs text-steel">{{.done}}%</span></dd></div>
+                <div class="border-b border-graphite-900/6 px-5 py-3"><dt class="text-xs text-steel">{{__ "Created"}}</dt><dd class="mt-0.5">{{formatDate $p.created_at "d M Y"}}</dd></div>
+                <div class="border-b border-graphite-900/6 px-5 py-3"><dt class="text-xs text-steel">{{__ "Approved"}}</dt><dd class="mt-0.5">{{if $p.approved_at}}{{formatDate $p.approved_at "d M Y"}}{{else}}—{{end}}</dd></div>
+                <div class="border-b border-graphite-900/6 px-5 py-3"><dt class="text-xs text-steel">{{__ "Closed"}}</dt><dd class="mt-0.5">{{if $p.closed_at}}{{formatDate $p.closed_at "d M Y"}}{{else}}—{{end}}</dd></div>
+            </dl>
+            <div class="whitespace-pre-line px-5 py-4 text-sm">{{if $p.description}}{{$p.description}}{{else}}<span class="text-steel">{{__ "No description yet."}}</span>{{end}}</div>
+        </section>
+
+        <section class="panel overflow-hidden">
+            <div class="panel-head"><h2 class="panel-title">{{__ "Presentations"}} <span class="ml-1 text-sm font-normal text-steel">{{len .presentations}}</span></h2></div>
+            {{if not .presentations}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "The team has not asked to present yet."}}</p>{{end}}
+            <ol class="divide-y divide-graphite-900/6">
+                {{range $x := .presentations}}{{$waiting := $x.decidable}}
+                <li class="px-5 py-4 {{if $waiting}}bg-amber-50/40{{end}}">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge {{$x.kind_tone}}">{{$x.kind_label}}</span>
+                        <span class="text-sm">{{__ "Q:q :y presentation, :date" "q" $x.quarter "y" $x.year "date" (formatDate $x.present_on "d M Y")}}</span>
+                        <span class="badge {{$x.tone}}">{{$x.state}}</span>
+                        {{if $waiting}}
+                        <span class="ml-auto flex gap-1.5">
+                            {{if $x.waiting}}<form method="POST" action="{{url (printf "/management/everbetter/requests/%v/acknowledge" $x.id)}}">{{csrfField}}<button class="btn-secondary h-8 px-3 text-xs">{{icon "check" "size-4"}} {{__ "Accept"}}</button></form>{{end}}
+                            <button type="button" class="btn-primary h-8 px-3 text-xs" data-open-dialog="eb-decide" data-eb-decide="{{$x.id}}" data-eb-title="{{$p.title}}" data-eb-kind="{{$x.kind_label}}">{{__ "Record result"}}</button>
+                        </span>
+                        {{end}}
+                    </div>
+                    <p class="mt-1.5 text-xs text-steel">{{__ "Asked by :name on :date" "name" $x.requested_name "date" (formatDate $x.requested_at "d M Y H:i")}}
+                        {{if and (eq (str $x.kind) "extension") $x.new_end_date}} · {{__ "new end date :d" "d" (formatDate $x.new_end_date)}}{{end}}
+                        {{if $x.acknowledged_at}} · {{__ "accepted by :name :date" "name" $x.acknowledged_name "date" (formatDate $x.acknowledged_at "d M")}}{{end}}
+                        {{if $x.decided_at}} · {{__ "decided by :name :date" "name" $x.decided_name "date" (formatDate $x.decided_at "d M")}}{{end}}</p>
+                    {{if $x.note}}<p class="mt-1.5 whitespace-pre-line text-sm">{{$x.note}}</p>{{end}}
+                    {{if $x.result_note}}<p class="mt-1.5 rounded-md bg-mist px-3 py-2 text-sm"><span class="text-xs font-semibold text-steel">{{__ "Management"}}:</span> {{$x.result_note}}</p>{{end}}
+                </li>
+                {{end}}
+            </ol>
+        </section>
+    </div>
+
+    <section class="panel overflow-hidden">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Team"}} <span class="ml-1 text-sm font-normal text-steel">{{len .members}}</span></h2></div>
+        <ul class="divide-y divide-graphite-900/6">
+            {{range $m := .members}}
+            <li class="flex items-center gap-3 px-5 py-2.5">{{template "partials/avatar" (dict "name" $m.name "avatar" $m.avatar "size" "size-9")}}
+                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{$m.name}}</span>
+                {{if eq (int $m.id) (int $p.owner_id)}}<span class="badge bg-graphite-900/6 text-graphite-700">{{__ "owner"}}</span>{{end}}</li>
+            {{end}}
+            {{if not .members}}<li class="px-5 py-6 text-center text-sm text-steel">{{__ "Nobody yet."}}</li>{{end}}
+        </ul>
+    </section>
+</div>
+{{template "management/everbetter-decide" .}}

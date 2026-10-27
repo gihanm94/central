@@ -1,0 +1,9 @@
+{{- /* A grid of label / value pairs. .items: []infoItem */ -}}
+<dl class="grid sm:grid-cols-2 lg:grid-cols-3">
+    {{range .items}}{{$empty := .Empty}}
+    <div class="border-b border-graphite-900/6 px-5 py-3.5 {{if eq .Span 2}}sm:col-span-2{{else if eq .Span 3}}sm:col-span-2 lg:col-span-3{{end}}">
+        <dt class="text-xs text-steel">{{.Label}}</dt>
+        <dd class="mt-1 break-words text-sm {{if $empty}}text-graphite-400{{else}}font-medium{{end}}">{{if $empty}}—{{else if .Raw}}{{.HTML}}{{else}}<span class="whitespace-pre-line">{{.Text}}</span>{{end}}</dd>
+    </div>
+    {{end}}
+</dl>
