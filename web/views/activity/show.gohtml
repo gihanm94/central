@@ -1,0 +1,27 @@
+{{- set "crumbs" (list (list .crumb .base)) -}}
+<h1 class="page-title break-words">{{activityText .log}}</h1>
+<p class="mt-1 text-sm text-steel">{{formatDate .log.created_at "l d M Y, H:i:s"}}</p>
+
+<div class="mt-6 grid items-start gap-6 xl:grid-cols-3">
+    <section class="panel">
+        <dl class="divide-y divide-graphite-900/6 text-sm">
+            {{range .facts}}
+                <div class="px-5 py-3"><dt class="text-xs text-steel">{{index . 0}}</dt><dd class="mt-0.5 break-words font-medium">{{index . 1}}</dd></div>
+            {{end}}
+        </dl>
+    </section>
+    <section class="panel xl:col-span-2">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Details"}}</h2></div>
+        {{if .changes}}
+            <div class="overflow-x-auto"><table class="table"><thead><tr><th>{{__ "Field"}}</th><th>{{__ "Before"}}</th><th>{{__ "After"}}</th></tr></thead><tbody>
+                {{range .changes}}
+                    <tr><td class="font-medium">{{.Field}}</td><td class="text-steel line-through decoration-signal-600/40">{{.From}}</td><td>{{.To}}</td></tr>
+                {{end}}
+            </tbody></table></div>
+        {{end}}
+        {{if .pretty}}
+            <pre class="overflow-x-auto p-5 text-xs leading-5 text-graphite-800">{{.pretty}}</pre>
+        {{end}}
+        {{if .noProps}}<p class="px-5 py-6 text-sm text-steel">{{__ "No extra details were recorded."}}</p>{{end}}
+    </section>
+</div>

@@ -1,0 +1,43 @@
+{{- /* .tab, .q, .rows, .active, .events, .page, .pages, .total, .activeCount */ -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "Sessions"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{.intro}}</p></div>
+</div>
+<nav class="mt-4 flex gap-1 border-b border-graphite-900/10">
+    <a href="{{url "/sessions"}}" class="-mb-px border-b-2 px-4 py-2 text-sm font-medium {{if eq .tab "active"}}border-signal-600 text-signal-700{{else}}border-transparent text-steel hover:text-graphite-900{{end}}">{{__ "Active sessions"}} <span class="ml-1 rounded-full bg-mist px-2 text-xs">{{.activeCount}}</span></a>
+    <a href="{{url "/sessions" "tab" "log"}}" class="-mb-px border-b-2 px-4 py-2 text-sm font-medium {{if eq .tab "log"}}border-signal-600 text-signal-700{{else}}border-transparent text-steel hover:text-graphite-900{{end}}">{{__ "Sign-in log"}}</a>
+</nav>
+<section class="panel mt-4 overflow-hidden">
+    <form method="GET" action="{{url "/sessions"}}" class="flex flex-wrap items-center gap-2 border-b border-graphite-900/8 p-3">
+        {{if eq .tab "log"}}<input type="hidden" name="tab" value="log">{{end}}
+        <input name="q" value="{{.q}}" class="input max-w-xs" placeholder="{{__ "Search person, device or IP…"}}"><button class="btn-secondary">{{__ "Search"}}</button>
+        <span class="ml-auto text-sm text-steel">{{.total}} {{__ "rows"}}</span>
+    </form>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+        {{if eq .tab "active"}}
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-4 py-2 font-medium">{{__ "Person"}}</th><th class="px-3 py-2 font-medium">{{__ "Device"}}</th><th class="px-3 py-2 font-medium">IP</th><th class="px-3 py-2 font-medium">{{__ "Signed in"}}</th><th class="px-3 py-2 font-medium">{{__ "Last active"}}</th><th class="px-3 py-2 font-medium">{{__ "Ends"}}</th><th class="px-3 py-2"></th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .active}}{{$r := .row}}
+            <tr><td class="px-4 py-2.5"><span class="font-medium">{{$r.name}}</span><span class="block text-xs text-steel">{{$r.email}}</span></td>
+                <td class="px-3 py-2.5">{{$r.device}}{{if .cur}} <span class="badge bg-emerald-50 text-emerald-800">{{__ "You"}}</span>{{end}}<span class="block text-xs text-steel">{{$r.method}}</span></td>
+                <td class="px-3 py-2.5 tabular-nums">{{$r.ip}}</td><td class="px-3 py-2.5 text-steel">{{timeAgo $r.created_at}}</td><td class="px-3 py-2.5 text-steel">{{timeAgo $r.last_seen_at}}</td><td class="px-3 py-2.5 text-steel">{{formatDate $r.expires_at "d M, H:i"}}</td>
+                <td class="whitespace-nowrap px-3 py-2.5 text-right"><form method="POST" action="{{url (printf "/sessions/%v/revoke" $r.id)}}" class="inline" data-confirm="{{__ "End this session? That person is signed out."}}">{{csrfField}}<button class="btn-danger px-3 py-1 text-xs">{{__ "Revoke"}}</button></form>
+                    <form method="POST" action="{{url (printf "/sessions/user/%v/revoke" $r.user_id)}}" class="inline" data-confirm="{{__ "End every session of :n?" "n" $r.name}}">{{csrfField}}<button class="btn-ghost px-2 py-1 text-xs">{{__ "All of theirs"}}</button></form></td></tr>
+        {{end}}
+        {{if not .rows}}<tr><td colspan="7" class="px-4 py-8 text-center text-steel">{{__ "No active sessions."}}</td></tr>{{end}}
+        </tbody>
+        {{else}}
+        <thead class="bg-mist/60 text-left text-xs text-steel"><tr><th class="px-4 py-2 font-medium">{{__ "When"}}</th><th class="px-3 py-2 font-medium">{{__ "Event"}}</th><th class="px-3 py-2 font-medium">{{__ "Person"}}</th><th class="px-3 py-2 font-medium">{{__ "Device"}}</th><th class="px-3 py-2 font-medium">IP</th><th class="px-3 py-2 font-medium">{{__ "Note"}}</th></tr></thead>
+        <tbody class="divide-y divide-graphite-900/6">
+        {{range .events}}{{$r := .row}}
+            <tr><td class="whitespace-nowrap px-4 py-2.5 text-steel" title="{{formatDate $r.created_at "d M Y, H:i:s"}}">{{formatDate $r.created_at "d M, H:i"}}</td><td class="px-3 py-2.5"><span class="badge {{.tone}}">{{.label}}</span></td>
+                <td class="px-3 py-2.5"><span class="font-medium">{{or $r.name "—"}}</span><span class="block text-xs text-steel">{{$r.mail}}</span></td><td class="px-3 py-2.5">{{$r.device}}</td><td class="px-3 py-2.5 tabular-nums">{{$r.ip}}</td><td class="px-3 py-2.5 text-xs text-steel">{{trim (printf "%s %s" (str $r.method) (str $r.note))}}</td></tr>
+        {{end}}
+        {{if not .rows}}<tr><td colspan="6" class="px-4 py-8 text-center text-steel">{{__ "Nothing yet."}}</td></tr>{{end}}
+        </tbody>
+        {{end}}
+    </table></div>
+    {{if gt .pages 1}}<div class="flex items-center justify-between border-t border-graphite-900/8 px-4 py-2.5 text-sm text-steel">
+        <a class="btn-secondary !h-8 !px-3 {{if le .page 1}}pointer-events-none opacity-40{{end}}" href="{{.prevURL}}">‹</a><span>{{.page}} / {{.pages}}</span>
+        <a class="btn-secondary !h-8 !px-3 {{if ge .page .pages}}pointer-events-none opacity-40{{end}}" href="{{.nextURL}}">›</a></div>{{end}}
+</section>

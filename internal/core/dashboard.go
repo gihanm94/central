@@ -557,7 +557,7 @@ func dashboardPersonal(c *app.Ctx) {
 		}
 		dv, _ := details.Get("deduction")
 		deduction = php.Float(dv)
-		scoreNote = c.T("Calculated up to :month · :date", "month", app.FormatDate(c, php.Str(year)+"-"+twoDigits(kpiScore.Int("month"))+"-01", "F"),
+		scoreNote = c.T("Calculated up to :month · :date", "month", app.FormatDate(c, php.Str(year)+"-"+wsTwoDigits(kpiScore.Int("month"))+"-01", "F"),
 			"date", app.FormatDate(c, kpiScore["calculated_at"], "j M Y"))
 		switch {
 		case score >= 80:
@@ -633,7 +633,7 @@ func dashboardPersonal(c *app.Ctx) {
 	})
 }
 
-func twoDigits(n int) string {
+func wsTwoDigits(n int) string {
 	if n < 10 && n >= 0 {
 		return "0" + php.Str(n)
 	}
