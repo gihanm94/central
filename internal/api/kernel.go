@@ -75,7 +75,7 @@ type recorder struct {
 	wrote  bool
 }
 
-func newRecorder() *recorder                   { return &recorder{header: http.Header{}} }
+func newRecorder() *recorder                    { return &recorder{header: http.Header{}} }
 func (r *recorder) Header() http.Header         { return r.header }
 func (r *recorder) Write(b []byte) (int, error) { r.wrote = true; return r.body.Write(b) }
 func (r *recorder) WriteHeader(code int) {

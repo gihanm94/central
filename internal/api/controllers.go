@@ -213,4 +213,3 @@ func Hit(c *app.Ctx, key string, perMinute int) {
 		db.Exec("DELETE FROM api_rate WHERE window_start < now() - interval '10 minutes'")
 	}
 }
-
