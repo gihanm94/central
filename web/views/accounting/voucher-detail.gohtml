@@ -1,0 +1,81 @@
+{{- /* .voucher, .rows (prepared), .count, .balanced, .debit, .credit, .payable, .payableMsg, .lines, .creditBadge, .comment, .all */ -}}
+<div class="grid items-start gap-4 xl:grid-cols-3">
+    <section class="panel overflow-hidden xl:col-span-2" aria-labelledby="v-rows">
+        <div class="panel-head flex-wrap gap-2">
+            <h2 class="panel-title" id="v-rows">{{__ "Voucher rows"}} <span class="ml-1 text-sm font-normal text-steel">{{.count}}</span></h2>
+            {{if .count}}{{.balanced}}{{end}}
+        </div>
+        {{if not .count}}
+            <p class="px-5 py-10 text-center text-sm text-steel">{{__ "No rows saved for this voucher yet. Sync it again from the ERP."}}</p>
+        {{else}}
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+            <thead class="bg-mist text-left text-xs text-steel"><tr>
+                <th class="px-5 py-2 font-medium">#</th>
+                <th class="px-3 py-2 font-medium">{{__ "Account"}}</th>
+                <th class="px-3 py-2 font-medium">{{__ "Text"}}</th>
+                <th class="px-3 py-2 text-right font-medium">{{__ "Debit"}}</th>
+                <th class="px-3 py-2 text-right font-medium">{{__ "Credit"}}</th>
+                <th class="px-3 py-2 text-right font-medium">{{__ "Debit (THB)"}}</th>
+                <th class="px-3 py-2 text-right font-medium">{{__ "Credit (THB)"}}</th>
+                <th class="px-5 py-2 text-right font-medium">{{__ "Quantity"}}</th>
+            </tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .rows}}
+                <tr>
+                    <td class="px-5 py-2 tabular-nums text-steel">{{.no}}</td>
+                    <td class="whitespace-nowrap px-3 py-2 tabular-nums">{{.account}}</td>
+                    <td class="px-3 py-2"><span class="block max-w-xs truncate" title="{{.text}}">{{or .text "—"}}</span></td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{.debit}}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{.credit}}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{.debit_c}}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{.credit_c}}</td>
+                    <td class="px-5 py-2 text-right tabular-nums text-steel">{{.qty}}</td>
+                </tr>
+            {{end}}
+            </tbody>
+            <tfoot class="border-t border-graphite-900/10 bg-mist/50 font-medium"><tr>
+                <td class="px-5 py-2" colspan="5">{{__ "Total"}}</td>
+                <td class="px-3 py-2 text-right tabular-nums">{{.debit}}</td>
+                <td class="px-3 py-2 text-right tabular-nums">{{.credit}}</td>
+                <td></td>
+            </tr></tfoot>
+        </table></div>
+        {{end}}
+    </section>
+
+    <div class="space-y-4">
+        <section class="panel p-5" aria-labelledby="v-payable">
+            <h2 class="panel-title" id="v-payable">{{__ "Accounts payable"}}</h2>
+            {{if not .payable}}
+                <p class="mt-2 text-sm text-steel">{{.payableMsg}}</p>
+            {{else}}
+                <dl class="mt-3 space-y-2 text-sm">
+                    {{range .lines}}
+                        <div class="flex justify-between gap-4"><dt class="text-steel">{{index . 0}}</dt><dd class="text-right font-medium tabular-nums">{{index . 1}}</dd></div>
+                    {{end}}
+                </dl>
+                {{if .creditBadge}}<p class="mt-3">{{.creditBadge}}</p>{{end}}
+            {{end}}
+        </section>
+
+        <section class="panel p-5" aria-labelledby="v-comment">
+            <h2 class="panel-title" id="v-comment">{{__ "Comment"}}</h2>
+            {{if eq .comment ""}}
+                <p class="mt-2 text-sm text-steel">{{__ "No comment."}}</p>
+            {{else}}
+                <p class="mt-2 whitespace-pre-line break-words text-sm">{{.comment}}</p>
+            {{end}}
+        </section>
+
+        {{if .all}}
+        <details class="panel p-5">
+            <summary class="cursor-pointer text-sm font-medium">{{__ "All fields from the ERP"}}</summary>
+            <dl class="mt-3 space-y-1.5 text-xs">
+                {{range .all}}
+                    <div class="flex justify-between gap-4"><dt class="text-steel">{{index . 0}}</dt><dd class="break-all text-right tabular-nums">{{index . 1}}</dd></div>
+                {{end}}
+            </dl>
+        </details>
+        {{end}}
+    </div>
+</div>

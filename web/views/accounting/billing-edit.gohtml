@@ -1,0 +1,51 @@
+{{- set "crumbs" (list (list (__ "Billing notes") "/accounting/billing")) -}}
+<form method="POST" action="{{url (printf "/accounting/billing/%v" .n.id)}}" class="mx-auto max-w-4xl pb-24" data-no-busy data-bill-edit novalidate>{{csrfField}}
+    <p class="text-sm text-steel"><a href="{{url "/accounting/billing"}}" class="hover:text-signal-700">{{__ "Billing notes"}}</a> › <a href="{{url (printf "/accounting/billing/%v" .n.id)}}" class="hover:text-signal-700">{{.n.billing_number}}</a></p>
+    <h1 class="page-title">{{__ "Edit :n" "n" .n.billing_number}}</h1>
+    <p class="mt-1 text-sm text-steel">{{.n.customer_name}} · {{.n.customer_code}}</p>
+
+    <section class="panel mt-5 grid gap-x-6 gap-y-5 p-5 sm:grid-cols-2">
+        {{if .isAdmin}}<div><label class="label" for="f-no">{{__ "Billing number"}}</label><input id="f-no" name="billing_number" value="{{old "billing_number" .n.billing_number}}" maxlength="40" class="input"><p class="hint">{{__ "Administrators can change the number."}}</p></div>{{end}}
+        <div><span class="label">{{__ "Language of the document"}}</span>
+            <div class="inline-flex rounded-lg bg-mist p-1 text-sm font-semibold" role="radiogroup">
+                <label class="cursor-pointer"><input type="radio" name="lang" value="th" class="peer sr-only" {{if .thai}}checked{{end}}><span class="block rounded-md px-4 py-1.5 text-steel peer-checked:bg-white peer-checked:text-graphite-900 peer-checked:shadow-sm">TH</span></label>
+                <label class="cursor-pointer"><input type="radio" name="lang" value="en" class="peer sr-only" {{if not .thai}}checked{{end}}><span class="block rounded-md px-4 py-1.5 text-steel peer-checked:bg-white peer-checked:text-graphite-900 peer-checked:shadow-sm">EN</span></label>
+            </div></div>
+        <div><label class="label" for="f-bd">{{__ "Billing date"}}</label><input id="f-bd" type="date" name="billing_date" value="{{old "billing_date" .billingAt}}" class="input"></div>
+        <div><label class="label" for="f-rd">{{__ "Remind date"}}</label><input id="f-rd" type="date" name="remind_date" value="{{old "remind_date" .remindAt}}" class="input"></div>
+        <div class="sm:col-span-2"><label class="label" for="f-addr">{{__ "Address"}}</label><textarea id="f-addr" name="address" rows="3" maxlength="600" class="input">{{old "address" .n.address}}</textarea></div>
+        <div class="sm:col-span-2"><label class="label" for="f-note">{{__ "Note"}}</label><textarea id="f-note" name="note" rows="2" maxlength="1000" class="input">{{old "note" .n.note}}</textarea></div>
+    </section>
+
+    <section class="panel mt-5 overflow-hidden">
+        <div class="flex items-center justify-between border-b border-graphite-900/6 bg-mist/50 px-5 py-2"><h2 class="text-xs font-semibold text-steel">{{__ "Invoices on this note"}}</h2><span class="text-xs text-steel">{{__ "Untick to take one off, tick to add one."}}</span></div>
+        {{if .invoicesError}}<p class="px-5 py-2 text-sm text-red-700">{{.invoicesError}}</p>{{end}}
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+            <thead class="text-xs text-steel"><tr><th class="w-10 px-5 py-2"></th><th class="px-3 py-2 font-medium">{{__ "Invoice"}}</th><th class="px-3 py-2 font-medium">{{__ "Order"}}</th><th class="px-3 py-2 font-medium">{{__ "Invoice date"}}</th><th class="px-3 py-2 font-medium">{{__ "Due date"}}</th><th class="px-5 py-2 text-right font-medium">{{__ "Amount"}}</th></tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .choices}}
+                <tr class="{{if not .OnNote}}bg-sky-50/40{{end}} hover:bg-mist/40"><td class="px-5 py-2.5"><input type="checkbox" name="invoices[]" value="{{.No}}" data-amount="{{.Raw}}" class="size-4 accent-signal-600" {{if .Checked}}checked{{end}} aria-label="{{__ "Invoice :n" "n" .No}}"></td>
+                    <td class="px-3 py-2.5 font-medium tabular-nums">{{.No}}{{if .IsCredit}} <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">CN</span>{{end}}{{if not .OnNote}} <span class="ml-1 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] text-sky-800">{{__ "not billed yet"}}</span>{{end}}</td>
+                    <td class="px-3 py-2.5">{{.OrderNo}}</td><td class="px-3 py-2.5 tabular-nums text-steel">{{.Date}}</td><td class="px-3 py-2.5 tabular-nums text-steel">{{.Due}}</td>
+                    <td class="px-5 py-2.5 text-right tabular-nums">{{if .IsCredit}}-{{end}}{{.Amount}}</td></tr>
+            {{end}}
+            </tbody>
+        </table></div>
+    </section>
+
+    <div class="fixed inset-x-0 bottom-0 z-30 border-t border-graphite-900/10 bg-white/95 px-4 py-3 backdrop-blur lg:left-64">
+        <div class="mx-auto flex max-w-4xl items-center gap-3">
+            <a href="{{url (printf "/accounting/billing/%v" .n.id)}}" class="btn-secondary">{{__ "Cancel"}}</a>
+            <p class="ml-auto text-sm text-steel"><span data-count>0</span> {{__ "invoices"}} · {{__ "Total"}} <strong class="text-graphite-900 tabular-nums">{{.sym}} <span data-total>0.00</span></strong></p>
+            <button class="btn-primary">{{icon "check" "size-4"}} {{__ "Save and build the PDF"}}</button>
+        </div>
+    </div>
+</form>
+<script>
+(function () {
+    var f = document.querySelector('[data-bill-edit]'); if (!f) return;
+    function sum() { var n = 0, t = 0; f.querySelectorAll('input[name="invoices[]"]:checked').forEach(function (c) { n++; t += parseFloat(c.dataset.amount) || 0; });
+        f.querySelector('[data-count]').textContent = n; f.querySelector('[data-total]').textContent = t.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    f.addEventListener('change', sum); sum();
+})();
+</script>

@@ -1,0 +1,50 @@
+{{- set "crumbs" (list (list (__ "Billing notes") "/accounting/billing")) -}}
+<div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+        <p class="text-sm text-steel"><a href="{{url "/accounting/billing"}}" class="hover:text-signal-700">{{__ "Billing notes"}}</a> ›</p>
+        <h1 class="page-title">{{.n.billing_number}}</h1>
+        <p class="mt-1 flex flex-wrap items-center gap-2 text-sm text-steel">{{.statusBadge}} <span>{{if .thai}}ไทย{{else}}English{{end}}</span> · <span>{{__ ":n invoices" "n" (len .rows)}}</span></p>
+    </div>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+        <a href="{{url (printf "%s/pdf" .b)}}" data-bill-view data-title="{{.n.billing_number}}" class="btn-dark flex-1 sm:flex-none">{{icon "eye" "size-4"}} {{__ "View PDF"}}</a>
+        <a href="{{url (printf "%s/pdf" .b) "download" 1}}" class="btn-secondary flex-1 sm:flex-none">{{icon "download" "size-4"}} {{__ "Download"}}</a>
+        {{if .canEdit}}<a href="{{url (printf "%s/edit" .b)}}" class="btn-primary flex-1 sm:flex-none">{{icon "pencil" "size-4"}} {{__ "Edit"}}</a>{{end}}
+    </div>
+</div>
+
+<div class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <section class="panel overflow-hidden">
+        <h2 class="border-b border-graphite-900/6 bg-mist/50 px-5 py-2 text-xs font-semibold text-steel">{{__ "Invoices"}}</h2>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+            <thead class="text-xs text-steel"><tr><th class="px-5 py-2 font-medium">{{__ "Invoice"}}</th><th class="px-3 py-2 font-medium">{{__ "Order"}}</th><th class="px-3 py-2 font-medium">{{__ "Invoice date"}}</th><th class="px-3 py-2 font-medium">{{__ "Due date"}}</th><th class="px-5 py-2 text-right font-medium">{{__ "Amount"}}</th></tr></thead>
+            <tbody class="divide-y divide-graphite-900/6">
+            {{range .rows}}{{$cr := bool .is_credit}}
+                <tr><td class="px-5 py-2.5 font-medium tabular-nums">{{.invoice_number}}{{if $cr}} <span class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800">CN</span>{{end}}</td><td class="px-3 py-2.5">{{.order_no}}</td>
+                    <td class="px-3 py-2.5 tabular-nums text-steel">{{if .invoice_date}}{{formatDate .invoice_date "d M Y"}}{{else}}—{{end}}</td><td class="px-3 py-2.5 tabular-nums text-steel">{{if .due_date}}{{formatDate .due_date "d M Y"}}{{else}}—{{end}}</td>
+                    <td class="px-5 py-2.5 text-right tabular-nums">{{if $cr}}-{{end}}{{nf .amount 2}}</td></tr>
+            {{end}}
+            </tbody>
+            <tfoot><tr class="border-t border-graphite-900/10"><td colspan="4" class="px-5 py-3 text-right font-semibold">{{__ "Total"}}</td><td class="px-5 py-3 text-right text-base font-semibold tabular-nums">{{.sym}} {{.total}}</td></tr></tfoot>
+        </table></div>
+    </section>
+
+    <aside class="space-y-4">
+        <section class="panel p-5 text-sm">
+            <p class="text-xs text-steel">{{__ "Customer"}}</p><p class="font-semibold">{{.n.customer_name}}</p><p class="text-xs text-steel">{{.n.customer_code}}{{if .n.vat_number}} · {{.n.vat_number}}{{end}}</p>
+            <p class="mt-4 text-xs text-steel">{{__ "Address"}}</p><p class="whitespace-pre-line">{{or .n.address "—"}}</p>
+            <dl class="mt-4 grid grid-cols-2 gap-3"><div><dt class="text-xs text-steel">{{__ "Billing date"}}</dt><dd class="font-medium">{{formatDate .n.billing_at "d M Y"}}</dd></div><div><dt class="text-xs text-steel">{{__ "Remind date"}}</dt><dd class="font-medium">{{if .n.remind_date}}{{formatDate .n.remind_date "d M Y"}}{{else}}—{{end}}</dd></div></dl>
+            {{if or .n.note .n.remark}}<p class="mt-4 text-xs text-steel">{{__ "Note"}}</p><p class="whitespace-pre-line">{{trim (printf "%s\n%s" (str .n.note) (str .n.remark))}}</p>{{end}}
+            <p class="mt-4 text-xs text-steel">{{.createdBy}}{{if .changedBy}}<br>{{.changedBy}}{{end}}</p>
+        </section>
+        {{if .canEdit}}
+        <section class="panel flex flex-wrap gap-2 p-4">
+            {{if not (bool .n.is_paid)}}<form method="POST" action="{{url (printf "%s/state/paid" .b)}}" class="flex-1">{{csrfField}}<button class="btn-secondary w-full">{{icon "check" "size-4"}} {{__ "Mark as paid"}}</button></form>{{end}}
+            {{if not (bool .n.is_complete)}}<form method="POST" action="{{url (printf "%s/state/complete" .b)}}" class="flex-1">{{csrfField}}<button class="btn-secondary w-full">{{icon "check" "size-4"}} {{__ "Mark as complete"}}</button></form>{{end}}
+            <form method="POST" action="{{url (printf "%s/regenerate" .b)}}" class="w-full">{{csrfField}}<button class="btn-ghost w-full">{{icon "bolt" "size-4"}} {{__ "Build the PDF again"}}</button></form>
+        </section>
+        {{end}}
+        {{if .canDelete}}<button type="button" class="btn-danger w-full" data-delete-url="{{url (printf "%s/delete" .b)}}" data-delete-name="{{.n.billing_number}}" data-delete-kind="{{__ "billing note"}}">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>{{end}}
+    </aside>
+</div>
+{{partial "accounting/billing-viewer"}}
+<script src="{{asset "assets/billing.js"}}" defer></script>
