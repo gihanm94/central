@@ -1,0 +1,3 @@
+{{- /* One person in an owner history line: .h (history row), .k = from | to | by */ -}}
+{{- $name := get .h (printf "%s_name" .k) -}}{{- $id := get .h (printf "%s_id" .k) -}}
+{{- if not $name}}—{{else}}<span class="font-medium text-graphite-800">{{$name}}</span>{{if $id}} <span class="text-[11px] tabular-nums text-steel" title="{{__ "User ID"}}">#{{$id}}</span>{{end}}{{if get .h (printf "%s_gone" .k)}} <span class="rounded bg-graphite-900/6 px-1 text-[10px] text-steel">{{__ "deleted user"}}</span>{{end}}{{end -}}

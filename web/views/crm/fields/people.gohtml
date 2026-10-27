@@ -1,0 +1,18 @@
+{{- /* Pick several people: .f.Extra.people []peopleRow (ID Name Department Q On) */ -}}
+{{- $name := .name -}}
+<span class="label">{{.f.Label}}</span>
+<div data-people class="overflow-hidden rounded-lg bg-white ring-1 ring-graphite-900/15">
+    <div class="border-b border-graphite-900/10 p-2"><input type="search" data-people-filter class="input" placeholder="{{__ "Search people…"}}" aria-label="{{__ "Search people…"}}"></div>
+    <div class="max-h-56 overflow-y-auto">
+        {{range .f.Extra.people}}
+        <label data-people-row data-q="{{.Q}}" class="flex cursor-pointer items-center gap-3 px-3 py-1.5 text-sm hover:bg-mist/70">
+            <input type="checkbox" name="{{$name}}[]" value="{{.ID}}" class="size-4 accent-signal-600" {{if .On}}checked{{end}}>
+            <span class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-graphite-900/6 text-[10px] font-semibold text-graphite-700">{{initials .Name}}</span>
+            <span class="min-w-0 truncate">{{.Name}}{{if .Department}} <span class="text-xs text-steel">· {{.Department}}</span>{{end}}</span>
+        </label>
+        {{end}}
+    </div>
+    <p class="border-t border-graphite-900/10 bg-mist/50 px-3 py-1.5 text-xs text-steel"><span class="font-semibold text-graphite-900" data-people-count>0</span> {{__ "selected"}}</p>
+</div>
+{{if .f.Help}}<p class="hint">{{.f.Help}}</p>{{end}}
+{{if .err}}<p class="error">{{.err}}</p>{{end}}

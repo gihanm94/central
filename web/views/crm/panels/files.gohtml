@@ -1,0 +1,36 @@
+{{- /* .c .row .items (attachments + _size _viewable _image) .canUpload .canManage .mb .types */ -}}
+{{- $base := url (printf "%s/%v" .c.base .row.id) -}}{{- $me := auth -}}{{- $canManage := .canManage -}}
+<section id="files" class="panel">
+    <div class="panel-head"><h2 class="panel-title">{{__ "Attachments"}} <span class="ml-1 text-sm font-normal text-steel">{{len .items}}</span></h2></div>
+    {{if .items}}
+    <ul class="divide-y divide-graphite-900/6">
+        {{range .items}}
+        <li class="flex items-center gap-3 px-5 py-3">
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-md bg-mist text-steel">{{if ._image}}{{icon "photo" "size-4"}}{{else}}{{icon "clock" "size-4"}}{{end}}</span>
+            <div class="min-w-0 flex-1">
+                <a href="{{$base}}/files/{{.id}}" class="block truncate text-sm font-medium hover:text-signal-700" title="{{.original_name}}">{{.original_name}}</a>
+                <p class="truncate text-xs text-steel">{{._size}} · {{.uploader}} · {{timeAgo .created_at}}</p>
+            </div>
+            {{if ._viewable}}<a href="{{$base}}/files/{{.id}}?view=1" target="_blank" rel="noopener" class="btn-ghost px-1.5 py-1" title="{{__ "Open"}}" aria-label="{{__ "Open :name" "name" .original_name}}">{{icon "eye" "size-4"}}</a>{{end}}
+            <a href="{{$base}}/files/{{.id}}" class="btn-ghost px-1.5 py-1" title="{{__ "Download"}}" aria-label="{{__ "Download :name" "name" .original_name}}">{{icon "download" "size-4"}}</a>
+            {{if or $canManage (eq (int .uploaded_by) $me.ID)}}
+            <form method="POST" action="{{$base}}/files/{{.id}}/delete" data-confirm="{{__ "Remove this file?"}}">{{csrfField}}
+                <button class="btn-ghost px-1.5 py-1 hover:text-signal-700" title="{{__ "Remove"}}" aria-label="{{__ "Remove :name" "name" .original_name}}">{{icon "trash" "size-4"}}</button></form>
+            {{end}}
+        </li>
+        {{end}}
+    </ul>
+    {{else if not .canUpload}}
+        <p class="px-5 py-8 text-center text-sm text-steel">{{__ "No files attached."}}</p>
+    {{end}}
+    {{if .canUpload}}
+    <form method="POST" action="{{$base}}/files" enctype="multipart/form-data" class="space-y-2 {{if .items}}border-t border-graphite-900/8{{end}} p-5">
+        {{csrfField}}
+        <label for="files-input" class="text-sm font-medium">{{__ "Add files"}}</label>
+        <input id="files-input" name="files[]" type="file" multiple required class="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-graphite-900 file:px-3 file:py-1.5 file:text-sm file:text-white">
+        {{fieldError "files"}}
+        <p class="hint">{{__ "Up to :mb MB each: :types." "mb" .mb "types" .types}}</p>
+        <div class="flex justify-end"><button class="btn-dark py-1.5">{{icon "upload" "size-4"}} {{__ "Upload"}}</button></div>
+    </form>
+    {{end}}
+</section>

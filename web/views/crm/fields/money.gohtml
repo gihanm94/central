@@ -1,0 +1,9 @@
+{{- /* Amount with its currency in one box: the dropdown for the currency (name="currency") and the number. .f.Extra: codes []Opt, cur, amount, search */ -}}
+{{- $x := .f.Extra -}}
+<label for="f-{{.name}}" class="label">{{.f.Label}}{{if contains .f.Rules "required"}} <span class="text-signal-600" aria-hidden="true">*</span>{{end}}</label>
+<div class="flex">
+    {{select "currency" $x.codes $x.cur (dict "id" "f-currency" "aria" (__ "Currency") "search" $x.search "class" "input rounded-r-none tabular-nums" "wrap" "w-28 shrink-0")}}
+    <input id="f-{{.name}}" name="{{.name}}" value="{{$x.amount}}" inputmode="decimal" placeholder="0.00" data-fill-check class="input -ml-px min-w-0 flex-1 rounded-l-none tabular-nums {{if .err}}input-error{{end}}">
+</div>
+{{if .f.Help}}<p class="hint">{{.f.Help}}</p>{{end}}
+{{if .err}}<p class="error">{{.err}}</p>{{end}}

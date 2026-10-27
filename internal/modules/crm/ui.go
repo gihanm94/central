@@ -156,5 +156,10 @@ func h(s string) template.HTML { return template.HTML(s) }
 
 // meter renders crm/meter.
 func meter(c *app.Ctx, value float64, label string) string {
-	return string(c.Partial("crm/meter", app.M{"value": value, "label": label}))
+	return string(meterHTML(c, value, label))
+}
+
+func meterHTML(c *app.Ctx, value float64, label string) template.HTML {
+	pct := math.Max(0, math.Min(100, value))
+	return c.Partial("crm/meter", app.M{"pct": int(pct), "w": template.CSS(fmtFloat(phpRound(pct, 1))), "label": label})
 }

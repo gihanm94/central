@@ -1,0 +1,18 @@
+{{- /* Files dropped or chosen for the record (crm.js [data-dropfiles]): up to .f.Extra.max files in all, counting those already attached. */ -}}
+{{- $x := .f.Extra -}}
+<div data-dropfiles data-max="{{$x.free}}" data-msg-full="{{__ "You can attach up to :n files." "n" $x.max}}">
+    <label data-drop class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-graphite-900/15 bg-mist/40 px-4 py-10 text-center transition-colors hover:border-signal-600/40 {{if .err}}!border-signal-600{{end}}">
+        <span class="flex size-12 items-center justify-center rounded-full bg-graphite-900/6 text-graphite-700">{{icon "upload" "size-6"}}</span>
+        <span class="text-sm font-semibold">{{__ "Drop files here or click to browse"}}</span>
+        <span class="text-xs text-steel"><span data-count>{{$x.count}}</span> / {{$x.max}} {{__ "files used"}}</span>
+        <span class="btn-secondary mt-1 !h-8 text-sm">{{icon "clip" "size-4"}} {{__ "Choose file"}}</span>
+        <input type="file" name="files[]" multiple class="sr-only" data-files-input data-have="{{$x.count}}">
+    </label>
+    <p class="hint">{{__ "Up to :mb MB each: :types." "mb" $x.mb "types" $x.types}}</p>
+    <ul class="mt-3 space-y-1.5" data-files-list>
+        {{range $x.existing}}
+        <li class="flex items-center gap-2 rounded-md bg-mist/50 px-3 py-2 text-sm">{{icon "doc" "size-4 text-steel"}}<span class="min-w-0 flex-1 truncate">{{.original_name}}</span><span class="text-xs text-steel">{{__ "Attached"}}</span></li>
+        {{end}}
+    </ul>
+</div>
+{{if .err}}<p class="error">{{.err}}</p>{{end}}

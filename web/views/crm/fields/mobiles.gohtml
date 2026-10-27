@@ -1,0 +1,24 @@
+{{- /* Repeating mobile-number rows. .f.Extra.rows []mobileRow (I Number Ext Label Main), .f.Extra.next */ -}}
+{{- $x := .f.Extra -}}
+<span class="label">{{.f.Label}}</span>
+<div data-repeat data-min="1" class="space-y-2">
+    <div data-repeat-rows class="space-y-2">
+        {{range $x.rows}}{{template "crm/fields/mobile-row" .}}{{end}}
+    </div>
+    <template data-repeat-template>{{template "crm/fields/mobile-row" $x.blank}}</template>
+    <input type="hidden" data-repeat-next value="{{$x.next}}">
+    <button type="button" data-repeat-add class="btn-secondary py-1.5">{{icon "plus" "size-4"}} {{__ "Add another mobile"}}</button>
+</div>
+{{if .f.Help}}<p class="hint">{{.f.Help}}</p>{{end}}
+{{if .err}}<p class="error">{{.err}}</p>{{end}}
+{{- define "crm/fields/mobile-row"}}
+    <div data-repeat-row class="grid grid-cols-12 items-start gap-2">
+        <div class="col-span-12 sm:col-span-5"><input name="mobiles[{{.I}}][number]" value="{{.Number}}" type="tel" inputmode="tel" maxlength="40" placeholder="{{__ "Mobile number"}}" aria-label="{{__ "Mobile number"}}" class="input"></div>
+        <div class="col-span-4 sm:col-span-2"><input name="mobiles[{{.I}}][ext]" value="{{.Ext}}" maxlength="10" placeholder="{{__ "Ext."}}" aria-label="{{__ "Extension"}}" class="input"></div>
+        <div class="col-span-8 sm:col-span-3"><input name="mobiles[{{.I}}][label]" value="{{.Label}}" maxlength="30" placeholder="{{__ "Label (Work, Personal)"}}" aria-label="{{__ "Label"}}" class="input"></div>
+        <div class="col-span-12 flex items-center justify-between gap-2 sm:col-span-2 sm:justify-end">
+            <label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap py-2 text-xs"><input type="radio" name="mobile_primary" value="{{.I}}" class="size-4 accent-signal-600" {{if .Main}}checked{{end}}> {{__ "Main"}}</label>
+            <button type="button" data-repeat-remove class="btn-ghost px-2 py-1.5 hover:text-signal-700" aria-label="{{__ "Remove this number"}}">{{icon "x" "size-4"}}</button>
+        </div>
+    </div>
+{{end -}}

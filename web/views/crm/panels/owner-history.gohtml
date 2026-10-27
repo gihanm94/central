@@ -1,0 +1,41 @@
+{{- /* Owner history as a timeline in a pop-up card. .id (dialog id), .title, .history (newest first), .created (M at by, or nil) */ -}}
+{{- $created := .created -}}{{- $n := len .history -}}
+<dialog id="{{.id}}" data-light-dismiss class="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-xl bg-white p-0 text-graphite-900 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60" aria-labelledby="{{.id}}-title">
+    <div class="flex items-center justify-between gap-3 border-b border-graphite-900/8 px-5 py-3.5">
+        <h2 id="{{.id}}-title" class="flex items-center gap-2 text-base font-semibold">{{icon "clock" "size-5 text-steel"}}{{.title}}</h2>
+        <button type="button" class="btn-ghost -mr-2 px-2" data-close-dialog aria-label="{{__ "Close"}}">{{icon "x" "size-5"}}</button>
+    </div>
+    <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
+        {{if and (not .history) (not $created)}}
+            <p class="py-6 text-center text-sm text-steel">{{__ "No changes yet."}}</p>
+        {{end}}
+        <ol class="relative">
+            {{range $i, $h := .history}}{{$last := and (eq $i (sub $n 1)) (not $created)}}
+            <li class="relative flex gap-4 pb-5 {{if $last}}pb-0{{end}}">
+                {{if not $last}}<span class="absolute left-[0.6875rem] top-6 bottom-0 w-px bg-graphite-900/10" aria-hidden="true"></span>{{end}}
+                <span class="relative mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full {{if eq $i 0}}bg-signal-600 text-white{{else}}bg-white text-steel ring-1 ring-graphite-900/15{{end}}">{{icon "users" "size-3.5"}}</span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs tabular-nums text-steel"><time datetime="{{date "c" $h.created_at}}">{{formatDate $h.created_at "d M Y, H:i"}}</time>{{if eq $i 0}} · <span class="font-medium text-signal-700">{{__ "latest"}}</span>{{end}}</p>
+                    <p class="mt-1 text-sm leading-6">
+                        {{template "crm/panels/history-person" (dict "h" $h "k" "from")}}
+                        {{if $h.to_name}}<span class="mx-1 text-steel">→</span>{{template "crm/panels/history-person" (dict "h" $h "k" "to")}}
+                        {{else}}<span class="text-steel">· {{__ "removed"}}</span>{{end}}
+                    </p>
+                    {{if $h.by_name}}<p class="mt-0.5 text-xs text-steel">{{__ "by"}} {{template "crm/panels/history-person" (dict "h" $h "k" "by")}}</p>{{end}}
+                    {{if $h.note}}<p class="mt-1.5 rounded-md bg-mist px-2.5 py-1.5 text-xs text-graphite-800">{{$h.note}}</p>{{end}}
+                </div>
+            </li>
+            {{end}}
+            {{if $created}}
+            <li class="relative flex gap-4">
+                <span class="relative mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20">{{icon "plus" "size-3.5"}}</span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs tabular-nums text-steel">{{formatDate $created.at "d M Y, H:i"}}</p>
+                    <p class="mt-1 text-sm"><span class="font-medium">{{__ "Created"}}</span>{{if $created.by}} <span class="text-steel">{{__ "by"}}</span> <span class="font-medium">{{$created.by}}</span>{{end}}</p>
+                </div>
+            </li>
+            {{end}}
+        </ol>
+    </div>
+    <div class="flex justify-end rounded-b-xl bg-mist/60 px-5 py-3"><button type="button" class="btn-secondary" data-close-dialog>{{__ "Close"}}</button></div>
+</dialog>
