@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/config"
 	"acme/internal/db"
 	"acme/internal/php"
 )
@@ -222,11 +223,17 @@ func pipelineMove(c *app.Ctx) {
 		html = pipeHTML(c, fresh[:1], stages)
 	}
 	st := pipeStats(c, stages)
-	stats := app.M{}
-	for k, v := range st {
-		stats[k] = app.M{"n": v.N, "v": v.V}
+	stats := config.NewMap()
+	for _, k := range stages {
+		stats.Set(k, app.M{"n": st[k].N, "v": st[k].V})
 	}
-	c.JSON(app.M{"ok": true, "stats": stats, "html": html, "message": c.T("Moved to :stage.", "stage", stageLabel(c, stage))})
+	// ordered like the PHP answer (a Go map would sort the keys)
+	ans := config.NewMap()
+	ans.Set("ok", true)
+	ans.Set("stats", stats)
+	ans.Set("html", html)
+	ans.Set("message", c.T("Moved to :stage.", "stage", stageLabel(c, stage)))
+	c.JSON(ans)
 }
 
 var _ = math.Abs

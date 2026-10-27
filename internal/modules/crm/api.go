@@ -1,8 +1,10 @@
 package crm
 
 import (
+	"encoding/json"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"acme/internal/api"
@@ -577,9 +579,9 @@ func apiStats(c *app.Ctx) {
 			t := targetSummaryOf(dep, year)
 			qs := []any{}
 			for i := 1; i <= 4; i++ {
-				qs = append(qs, api.Obj("q", i, "target", phpRound(t.Target[i], 2), "actual", phpRound(t.Actual[i], 2)))
+				qs = append(qs, api.Obj("q", i, "target", jsonFloat(t.Target[i]), "actual", jsonFloat(t.Actual[i])))
 			}
-			out.Set("target", api.Obj("year", year, "currency", baseCurrency(), "source", t.Source, "total", phpRound(t.Total, 2), "actual", phpRound(t.ActualTotal, 2), "quarters", qs))
+			out.Set("target", api.Obj("year", year, "currency", baseCurrency(), "source", t.Source, "total", jsonFloat(t.Total), "actual", jsonFloat(t.ActualTotal), "quarters", qs))
 		}
 	}
 	var sm []any
@@ -588,4 +590,13 @@ func apiStats(c *app.Ctx) {
 	}
 	out.Set("stage_names", sm)
 	c.JSON(api.Obj("data", out))
+}
+
+// jsonFloat is round($n, 2) as json_encode writes a PHP float: 1000000.0, never 1000000.
+func jsonFloat(n float64) json.Number {
+	s := strconv.FormatFloat(phpRound(n, 2), 'f', -1, 64)
+	if !strings.ContainsAny(s, ".eE") {
+		s += ".0"
+	}
+	return json.Number(s)
 }

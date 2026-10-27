@@ -97,7 +97,11 @@ func (s *screen) setup() *screen {
 	}
 	r.Finish = func(c *app.Ctx, id int) {
 		if c.API || c.IsJSON() {
-			c.JSON(app.M{"ok": true, "id": id, "url": c.URL(r.Base + "/" + php.Str(id))})
+			ans := config.NewMap() // ordered like the PHP answer
+			ans.Set("ok", true)
+			ans.Set("id", id)
+			ans.Set("url", c.URL(r.Base+"/"+php.Str(id)))
+			c.JSON(ans)
 		}
 		c.Redirect(r.Base + "/" + php.Str(id))
 	}
