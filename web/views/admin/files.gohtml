@@ -1,0 +1,86 @@
+{{- /* .roots .root .rootLabel .path .rows .total .perPage .page .q .folders .trail .up .clearURL .hName .hExt .hSize .hMtime .bulkURL .labels .filesURL */ -}}
+{{- define "admin/files-sort"}}<a href="{{.URL}}" class="inline-flex items-center gap-1 hover:text-signal-700">{{.Label}}{{.Arrow}}</a>{{end -}}
+<div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0"><h1 class="page-title">{{__ "File manager"}}</h1>
+        <p class="mt-1 text-sm text-steel">{{__ "The files the system keeps on the server. Only administrators see this."}}</p></div>
+    <div class="flex flex-wrap gap-2">
+        <form method="POST" action="{{url "/files/upload"}}" enctype="multipart/form-data" id="fm-upload" class="inline">{{csrfField}}<input type="hidden" name="root" value="{{.root}}"><input type="hidden" name="path" value="{{.path}}">
+            <label class="btn-secondary cursor-pointer">{{icon "upload" "size-4"}} {{__ "Upload"}}<input type="file" name="files[]" multiple class="sr-only" onchange="this.form.submit()"></label></form>
+        <button type="button" class="btn-primary" data-fm-open="mkdir">{{icon "folder" "size-4"}} {{__ "New folder"}}</button>
+    </div>
+</div>
+<nav class="mt-4 flex flex-wrap gap-1.5" aria-label="{{__ "Folders"}}">
+    {{range .roots}}<a href="{{url "/files" "root" .Key}}" class="rounded-full px-3.5 py-1.5 text-sm ring-1 {{if eq .Key $.root}}bg-graphite-900 text-white ring-graphite-900{{else}}bg-white text-graphite-800 ring-graphite-900/15 hover:bg-mist{{end}}">{{.Label}}</a>{{end}}
+</nav>
+<section class="panel mt-3 overflow-hidden">
+    <div class="flex flex-wrap items-center gap-3 border-b border-graphite-900/8 p-3">
+        <nav class="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm" aria-label="{{__ "Path"}}"><a href="{{url "/files" "root" .root}}" class="font-medium hover:text-signal-700">{{.rootLabel}}</a>
+            {{range .trail}}<span class="text-graphite-400">/</span><a href="{{.URL}}" class="hover:text-signal-700">{{.Seg}}</a>{{end}}</nav>
+        <form method="GET" action="{{url "/files"}}" class="flex items-center gap-2"><input type="hidden" name="root" value="{{.root}}">{{if .path}}<input type="hidden" name="path" value="{{.path}}">{{end}}
+            <input name="q" value="{{.q}}" class="input !h-9 w-56" placeholder="{{__ "Search by name…"}}"><button class="btn-secondary !h-9">{{__ "Search"}}</button>{{if .q}}<a href="{{.clearURL}}" class="btn-ghost !h-9">{{__ "Clear"}}</a>{{end}}</form>
+    </div>
+    <div data-bulk-bar hidden class="flex flex-wrap items-center gap-3 border-b border-graphite-900/8 bg-signal-50/60 px-4 py-2 text-sm">
+        <span><span data-bulk-n class="font-semibold">0</span> {{__ "selected"}}</span>
+        <button type="button" class="btn-secondary py-1" data-fm-move-selected>{{__ "Move to…"}}</button>
+        <button type="button" class="btn bg-signal-600 py-1 text-white hover:bg-signal-700" data-bulk-delete data-url="{{.bulkURL}}" data-kind="{{__ "files or folders"}}">{{icon "trash" "size-4"}} {{__ "Delete selected"}}</button>
+        <button type="button" class="btn-ghost py-1" data-bulk-clear>{{__ "Clear"}}</button>
+    </div>
+    <div class="overflow-x-auto"><table class="table w-full min-w-[40rem]">
+        <thead class="bg-white"><tr>
+            <th class="w-24 !px-3"><input type="checkbox" data-sel-all class="size-4 accent-signal-600" aria-label="{{__ "Select all"}}"></th>
+            <th>{{template "admin/files-sort" .hName}}</th><th>{{template "admin/files-sort" .hExt}}</th><th class="text-right">{{template "admin/files-sort" .hSize}}</th><th>{{template "admin/files-sort" .hMtime}}</th>
+        </tr></thead>
+        <tbody>
+        {{if .up}}<tr><td></td><td colspan="4"><a href="{{.up}}" class="inline-flex items-center gap-2 text-steel hover:text-signal-700">↰ {{__ "Up one level"}}</a></td></tr>{{end}}
+        {{range $r := .rows}}
+            <tr class="group hover:bg-mist/40">
+                <td class="!px-3"><div class="flex items-center gap-1.5"><input type="checkbox" data-sel="{{$r.Rel}}" class="size-4 accent-signal-600" aria-label="{{__ "Select"}}">
+                    <button type="button" class="btn-ghost size-8 px-0" data-menu="#fm-m-{{$r.ID}}" data-placement="bottom-start" aria-haspopup="menu" aria-expanded="false" aria-label="{{__ "Actions"}}">{{icon "dots" "size-5"}}</button>
+                    <div id="fm-m-{{$r.ID}}" data-menu-panel hidden role="menu" class="fixed z-[70] w-44 rounded-lg bg-white p-1.5 text-sm shadow-xl ring-1 ring-graphite-900/10">
+                        {{if not $r.Dir}}<a role="menuitem" href="{{$r.Download}}" class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-mist">{{icon "download" "size-4 text-steel"}} {{__ "Download"}}</a>{{end}}
+                        <button type="button" role="menuitem" data-fm-open="rename" data-item="{{$r.Rel}}" data-name="{{$r.Name}}" class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist">{{icon "pencil" "size-4 text-steel"}} {{__ "Rename"}}</button>
+                        <button type="button" role="menuitem" data-fm-open="move" data-item="{{$r.Rel}}" class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist">{{icon "right" "size-4 text-steel"}} {{__ "Move to…"}}</button>
+                        <hr class="my-1 border-graphite-900/8">
+                        <button type="button" role="menuitem" data-delete-url="{{$r.DeleteURL}}" data-delete-name="{{$r.Name}}" data-delete-kind="{{$r.Kind}}" class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-signal-700 hover:bg-signal-50">{{icon "trash" "size-4"}} {{__ "Delete"}}</button>
+                    </div></div></td>
+                <td>{{if $r.Dir}}<a href="{{$r.Open}}" class="inline-flex items-center gap-2 font-medium hover:text-signal-700">{{icon "folder" "size-4 text-amber-500"}} {{$r.Name}}</a>
+                    {{else}}<a href="{{$r.Download}}" class="inline-flex items-center gap-2 hover:text-signal-700">{{icon $r.Icon "size-4 text-steel"}} {{$r.Name}}</a>{{end}}
+                    {{if and $.q $r.Parent}}<span class="block text-xs text-steel">{{$r.Parent}}</span>{{end}}</td>
+                <td class="text-steel">{{$r.TypeLabel}}</td>
+                <td class="text-right tabular-nums text-steel">{{$r.Size}}</td>
+                <td class="whitespace-nowrap text-steel">{{$r.Modified}}</td>
+            </tr>
+        {{end}}
+        {{if not .rows}}<tr><td colspan="5" class="px-4 py-10 text-center text-steel">{{if .q}}{{__ "Nothing matches your search."}}{{else}}{{__ "This folder is empty."}}{{end}}</td></tr>{{end}}
+        </tbody></table></div>
+    {{template "partials/pagination" (dict "total" .total "perPage" .perPage "page" .page)}}
+</section>
+
+<dialog id="fm-dlg" class="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-xl bg-white p-0 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60">
+    <form method="POST" data-fm-form class="p-5">{{csrfField}}<input type="hidden" name="root" value="{{.root}}"><input type="hidden" name="path" value="{{.path}}"><div data-fm-items></div>
+        <h2 class="text-base font-semibold" data-fm-title></h2>
+        <div data-fm-name class="mt-4" hidden><label class="label" for="fm-name">{{__ "Name"}}</label><input id="fm-name" name="name" class="input" maxlength="180" autocomplete="off"></div>
+        <div data-fm-dest class="mt-4" hidden><label class="label" for="fm-dest">{{__ "Move to"}}</label><select id="fm-dest" name="dest" class="input">{{range .folders}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div>
+        <div class="mt-5 flex justify-end gap-2"><button type="button" class="btn-secondary" data-fm-cancel>{{__ "Cancel"}}</button><button class="btn-primary" data-fm-ok>{{__ "Save"}}</button></div>
+    </form>
+</dialog>
+<script>
+(function () {
+    var dlg = document.getElementById('fm-dlg'), form = dlg.querySelector('[data-fm-form]'), items = dlg.querySelector('[data-fm-items]'),
+        L = {{.labels}};
+    function open(kind, list, name) {
+        form.action = {{.filesURL}} + kind;
+        dlg.querySelector('[data-fm-title]').textContent = L[kind];
+        dlg.querySelector('[data-fm-name]').hidden = kind === 'move'; dlg.querySelector('[data-fm-dest]').hidden = kind !== 'move';
+        dlg.querySelector('#fm-name').disabled = kind === 'move'; dlg.querySelector('#fm-name').value = name || '';
+        items.innerHTML = list.map(function (i) { return '<input type="hidden" name="' + (kind === 'move' ? 'items[]' : 'item') + '" value="' + i.replace(/"/g, '&quot;') + '">'; }).join('');
+        dlg.showModal(); if (kind !== 'move') { var n = dlg.querySelector('#fm-name'); n.focus(); n.select(); }
+    }
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-fm-open]');
+        if (b) { var k = b.dataset.fmOpen; open(k, k === 'mkdir' ? [] : [b.dataset.item], b.dataset.name); return; }
+        if (e.target.closest('[data-fm-move-selected]')) { var sel = Array.prototype.map.call(document.querySelectorAll('[data-sel]:checked'), function (c) { return c.dataset.sel; }); if (sel.length) open('move', sel); return; }
+        if (e.target.closest('[data-fm-cancel]') || e.target === dlg) dlg.close();
+    });
+})();
+</script>

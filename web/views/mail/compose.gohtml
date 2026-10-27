@@ -1,0 +1,19 @@
+{{- /* .reply: nil or M [to, subject, thread, in_reply_to, references] — dialog opened by [data-compose] */ -}}
+{{- $r := .reply -}}
+<dialog id="compose" class="m-auto w-[min(40rem,calc(100vw-2rem))] rounded-xl bg-white p-0 shadow-2xl ring-1 ring-graphite-900/10 backdrop:bg-graphite-950/60">
+    <form method="POST" action="{{url "/mail/send"}}" class="flex flex-col">{{csrfField}}
+        <input type="hidden" name="thread" value="{{if $r}}{{$r.thread}}{{end}}"><input type="hidden" name="in_reply_to" value="{{if $r}}{{$r.in_reply_to}}{{end}}"><input type="hidden" name="references" value="{{if $r}}{{$r.references}}{{end}}">
+        <header class="flex items-center justify-between border-b border-graphite-900/8 px-5 py-3"><h2 class="text-base font-semibold">{{if $r}}{{__ "Reply"}}{{else}}{{__ "New message"}}{{end}}</h2><button type="button" class="btn-ghost !px-2" data-compose-close aria-label="{{__ "Close"}}">&times;</button></header>
+        <div class="space-y-3 p-5">
+            <div><label class="label" for="c-to">{{__ "To"}}</label><input id="c-to" name="to" required class="input" value="{{if $r}}{{$r.to}}{{end}}" placeholder="name@example.com"></div>
+            <div><label class="label" for="c-cc">Cc</label><input id="c-cc" name="cc" class="input"></div>
+            <div><label class="label" for="c-sub">{{__ "Subject"}}</label><input id="c-sub" name="subject" required class="input" value="{{if $r}}{{$r.subject}}{{end}}"></div>
+            <div><label class="label" for="c-body">{{__ "Message"}}</label><textarea id="c-body" name="body" rows="9" required class="input"></textarea></div>
+        </div>
+        <footer class="flex justify-end gap-2 border-t border-graphite-900/8 bg-mist/50 px-5 py-3"><button type="button" class="btn-secondary" data-compose-close>{{__ "Cancel"}}</button><button class="btn-primary">{{icon "send" "size-4"}} {{__ "Send"}}</button></footer>
+    </form>
+</dialog>
+<script>
+(function () { var d = document.getElementById('compose'); if (!d) return;
+    document.addEventListener('click', function (e) { if (e.target.closest('[data-compose]')) { d.showModal(); var t = d.querySelector('#c-to'); if (t && !t.value) t.focus(); else d.querySelector('#c-body').focus(); } if (e.target.closest('[data-compose-close]') || e.target === d) d.close(); }); })();
+</script>

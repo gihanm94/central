@@ -1,0 +1,12 @@
+{{- /* .me: name, avatar, username, email, role_name, job_title, has_job_title (core.ProfileMe) */ -}}
+{{- set "crumbs" (list (list (__ "Profile") "/profile")) -}}
+<div class="flex flex-wrap items-center gap-4">
+    {{template "partials/avatar" (dict "name" .me.name "avatar" .me.avatar "size" "size-14 sm:size-16" "extra" "text-lg")}}
+    <div class="min-w-0">
+        <h1 class="page-title truncate">{{.me.name}}</h1>
+        <p class="truncate text-sm text-steel">{{if .me.has_job_title}}{{.me.job_title}}{{else}}{{__ .me.role_name}}{{end}} · {{if .me.username}}@{{.me.username}} · {{end}}{{.me.email}}</p>
+    </div>
+</div>
+{{template "partials/tabs" (dict "tabs" (list
+    (list "/profile" (__ "Profile") "user") (list "/profile/security" (__ "Security") "lock") (list "/profile/sessions" (__ "Sessions") "clock") (list "/profile/devices" (__ "Mobile devices") "id") (list "/profile/connectors" (__ "Connectors") "link")
+    (list "/profile/preferences" (__ "Preferences") "sliders") (list "/profile/notifications" (__ "Notifications") "bell")))}}
