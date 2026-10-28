@@ -2873,5 +2873,14 @@
     "Bottom of the form": "ด้านล่างของฟอร์ม",
     "Prefer the mobile app?": "ต้องการใช้แอปมือถือ?",
     "iPhone app": "แอป iPhone",
-    "Android app": "แอป Android"
+    "Android app": "แอป Android",
+    "Leads created, year by year": "ลีดที่สร้าง เทียบรายปี",
+    ":n industries": ":n อุตสาหกรรม",
+    ":n sources": ":n แหล่งที่มา",
+    "+ :n more industries · :leads leads (:pct%)": "+ อีก :n อุตสาหกรรม · :leads ลีด (:pct%)",
+    "All industries are shown.": "แสดงทุกอุตสาหกรรมแล้ว",
+    "View all :n": "ดูทั้งหมด :n",
+    "leads tagged": "ลีดที่ติดแท็ก",
+    "Other (:n)": "อื่น ๆ (:n)",
+    ":n leads tagged": "ลีดที่ติดแท็ก :n รายการ"
 }

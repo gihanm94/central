@@ -3,6 +3,7 @@ package crm
 import (
 	"html/template"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 
@@ -126,8 +127,8 @@ func dashboardIndex(c *app.Ctx) {
 
 	// the same months again: new leads, and deals closed won / lost
 	series := `generate_series(LEAST(date_trunc('month', '` + lo + `'::date), date_trunc('month', '` + hi + `'::date) - interval '5 months'), date_trunc('month', '` + hi + `'::date), interval '1 month') m`
-	leadMonths := q.Select(`SELECT to_char(m, 'Mon') AS label, count(t.id) AS n FROM `+series+`
-            LEFT JOIN leads t ON t.deleted_at IS NULL AND date_trunc('month', t.created_at) = m AND `+sql+` GROUP BY m ORDER BY m`, params...)
+	leadYears := q.Select(`SELECT EXTRACT(year FROM t.created_at)::int AS y, EXTRACT(month FROM t.created_at)::int AS mo, count(*) AS n FROM leads t
+            WHERE t.deleted_at IS NULL AND t.created_at >= date_trunc('year', now()) - interval '3 years' AND `+sql+` GROUP BY 1, 2`, params...)
 	closedMonths := q.Select(`SELECT to_char(m, 'Mon') AS label, count(t.id) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON') AS won, count(t.id) FILTER (WHERE t.opportunity_stage = 'CLOSED_LOST') AS lost
             FROM `+series+` LEFT JOIN opportunities t ON t.deleted_at IS NULL AND t.opportunity_stage IN ('CLOSED_WON', 'CLOSED_LOST') AND date_trunc('month', `+when+`) = m AND `+sql+`
             GROUP BY m ORDER BY m`, params...)
@@ -138,9 +139,9 @@ func dashboardIndex(c *app.Ctx) {
               (SELECT count(*) FROM leads t WHERE t.deleted_at IS NULL AND t.created_at::date BETWEEN '`+lo+`' AND '`+hi+`' AND `+sql+`) AS leads_new,
               (SELECT count(*) FROM contacts t WHERE t.deleted_at IS NULL AND `+sql+`) AS contacts`, rep(3)...)
 	industries := q.Select(`SELECT i.name, i.color, count(DISTINCT t.id) AS n FROM industries i JOIN lead_industries x ON x.industry_id = i.id
-            JOIN leads t ON t.id = x.lead_id AND t.deleted_at IS NULL AND `+sql+` GROUP BY i.id ORDER BY n DESC, i.name LIMIT 6`, params...)
+            JOIN leads t ON t.id = x.lead_id AND t.deleted_at IS NULL AND `+sql+` GROUP BY i.id ORDER BY n DESC, i.name`, params...)
 	sources := q.Select(`SELECT s.name, s.color, count(DISTINCT t.id) AS n FROM lead_sources s JOIN lead_lead_sources x ON x.lead_source_id = s.id
-            JOIN leads t ON t.id = x.lead_id AND t.deleted_at IS NULL AND `+sql+` GROUP BY s.id ORDER BY n DESC, s.name LIMIT 6`, params...)
+            JOIN leads t ON t.id = x.lead_id AND t.deleted_at IS NULL AND `+sql+` GROUP BY s.id ORDER BY n DESC, s.name`, params...)
 
 	// ----- activities
 	actCount := q.First(`SELECT
@@ -332,26 +333,48 @@ func dashboardIndex(c *app.Ctx) {
 			Bars: []chartBar{{H: chartPct(v, wonTop), Val: ternaryStr(v > 0, uiCompact(v), ""), Color: "#2a78d6"}}})
 	}
 
-	leadMax, leadSum := 0.0, 0.0
-	for _, m := range leadMonths {
-		leadMax = math.Max(leadMax, m.Float("n"))
-		leadSum += m.Float("n")
+	// new leads per month, one line per year (this year and up to three before it, as far as there are leads)
+	yearN := map[int][12]int{}
+	leadMax, leadSum := 0.0, 0
+	for _, r := range leadYears {
+		arr := yearN[r.Int("y")]
+		arr[r.Int("mo")-1] = r.Int("n")
+		yearN[r.Int("y")] = arr
+		leadMax = math.Max(leadMax, r.Float("n"))
+		leadSum += r.Int("n")
 	}
 	leadTicks, leadTop := chartTicks(leadMax, true, nil)
-	var leadCols []chartCol
-	var pts []string
-	for i, m := range leadMonths {
-		v := m.Float("n")
-		x := (float64(i) + 0.5) / float64(len(leadMonths)) * 100
-		y := 100 - v/leadTop*100
-		pts = append(pts, fmtFloat(roundHalf(x, 2))+","+fmtFloat(roundHalf(y, 2)))
-		leadCols = append(leadCols, chartCol{Label: c.T(m.Str("label")), Cur: i == len(leadMonths)-1, Title: m.Str("label") + ": " + c.T(":n new leads", "n", m.Int("n")),
-			X: fmtFloat(roundHalf(x, 2)), Y: fmtFloat(roundHalf(100-y, 2)), Bars: []chartBar{{Val: conv.Str(m.Int("n"))}}})
+	thisYear, thisMonth := conv.Now().Year(), int(conv.Now().Month())
+	palette := []string{"#2a78d6", "#f59e0b", "#8b5cf6", "#14b8a6"}
+	var leadSeries []leadSerie
+	for i := 0; i < 4; i++ {
+		y := thisYear - i
+		arr, has := yearN[y]
+		if !has && i > 0 {
+			continue
+		}
+		sr := leadSerie{Year: y, Color: palette[i], Cur: i == 0}
+		upTo := 12
+		if i == 0 {
+			upTo = thisMonth
+		}
+		var pts []string
+		for mo := 0; mo < upTo; mo++ {
+			x := (float64(mo) + 0.5) / 12 * 100
+			yy := 100 - float64(arr[mo])/leadTop*100
+			pts = append(pts, fmtFloat(roundHalf(x, 2))+","+fmtFloat(roundHalf(yy, 2)))
+			sr.Points = append(sr.Points, leadPoint{X: fmtFloat(roundHalf(x, 2)), Y: fmtFloat(roundHalf(100-yy, 2)), Val: conv.Str(arr[mo]),
+				Title: leadMonthNames[mo] + " " + conv.Str(y) + ": " + c.T(":n new leads", "n", arr[mo])})
+			sr.Total += arr[mo]
+		}
+		sr.Line = strings.Join(pts, " ")
+		sr.Area = pts[0][:strings.Index(pts[0], ",")] + ",100 " + sr.Line + " " + pts[len(pts)-1][:strings.Index(pts[len(pts)-1], ",")] + ",100"
+		leadSeries = append(leadSeries, sr)
 	}
-	leadLine, leadArea := "", ""
-	if len(pts) > 0 {
-		leadLine = strings.Join(pts, " ")
-		leadArea = pts[0][:strings.Index(pts[0], ",")] + ",100 " + leadLine + " " + pts[len(pts)-1][:strings.Index(pts[len(pts)-1], ",")] + ",100"
+	slices.Reverse(leadSeries) // the current year is drawn last, on top
+	var leadMonthLabels []string
+	for _, n := range leadMonthNames {
+		leadMonthLabels = append(leadMonthLabels, c.T(n))
 	}
 
 	closedMax, closedSum := 0.0, 0
@@ -406,21 +429,6 @@ func dashboardIndex(c *app.Ctx) {
 		rems = append(rems, remRow{c.URL("/crm/activities/" + r.Str("id")), r.Str("topic"),
 			trLabel(c, activityTypes, r.Str("activity_type")) + " · " + app.FormatDate(c, r["start_at"], "d M H:i") + " (" + app.TimeAgo(c, r["start_at"]) + ")"})
 	}
-	type distRow struct {
-		Name, Color, Width string
-		N                  int
-	}
-	dist := func(list []db.Row) []distRow {
-		mx := 1
-		for _, i := range list {
-			mx = max(mx, i.Int("n"))
-		}
-		var out []distRow
-		for _, i := range list {
-			out = append(out, distRow{i.Str("name"), i.Str("color"), fmtFloat(roundHalf(float64(i.Int("n"))/float64(mx)*100, 0)), i.Int("n")})
-		}
-		return out
-	}
 	type campRow struct {
 		URL, Name, Ends string
 		HasMeter        bool
@@ -456,9 +464,9 @@ func dashboardIndex(c *app.Ctx) {
 		"rangeAction": c.URL("/crm/dashboard"), "range": rng, "from": from, "to": to, "keep": keep, "selects": selects,
 		"reminders": rems, "tiles": tiles, "target": tgt, "bars": bars, "holdN": hold.Int("n"), "holdText": c.T("On hold: :n, worth :v", "n", hold.Int("n"), "v", money(hold.Float("v"))),
 		"cur": cur, "wonCols": wonCols, "wonTicks": wonTicks, "monthsEmpty": wonMax == 0,
-		"leadCols": leadCols, "leadTicks": leadTicks, "leadLine": leadLine, "leadArea": leadArea, "leadsEmpty": leadSum == 0,
+		"leadSeries": leadSeries, "leadTicks": leadTicks, "leadMonths": leadMonthLabels, "leadsEmpty": leadSum == 0,
 		"closedCols": closedCols, "closedTicks": closedTicks, "closedEmpty": closedSum == 0, "ups": ups, "tops": tops,
-		"industries": dist(industries), "sources": dist(sources), "camps": cps, "compare": cmps,
+		"industryDist": distIndustry(c, industries), "sourceDist": distSource(c, sources), "camps": cps, "compare": cmps,
 		"footnote": c.T("Totals are converted to :cur with the rates in CRM settings → Currencies.", "cur", cur)}
 	c.View("crm/dashboard", data)
 }
@@ -569,3 +577,85 @@ func chartPct(v, top float64) string {
 	}
 	return fmtFloat(roundHalf(math.Max(1.5, v/top*100), 1))
 }
+
+var leadMonthNames = []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+
+type leadPoint struct{ X, Y, Val, Title string }
+
+// leadSerie is one year's line of the "New leads by month" chart.
+type leadSerie struct {
+	Year       int
+	Color      string
+	Cur        bool
+	Line, Area string
+	Points     []leadPoint
+	Total      int
+}
+
+// distRow is one industry / source with its lead count and share of all tags.
+type distRow struct {
+	Name, Color, Share, Width string
+	N                         int
+	Rank                      int
+}
+
+// distBlock: a short list for the card (the top ones, the rest rolled up) and the whole list for the side sheet.
+type distBlock struct {
+	Top       []distRow
+	All       []distRow
+	Total     int // lead tags counted
+	Kinds     int // how many industries / sources have leads
+	MoreKinds int
+	MoreN     int
+	MoreShare string
+	Donut     string // conic-gradient of the top ones plus "others"
+}
+
+func distOf(c *app.Ctx, rows []db.Row, top int) distBlock {
+	var b distBlock
+	mx := 1
+	for _, r := range rows {
+		b.Total += r.Int("n")
+		mx = max(mx, r.Int("n"))
+	}
+	pct := func(n int) string {
+		if b.Total == 0 {
+			return "0"
+		}
+		return fmtFloat(roundHalf(float64(n)/float64(b.Total)*100, 1))
+	}
+	for i, r := range rows {
+		color := r.Str("color")
+		if color == "" {
+			color = "#94a3b8"
+		}
+		d := distRow{Name: r.Str("name"), Color: color, N: r.Int("n"), Rank: i + 1, Share: pct(r.Int("n")), Width: fmtFloat(roundHalf(float64(r.Int("n"))/float64(mx)*100, 0))}
+		b.All = append(b.All, d)
+		if i < top {
+			b.Top = append(b.Top, d)
+		} else {
+			b.MoreN += d.N
+		}
+	}
+	b.Kinds = len(rows)
+	b.MoreKinds = max(0, len(rows)-top)
+	b.MoreShare = pct(b.MoreN)
+	// donut
+	var stops []string
+	at := 0.0
+	for _, d := range b.Top {
+		w := float64(d.N) / math.Max(1, float64(b.Total)) * 100
+		stops = append(stops, d.Color+" "+fmtFloat(roundHalf(at, 2))+"% "+fmtFloat(roundHalf(at+w, 2))+"%")
+		at += w
+	}
+	if b.MoreN > 0 {
+		stops = append(stops, "#cbd5e1 "+fmtFloat(roundHalf(at, 2))+"% 100%")
+	}
+	if len(stops) > 0 {
+		b.Donut = "background: conic-gradient(" + strings.Join(stops, ", ") + ")"
+	}
+	return b
+}
+
+func distIndustry(c *app.Ctx, rows []db.Row) distBlock { return distOf(c, rows, 7) }
+func distSource(c *app.Ctx, rows []db.Row) distBlock   { return distOf(c, rows, 5) }

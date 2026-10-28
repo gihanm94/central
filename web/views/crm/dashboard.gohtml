@@ -91,11 +91,11 @@
 
 <div class="mt-6 grid gap-6 lg:grid-cols-2">
     <section class="panel flex flex-col">
-        <div class="panel-head"><h2 class="panel-title">{{__ "New leads by month"}}</h2><span class="text-xs text-steel">{{__ "Leads created"}}</span></div>
+        <div class="panel-head"><h2 class="panel-title">{{__ "New leads by month"}}</h2><span class="text-xs text-steel">{{__ "Leads created, year by year"}}</span></div>
         {{if .leadsEmpty}}
             <p class="px-5 py-12 text-center text-sm text-steel">{{__ "No new leads in these months."}}</p>
         {{else}}
-            {{template "crm/dash-line" (dict "label" (__ "New leads by month") "ticks" .leadTicks "cols" .leadCols "line" .leadLine "area" .leadArea)}}
+            {{template "crm/dash-lines" (dict "label" (__ "New leads by month") "ticks" .leadTicks "months" .leadMonths "series" .leadSeries)}}
         {{end}}
     </section>
     <section class="panel flex flex-col">
@@ -142,8 +142,8 @@
 </div>
 
 <div class="mt-6 grid gap-6 lg:grid-cols-3">
-    {{template "crm/dash-dist" (dict "heading" (__ "Leads by industry") "list" .industries)}}
-    {{template "crm/dash-dist" (dict "heading" (__ "Leads by source") "list" .sources)}}
+    {{template "crm/dash-industries" (dict "heading" (__ "Leads by industry") "d" .industryDist)}}
+    {{template "crm/dash-sources" (dict "heading" (__ "Leads by source") "d" .sourceDist)}}
 
     <section class="panel">
         <div class="panel-head"><h2 class="panel-title">{{__ "Active campaigns"}}</h2><a href="{{url "/crm/campaigns"}}" class="text-sm text-steel hover:text-graphite-900">{{__ "See all"}}</a></div>
@@ -182,19 +182,18 @@
 </section>
 {{end}}
 <p class="mt-4 text-xs text-steel">{{.footnote}}</p>
-{{- define "crm/dash-dist"}}
-    <section class="panel">
-        <div class="panel-head"><h2 class="panel-title">{{.heading}}</h2></div>
-        {{if not .list}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No data yet."}}</p>{{else}}
-        <ul class="space-y-3 p-5">
-            {{range .list}}
-            <li><div class="mb-1 flex items-center justify-between gap-3 text-sm"><span class="flex min-w-0 items-center gap-2"><span class="size-2.5 shrink-0 rounded-full" style="{{css (printf "background: %s" .Color)}}"></span><span class="truncate">{{.Name}}</span></span><span class="tabular-nums font-medium">{{.N}}</span></div>
-                <div class="h-1.5 rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="{{css (printf "width: %s%%; background: %s" .Width .Color)}}"></div></div></li>
-            {{end}}
-        </ul>
-        {{end}}
-    </section>
-{{end -}}
+{{template "crm/dash-drawer" (dict "id" "industry" "heading" (__ "Leads by industry") "d" .industryDist)}}
+{{template "crm/dash-drawer" (dict "id" "source" "heading" (__ "Leads by source") "d" .sourceDist)}}
+<script>(function(){
+    var open=null,last=null;
+    function show(id){var s=document.getElementById('dist-'+id);if(!s)return;last=document.activeElement;open=s;s.hidden=false;document.body.classList.add('overflow-hidden');var q=s.querySelector('[data-dist-search]');if(q){q.value='';filter(s,'');q.focus({preventScroll:true});}}
+    function hide(){if(!open)return;open.hidden=true;open=null;document.body.classList.remove('overflow-hidden');if(last&&last.focus)last.focus();}
+    function filter(s,v){v=v.trim().toLowerCase();var n=0;s.querySelectorAll('[data-dist-row]').forEach(function(r){var ok=!v||r.dataset.name.indexOf(v)>-1;r.hidden=!ok;if(ok)n++;});var e=s.querySelector('[data-dist-empty]');if(e)e.hidden=n>0;}
+    document.addEventListener('click',function(e){var o=e.target.closest('[data-dist-open]');if(o){e.preventDefault();show(o.dataset.distOpen);}else if(e.target.closest('[data-dist-close]')){hide();}});
+    document.addEventListener('input',function(e){if(e.target.matches('[data-dist-search]'))filter(e.target.closest('[data-dist-sheet]'),e.target.value);});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
+})();</script>
+
 
 {{- define "crm/dash-bars"}}
 <div class="flex flex-1 flex-col px-5 pb-4 pt-5" role="img" aria-label="{{.label}}">
@@ -243,5 +242,114 @@
     <div class="flex" style="padding-left:3rem">
         {{range .cols}}<span class="min-w-0 flex-1 truncate pt-2 text-center text-xs {{if .Cur}}font-semibold text-graphite-900{{else}}text-steel{{end}}">{{.Label}}</span>{{end}}
     </div>
+</div>
+{{end -}}
+
+{{- define "crm/dash-lines"}}
+<div class="flex flex-1 flex-col px-5 pb-4 pt-5" role="img" aria-label="{{.label}}">
+    <div class="relative flex-1" style="min-height:14rem">
+        {{range $i, $t := .ticks}}
+        <div class="absolute left-0 right-0 border-t border-graphite-900/8" style="top:{{printf "%.0f" (mul $i 25)}}%"><span class="absolute left-0 text-[11px] tabular-nums text-steel" style="top:-9px;background:#fff;padding-right:4px">{{$t}}</span></div>
+        {{end}}
+        <div class="absolute" style="left:3rem;right:0;top:0;bottom:0">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute" style="inset:0;width:100%;height:100%;overflow:visible" aria-hidden="true">
+                {{range .series}}
+                {{if .Cur}}<polygon points="{{.Area}}" fill="{{.Color}}" fill-opacity=".10"/>{{end}}
+                <polyline points="{{.Line}}" fill="none" stroke="{{.Color}}" stroke-width="{{if .Cur}}3.5{{else}}2{{end}}" {{if not .Cur}}stroke-opacity=".75" stroke-dasharray="6 4"{{end}} stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+                {{end}}
+            </svg>
+            {{range .series}}{{$cur := .Cur}}{{$color := .Color}}
+            {{range .Points}}
+            <div class="absolute" style="left:{{.X}}%;bottom:{{.Y}}%;width:0;height:0;{{if $cur}}z-index:2{{end}}" title="{{.Title}}">
+                <span class="absolute rounded-full bg-white" style="{{if $cur}}width:10px;height:10px;left:-5px;bottom:-5px;border:2.5px solid {{$color}}{{else}}width:6px;height:6px;left:-3px;bottom:-3px;background:{{$color}}{{end}}"></span>
+                {{if and $cur (ne .Val "0")}}<span class="absolute text-[11px] font-semibold tabular-nums text-graphite-900" style="bottom:9px;left:-20px;width:40px;text-align:center">{{.Val}}</span>{{end}}
+            </div>
+            {{end}}
+            {{end}}
+        </div>
+    </div>
+    <div class="flex" style="padding-left:3rem">
+        {{range .months}}<span class="min-w-0 flex-1 truncate pt-2 text-center text-xs text-steel">{{.}}</span>{{end}}
+    </div>
+    <div class="mt-4 flex flex-wrap items-center justify-center gap-2" style="padding-left:3rem">
+        {{range .series}}
+        <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs {{if .Cur}}font-semibold text-graphite-900{{else}}text-steel{{end}}" style="{{if .Cur}}background:{{.Color}}1a;box-shadow:inset 0 0 0 1px {{.Color}}66{{else}}box-shadow:inset 0 0 0 1px rgba(0,0,0,.08){{end}}">
+            <span style="display:inline-block;width:18px;height:0;border-top:{{if .Cur}}3px solid{{else}}2px dashed{{end}} {{.Color}}"></span>{{.Year}}<span class="tabular-nums {{if .Cur}}text-graphite-700{{end}}">· {{.Total}}</span>
+        </span>
+        {{end}}
+    </div>
+</div>
+{{end -}}
+
+{{- define "crm/dash-industries"}}
+{{- $d := .d -}}
+<section class="panel flex flex-col">
+    <div class="panel-head"><h2 class="panel-title">{{.heading}}</h2>{{if $d.Kinds}}<span class="text-xs text-steel">{{__ ":n industries" "n" $d.Kinds}}</span>{{end}}</div>
+    {{if not $d.Top}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No data yet."}}</p>{{else}}
+    <ol class="flex-1 divide-y divide-graphite-900/6">
+        {{range $d.Top}}
+        <li class="px-5 py-2.5">
+            <div class="flex items-center gap-3 text-sm">
+                <span class="w-4 shrink-0 text-right text-xs tabular-nums text-steel">{{.Rank}}</span>
+                <span class="min-w-0 flex-1 truncate font-medium">{{.Name}}</span>
+                <span class="shrink-0 tabular-nums font-semibold">{{.N}}</span>
+                <span class="w-12 shrink-0 text-right text-xs tabular-nums text-steel">{{.Share}}%</span>
+            </div>
+            <div class="ml-7 mt-1.5 h-1 rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="{{css (printf "width: %s%%; background: %s" .Width .Color)}}"></div></div>
+        </li>
+        {{end}}
+    </ol>
+    <div class="flex items-center justify-between gap-3 border-t border-graphite-900/6 px-5 py-3 text-xs text-steel">
+        <span>{{if $d.MoreKinds}}{{__ "+ :n more industries · :leads leads (:pct%)" "n" $d.MoreKinds "leads" $d.MoreN "pct" $d.MoreShare}}{{else}}{{__ "All industries are shown."}}{{end}}</span>
+        {{if $d.MoreKinds}}<button type="button" class="btn-secondary !py-1 text-xs" data-dist-open="industry">{{__ "View all :n" "n" $d.Kinds}}</button>{{end}}
+    </div>
+    {{end}}
+</section>
+{{end -}}
+
+{{- define "crm/dash-sources"}}
+{{- $d := .d -}}
+<section class="panel flex flex-col">
+    <div class="panel-head"><h2 class="panel-title">{{.heading}}</h2>{{if $d.Kinds}}<span class="text-xs text-steel">{{__ ":n sources" "n" $d.Kinds}}</span>{{end}}</div>
+    {{if not $d.Top}}<p class="px-5 py-8 text-center text-sm text-steel">{{__ "No data yet."}}</p>{{else}}
+    <div class="flex flex-1 flex-col items-center gap-5 p-5">
+        <div class="relative shrink-0" style="width:9rem;height:9rem" role="img" aria-label="{{.heading}}">
+            <div class="rounded-full" style="width:100%;height:100%;{{css $d.Donut}}"></div>
+            <div class="absolute flex flex-col items-center justify-center rounded-full bg-white" style="inset:1.6rem">
+                <span class="figure text-2xl leading-none">{{$d.Total}}</span><span class="mt-1 text-[11px] text-steel">{{__ "leads tagged"}}</span>
+            </div>
+        </div>
+        <ul class="w-full space-y-2">
+            {{range $d.Top}}
+            <li class="flex items-center gap-2 text-sm"><span class="size-2.5 shrink-0 rounded-full" style="{{css (printf "background: %s" .Color)}}"></span><span class="min-w-0 flex-1 truncate">{{.Name}}</span><span class="tabular-nums font-semibold">{{.N}}</span><span class="w-12 text-right text-xs tabular-nums text-steel">{{.Share}}%</span></li>
+            {{end}}
+            {{if $d.MoreKinds}}<li class="flex items-center gap-2 text-sm text-steel"><span class="size-2.5 shrink-0 rounded-full" style="background:#cbd5e1"></span><span class="min-w-0 flex-1 truncate">{{__ "Other (:n)" "n" $d.MoreKinds}}</span><span class="tabular-nums font-semibold text-graphite-900">{{$d.MoreN}}</span><span class="w-12 text-right text-xs tabular-nums">{{$d.MoreShare}}%</span></li>{{end}}
+        </ul>
+    </div>
+    {{if $d.MoreKinds}}<div class="flex justify-end border-t border-graphite-900/6 px-5 py-3"><button type="button" class="btn-secondary !py-1 text-xs" data-dist-open="source">{{__ "View all :n" "n" $d.Kinds}}</button></div>{{end}}
+    {{end}}
+</section>
+{{end -}}
+
+{{- define "crm/dash-drawer"}}
+{{- $d := .d -}}
+<div id="dist-{{.id}}" class="fixed inset-0 z-[60]" hidden data-dist-sheet>
+    <div class="absolute inset-0 bg-graphite-950/50" data-dist-close></div>
+    <aside role="dialog" aria-modal="true" aria-label="{{.heading}}" class="absolute inset-y-0 right-0 flex w-[min(26rem,calc(100vw-1rem))] flex-col bg-white shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b border-graphite-900/10 px-5 py-3">
+            <div class="min-w-0"><h2 class="truncate text-base font-semibold">{{.heading}}</h2><p class="text-xs text-steel">{{__ ":n leads tagged" "n" $d.Total}}</p></div>
+            <button type="button" class="btn-ghost !px-2" data-dist-close aria-label="{{__ "Close"}}">&times;</button>
+        </header>
+        <div class="border-b border-graphite-900/8 px-5 py-3"><input type="search" data-dist-search placeholder="{{__ "Search"}}…" class="input" autocomplete="off"></div>
+        <ul class="min-h-0 flex-1 divide-y divide-graphite-900/6 overflow-y-auto">
+            {{range $d.All}}
+            <li class="px-5 py-2.5" data-dist-row data-name="{{lower .Name}}">
+                <div class="flex items-center gap-3 text-sm"><span class="w-6 shrink-0 text-right text-xs tabular-nums text-steel">{{.Rank}}</span><span class="size-2.5 shrink-0 rounded-full" style="{{css (printf "background: %s" .Color)}}"></span><span class="min-w-0 flex-1 truncate">{{.Name}}</span><span class="tabular-nums font-semibold">{{.N}}</span><span class="w-12 text-right text-xs tabular-nums text-steel">{{.Share}}%</span></div>
+                <div class="ml-9 mt-1.5 h-1 rounded-full bg-graphite-900/6"><div class="h-full rounded-full" style="{{css (printf "width: %s%%; background: %s" .Width .Color)}}"></div></div>
+            </li>
+            {{end}}
+            <li class="px-5 py-8 text-center text-sm text-steel" data-dist-empty hidden>{{__ "Nothing found."}}</li>
+        </ul>
+    </aside>
 </div>
 {{end -}}
