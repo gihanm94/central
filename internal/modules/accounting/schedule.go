@@ -13,8 +13,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -41,7 +41,7 @@ func inWindow(now time.Time) bool {
 	var days []int
 	for _, s := range strings.Split(schedSetting("days"), ",") {
 		if s != "" {
-			days = append(days, php.Int(s))
+			days = append(days, conv.Int(s))
 		}
 	}
 	n := int(d.Weekday())
@@ -54,7 +54,7 @@ func inWindow(now time.Time) bool {
 			ok = true
 		}
 	}
-	return ok && d.Hour() >= php.Int(schedSetting("hour_start")) && d.Hour() < php.Int(schedSetting("hour_end"))
+	return ok && d.Hour() >= conv.Int(schedSetting("hour_start")) && d.Hour() < conv.Int(schedSetting("hour_end"))
 }
 
 // ---- who is running the scheduler: cron (acme erp-sync tick) or, when nobody set up cron, the website itself (kick)
@@ -73,12 +73,12 @@ func readHeartbeat() *heartbeat {
 		return nil
 	}
 	t, by, _ := strings.Cut(strings.TrimSpace(string(raw)), "|")
-	return &heartbeat{at: int64(php.Int(t)), by: by}
+	return &heartbeat{at: int64(conv.Int(t)), by: by}
 }
 
 func beat(by string) {
 	_ = os.MkdirAll(filepath.Dir(beatFile()), 0o775)
-	_ = os.WriteFile(beatFile(), []byte(php.Str(int(time.Now().Unix()))+"|"+by), 0o664)
+	_ = os.WriteFile(beatFile(), []byte(conv.Str(int(time.Now().Unix()))+"|"+by), 0o664)
 }
 
 // program is this binary (PHP: the php executable running bin/erp-sync.php).
@@ -129,9 +129,9 @@ func scheduleTick(c *app.Ctx, by string) []string {
 	for _, g := range []struct {
 		group   string
 		minutes int
-	}{{"hot", php.Int(schedSetting("hot_minutes"))}, {"cold", php.Int(schedSetting("cold_minutes"))}} {
+	}{{"hot", conv.Int(schedSetting("hot_minutes"))}, {"cold", conv.Int(schedSetting("cold_minutes"))}} {
 		last := acc().Scalar("SELECT max(finished_at) FROM erp_sync_runs WHERE kind = ? AND finished_at IS NOT NULL", g.group)
-		if last != nil && time.Now().Unix()-php.StrToTime(last) < int64(max(1, g.minutes)*60) {
+		if last != nil && time.Now().Unix()-conv.StrToTime(last) < int64(max(1, g.minutes)*60) {
 			continue
 		}
 		if runGroup(g.group, "schedule", 0, "") != 0 {
@@ -174,7 +174,7 @@ func runGroup(group, trigger string, by int, forceMode string) int {
 		byV = by
 	}
 	fetched, saved := 0, 0
-	id := php.Int(acc().Insert("erp_sync_runs", db.Cols{{Name: "kind", Value: group}, {Name: "source", Value: trigger}, {Name: "started_by", Value: byV}}))
+	id := conv.Int(acc().Insert("erp_sync_runs", db.Cols{{Name: "kind", Value: group}, {Name: "source", Value: trigger}, {Name: "started_by", Value: byV}}))
 	logInfo("sync", fmt.Sprintf("group %s: run #%d start", group, id), om("trigger", trigger, "mode", mode, "entities", len(keys), "by", byV))
 	var failed []string
 	s := newSyncer()
@@ -191,13 +191,13 @@ func runGroup(group, trigger string, by int, forceMode string) int {
 		}
 	}
 	status := "ok"
-	msg := php.Str(len(keys)) + " entities, " + mode
+	msg := conv.Str(len(keys)) + " entities, " + mode
 	if len(failed) > 0 {
 		status = "failed"
 		if len(failed) < len(keys) {
 			status = "warning"
 		}
-		msg = php.Substr(strings.Join(failed, " | "), 0, 1500)
+		msg = conv.Substr(strings.Join(failed, " | "), 0, 1500)
 	}
 	acc().Exec("UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ?, fetched = ?, saved = ? WHERE id = ?", status, msg, fetched, saved, id)
 	fl := []any{}
@@ -219,10 +219,10 @@ func runEntity(key, mode, one string, by int) int {
 	if by > 0 {
 		byV = by
 	}
-	id := php.Int(acc().Insert("erp_sync_runs", db.Cols{{Name: "kind", Value: "entity:" + key}, {Name: "source", Value: "manual"}, {Name: "started_by", Value: byV}}))
+	id := conv.Int(acc().Insert("erp_sync_runs", db.Cols{{Name: "kind", Value: "entity:" + key}, {Name: "source", Value: "manual"}, {Name: "started_by", Value: byV}}))
 	var r syncResult
 	if err := app.Catch(func() { r = newSyncer().run(key, mode, one, 0, nil, nil) }); err != nil {
-		acc().Exec("UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ? WHERE id = ?", "failed", php.Substr(err.Error(), 0, 1500), id)
+		acc().Exec("UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ? WHERE id = ?", "failed", conv.Substr(err.Error(), 0, 1500), id)
 	} else {
 		acc().Exec("UPDATE erp_sync_runs SET finished_at = now(), status = ?, message = ?, fetched = ?, saved = ? WHERE id = ?", "ok", mode, r.fetched, r.saved, id)
 	}
@@ -238,7 +238,7 @@ func runEntity(key, mode, one string, by int) int {
 //	login                                            test the login and show the session
 func erpSync(args []string) int {
 	if !app.ModuleUsable("accounting") {
-		fmt.Print(php.Date("c", php.Now()) + " the accounting module is off or unavailable\n")
+		fmt.Print(conv.Date("c", conv.Now()) + " the accounting module is off or unavailable\n")
 		return 0
 	}
 	cmd := "tick"
@@ -263,20 +263,20 @@ func erpSync(args []string) int {
 			ran := scheduleTick(c, by)
 			if len(ran) > 0 {
 				logInfo("sync", "scheduler tick ran: "+strings.Join(ran, ", "))
-				fmt.Print(php.Date("c", php.Now()) + " ran: " + strings.Join(ran, ", ") + "\n")
+				fmt.Print(conv.Date("c", conv.Now()) + " ran: " + strings.Join(ran, ", ") + "\n")
 			} else {
-				fmt.Print(php.Date("c", php.Now()) + " nothing due\n")
+				fmt.Print(conv.Date("c", conv.Now()) + " nothing due\n")
 			}
 		case "hot", "cold", "full", "all":
 			force := ""
 			if arg(2) == "latest" || arg(2) == "all" {
 				force = arg(2)
 			}
-			id := runGroup(cmd, "manual", php.Int(arg(1)), force)
+			id := runGroup(cmd, "manual", conv.Int(arg(1)), force)
 			if id != 0 {
-				fmt.Printf("%s run #%d finished\n", php.Date("c", php.Now()), id)
+				fmt.Printf("%s run #%d finished\n", conv.Date("c", conv.Now()), id)
 			} else {
-				fmt.Print(php.Date("c", php.Now()) + " already running\n")
+				fmt.Print(conv.Date("c", conv.Now()) + " already running\n")
 			}
 		case "entity":
 			mode := arg(2)
@@ -284,12 +284,12 @@ func erpSync(args []string) int {
 				mode = "latest"
 			}
 			id := runEntity(arg(1), mode, arg(3), 0)
-			fmt.Printf("%s run #%d finished\n", php.Date("c", php.Now()), id)
+			fmt.Printf("%s run #%d finished\n", conv.Date("c", conv.Now()), id)
 		case "generate":
 			jobRun(c, arg(1))
 		case "login":
 			t := newErpClient().login()
-			fmt.Print("session " + php.Substr(t.Str("session_id"), 0, 6) + "… saved\n")
+			fmt.Print("session " + conv.Substr(t.Str("session_id"), 0, 6) + "… saved\n")
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown command %s\n", cmd)
 			code = 1
@@ -297,7 +297,7 @@ func erpSync(args []string) int {
 	})
 	if err != nil {
 		logException("sync", err, "erp-sync "+cmd+" failed")
-		fmt.Fprintf(os.Stderr, "%s %s\n", php.Date("c", php.Now()), err.Error())
+		fmt.Fprintf(os.Stderr, "%s %s\n", conv.Date("c", conv.Now()), err.Error())
 		return 1
 	}
 	return code

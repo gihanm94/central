@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // Your own Gmail inside the system (MailController): read, search, reply, send. Mail stays at Google; nothing is copied here.
@@ -46,16 +46,16 @@ func mailIndex(c *app.Ctx) {
 	if !connected && conn != nil {
 		lost = conn["last_error"]
 	}
-	page := max(1, php.Int(c.Query("p", "1")))
+	page := max(1, conv.Int(c.Query("p", "1")))
 	// the list, ready to show
-	today := php.Today()
+	today := conv.Today()
 	type row struct {
 		ID, Name, Subject, Snippet, Date string
 		Unread                           bool
 	}
 	var rows []row
 	for _, m := range data.Rows {
-		from := php.Str(m["from"])
+		from := conv.Str(m["from"])
 		name := ""
 		if f := fromRe.FindStringSubmatch(from); f != nil {
 			name = strings.Trim(f[1], "\" ")
@@ -66,18 +66,18 @@ func mailIndex(c *app.Ctx) {
 			name = from
 		}
 		d := ""
-		if !php.Empty(m["date"]) {
-			if php.DateOf("Y-m-d", m["date"]) == today {
-				d = php.DateOf("H:i", m["date"])
+		if !conv.Empty(m["date"]) {
+			if conv.DateOf("Y-m-d", m["date"]) == today {
+				d = conv.DateOf("H:i", m["date"])
 			} else {
-				d = php.DateOf("d M", m["date"])
+				d = conv.DateOf("d M", m["date"])
 			}
 		}
-		subject := php.Str(m["subject"])
+		subject := conv.Str(m["subject"])
 		if subject == "" {
 			subject = "(" + c.T("no subject") + ")"
 		}
-		rows = append(rows, row{ID: php.Str(m["id"]), Name: name, Subject: subject, Snippet: php.Str(m["snippet"]), Date: d, Unread: php.Bool(m["unread"])})
+		rows = append(rows, row{ID: conv.Str(m["id"]), Name: name, Subject: subject, Snippet: conv.Str(m["snippet"]), Date: d, Unread: conv.Bool(m["unread"])})
 	}
 	labelLinks := [][3]any{}
 	for _, l := range mailLabels {
@@ -115,7 +115,7 @@ func mailShow(c *app.Ctx) {
 		c.Redirect("/mail")
 	}
 	images := c.Query("images") == "1"
-	htm := php.Str(m["html"])
+	htm := conv.Str(m["html"])
 	var body string
 	if htm != "" {
 		body = google.SafeHTML(htm, images)
@@ -127,12 +127,12 @@ func mailShow(c *app.Ctx) {
 		img = "* data:"
 	}
 	doc := `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ` + img + `; style-src 'unsafe-inline'"><base target="_blank"><style>body{font:14px/1.55 system-ui,sans-serif;color:#1b1c1f;margin:12px;word-wrap:break-word}img{max-width:100%;height:auto}blockquote{border-left:3px solid #ddd;margin:8px 0;padding-left:12px;color:#555}</style>` + body
-	subject := php.Str(m["subject"])
+	subject := conv.Str(m["subject"])
 	title := subject
 	if title == "" {
 		title = c.T("Mail")
 	}
-	from := php.Str(m["from"])
+	from := conv.Str(m["from"])
 	replyTo := from
 	if f := regexp.MustCompile(`<([^>]+)>`).FindStringSubmatch(from); f != nil {
 		replyTo = f[1]
@@ -142,8 +142,8 @@ func mailShow(c *app.Ctx) {
 		reSubject = "Re: " + subject
 	}
 	date := ""
-	if !php.Empty(m["date"]) {
-		date = php.DateOf("d M Y, H:i", m["date"])
+	if !conv.Empty(m["date"]) {
+		date = conv.DateOf("d M Y, H:i", m["date"])
 	}
 	if subject == "" {
 		subject = "(" + c.T("no subject") + ")"
@@ -159,14 +159,14 @@ func mailSend(c *app.Ctx) {
 	u := c.MustUser()
 	to := c.Input("to")
 	subject := c.Input("subject")
-	body := php.Str(c.InputAny("body"))
+	body := conv.Str(c.InputAny("body"))
 	first := strings.TrimSpace(strings.Split(to, ",")[0])
 	if !validEmail(first) && !emailInBrackets.MatchString(to) {
 		c.Flash("error", c.T("Enter a valid e-mail address."))
 		c.Back("", "")
 	}
 	if err := app.Catch(func() {
-		google.MailSend(c, u.ID, to, subject, body, php.Str(c.InputAny("thread")), php.Str(c.InputAny("in_reply_to")), php.Str(c.InputAny("references")), c.Input("cc"))
+		google.MailSend(c, u.ID, to, subject, body, conv.Str(c.InputAny("thread")), conv.Str(c.InputAny("in_reply_to")), conv.Str(c.InputAny("references")), c.Input("cc"))
 		c.Flash("success", c.T("Message sent."))
 	}); err != nil {
 		c.Flash("error", err.Error())

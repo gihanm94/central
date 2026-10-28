@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // The signed-in person's Gmail: list, read, send (Gmail).
@@ -18,7 +18,7 @@ const gmailBase = "/gmail/v1/users/me"
 
 func gmailOK(st int, body map[string]any) map[string]any {
 	if st >= 400 {
-		Fail(ErrorMessage(body, "Gmail error") + " (" + php.Str(st) + ")")
+		Fail(ErrorMessage(body, "Gmail error") + " (" + conv.Str(st) + ")")
 	}
 	return body
 }
@@ -36,21 +36,21 @@ func MailInbox(c *app.Ctx, userID int, label, q, page string, per int) Inbox {
 	rows := []app.M{}
 	for _, it := range List(list["messages"]) {
 		m := Map(it)
-		x := gmailOK(API(c, userID, "GET", gmailBase+"/messages/"+RawURLEncode(php.Str(m["id"])), Query{{"format", "metadata"}, {"metadataHeaders", []string{"From", "Subject", "Date"}}}, nil))
+		x := gmailOK(API(c, userID, "GET", gmailBase+"/messages/"+RawURLEncode(conv.Str(m["id"])), Query{{"format", "metadata"}, {"metadataHeaders", []string{"From", "Subject", "Date"}}}, nil))
 		h := headers(Map(x["payload"])["headers"])
-		rows = append(rows, app.M{"id": php.Str(x["id"]), "thread": php.Str(x["threadId"]), "from": h["from"], "subject": h["subject"], "date": gmailDate(h["date"], x["internalDate"]),
-			"snippet": html.UnescapeString(php.Str(x["snippet"])), "unread": hasLabel(x, "UNREAD"), "attachments": false})
+		rows = append(rows, app.M{"id": conv.Str(x["id"]), "thread": conv.Str(x["threadId"]), "from": h["from"], "subject": h["subject"], "date": gmailDate(h["date"], x["internalDate"]),
+			"snippet": html.UnescapeString(conv.Str(x["snippet"])), "unread": hasLabel(x, "UNREAD"), "attachments": false})
 	}
 	est := len(rows)
 	if v, ok := list["resultSizeEstimate"]; ok && v != nil {
-		est = php.Int(v)
+		est = conv.Int(v)
 	}
-	return Inbox{Rows: rows, Next: php.Str(list["nextPageToken"]), Estimate: est}
+	return Inbox{Rows: rows, Next: conv.Str(list["nextPageToken"]), Estimate: est}
 }
 
 func hasLabel(x map[string]any, l string) bool {
 	for _, v := range List(x["labelIds"]) {
-		if php.Str(v) == l {
+		if conv.Str(v) == l {
 			return true
 		}
 	}
@@ -65,7 +65,7 @@ func MailMessage(c *app.Ctx, userID int, id string) app.M {
 	var text, htm string
 	files := []app.M{}
 	walk(payload, &text, &htm, &files)
-	return app.M{"id": php.Str(x["id"]), "thread": php.Str(x["threadId"]), "from": h["from"], "to": h["to"], "cc": h["cc"], "subject": h["subject"],
+	return app.M{"id": conv.Str(x["id"]), "thread": conv.Str(x["threadId"]), "from": h["from"], "to": h["to"], "cc": h["cc"], "subject": h["subject"],
 		"date": gmailDate(h["date"], x["internalDate"]), "message_id": h["message-id"], "references": h["references"], "text": text, "html": htm,
 		"files": files, "unread": hasLabel(x, "UNREAD")}
 }
@@ -114,22 +114,22 @@ func headers(list any) map[string]string {
 	out := map[string]string{}
 	for _, it := range List(list) {
 		h := Map(it)
-		out[strings.ToLower(php.Str(h["name"]))] = php.Str(h["value"])
+		out[strings.ToLower(conv.Str(h["name"]))] = conv.Str(h["value"])
 	}
 	return out
 }
 
 // gmailDate: ISO date of a message (nil when unknown).
 func gmailDate(header string, internal any) any {
-	if !php.Empty(internal) {
-		return php.Date("c", php.Unix(int64(php.Int(internal)/1000)))
+	if !conv.Empty(internal) {
+		return conv.Date("c", conv.Unix(int64(conv.Int(internal)/1000)))
 	}
 	if header != "" {
 		if t, err := mail.ParseDate(header); err == nil {
-			return php.Date("c", t.In(php.Loc))
+			return conv.Date("c", t.In(conv.Loc))
 		}
-		if ts := php.StrToTime(header); ts != 0 {
-			return php.Date("c", time.Unix(ts, 0))
+		if ts := conv.StrToTime(header); ts != 0 {
+			return conv.Date("c", time.Unix(ts, 0))
 		}
 	}
 	return nil
@@ -151,12 +151,12 @@ func padB64(s string) string {
 }
 
 func walk(p map[string]any, text, htm *string, files *[]app.M) {
-	mime := php.Str(p["mimeType"])
+	mime := conv.Str(p["mimeType"])
 	body := Map(p["body"])
-	data := php.Str(body["data"])
+	data := conv.Str(body["data"])
 	switch {
-	case !php.Empty(p["filename"]) && !php.Empty(body["attachmentId"]):
-		*files = append(*files, app.M{"name": php.Str(p["filename"]), "size": php.Int(body["size"]), "type": mime})
+	case !conv.Empty(p["filename"]) && !conv.Empty(body["attachmentId"]):
+		*files = append(*files, app.M{"name": conv.Str(p["filename"]), "size": conv.Int(body["size"]), "type": mime})
 	case data != "" && mime == "text/plain" && *text == "":
 		*text = b64url(data)
 	case data != "" && mime == "text/html" && *htm == "":

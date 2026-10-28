@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/i18n"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- settings (key/value company settings)
@@ -161,7 +161,7 @@ func LogActivity(c *Ctx, e ActivityEntry) int {
 		e.Actor = c.UserID()
 	}
 	if e.Text == "" {
-		e.Text = php.Ucfirst(e.Action)
+		e.Text = conv.Ucfirst(e.Action)
 	}
 	if e.Module == "" {
 		e.Module = "core"
@@ -169,7 +169,7 @@ func LogActivity(c *Ctx, e ActivityEntry) int {
 	params := map[string]any{}
 	order := []string{}
 	for i := 0; i+1 < len(e.Params); i += 2 {
-		k := php.Str(e.Params[i])
+		k := conv.Str(e.Params[i])
 		params[k] = e.Params[i+1]
 		order = append(order, k)
 	}
@@ -195,16 +195,16 @@ func LogActivity(c *Ctx, e ActivityEntry) int {
 		sid = e.ID
 	}
 	if e.Label != "" {
-		label = php.Substr(e.Label, 0, 250)
+		label = conv.Substr(e.Label, 0, 250)
 	}
 	ip, ua := "", ""
 	if c != nil {
 		ip, ua = c.IP(), c.UserAgent()
 	}
 	id := db.Core.InsertID("activity_logs", db.Cols{{"user_id", actor}, {"module", e.Module}, {"action", e.Action}, {"subject_type", typ}, {"subject_id", sid},
-		{"subject_label", label}, {"description", php.Substr(RenderActivityText("en", text), 0, 250)}, {"properties", string(pj)}, {"ip_address", nilIfEmpty(ip)}, {"user_agent", ua}})
+		{"subject_label", label}, {"description", conv.Substr(RenderActivityText("en", text), 0, 250)}, {"properties", string(pj)}, {"ip_address", nilIfEmpty(ip)}, {"user_agent", ua}})
 	if !e.NoNotify && NotifyEvent != nil {
-		url := php.Str(props["_url"])
+		url := conv.Str(props["_url"])
 		NotifyEvent(c, e.Module, e.Action, text, props["changes"], e.Actor, e.Owner, url)
 	}
 	return id
@@ -223,7 +223,7 @@ func RenderActivityText(locale string, t any) string {
 	var params *config.Map
 	switch x := t.(type) {
 	case M:
-		key = php.Str(x["key"])
+		key = conv.Str(x["key"])
 		params, _ = x["params"].(*config.Map)
 		if params == nil {
 			if pm, ok := x["params"].(map[string]any); ok {
@@ -235,7 +235,7 @@ func RenderActivityText(locale string, t any) string {
 		}
 	case *config.Map:
 		k, _ := x.Get("key")
-		key = php.Str(k)
+		key = conv.Str(k)
 		p, _ := x.Get("params")
 		params, _ = p.(*config.Map)
 	}
@@ -244,7 +244,7 @@ func RenderActivityText(locale string, t any) string {
 		for _, k := range params.Keys {
 			v := params.Vals[k]
 			if k == "type" {
-				v = i18n.T(locale, php.Str(v))
+				v = i18n.T(locale, conv.Str(v))
 			}
 			pairs = append(pairs, k, v)
 		}
@@ -323,17 +323,17 @@ func Diff(before, after map[string]any, fields []string) *Changes {
 			continue
 		}
 		o, n := flat(before[f]), flat(nv)
-		if php.Str(o) != php.Str(n) {
+		if conv.Str(o) != conv.Str(n) {
 			out.Set(f, Change{From: o, To: n})
 		}
 	}
 	return out
 }
 
-func phpStr(v any) string { return php.Str(v) }
+func phpStr(v any) string { return conv.Str(v) }
 
 // E is e(): HTML-escape a value for HTML built in Go.
-func E(v any) string { return template.HTMLEscapeString(php.Str(v)) }
+func E(v any) string { return template.HTMLEscapeString(conv.Str(v)) }
 
 // HTML marks a string as safe HTML (built with E for every value in it).
 func HTML(s string) template.HTML { return template.HTML(s) }

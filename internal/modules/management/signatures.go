@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 	"acme/internal/signatures"
 )
 
@@ -34,12 +34,12 @@ func sigMember(c *app.Ctx, id int) db.Row {
 func sigIndex(c *app.Ctx) {
 	c.Authorize("management", "view")
 	q := strings.TrimSpace(c.Query("q"))
-	dep := php.Int(c.Query("department", "0"))
+	dep := conv.Int(c.Query("department", "0"))
 	has := c.Query("has")
 	w := []string{"u.deleted_at IS NULL", "u.is_active"}
 	p := []any{}
 	if q != "" {
-		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(php.Substr(q, 0, 100)) + "%"
+		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(conv.Substr(q, 0, 100)) + "%"
 		w = append(w, "(u.name ILIKE ? OR u.email ILIKE ? OR u.username ILIKE ?)")
 		p = append(p, like, like, like)
 	}
@@ -87,7 +87,7 @@ func sigIndex(c *app.Ctx) {
 		if len(sub) > 0 {
 			sl = strings.Join(sub, " · ")
 		}
-		cards = append(cards, app.M{"r": r, "signed": signed, "sub": sl, "line": line, "v": php.StrToTime(r["signed_at"])})
+		cards = append(cards, app.M{"r": r, "signed": signed, "sub": sl, "line": line, "v": conv.StrToTime(r["signed_at"])})
 	}
 	var deps []app.Opt
 	for _, d := range db.Select("SELECT id, name FROM departments WHERE deleted_at IS NULL ORDER BY name") {
@@ -95,7 +95,7 @@ func sigIndex(c *app.Ctx) {
 	}
 	depV := ""
 	if dep != 0 {
-		depV = php.Str(dep)
+		depV = conv.Str(dep)
 	}
 	hasOpts := []app.Opt{{Value: "yes", Label: c.T("Has a signature")}, {Value: "no", Label: c.T("No signature yet")}}
 	c.View("management/signatures", app.M{"title": c.T("Member signatures"), "rows": cards, "q": q, "dep": depV, "has": has, "counts": counts, "deps": deps, "hasOpts": hasOpts})

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 /*
@@ -68,18 +68,18 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 		}
 		res[no] = &genResult{}
 		err := app.Catch(func() {
-			logInfo("inet", php.Str(no)+": generate start", om("auto_pdf", auto, "by", by))
+			logInfo("inet", conv.Str(no)+": generate start", om("auto_pdf", auto, "by", by))
 			doc, lines := docLoad(c, no)
 			inetSave(no, auto, by) // header row (customer, seller, amounts …)
-			acc().Exec("UPDATE inets SET payment_remark = ? WHERE no_invoice = ? AND is_credit = ?", doc["payment_remark"], no, bstr(php.Bool(doc["is_credit"])))
+			acc().Exec("UPDATE inets SET payment_remark = ? WHERE no_invoice = ? AND is_credit = ?", doc["payment_remark"], no, bstr(conv.Bool(doc["is_credit"])))
 			var credit *creditInfo
 			types := []string{"388", "T01"}
-			if php.Bool(doc["is_credit"]) {
+			if conv.Bool(doc["is_credit"]) {
 				credit = creditInfoOf(doc)
 				types = []string{"81"}
 			}
 			kind := "invoice"
-			if php.Bool(doc["is_credit"]) {
+			if conv.Bool(doc["is_credit"]) {
 				kind = "credit note"
 			}
 			tl := []any{}
@@ -90,7 +90,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 			if credit != nil && credit.Reference != "" {
 				ref = credit.Reference
 			}
-			logInfo("inet", php.Str(no)+": "+kind+" read from the ERP copy", om("lines", len(lines), "documents", tl, "reference", ref))
+			logInfo("inet", conv.Str(no)+": "+kind+" read from the ERP copy", om("lines", len(lines), "documents", tl, "reference", ref))
 			for _, typ := range types {
 				if e := app.Catch(func() {
 					built := jsonBuild(c, doc, lines, typ, company, credit)
@@ -101,7 +101,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 					prep[no][typ] = genPrep{built: built, doc: doc, credit: credit}
 					prepTypes[no] = append(prepTypes[no], typ)
 					if auto {
-						pages[php.Str(no)+"|"+typ] = documentHTML(doc, lines, company, typ, true, built.Totals, credit)
+						pages[conv.Str(no)+"|"+typ] = documentHTML(doc, lines, company, typ, true, built.Totals, credit)
 					}
 				}); e != nil {
 					generateFail(no, typ, doc, e, by, res)
@@ -112,7 +112,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 			}
 		})
 		if err != nil {
-			logException("inet", err, php.Str(no)+" generate failed")
+			logException("inet", err, conv.Str(no)+" generate failed")
 			res[no].errors = append(res[no].errors, [2]string{"-", err.Error()})
 		}
 		nBuilt++
@@ -123,7 +123,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 
 	pdfs := map[string]pdfResult{} // 2. print the PDFs, several at a time
 	if len(pages) > 0 {
-		logInfo("inet", "Printing "+php.Str(len(pages))+" PDF(s), up to "+php.Str(parallel)+" at a time")
+		logInfo("inet", "Printing "+conv.Str(len(pages))+" PDF(s), up to "+conv.Str(parallel)+" at a time")
 		var each func(int)
 		if progress != nil {
 			each = func(n int) { progress("printed", n) }
@@ -143,7 +143,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 		for _, typ := range prepTypes[no] {
 			pp := prep[no][typ]
 			doc := pp.doc
-			r, has := pdfs[php.Str(no)+"|"+typ]
+			r, has := pdfs[conv.Str(no)+"|"+typ]
 			var pdf []byte
 			var pdfErr error
 			if has {
@@ -168,7 +168,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 					sets = append(sets, "pdf_"+col+" = ?")
 					par = append(par, path)
 				}
-				cr := bstr(php.Bool(doc["is_credit"]))
+				cr := bstr(conv.Bool(doc["is_credit"]))
 				acc().Exec("UPDATE inets SET "+strings.Join(sets, ", ")+" WHERE no_invoice = ? AND is_credit = ?", append(par, no, cr)...)
 				t := pp.built.Totals // amounts as written in the file (THB)
 				acc().Exec("UPDATE inets SET amount = ?, tax_amount = ?, total_amount = ?, currency_code = ? WHERE no_invoice = ? AND is_credit = ?", t.Basis, t.Tax, t.Grand, "THB", no, cr)
@@ -185,7 +185,7 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 				if path != "" {
 					suffix = " + PDF"
 				}
-				logInfo("inet", php.Str(no)+" "+typ+": JSON saved"+suffix, om("total", t.Grand, "tax", t.Tax, "pdf", pv))
+				logInfo("inet", conv.Str(no)+" "+typ+": JSON saved"+suffix, om("total", t.Grand, "tax", t.Tax, "pdf", pv))
 			})
 			if err != nil {
 				generateFail(no, typ, doc, err, by, res)
@@ -197,11 +197,11 @@ func generateMany(c *app.Ctx, items []genItem, by int, parallel int, progress fu
 
 func generateFail(no int, typ string, doc app.M, err error, by int, res map[int]*genResult) {
 	res[no].errors = append(res[no].errors, [2]string{typ, err.Error()})
-	logException("inet", err, php.Str(no)+" "+typ+" not generated")
+	logException("inet", err, conv.Str(no)+" "+typ+" not generated")
 	_ = app.Catch(func() { // the row may not exist yet
 		col := docCol(typ)
 		acc().Exec("UPDATE inets SET message_"+col+" = ?, modify_"+col+"_by = ?, updated_at = now() WHERE no_invoice = ? AND is_credit = ?",
-			php.Substr(err.Error(), 0, 1000), by, no, bstr(php.Bool(doc["is_credit"])))
+			conv.Substr(err.Error(), 0, 1000), by, no, bstr(conv.Bool(doc["is_credit"])))
 	})
 }
 
@@ -211,7 +211,7 @@ func generateStore(invoiceNumber int, typ string, b []byte, kind string) string 
 	if kind == "signed" {
 		suffix = "_signed"
 	}
-	key := "inet/" + php.Str(invoiceNumber) + "/" + php.Str(invoiceNumber) + "_" + typ + suffix + ".pdf"
+	key := "inet/" + conv.Str(invoiceNumber) + "/" + conv.Str(invoiceNumber) + "_" + typ + suffix + ".pdf"
 	abs := filepath.Join(app.BasePath, "storage", key)
 	// a PDF that cannot be written must not be recorded as there (the Send window would show a 404)
 	if err := os.MkdirAll(filepath.Dir(abs), 0o775); err != nil || os.WriteFile(abs, b, 0o664) != nil {
@@ -333,7 +333,7 @@ func jobRun(c *app.Ctx, id string) {
 	j.Status = "running"
 	jobWrite(j)
 	logSetRun(id)
-	logInfo("inet", "Generate: "+php.Str(j.Total)+" invoice(s)", om("job", id))
+	logInfo("inet", "Generate: "+conv.Str(j.Total)+" invoice(s)", om("job", id))
 	err := app.Catch(func() {
 		var mu sync.Mutex
 		res, order := generateMany(c, j.Items, j.By, 5, func(stage string, n int) {
@@ -357,7 +357,7 @@ func jobRun(c *app.Ctx, id string) {
 				made++
 			}
 			for _, e := range r.errors {
-				label := php.Str(no)
+				label := conv.Str(no)
 				if e[0] != "-" {
 					label += " (" + e[0] + ")"
 				}
@@ -376,6 +376,6 @@ func jobRun(c *app.Ctx, id string) {
 		logException("inet", err, "Generate failed")
 		j.Status, j.Message = "failed", err.Error()
 	}
-	logInfo("inet", "Generate finished: "+php.Str(j.Made)+" made, "+php.Str(len(j.Errors))+" with problems", om("job", id))
+	logInfo("inet", "Generate finished: "+conv.Str(j.Made)+" made, "+conv.Str(len(j.Errors))+" with problems", om("job", id))
 	jobWrite(j)
 }

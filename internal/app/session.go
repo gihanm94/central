@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // SessionCookie is the browser cookie that carries the session id (PHP used the same name).
@@ -126,7 +126,7 @@ func (s *Session) Delete(k string) {
 	}
 }
 
-func (s *Session) Int(k string) int { return php.Int(s.Data[k]) }
+func (s *Session) Int(k string) int { return conv.Int(s.Data[k]) }
 
 // Clear empties the session ($_SESSION = []).
 func (s *Session) Clear() {

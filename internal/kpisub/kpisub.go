@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 const (
@@ -31,7 +31,7 @@ const (
 
 var exts = []string{"pdf", "png", "jpg", "jpeg", "webp", "gif", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "txt", "zip"}
 
-func day(y, m, d int) time.Time { return time.Date(y, time.Month(m), d, 0, 0, 0, 0, php.Loc) }
+func day(y, m, d int) time.Time { return time.Date(y, time.Month(m), d, 0, 0, 0, 0, conv.Loc) }
 
 func nextMonthDay(y, m, d int) time.Time {
 	if m == 12 {
@@ -56,7 +56,7 @@ func DaysBetween(a, b time.Time) int {
 }
 
 // Today is today at midnight (company time).
-func Today() time.Time { n := php.Now(); return day(n.Year(), int(n.Month()), n.Day()) }
+func Today() time.Time { n := conv.Now(); return day(n.Year(), int(n.Month()), n.Day()) }
 
 // Timeliness of a submission made on `on`: days late and percentage.
 func Timeliness(y, m int, on time.Time) (int, int) {
@@ -69,7 +69,7 @@ type Period struct{ Y, M int }
 
 // Periods: months people may submit now: this month and the eleven before it, newest first.
 func Periods() []Period {
-	n := php.Now()
+	n := conv.Now()
 	d := day(n.Year(), int(n.Month()), 1)
 	out := make([]Period, 0, 12)
 	for i := 0; i < 12; i++ {
@@ -99,7 +99,7 @@ type Task struct {
 
 // Available: the person's active KPIs & OKRs whose period covers this month and that are not yet submitted for it.
 func Available(u *app.CurrentUser, y, m int) []Task {
-	first := php.Date("Y-m-d", day(y, m, 1))
+	first := conv.Date("Y-m-d", day(y, m, 1))
 	rows := db.Select(`SELECT k.id, k.title, k.kind, k.criteria FROM kpis k
             WHERE k.deleted_at IS NULL AND k.status = 'active' AND k.user_id = ?
               AND k.period_start <= (?::date + interval '1 month - 1 day') AND k.period_end >= ?::date
@@ -177,7 +177,7 @@ func CanManage(u *app.CurrentUser, departmentID any) bool {
 	if u.IsAdmin() {
 		return true
 	}
-	return u.Scope() == "department" && u.DepartmentID != 0 && php.Int(departmentID) == u.DepartmentID
+	return u.Scope() == "department" && u.DepartmentID != 0 && conv.Int(departmentID) == u.DepartmentID
 }
 
 // CanAdd: may this person add KPIs & OKRs at all (administrator or a department role)?
@@ -214,7 +214,7 @@ func Uploads(c *app.Ctx, files []*multipart.FileHeader) []Upload {
 	for _, f := range files {
 		name := f.Filename
 		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(name), "."))
-		if !php.InList(ext, exts...) {
+		if !conv.InList(ext, exts...) {
 			app.Invalid("files", c.T("\":name\": this kind of file is not allowed.", "name", name))
 		}
 		if f.Size > MaxFileMB*1024*1024 {
@@ -231,7 +231,7 @@ func Uploads(c *app.Ctx, files []*multipart.FileHeader) []Upload {
 // cleanName is Files::name() (or file.<ext> when that refuses the name).
 func cleanName(n, ext string) string {
 	n = strings.TrimSpace(strings.NewReplacer("\x00", "", "/", "", `\`, "").Replace(n))
-	if n == "" || n == "." || n == ".." || strings.HasPrefix(n, ".") || php.Len(n) > 180 {
+	if n == "" || n == "." || n == ".." || strings.HasPrefix(n, ".") || conv.Len(n) > 180 {
 		return "file." + ext
 	}
 	return n
@@ -245,7 +245,7 @@ func randHex(n int) string {
 
 // Store saves the checked files of a submission.
 func Store(submissionID int, files []Upload) {
-	year := php.Date("Y", php.Now())
+	year := conv.Date("Y", conv.Now())
 	dir := filepath.Join(app.BasePath, "storage", "kpi", year)
 	if len(files) > 0 {
 		_ = os.MkdirAll(dir, 0o775)
@@ -265,7 +265,7 @@ func Store(submissionID int, files []Upload) {
 		if mime == "" {
 			mime = "application/octet-stream"
 		}
-		db.Core.Insert("kpi_submission_files", db.Cols{{Name: "submission_id", Value: submissionID}, {Name: "name", Value: php.Substr(f.Name, 0, 200)},
+		db.Core.Insert("kpi_submission_files", db.Cols{{Name: "submission_id", Value: submissionID}, {Name: "name", Value: conv.Substr(f.Name, 0, 200)},
 			{Name: "path", Value: rel}, {Name: "mime", Value: mime}, {Name: "size", Value: f.Size}})
 	}
 }

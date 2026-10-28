@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 	"acme/internal/signatures"
 )
 
@@ -21,7 +21,7 @@ the signed copy with fingerprints. People only ever get their own signature and 
 func psIndex(c *app.Ctx) {
 	c.Authorize("pdf_sign", "view")
 	u := c.MustUser()
-	f := signatures.Filter{Q: strings.TrimSpace(c.Query("q")), From: c.Query("from"), To: c.Query("to"), Page: php.Int(c.Query("page", "1"))}
+	f := signatures.Filter{Q: strings.TrimSpace(c.Query("q")), From: c.Query("from"), To: c.Query("to"), Page: conv.Int(c.Query("page", "1"))}
 	res := signatures.List(f, u.ID, 25)
 	link := func(page int) string {
 		var p any
@@ -67,16 +67,16 @@ func psStore(c *app.Ctx) {
 			if !ok || !app.IsNumeric(v) {
 				return 0
 			}
-			return math.Max(0, math.Min(1, math.Round(php.Float(v)*1e5)/1e5))
+			return math.Max(0, math.Min(1, math.Round(conv.Float(v)*1e5)/1e5))
 		}
-		page := php.Int(p["page"])
+		page := conv.Int(p["page"])
 		if page >= 1 && n("w") > 0 && n("h") > 0 {
 			places = append(places, signatures.Placement{Page: page, X: n("x"), Y: n("y"), W: n("w"), H: n("h")})
 		}
 	}
 	var id int
 	if err := app.Catch(func() {
-		id = signatures.Record(c, u, c.File("original"), c.File("signed"), places, php.Int(c.Input("pages", "0")))
+		id = signatures.Record(c, u, c.File("original"), c.File("signed"), places, conv.Int(c.Input("pages", "0")))
 	}); err != nil {
 		if v, ok := err.(*app.ValidationError); ok {
 			c.JSON(app.M{"message": v.Errors.First()}, 422)
@@ -84,7 +84,7 @@ func psStore(c *app.Ctx) {
 		panic(err)
 	}
 	c.Flash("success", c.T("PDF signed and saved."))
-	c.JSON(app.M{"ok": true, "url": c.URL("/sign-pdf/" + php.Str(id))})
+	c.JSON(app.M{"ok": true, "url": c.URL("/sign-pdf/" + conv.Str(id))})
 }
 
 func psShow(c *app.Ctx) {
@@ -128,7 +128,7 @@ func psFile(c *app.Ctx) {
 	if err != nil {
 		app.Abort(404)
 	}
-	c.W.Header().Set("Content-Length", php.Str(len(data)))
+	c.W.Header().Set("Content-Length", conv.Str(len(data)))
 	if dl {
 		c.Download(name, "application/pdf", data)
 	}

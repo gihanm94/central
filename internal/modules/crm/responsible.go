@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Responsible: the people responsible for a project (project_members) or a task (task_assignees), several at once.
@@ -22,7 +22,7 @@ func respIDs(typ string, id int) []int {
 	m := respMap[typ]
 	var out []int
 	for _, v := range db.On("crm").Column("SELECT user_id FROM "+m.Table+" WHERE "+m.FK+" = ? ORDER BY created_at, user_id", id) {
-		out = append(out, php.Int(v))
+		out = append(out, conv.Int(v))
 	}
 	return out
 }
@@ -33,7 +33,7 @@ func respIDsFor(typ string, recordIDs []any) map[int][]int {
 	seen := map[int]bool{}
 	var ids []any
 	for _, v := range recordIDs {
-		n := php.Int(v)
+		n := conv.Int(v)
 		if !seen[n] {
 			seen[n] = true
 			ids = append(ids, n)
@@ -122,7 +122,7 @@ func respRemember(typ string, id, from, to, by int, note, role string) {
 	}
 	var n any
 	if note != "" {
-		n = php.Substr(note, 0, 255)
+		n = conv.Substr(note, 0, 255)
 	}
 	db.On("crm").Insert("ownership_history", db.Cols{{Name: "entity_type", Value: typ}, {Name: "entity_id", Value: id}, {Name: "role", Value: role},
 		{Name: "from_user_id", Value: nz(from)}, {Name: "from_user_name", Value: nameOf(from)},
@@ -170,9 +170,9 @@ func respHistory(typ string, id int) []db.Row {
 				r[w.K+"_id"] = nil
 			}
 			if saved != nil {
-				r[w.K+"_name"] = php.Str(saved)
+				r[w.K+"_name"] = conv.Str(saved)
 			} else if uid != 0 {
-				r[w.K+"_name"] = "#" + php.Str(uid)
+				r[w.K+"_name"] = "#" + conv.Str(uid)
 			} else {
 				r[w.K+"_name"] = nil
 			}
@@ -194,5 +194,5 @@ func respTell(c *app.Ctx, typ string, id, userID, by int, label string) {
 	app.Deliver(c, "crm", "assigned", userID,
 		app.Text(`:name made you responsible for :type ":label"`, "name", actor, "type", typ, "label", label),
 		app.Text(":label", "label", label),
-		c.URL("/crm/"+respMap[typ].Path+"/"+php.Str(id)), by)
+		c.URL("/crm/"+respMap[typ].Path+"/"+conv.Str(id)), by)
 }

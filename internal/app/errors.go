@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // HTTPError is abort($status, $message) / HttpException.
@@ -75,7 +75,7 @@ func errorsFrom(v any) *Errors {
 	list, _ := v.([]any)
 	for _, p := range list {
 		if pair, ok := p.([]any); ok && len(pair) == 2 {
-			e.Add(php.Str(pair[0]), php.Str(pair[1]))
+			e.Add(conv.Str(pair[0]), conv.Str(pair[1]))
 		}
 	}
 	return e

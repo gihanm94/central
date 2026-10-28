@@ -18,8 +18,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -194,7 +194,7 @@ func run(c *app.Ctx, method, path string, rec *recorder, reqID string) (a answer
 		}
 	}
 
-	if php.InList(method+" "+path, public...) {
+	if conv.InList(method+" "+path, public...) {
 		Hit(c, "ip:"+c.IP(), max(3, config.Int("api.login_per_minute", 10)))
 	} else {
 		u, d := Authenticate(c, c.R.Header.Get("Authorization"))
@@ -264,7 +264,7 @@ func writeLog(c *app.Ctx, reqID, method, path string, status int, code string, s
 			errCode = code
 		}
 		db.Insert("api_log", db.Cols{{Name: "request_id", Value: reqID}, {Name: "device_id", Value: dev}, {Name: "user_id", Value: uid},
-			{Name: "method", Value: method}, {Name: "path", Value: php.Substr(path, 0, 255)}, {Name: "status", Value: status},
+			{Name: "method", Value: method}, {Name: "path", Value: conv.Substr(path, 0, 255)}, {Name: "status", Value: status},
 			{Name: "ms", Value: int(time.Since(started).Milliseconds())}, {Name: "ip", Value: c.IP()}, {Name: "error", Value: errCode}}, "")
 		if randInt(1000) == 0 {
 			db.Exec("DELETE FROM api_log WHERE at < now() - interval '90 days'")

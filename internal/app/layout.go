@@ -3,8 +3,8 @@ package app
 import (
 	"strings"
 
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // NavItem is a sidebar entry ready to show.
@@ -103,7 +103,7 @@ func NavData(c *Ctx) M {
 		unread = NotificationsUnread(u.ID)
 		latest = NotificationsLatest(u.ID, 8)
 	}
-	badge := php.Str(unread)
+	badge := conv.Str(unread)
 	if unread > 99 {
 		badge = "99+"
 	}
@@ -122,13 +122,13 @@ func NavData(c *Ctx) M {
 
 // NotificationsUnread is NotificationController::unread.
 func NotificationsUnread(userID int) int {
-	return php.Int(db.Scalar("SELECT count(*) FROM notifications WHERE user_id = ? AND read_at IS NULL", userID))
+	return conv.Int(db.Scalar("SELECT count(*) FROM notifications WHERE user_id = ? AND read_at IS NULL", userID))
 }
 
 // NotificationsLatest is NotificationController::latest.
 func NotificationsLatest(userID, limit int) []db.Row {
 	return db.Select(`SELECT n.*, a.name AS actor_name FROM notifications n LEFT JOIN users a ON a.id = n.actor_id
-                            WHERE n.user_id = ? ORDER BY n.created_at DESC, n.id DESC LIMIT `+php.Str(limit), userID)
+                            WHERE n.user_id = ? ORDER BY n.created_at DESC, n.id DESC LIMIT `+conv.Str(limit), userID)
 }
 
 // AccessRequestsEnabled is set by the access-request controller (sign-in page "Request" link).

@@ -17,8 +17,8 @@ func om(kv ...any) *config.Map {
 	return m
 }
 
-// phpJSON is json_encode($v, JSON_UNESCAPED_UNICODE): "/" escaped as "\/", <, > and & left alone.
-func phpJSON(v any) string {
+// jsonCompat is json_encode($v, JSON_UNESCAPED_UNICODE): "/" escaped as "\/", <, > and & left alone.
+func jsonCompat(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return "null"
@@ -27,10 +27,10 @@ func phpJSON(v any) string {
 	return strings.ReplaceAll(s, "/", `\/`)
 }
 
-// phpJSONAscii is json_encode($v) without flags: like phpJSON, and every non-ASCII character as \uXXXX.
-func phpJSONAscii(v any) string {
+// jsonCompatAscii is json_encode($v) without flags: like jsonCompat, and every non-ASCII character as \uXXXX.
+func jsonCompatAscii(v any) string {
 	var b strings.Builder
-	for _, r := range phpJSON(v) {
+	for _, r := range jsonCompat(v) {
 		switch {
 		case r < 0x80:
 			b.WriteRune(r)

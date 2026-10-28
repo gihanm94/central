@@ -6,9 +6,9 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/everbetter"
-	"acme/internal/php"
 )
 
 /*
@@ -80,7 +80,7 @@ func ebForm(c *app.Ctx, p db.Row, memberIDs []int) {
 	}
 	var members []member
 	for _, mid := range memberIDs {
-		o, ok := byID[php.Str(mid)]
+		o, ok := byID[conv.Str(mid)]
 		if !ok {
 			continue
 		}
@@ -94,7 +94,7 @@ func ebForm(c *app.Ctx, p db.Row, memberIDs []int) {
 	locked := false
 	if p != nil {
 		title = c.T("Edit project")
-		locked = !php.InList(p.Str("status"), "draft", "rejected")
+		locked = !conv.InList(p.Str("status"), "draft", "rejected")
 	}
 	c.View("everbetter/form", app.M{"title": title, "p": p, "people": opts, "names": names, "members": members, "locked": locked})
 }
@@ -114,12 +114,12 @@ func ebFormData(c *app.Ctx) db.Cols {
 	}
 	start, end := c.Input("start_date"), c.Input("end_date")
 	errs := app.NewErrors()
-	if title == "" || php.Len(title) > 200 {
+	if title == "" || conv.Len(title) > 200 {
 		errs.Add("title", c.T("Write the project title (up to 200 characters)."))
 	}
 	for _, kv := range [][2]string{{"start_date", start}, {"end_date", end}} {
 		k, v := kv[0], kv[1]
-		if !ebDate.MatchString(v) || php.StrToTime(v) == 0 {
+		if !ebDate.MatchString(v) || conv.StrToTime(v) == 0 {
 			errs.Add(k, c.T("Choose a date."))
 		}
 	}
@@ -135,7 +135,7 @@ func ebFormData(c *app.Ctx) db.Cols {
 func ebMemberInput(c *app.Ctx, first int) []int {
 	out := []int{first}
 	for _, s := range c.Inputs("members") {
-		out = append(out, php.Int(s))
+		out = append(out, conv.Int(s))
 	}
 	return out
 }
@@ -146,10 +146,10 @@ func ebStore(c *app.Ctx) {
 	d := ebFormData(c)
 	id := db.Core.InsertID("everbetter_projects", append(d, db.Col{Name: "owner_id", Value: u.ID}, db.Col{Name: "owner_name", Value: u.Name}, db.Col{Name: "department_id", Value: u.DeptID()}))
 	everbetter.SetMembers(id, ebMemberInput(c, u.ID))
-	title := php.Str(d[0].Value)
+	title := conv.Str(d[0].Value)
 	app.LogActivity(c, app.ActivityEntry{Action: "created", Type: "everbetter", ID: id, Label: title, Text: `Created the Everbetter project ":label"`, Params: []any{"label", title}, NoNotify: true})
 	c.Flash("success", c.T("Project created. Ask to present it when you are ready."))
-	c.Redirect("/everbetter/" + php.Str(id))
+	c.Redirect("/everbetter/" + conv.Str(id))
 }
 
 func ebProject(c *app.Ctx, id int) db.Row {
@@ -199,7 +199,7 @@ func ebShow(c *app.Ctx) {
 		kopts = append(kopts, kindOpt{k, kinds[k], help[k]})
 	}
 	minEnd := ""
-	if t, ok := php.ParseTime(p.Str("end_date")); ok {
+	if t, ok := conv.ParseTime(p.Str("end_date")); ok {
 		minEnd = t.AddDate(0, 0, 1).Format("2006-01-02")
 	}
 	firstSession := ""
@@ -235,12 +235,12 @@ func ebUpdate(c *app.Ctx) {
 	if p.Str("status") != "draft" && p.Str("status") != "rejected" { // approved: the dates change only through Extend time
 		d = d[:2]
 	}
-	db.Core.Update("everbetter_projects", append(d, db.Col{Name: "updated_at", Value: php.NowString()}), db.Cols{{Name: "id", Value: id}})
+	db.Core.Update("everbetter_projects", append(d, db.Col{Name: "updated_at", Value: conv.NowString()}), db.Cols{{Name: "id", Value: id}})
 	everbetter.SetMembers(id, ebMemberInput(c, p.Int("owner_id")))
-	title := php.Str(d[0].Value)
+	title := conv.Str(d[0].Value)
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "everbetter", ID: id, Label: title, Text: `Edited the Everbetter project ":label"`, Params: []any{"label", title}, NoNotify: true})
 	c.Flash("success", c.T("Project saved."))
-	c.Redirect("/everbetter/" + php.Str(id))
+	c.Redirect("/everbetter/" + conv.Str(id))
 }
 
 func ebPresent(c *app.Ctx) {
@@ -251,9 +251,9 @@ func ebPresent(c *app.Ctx) {
 	if !everbetter.CanEdit(u, p) {
 		app.Abort(403)
 	}
-	everbetter.Request(c, u, p, php.Int(c.Input("session_id")), c.Input("kind"), c.Input("new_end_date"), c.Input("note"))
+	everbetter.Request(c, u, p, conv.Int(c.Input("session_id")), c.Input("kind"), c.Input("new_end_date"), c.Input("note"))
 	c.Flash("success", c.T("Request sent. Management has been told and will accept it."))
-	c.Redirect("/everbetter/" + php.Str(id))
+	c.Redirect("/everbetter/" + conv.Str(id))
 }
 
 func ebWithdraw(c *app.Ctx) {
@@ -270,7 +270,7 @@ func ebWithdraw(c *app.Ctx) {
 	}
 	everbetter.Withdraw(c, x)
 	c.Flash("success", c.T("Request withdrawn."))
-	c.Redirect("/everbetter/" + php.Str(id))
+	c.Redirect("/everbetter/" + conv.Str(id))
 }
 
 func init() {

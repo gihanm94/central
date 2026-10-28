@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // A person at a lead (company). Can have several mobile numbers (ContactController).
@@ -101,7 +101,7 @@ func init() {
 				if r.Str("salutation") != "" {
 					n = r.Str("salutation") + " " + n
 				}
-				return h(uiPerson(c, strings.TrimSpace(n), php.OrStr(r.Str("name_th"), r.Str("job_title")), r.Str("avatar"), "/crm/contacts/"+r.Str("id"), "rounded-full"))
+				return h(uiPerson(c, strings.TrimSpace(n), conv.OrStr(r.Str("name_th"), r.Str("job_title")), r.Str("avatar"), "/crm/contacts/"+r.Str("id"), "rounded-full"))
 			}},
 			{Key: "lead", Label: c.T("Lead"), Sort: "l.name_en", Tone: "amber", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r.Int("lead_id") == 0 {
@@ -109,7 +109,7 @@ func init() {
 				}
 				return h(uiPerson(c, r.Str("lead_name"), r.Str("lead_name_th"), r.Str("lead_image"), "/crm/leads/"+r.Str("lead_id"), ""))
 			}},
-			{Key: "job_title", Label: c.T("Position"), Sort: "t.job_title", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(php.OrStr(r.Str("job_title"), "—"))) }},
+			{Key: "job_title", Label: c.T("Position"), Sort: "t.job_title", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(conv.OrStr(r.Str("job_title"), "—"))) }},
 			{Key: "email", Label: c.T("E-mail"), Sort: "t.email", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r.Str("email") == "" {
 					return h(uiDash())
@@ -127,7 +127,7 @@ func init() {
 				}
 				out := `<span class="tabular-nums">` + app.E(main) + `</span>`
 				if len(list)-1 > 0 {
-					out += ` <span class="badge bg-white/80 text-graphite-800">+` + php.Str(len(list)-1) + `</span>`
+					out += ` <span class="badge bg-white/80 text-graphite-800">+` + conv.Str(len(list)-1) + `</span>`
 				}
 				if r.Str("phone") != "" && len(list) > 0 {
 					out += `<span class="block text-xs tabular-nums text-steel">` + app.E(r["phone"]) + `</span>`
@@ -180,7 +180,7 @@ func init() {
 				if strings.TrimSpace(n) != "" {
 					x := app.InMap(nil)
 					x.Set("number", strings.TrimSpace(n))
-					cm.Set(php.Str(i), x)
+					cm.Set(conv.Str(i), x)
 					i++
 				}
 			}
@@ -189,7 +189,7 @@ func init() {
 		m := app.InMap(raw)
 		if l, ok := raw.([]any); ok {
 			for i, v := range l {
-				m.Set(php.Str(i), v)
+				m.Set(conv.Str(i), v)
 			}
 		}
 		for _, k := range m.Keys {
@@ -205,10 +205,10 @@ func init() {
 			ev, _ := e.Get("ext")
 			lv, _ := e.Get("label")
 			var ext, lab any
-			if x := php.Substr(app.InStr(ev), 0, 10); x != "" {
+			if x := conv.Substr(app.InStr(ev), 0, 10); x != "" {
 				ext = x
 			}
-			if x := php.Substr(app.InStr(lv), 0, 30); x != "" {
+			if x := conv.Substr(app.InStr(lv), 0, 30); x != "" {
 				lab = x
 			}
 			list = append(list, mob{idx: k, number: num, ext: ext, label: lab})
@@ -266,7 +266,7 @@ func init() {
 		if r.Str("avatar") != "" {
 			return `<img src="` + app.E(c.UploadURL(r["avatar"])) + `" alt="" class="size-14 shrink-0 rounded-full object-cover">`
 		}
-		return `<span class="size-14 inline-flex shrink-0 items-center justify-center rounded-full bg-graphite-700 text-xs font-semibold text-white">` + app.E(php.Initials(r.Str("name_en"))) + `</span>`
+		return `<span class="size-14 inline-flex shrink-0 items-center justify-center rounded-full bg-graphite-700 text-xs font-semibold text-white">` + app.E(conv.Initials(r.Str("name_en"))) + `</span>`
 	}
 	s.subtitle = func(c *app.Ctx, r db.Row) string {
 		return joinNonEmpty(" · ", r.Str("code"), r.Str("job_title"), r.Str("lead_name"), r.Str("name_th"))
@@ -327,12 +327,12 @@ func mobilesExtra(c *app.Ctx, row db.Row) app.M {
 		for i, v := range app.InList(o) {
 			m := app.InMap(v)
 			g := func(k string) string { x, _ := m.Get(k); return app.InStr(x) }
-			rows = append(rows, mobileRow{I: php.Str(i), Number: g("number"), Ext: g("ext"), Label: g("label")})
+			rows = append(rows, mobileRow{I: conv.Str(i), Number: g("number"), Ext: g("ext"), Label: g("label")})
 		}
 	} else if row != nil {
 		list, _ := row["mobile_list"].([]db.Row)
 		for i, m := range list {
-			rows = append(rows, mobileRow{I: php.Str(i), Number: m.Str("number"), Ext: m.Str("ext"), Label: m.Str("label"), Main: m.Bool("is_primary")})
+			rows = append(rows, mobileRow{I: conv.Str(i), Number: m.Str("number"), Ext: m.Str("ext"), Label: m.Str("label"), Main: m.Bool("is_primary")})
 		}
 	}
 	if len(rows) == 0 {
@@ -344,7 +344,7 @@ func mobilesExtra(c *app.Ctx, row db.Row) app.M {
 	}
 	for i := range rows {
 		if hasPrimary && primary != nil {
-			rows[i].Main = php.Str(primary) == rows[i].I
+			rows[i].Main = conv.Str(primary) == rows[i].I
 		} else if !anyMain && i == 0 {
 			rows[i].Main = true
 		}

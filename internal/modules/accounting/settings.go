@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Connection settings of the ERP and the e-Tax portal (ErpSettings): defaults from config/erp.json, changes saved in erp_settings.
@@ -46,8 +46,8 @@ func settingsForget() {
 // sget is ErpSettings::get($key, $default): a saved value that is not empty, else the default.
 func sget(key, def string) string {
 	v, ok := settingsSaved()[key]
-	if ok && v != nil && php.Str(v) != "" {
-		return php.Str(v)
+	if ok && v != nil && conv.Str(v) != "" {
+		return conv.Str(v)
 	}
 	return def
 }
@@ -55,8 +55,8 @@ func sget(key, def string) string {
 // sgetNil is ErpSettings::get($key) with a null default.
 func sgetNil(key string) any {
 	v, ok := settingsSaved()[key]
-	if ok && v != nil && php.Str(v) != "" {
-		return php.Str(v)
+	if ok && v != nil && conv.Str(v) != "" {
+		return conv.Str(v)
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func erpBaseURL() string {
 func erpEndpoint(key string) string {
 	def := ""
 	if l, ok := config.Get("erp.endpoints." + key).([]any); ok && len(l) > 0 {
-		def = php.Str(l[0])
+		def = conv.Str(l[0])
 	}
 	return sget("api."+key, def)
 }

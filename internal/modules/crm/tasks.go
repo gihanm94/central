@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // A task inside a project, with its own dates, files, comments and several responsible people (TaskController).
@@ -127,7 +127,7 @@ func init() {
 				return h(`<span class="tabular-nums ` + cl + `">` + app.E(app.FormatDate(c, r["start_date"], "d M")+" → "+app.FormatDate(c, r["end_date"], "d M Y")) + `</span>`)
 			}},
 			{Key: "status", Label: c.T("Status"), Sort: "t.status", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(uiBadge(trLabel(c, taskStatuses, r.Str("status")), php.OrStr(taskTones[r.Str("status")], "neutral")))
+				return h(uiBadge(trLabel(c, taskStatuses, r.Str("status")), conv.OrStr(taskTones[r.Str("status")], "neutral")))
 			}},
 			createdColumn(c),
 		}
@@ -141,7 +141,7 @@ func init() {
 		if end == nil && existing != nil {
 			end = existing["end_date"]
 		}
-		if !php.Empty(start) && !php.Empty(end) && php.StrToTime(end) < php.StrToTime(start) {
+		if !conv.Empty(start) && !conv.Empty(end) && conv.StrToTime(end) < conv.StrToTime(start) {
 			app.Invalid("end_date", c.T("The end cannot be before the start."))
 		}
 		if existing == nil {
@@ -158,7 +158,7 @@ func init() {
 	s.afterSave = func(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		var ids []int
 		for _, v := range app.InList(data.Get("assignees")) {
-			ids = append(ids, php.Int(v))
+			ids = append(ids, conv.Int(v))
 		}
 		name := data.Str("name")
 		if name == "" && existing != nil {
@@ -174,7 +174,7 @@ func init() {
 		return joinNonEmpty(" · ", r.Str("code"), r.Str("project_name"), p)
 	}
 	s.badges = func(c *app.Ctx, r db.Row) []string {
-		b := []string{uiBadge(trLabel(c, taskStatuses, r.Str("status")), php.OrStr(taskTones[r.Str("status")], "neutral"))}
+		b := []string{uiBadge(trLabel(c, taskStatuses, r.Str("status")), conv.OrStr(taskTones[r.Str("status")], "neutral"))}
 		if !inStrs(r.Str("status"), []string{"DONE", "CANCELLED"}) && r.Str("end_date") != "" && endOfDayPast(r["end_date"]) {
 			b = append(b, uiBadge(c.T("Overdue"), "danger"))
 		}

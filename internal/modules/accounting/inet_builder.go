@@ -3,8 +3,8 @@ package accounting
 import (
 	"strings"
 
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // InetBuilder: builds (or refreshes) the e-tax row of an invoice from the copied ERP data.
@@ -17,17 +17,17 @@ func inetCompute(invoiceNumber int) db.Cols {
 	}
 	f := lines[0]
 	var order, cust, seller db.Row
-	if php.Truthy(f["customer_order_id"]) {
+	if conv.Truthy(f["customer_order_id"]) {
 		order = acc().First("SELECT * FROM erp_orders WHERE id = ?", f["customer_order_id"])
 	}
-	if php.Truthy(f["customer_id"]) {
+	if conv.Truthy(f["customer_id"]) {
 		cust = acc().First("SELECT * FROM erp_customers WHERE id = ?", f["customer_id"])
 	}
-	if order != nil && php.Truthy(order["seller_id"]) {
+	if order != nil && conv.Truthy(order["seller_id"]) {
 		seller = acc().First("SELECT * FROM erp_sellers WHERE id = ?", order["seller_id"])
 	}
 	var dept any
-	if seller != nil && php.Truthy(seller["department_id"]) {
+	if seller != nil && conv.Truthy(seller["department_id"]) {
 		dept = acc().Scalar("SELECT coalesce(nullif(name, ''), description) FROM erp_departments WHERE id = ?", seller["department_id"])
 	}
 	amount := 0.0
@@ -40,7 +40,7 @@ func inetCompute(invoiceNumber int) db.Cols {
 	}
 	rateF := 0.0
 	if rate != nil {
-		rateF = php.Float(rate)
+		rateF = conv.Float(rate)
 	}
 	var email, note any
 	if cust != nil {
@@ -49,15 +49,15 @@ func inetCompute(invoiceNumber int) db.Cols {
 	if order != nil {
 		note = acc().Scalar("SELECT delivery_note_number FROM erp_order_invoices WHERE business_contact_order_id = ? ORDER BY id LIMIT 1", order["id"])
 	}
-	cur := php.OrStr(f.Str("currency_code"), "THB")
-	isCredit := isCreditNo(php.Str(invoiceNumber), order != nil && order.Bool("is_credit"))
+	cur := conv.OrStr(f.Str("currency_code"), "THB")
+	isCredit := isCreditNo(conv.Str(invoiceNumber), order != nil && order.Bool("is_credit"))
 	g := func(r db.Row, k string) any {
 		if r == nil {
 			return nil
 		}
 		return r[k]
 	}
-	var sellerName any = php.Or(f["seller"], nil)
+	var sellerName any = conv.Or(f["seller"], nil)
 	if seller != nil {
 		sellerName = strings.TrimSpace(seller.Str("first_name") + " " + seller.Str("last_name"))
 	}
@@ -67,18 +67,18 @@ func inetCompute(invoiceNumber int) db.Cols {
 	}
 	var taxID any
 	if cust != nil {
-		taxID = php.Or(cust["vat_number"], cust["corporation_identification_number"])
+		taxID = conv.Or(cust["vat_number"], cust["corporation_identification_number"])
 	} else {
 		taxID = g(order, "vat_number")
 	}
 	return db.Cols{
 		{Name: "no_invoice", Value: invoiceNumber}, {Name: "invoice_date", Value: f["invoice_date"]}, {Name: "is_credit", Value: bstr(isCredit)}, {Name: "is_international", Value: bstr(strings.ToUpper(cur) != "THB")},
-		{Name: "order_id", Value: g(order, "id")}, {Name: "customer_order_number", Value: php.Or(f["customer_order_number"], g(order, "order_number"))}, {Name: "delivery_note_number", Value: note},
+		{Name: "order_id", Value: g(order, "id")}, {Name: "customer_order_number", Value: conv.Or(f["customer_order_number"], g(order, "order_number"))}, {Name: "delivery_note_number", Value: note},
 		{Name: "seller_name", Value: sellerName}, {Name: "department_name", Value: dept},
 		{Name: "app_department_id", Value: appDept}, // the seller's department in this app
-		{Name: "customer_id", Value: f["customer_id"]}, {Name: "customer_code", Value: php.Or(f["customer_code"], g(cust, "code"))}, {Name: "customer_name", Value: g(cust, "name")},
+		{Name: "customer_id", Value: f["customer_id"]}, {Name: "customer_code", Value: conv.Or(f["customer_code"], g(cust, "code"))}, {Name: "customer_name", Value: g(cust, "name")},
 		{Name: "currency_code", Value: cur}, {Name: "tax_id", Value: taxID}, {Name: "email", Value: email},
-		{Name: "amount", Value: phpRound(amount, 6)}, {Name: "tax_amount", Value: phpRound(amount*rateF/100, 6)}, {Name: "total_amount", Value: phpRound(amount*(1+rateF/100), 6)},
+		{Name: "amount", Value: roundHalf(amount, 6)}, {Name: "tax_amount", Value: roundHalf(amount*rateF/100, 6)}, {Name: "total_amount", Value: roundHalf(amount*(1+rateF/100), 6)},
 		{Name: "exchange_rate", Value: f["exchange_rate"]}, {Name: "tax_rate", Value: rateF}, {Name: "product_count", Value: len(lines)},
 	}
 }

@@ -2,9 +2,9 @@ package core
 
 import (
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/oil"
-	"acme/internal/php"
 )
 
 // The bell in the top bar and the full list of a person's notifications (NotificationController).
@@ -22,15 +22,15 @@ func init() {
 func notificationsIndex(c *app.Ctx) {
 	u := c.MustUser()
 	only := c.Query("show") == "unread"
-	page := max(1, php.Int(c.Query("page", "1")))
+	page := max(1, conv.Int(c.Query("page", "1")))
 	per := 20
 	where := "n.user_id = ?"
 	if only {
 		where += " AND n.read_at IS NULL"
 	}
-	total := php.Int(db.Scalar("SELECT count(*) FROM notifications n WHERE "+where, u.ID))
+	total := conv.Int(db.Scalar("SELECT count(*) FROM notifications n WHERE "+where, u.ID))
 	rows := db.Select(`SELECT n.*, a.name AS actor_name FROM notifications n LEFT JOIN users a ON a.id = n.actor_id WHERE `+where+`
-                              ORDER BY n.created_at DESC, n.id DESC LIMIT `+php.Str(per)+" OFFSET "+php.Str((page-1)*per), u.ID)
+                              ORDER BY n.created_at DESC, n.id DESC LIMIT `+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), u.ID)
 	c.View("notifications/index", app.M{"title": c.T("Notifications"), "rows": rows, "total": total, "perPage": per, "page": page, "only": only, "unread": app.NotificationsUnread(u.ID)})
 }
 

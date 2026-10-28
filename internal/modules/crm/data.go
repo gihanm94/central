@@ -16,8 +16,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Admin only: move CRM data in and out in bulk (DataController).
@@ -40,7 +40,7 @@ func dataIndex(c *app.Ctx) {
 	}
 	var tables []trow
 	for _, t := range dataTables {
-		tables = append(tables, trow{t.Key, c.T(t.Label), php.NF(php.Int(db.On("crm").Scalar("SELECT count(*) FROM "+t.Key)), 0)})
+		tables = append(tables, trow{t.Key, c.T(t.Label), conv.NF(conv.Int(db.On("crm").Scalar("SELECT count(*) FROM "+t.Key)), 0)})
 	}
 	tab := "import"
 	if c.Query("tab") == "export" {
@@ -73,7 +73,7 @@ func dataExport(c *app.Ctx) {
 	if !inStrs(format, []string{"xlsx", "csv", "sql"}) {
 		format = "xlsx"
 	}
-	opt := exportOpt{Names: c.Bool("names"), Department: php.Int(c.Input("department")), From: dayOf(c.Input("from")), To: dayOf(c.Input("to"))}
+	opt := exportOpt{Names: c.Bool("names"), Department: conv.Int(c.Input("department")), From: dayOf(c.Input("from")), To: dayOf(c.Input("to"))}
 	type ex struct {
 		table  string
 		header []string
@@ -85,17 +85,17 @@ func dataExport(c *app.Ctx) {
 		h, r, cols := exportTable(t, opt)
 		data = append(data, ex{t, h, r, cols})
 	}
-	stamp := php.Date("Ymd-His", php.Now())
+	stamp := conv.Date("Ymd-His", conv.Now())
 	app.LogActivity(c, app.ActivityEntry{Action: "export", Type: "crm_data", Label: strings.Join(picked, ", "), Text: "Exported CRM data (:tables) as :format",
 		Params: []any{"tables", strings.Join(picked, ", "), "format", strings.ToUpper(format)}, Module: "crm"})
 
 	send := func(name, typ string, body []byte) { c.Download(name, typ, body) }
 	switch {
 	case format == "sql":
-		out := "-- " + app.Setting("company_name", config.String("app.name", "")) + " CRM data export, " + php.Date("Y-m-d H:i", php.Now()) +
+		out := "-- " + app.Setting("company_name", config.String("app.name", "")) + " CRM data export, " + conv.Date("Y-m-d H:i", conv.Now()) +
 			"\n-- Only INSERT statements: create the tables first (the app does this on install).\n\n"
 		for _, d := range data {
-			out += "-- " + d.table + " (" + php.Str(len(d.rows)) + " rows)\n" + exportSQL(d.table, d.header, d.rows, d.cols)
+			out += "-- " + d.table + " (" + conv.Str(len(d.rows)) + " rows)\n" + exportSQL(d.table, d.header, d.rows, d.cols)
 			if _, ok := colByName(d.cols, "id"); ok {
 				out += "SELECT setval(pg_get_serial_sequence('" + d.table + "', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM " + d.table + "), 1));\n"
 			}
@@ -123,7 +123,7 @@ func dataExport(c *app.Ctx) {
 		for _, r := range d.rows {
 			line := make([]string, len(r))
 			for i, v := range r {
-				s := php.Str(v)
+				s := conv.Str(v)
 				if _, ok := v.(string); ok && regexp.MustCompile(`^[=+\-@]`).MatchString(s) {
 					s = "'" + s
 				}
@@ -241,7 +241,7 @@ func dataMap(c *app.Ctx) {
 	var saved []db.Row
 	var suggest map[string]int
 	fixed := map[string]string{}
-	savedID := php.Int(c.Query("saved"))
+	savedID := conv.Int(c.Query("saved"))
 	if table != "" {
 		cols = dataColumns(table)
 		saved = db.On("crm").Select("SELECT id, name FROM import_mappings WHERE target = ? ORDER BY name", table)
@@ -310,7 +310,7 @@ func dataMap(c *app.Ctx) {
 	for _, col := range cols {
 		t := col.Type
 		if col.Length != nil {
-			t += "(" + php.Str(*col.Length) + ")"
+			t += "(" + conv.Str(*col.Length) + ")"
 		}
 		sel, ok := suggest[col.Name]
 		if !ok {
@@ -331,7 +331,7 @@ func dataMap(c *app.Ctx) {
 	}
 	var srows []srow
 	for _, s := range sheets {
-		srows = append(srows, srow{s.Name, link(app.M{"sheet": s.Name, "table": nil, "saved": nil}), php.NF(len(s.Rows), 0), s.Name == sheet})
+		srows = append(srows, srow{s.Name, link(app.M{"sheet": s.Name, "table": nil, "saved": nil}), conv.NF(len(s.Rows), 0), s.Name == sheet})
 	}
 	type svrow struct {
 		ID, Name, URL string
@@ -352,7 +352,7 @@ func dataMap(c *app.Ctx) {
 		toggle = link(app.M{"header": nil})
 	}
 	c.View("crm/data/map", app.M{"title": c.T("Import data"), "token": token, "fileName": fileName, "sheets": srows, "sheet": sheet, "table": table, "tables": tablesOpts, "tableLabel": tlabel,
-		"header": data.Header, "rowCount": php.NF(len(data.Rows), 0), "withHeader": withHeader, "saved": svs, "isSql": strings.HasSuffix(path, ".sql"),
+		"header": data.Header, "rowCount": conv.NF(len(data.Rows), 0), "withHeader": withHeader, "saved": svs, "isSql": strings.HasSuffix(path, ".sql"),
 		"main": main, "audit": audit, "samples": string(sj), "headerToggle": toggle, "errMap": c.Sess.Errors().Get("map"), "errMode": c.Sess.Errors().Get("mode")})
 }
 
@@ -389,8 +389,8 @@ func dataRun(c *app.Ctx) {
 		sv, _ := srcs.Get(col.Name)
 		s := app.InStr(sv)
 		src := -1
-		if s != "" && ctypeDigit(s) && php.Int(s) < len(data.Header) {
-			src = php.Int(s)
+		if s != "" && ctypeDigit(s) && conv.Int(s) < len(data.Header) {
+			src = conv.Int(s)
 		}
 		fv, _ := fix.Get(col.Name)
 		fixed := strings.TrimSpace(app.InStr(fv))
@@ -418,7 +418,7 @@ func dataRun(c *app.Ctx) {
 	}
 	if name := strings.TrimSpace(c.Input("save_as")); name != "" {
 		mj, _ := json.Marshal(orderedSave(cols, save))
-		db.On("crm").Insert("import_mappings", db.Cols{{Name: "name", Value: php.Substr(name, 0, 120)}, {Name: "target", Value: table}, {Name: "mapping", Value: string(mj)}, {Name: "created_by", Value: c.MustUser().ID}}, "")
+		db.On("crm").Insert("import_mappings", db.Cols{{Name: "name", Value: conv.Substr(name, 0, 120)}, {Name: "target", Value: table}, {Name: "mapping", Value: string(mj)}, {Name: "created_by", Value: c.MustUser().ID}}, "")
 	}
 	dry := c.Input("action") != "import"
 	u := c.MustUser()
@@ -426,7 +426,7 @@ func dataRun(c *app.Ctx) {
 	if !dry {
 		app.LogActivity(c, app.ActivityEntry{Action: "import", Type: "crm_data", Label: table, Text: `Imported :n rows into :table from ":file"`,
 			Params: []any{"n", result.Inserted + result.Updated, "table", table, "file", fileName},
-			Props:  app.M{"changes": app.M{"inserted": app.M{"from": "", "to": php.Str(result.Inserted)}, "updated": app.M{"from": "", "to": php.Str(result.Updated)}, "skipped": app.M{"from": "", "to": php.Str(result.Skipped)}}},
+			Props:  app.M{"changes": app.M{"inserted": app.M{"from": "", "to": conv.Str(result.Inserted)}, "updated": app.M{"from": "", "to": conv.Str(result.Updated)}, "skipped": app.M{"from": "", "to": conv.Str(result.Skipped)}}},
 			Module: "crm"})
 	}
 	// hidden inputs that re-post the same mapping
@@ -435,7 +435,7 @@ func dataRun(c *app.Ctx) {
 	for _, col := range cols {
 		s := ""
 		if mp[col.Name].Src >= 0 {
-			s = php.Str(mp[col.Name].Src)
+			s = conv.Str(mp[col.Name].Src)
 		}
 		hidden = append(hidden, hid{"map[" + col.Name + "]", s})
 	}
@@ -448,7 +448,7 @@ func dataRun(c *app.Ctx) {
 	}
 	var errs []erow
 	for _, e := range result.Errors {
-		errs = append(errs, erow{php.Int(e[0]), php.Str(e[1])})
+		errs = append(errs, erow{conv.Int(e[0]), conv.Str(e[1])})
 	}
 	tl, _ := tableByKey(table)
 	title := c.T("Import result")
@@ -461,8 +461,8 @@ func dataRun(c *app.Ctx) {
 		backQ["header"] = "0"
 	}
 	c.View("crm/data/result", app.M{"title": title, "dry": dry, "result": result, "tableLabel": c.T(tl.Label), "fileName": fileName, "hidden": hidden, "errors": errs,
-		"ok": ok2, "total": php.NF(result.Total, 0), "inserted": php.NF(result.Inserted, 0), "updated": php.NF(result.Updated, 0), "skipped": php.NF(result.Skipped, 0),
-		"importLabel": c.T("Import :n rows", "n", php.NF(ok2, 0)), "backURL": c.URL("/crm/data/map", backQ), "token": token, "mapURL": c.URL("/crm/data/map", "token", token),
+		"ok": ok2, "total": conv.NF(result.Total, 0), "inserted": conv.NF(result.Inserted, 0), "updated": conv.NF(result.Updated, 0), "skipped": conv.NF(result.Skipped, 0),
+		"importLabel": c.T("Import :n rows", "n", conv.NF(ok2, 0)), "backURL": c.URL("/crm/data/map", backQ), "token": token, "mapURL": c.URL("/crm/data/map", "token", token),
 		"errNote": c.T("Row numbers are the rows of the sheet (the header is row 1). Showing :n.", "n", len(errs))})
 }
 

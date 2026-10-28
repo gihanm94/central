@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"acme/internal/config"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 var (
@@ -89,7 +89,7 @@ func TMap(locale, key string, params map[string]any) string {
 // Replace fills :name placeholders (PHP order: in the order given).
 func Replace(line string, params ...any) string {
 	for i := 0; i+1 < len(params); i += 2 {
-		line = strings.ReplaceAll(line, ":"+php.Str(params[i]), php.Str(params[i+1]))
+		line = strings.ReplaceAll(line, ":"+conv.Str(params[i]), conv.Str(params[i+1]))
 	}
 	return line
 }
@@ -102,7 +102,7 @@ func ReplaceMap(line string, params map[string]any) string {
 	}
 	sort.Slice(keys, func(i, j int) bool { return len(keys[i]) > len(keys[j]) })
 	for _, k := range keys {
-		line = strings.ReplaceAll(line, ":"+k, php.Str(params[k]))
+		line = strings.ReplaceAll(line, ":"+k, conv.Str(params[k]))
 	}
 	return line
 }

@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Rule is one field's rules, e.g. Rule{"email", "required|email|max:190|unique:users,email,5"}.
@@ -35,9 +35,9 @@ func (c *Clean) Set(k string, v any) {
 
 func (c *Clean) Has(k string) bool   { _, ok := c.Vals[k]; return ok }
 func (c *Clean) Get(k string) any    { return c.Vals[k] }
-func (c *Clean) Str(k string) string { return php.Str(c.Vals[k]) }
-func (c *Clean) Int(k string) int    { return php.Int(c.Vals[k]) }
-func (c *Clean) Bool(k string) bool  { return php.Bool(c.Vals[k]) }
+func (c *Clean) Str(k string) string { return conv.Str(c.Vals[k]) }
+func (c *Clean) Int(k string) int    { return conv.Int(c.Vals[k]) }
+func (c *Clean) Bool(k string) bool  { return conv.Bool(c.Vals[k]) }
 
 func (c *Clean) Delete(k string) {
 	if _, ok := c.Vals[k]; !ok {
@@ -94,25 +94,25 @@ func (c *Ctx) Validate(data *config.Map, rules []Rule) *Clean {
 			label = strings.ReplaceAll(r.Field, "_", " ")
 		}
 		empty := value == nil || value == "" || (isList(value) && len(InList(value)) == 0)
-		if php.InList("boolean", list...) {
-			clean.Set(r.Field, php.Bool(value))
+		if conv.InList("boolean", list...) {
+			clean.Set(r.Field, conv.Bool(value))
 			continue
 		}
 		if empty {
-			if php.InList("required", list...) {
-				errs.Add(r.Field, c.T(":Field is required.", "Field", php.Ucfirst(c.T(label))))
+			if conv.InList("required", list...) {
+				errs.Add(r.Field, c.T(":Field is required.", "Field", conv.Ucfirst(c.T(label))))
 			} else {
 				clean.Set(r.Field, nil)
 			}
 			continue
 		}
-		sv := php.Str(value)
+		sv := conv.Str(value)
 		if !isScalar(value) {
 			sv = ""
 		}
 		for _, rule := range list {
 			name, arg, _ := strings.Cut(rule, ":")
-			F := php.Ucfirst(c.T(label))
+			F := conv.Ucfirst(c.T(label))
 			msg := ""
 			switch name {
 			case "email":
@@ -120,11 +120,11 @@ func (c *Ctx) Validate(data *config.Map, rules []Rule) *Clean {
 					msg = c.T("Enter a valid e-mail address.")
 				}
 			case "min":
-				if php.Len(sv) < php.Int(arg) {
+				if conv.Len(sv) < conv.Int(arg) {
 					msg = c.T(":Field must be at least :n characters.", "Field", F, "n", arg)
 				}
 			case "max":
-				if php.Len(sv) > php.Int(arg) {
+				if conv.Len(sv) > conv.Int(arg) {
 					msg = c.T(":Field must be :n characters or fewer.", "Field", F, "n", arg)
 				}
 			case "numeric":
@@ -136,16 +136,16 @@ func (c *Ctx) Validate(data *config.Map, rules []Rule) *Clean {
 					msg = c.T(":Field must be a whole number.", "Field", F)
 				}
 			case "date":
-				if php.StrToTime(sv) == 0 {
+				if conv.StrToTime(sv) == 0 {
 					msg = c.T(":Field must be a date.", "Field", F)
 				}
 			case "in":
-				if !php.InList(sv, strings.Split(arg, ",")...) {
+				if !conv.InList(sv, strings.Split(arg, ",")...) {
 					msg = c.T("Pick :field from the list.", "field", c.T(label))
 				}
 			case "same":
 				other, _ := data.Get(arg)
-				if sv != php.Str(other) {
+				if sv != conv.Str(other) {
 					msg = c.T(":Field does not match.", "Field", F)
 				}
 			case "password":

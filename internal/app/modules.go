@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // MenuItem is a sidebar entry or heading.
@@ -93,7 +93,7 @@ func BootModules() {
 		ov, _ := cfg.Vals[key].(*config.Map)
 		m, ok := registry[key]
 		if !ok {
-			m = &Module{Key: key, Name: php.Ucfirst(key), Icon: "grid", Home: "/" + key, DB: key, Enabled: false}
+			m = &Module{Key: key, Name: conv.Ucfirst(key), Icon: "grid", Home: "/" + key, DB: key, Enabled: false}
 			registry[key] = m
 			order = append(order, key)
 		}
@@ -128,17 +128,17 @@ func applyOverrides(m *Module, ov *config.Map) {
 		v := ov.Vals[k]
 		switch k {
 		case "name":
-			m.Name = php.Str(v)
+			m.Name = conv.Str(v)
 		case "icon":
-			m.Icon = php.Str(v)
+			m.Icon = conv.Str(v)
 		case "home":
-			m.Home = php.Str(v)
+			m.Home = conv.Str(v)
 		case "enabled":
 			m.Enabled = config.AsBool(v, m.Enabled)
 		case "db":
-			m.DB = php.Str(v)
+			m.DB = conv.Str(v)
 		case "permission":
-			m.Permission = php.Str(v)
+			m.Permission = conv.Str(v)
 		case "permission_any":
 			m.PermissionAny = config.AsStrings(v)
 		case "paths":
@@ -150,7 +150,7 @@ func applyOverrides(m *Module, ov *config.Map) {
 					d, _ := dm.Vals[dk].(*config.Map)
 					l, _ := d.Get("label")
 					u, _ := d.Get("url")
-					m.Dashboards = append(m.Dashboards, Dashboard{Key: dk, Label: php.Str(l), URL: php.Str(u)})
+					m.Dashboards = append(m.Dashboards, Dashboard{Key: dk, Label: conv.Str(l), URL: conv.Str(u)})
 				}
 			}
 		case "menu":
@@ -167,7 +167,7 @@ func MenuFromConfig(v any) []MenuItem {
 		if !ok {
 			continue
 		}
-		g := func(k string) string { x, _ := em.Get(k); return php.Str(x) }
+		g := func(k string) string { x, _ := em.Get(k); return conv.Str(x) }
 		pa, _ := em.Get("permission_any")
 		ao, _ := em.Get("admin_only")
 		out = append(out, MenuItem{Heading: g("heading"), Label: g("label"), URL: g("url"), Icon: g("icon"), Permission: g("permission"),
@@ -194,7 +194,7 @@ func ModuleByKey(key string) *Module {
 	if m, ok := registry[key]; ok {
 		return m
 	}
-	return &Module{Key: key, Name: php.Ucfirst(key), Icon: "grid", Home: "/" + key}
+	return &Module{Key: key, Name: conv.Ucfirst(key), Icon: "grid", Home: "/" + key}
 }
 
 func ModuleExists(key string) bool {
@@ -363,7 +363,7 @@ func ModuleFail(key, where string, err error) {
 	if old, ok := s[key][where]; ok && old.Message == entry.Message {
 		return
 	}
-	entry.At = php.Date("c", php.Now())
+	entry.At = conv.Date("c", conv.Now())
 	if s[key] == nil {
 		s[key] = map[string]moduleFailure{}
 	}
@@ -463,7 +463,7 @@ func AutoMigrate() {
 	if saved == fp {
 		return
 	}
-	if strings.HasPrefix(saved, fp+"|retry|") && time.Now().Unix()-int64(php.Int(saved[len(fp)+7:])) < 60 {
+	if strings.HasPrefix(saved, fp+"|retry|") && time.Now().Unix()-int64(conv.Int(saved[len(fp)+7:])) < 60 {
 		return
 	}
 	if !migrateMu.TryLock() {
@@ -476,7 +476,7 @@ func AutoMigrate() {
 	}
 	_ = os.MkdirAll(filepath.Dir(stamp), 0o775)
 	if failed {
-		_ = os.WriteFile(stamp, []byte(fp+"|retry|"+php.Str(int(time.Now().Unix()))), 0o664)
+		_ = os.WriteFile(stamp, []byte(fp+"|retry|"+conv.Str(int(time.Now().Unix()))), 0o664)
 	} else {
 		_ = os.WriteFile(stamp, []byte(fp), 0o664)
 	}
@@ -495,7 +495,7 @@ func RunMigrations(connect func(conn string) db.Q, isolate bool) (ran []string, 
 			q.ExecScript("CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(190) PRIMARY KEY, ran_at TIMESTAMPTZ NOT NULL DEFAULT now())")
 			done := map[string]bool{}
 			for _, v := range q.Column("SELECT name FROM schema_migrations") {
-				done[php.Str(v)] = true
+				done[conv.Str(v)] = true
 			}
 			for _, f := range s.files {
 				name := filepath.Base(f)

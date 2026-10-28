@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -126,11 +126,11 @@ func apiCustomer(c *app.Ctx) {
 		links.Set("inets", ordRows("SELECT id, no_invoice, invoice_date, is_credit, total_amount, currency_code FROM inets WHERE customer_id = ? ORDER BY invoice_date DESC NULLS LAST, id DESC LIMIT 20", id))
 	}
 	if c.Can("accounting_billing", "view") {
-		links.Set("billing_notes", ordRows("SELECT id, billing_number, billing_at, total_amount, currency_code, is_paid, is_complete FROM billing_notes WHERE customer_id = ? ORDER BY id DESC LIMIT 20", php.Str(id)))
+		links.Set("billing_notes", ordRows("SELECT id, billing_number, billing_at, total_amount, currency_code, is_paid, is_complete FROM billing_notes WHERE customer_id = ? ORDER BY id DESC LIMIT 20", conv.Str(id)))
 	}
 	// CRM leads with the same tax id, through the CRM's own visibility (only when the CRM is on and the person may see leads)
-	if php.Str(mget(cu, "vat_number")) != "" && app.ModuleUsable("crm") && c.Can("crm_leads", "view") {
-		links.Set("crm_leads", crmLeadsFor(c, php.Str(mget(cu, "vat_number"))))
+	if conv.Str(mget(cu, "vat_number")) != "" && app.ModuleUsable("crm") && c.Can("crm_leads", "view") {
+		links.Set("crm_leads", crmLeadsFor(c, conv.Str(mget(cu, "vat_number"))))
 	}
 	api.Reply(c, api.Obj("data", cu, "links", links))
 }
@@ -166,7 +166,7 @@ func apiPeriod(c *app.Ctx, column, w string, p []any) (string, []any) {
 	for _, x := range [][2]string{{"from", ">="}, {"to", "<="}} {
 		v := c.Query(x[0])
 		if ymdRe.MatchString(v) {
-			if t, ok := php.ParseTime(v); ok && php.Date("Y-m-d", t) == v {
+			if t, ok := conv.ParseTime(v); ok && conv.Date("Y-m-d", t) == v {
 				w += " AND " + column + "::date " + x[1] + " ?::date"
 				p = append(p, v)
 			}
@@ -185,7 +185,7 @@ func apiOrders(c *app.Ctx) {
 			p = append(p, apiLike(q))
 		}
 	}
-	if cid := php.Int(c.Query("customer_id")); cid != 0 {
+	if cid := conv.Int(c.Query("customer_id")); cid != 0 {
 		w += " AND t.customer_id = ?"
 		p = append(p, cid)
 	}
@@ -224,7 +224,7 @@ func apiInvoices(c *app.Ctx) {
 			p = append(p, apiLike(q))
 		}
 	}
-	if cid := php.Int(c.Query("customer_id")); cid != 0 {
+	if cid := conv.Int(c.Query("customer_id")); cid != 0 {
 		w += " AND i.customer_id = ?"
 		p = append(p, cid)
 	}
@@ -286,7 +286,7 @@ func apiInets(c *app.Ctx) {
 	if c.Query("send") == "unsent" {
 		w += " AND NOT coalesce(" + sent + ", false)"
 	}
-	if cid := php.Int(c.Query("customer_id")); cid != 0 {
+	if cid := conv.Int(c.Query("customer_id")); cid != 0 {
 		w += " AND t.customer_id = ?"
 		p = append(p, cid)
 	}
@@ -387,9 +387,9 @@ func apiBillingNotes(c *app.Ctx) {
 		w += " AND " + status + " = ?"
 		p = append(p, s)
 	}
-	if cid := php.Int(c.Query("customer_id")); cid != 0 {
+	if cid := conv.Int(c.Query("customer_id")); cid != 0 {
 		w += " AND t.customer_id = ?"
-		p = append(p, php.Str(cid))
+		p = append(p, conv.Str(cid))
 	}
 	apiPaged(c, `SELECT t.id, t.billing_number, t.billing_at, t.remind_date, t.customer_id, t.customer_code, t.customer_name, t.vat_number, t.total_amount, t.currency_code,
             t.is_paid, t.is_complete, `+status+` AS status, (SELECT count(*) FROM billing_note_invoices i WHERE i.billing_id = t.id) AS invoice_count, t.file_key IS NOT NULL AS has_pdf
@@ -422,7 +422,7 @@ func apiBillingNote(c *app.Ctx) {
 	}
 	out.Set("invoices", inv)
 	if n.Str("file_key") != "" {
-		out.Set("pdf_url", c.URL("/api/v1/accounting/billing-notes/"+php.Str(id)+"/pdf"))
+		out.Set("pdf_url", c.URL("/api/v1/accounting/billing-notes/"+conv.Str(id)+"/pdf"))
 	} else {
 		out.Set("pdf_url", nil)
 	}

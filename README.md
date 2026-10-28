@@ -1,31 +1,29 @@
-# Acme Inter — Company System (Core)
+# Acme Inter — Company System
 
-Plain PHP 8 + PostgreSQL. **No Composer, no npm, no build step.**
-Open `install.php` in the browser, fill in the form, and it creates every database,
+One Go program (`acme`, built with [chi](https://github.com/go-chi/chi) and pgx) on PostgreSQL. No other runtime, no npm,
+no build step for the web pages. Open `/install` in the browser, fill in the form, and it creates every database,
 table, role, permission, your admin account and (optionally) demo data.
 
 ## Run it on a Mac
 
-1. **PHP with PostgreSQL support**
-   ```bash
-   brew install php          # Homebrew PHP includes pdo_pgsql
-   php -m | grep pdo_pgsql   # must print pdo_pgsql
-   ```
-2. **PostgreSQL** — [Postgres.app](https://postgresapp.com) or `brew install postgresql@16 && brew services start postgresql@16`.
-3. **Create the database user** (once). In a terminal:
+1. **Go 1.24 or newer** and **PostgreSQL** — `brew install go postgresql@16 && brew services start postgresql@16`
+   (or [Postgres.app](https://postgresapp.com)).
+2. **Create the database user** (once):
    ```bash
    psql postgres -f database/sql/00_create_databases.sql
    ```
    This creates the login `acme` / `acmeinter123` with permission to create databases.
-4. **Start the app** from this folder:
+3. **Build and start** from this folder:
    ```bash
-   php -S localhost:8000 -t public public/index.php
+   GOTOOLCHAIN=local go build -o acme ./cmd/acme
+   ./acme -addr 127.0.0.1:8000 -base .       # -base = the project folder (env ACME_BASE and ACME_ADDR work too)
    ```
-5. Open **http://localhost:8000** — you are sent to the installer. Click **Install now**,
-   then sign in with the admin e-mail and password you chose.
+4. Open **http://localhost:8000** — you are sent to the installer. Click **Install now**,
+   then sign in with the admin username and password you chose.
 
-> Using Apache/nginx instead? Point the site's document root at `public/`
-> (`public/.htaccess` handles Apache rewrites).
+`./acme migrate` applies new SQL upgrades (`database/sql/migrations/…`) and exits. The upgrades also run by themselves on the
+first request after you deploy new files, so `acme migrate` is only needed for scripted deploys.
+
 
 ## Databases
 
@@ -56,21 +54,34 @@ Sign in with the **username** (the e-mail address still works too).
 
 ## Updating an existing install
 
-Copy the new files over your folder (keep `config/config.php`, `storage/` and `public/uploads/`; the Deploy workflow in `.github/workflows/deploy.yml` does this for you). The next page
-load applies any new SQL in `database/sql/migrations/` automatically — nothing to run.
+Build the new `acme`, copy it over the old one together with `config/`, `database/`, `lang/`, `public/` and `web/` (keep
+`config/config.json`, `storage/` and `public/uploads/`; the Deploy workflow in `.github/workflows/deploy.yml` does this for you)
+and restart the service. The first request applies any new SQL in `database/sql/migrations/` — nothing to run.
 
-If `config/config.php` is lost (it is not in git), the app rebuilds it by itself: it tries the `DB_USERNAME` /
-`DB_PASSWORD` environment variables, the template's login, your own computer login and `postgres`, and keeps the one
-that opens the installed core database. If none works, `install.php` shows a **Reconnect the database** form, on
-the server itself (localhost) only. A rebuilt file gets a new app key, so Google connections and passkeys must be
-set up again. The installer never shows saved passwords; leaving a password field blank keeps the saved one.
+If `config/config.json` is lost (it is not in git), the program looks for the database login by itself: the `DB_HOST`, `DB_PORT`,
+`DB_USERNAME` / `DB_PASSWORD` environment variables, the template's login, the running user and `postgres`, and keeps the one that
+opens the installed core database. If none works, `/install` shows a **Reconnect the database** form, on the server itself
+(localhost) only. A rebuilt file gets a new app key, so Google connections and passkeys must be set up again. The installer never
+shows saved passwords; leaving a password field blank keeps the saved one.
+
+### Moving a server that still runs the old PHP version
+
+The database stays as it is. Build the Go program, then turn the old settings file into the new one:
+
+```bash
+./acme import-config config/config.php     # writes config/config.json (mode 0600; passwords — never commit it)
+```
+
+Web sessions are separate (the Go version keeps its own files in `storage/sessions/`), so everybody signs in once more.
+Mobile app tokens keep working (same `api_devices` table). Delete the old `config/config.php` and the PHP files afterwards.
+
 
 ## Languages
 
 English and Thai are built in. People pick their language from the globe menu or
 **Profile → Preferences**; the company default is under **Company settings**.
-To add a language: copy `lang/th.php` to `lang/xx.php`, translate the right-hand side,
-and add `'xx' => 'Name'` to `locales` in `config/core.php`. Missing lines fall back to English.
+To add a language: copy `lang/th.json` to `lang/xx.json`, translate the right-hand side,
+and add `"xx": "Name"` to `locales` in `config/core.json`. Missing lines fall back to English.
 
 ## Notifications (e-mail + Lark)
 
@@ -101,7 +112,7 @@ and add `'xx' => 'Name'` to `locales` in `config/core.php`. Missing lines fall b
 - Collapsible sidebar with company + module switcher, breadcrumbs, phone-friendly drawer and card lists
 - Tailwind dropdowns and date / time pickers everywhere (no native selects or date inputs), keyboard and search support
 - Profile pages: details, security (password, passkeys, devices), preferences, notifications
-- Plug-in modules: each one is a folder in `app/Modules` with a `module.php` manifest. A module that breaks (bad file, failed migration) is switched off on its own pages only; the rest keeps working. Health is on **Administration → Modules** (`/modules`). Start a new module from `app/Modules/_Template` (see `app/Modules/README.md`)
+- Plug-in modules: each one is a package in `internal/modules/<key>` that registers itself with `app.RegisterModule`. A module that breaks (bad file, failed migration) is switched off on its own pages only; the rest keeps working. Health is on **Administration → Modules** (`/modules`). Start a new module from `app/Modules/_Template` (see `app/Modules/README.md`)
 
 
 ## CRM module (`/crm`)
@@ -139,8 +150,8 @@ A **lead** is the company; contacts, opportunities and activities hang off it. C
 ### Notifications, pipeline, stages and targets
 * **Bell** (top bar): unread count and the latest messages; *Notifications* page keeps the full list. Comment on a record → its owner gets a bell message and an e-mail; sharing a record notifies the people it is shared with; a planned activity with *Remind me* sends its reminder at the chosen time.
   Company switches: **Company settings → Notifications** (new *Comment*, *Share*, *Reminder* columns and an *In-app* row, per module). Each person can switch them off under **Profile → Notifications**.
-* **Reminders** are sent while anyone has the app open. To send them when nobody is signed in, add a cron job: `* * * * * php /path/to/app/bin/reminders.php`.
-* **Oil prices** (PTT, `app/Core/Support/OilPrices.php`): synced every morning at the times set in Management → Oil prices (default 05:10, 06:10, 07:00 Bangkok); a price is saved only when it changes. Add `*/5 * * * * php /path/to/app/bin/oil-prices.php`; without cron the website runs the same check once a minute while somebody is signed in. `php bin/oil-prices.php --now` syncs at once, `--from=2026-01-01 [--to=…]` loads past days. Current prices are on My workspace; history, chart and sync log in Management → Oil prices.
+* **Reminders** are sent while anyone has the app open. To send them when nobody is signed in, add a cron job: `* * * * * /srv/acme/acme -base /srv/acme reminders`.
+* **Oil prices** (PTT, `internal/oil`): synced every morning at the times set in Management → Oil prices (default 05:10, 06:10, 07:00 Bangkok); a price is saved only when it changes. Add `*/5 * * * * /srv/acme/acme -base /srv/acme oil-prices`; without cron the website runs the same check once a minute while somebody is signed in. `acme oil-prices --now` syncs at once, `--from=2026-01-01 [--to=…]` loads past days. Current prices are on My workspace; history, chart and sync log in Management → Oil prices.
 * **Pipeline** (`/crm/pipeline`): one column per stage the person's department uses, coloured top edge, cards load as a column is scrolled. Everyone sees the cards they may see; **only the creator can drag a card** (or use its ⋮ *Move to* menu). Your own cards are highlighted.
 * **Stages** (CRM settings → Stages): names are fixed. Colours (shown everywhere a stage appears, including the dashboard) are set by whole-company roles; each department's *available stages* are set by Admin or that department's BU Manager. A department that does not use a stage cannot pick it or see it in the pipeline.
 * **Sales targets** (CRM settings → Sales targets): per department and year, a target for each quarter and for the year; actuals come from won deals and can be saved per year (or typed). The dashboard shows target vs actual.
@@ -166,9 +177,9 @@ Copy the files over; the next page load creates the CRM tables and permissions. 
 The ERP (Monitor) is read through its API and copied into `erp_*` tables of the accounting database (tables generated from your old Java entities: orders, order rows, invoices, customers, addresses, products, vouchers …).
 
 1. Open **Accounting → ERP connection**, enter the server address, port, user name and password, and press *Test login*. The session id and cookies are kept in `erp_tokens` for an hour and renewed automatically (also after a 401).
-2. All 39 API addresses are listed and editable (defaults in `config/erp.php`); *Test* asks an API for one row, *Sync* copies the newest rows of that entity.
+2. All 39 API addresses are listed and editable (defaults in `config/erp.json`); *Test* asks an API for one row, *Sync* copies the newest rows of that entity.
 3. The schedule works like the old `SyncScheduler`: **hot** (orders, invoices, customers … newest rows) every 3 minutes and **cold** (reference data) every 30 minutes, Mon–Fri 08:00–19:00 Bangkok, never two runs of a group at once. Tick *Run the schedule* and add the cron line shown on the page: `* * * * * php /path/to/app/bin/erp-sync.php tick`.
-4. Command line: `php bin/erp-sync.php hot|cold|full|all`, `entity <key> [latest|all|one] [id]`, `login`.
+4. Command line: `acme erp-sync hot|cold|full|all`, `entity <key> [latest|all|one] [id]`, `login`.
 
 The e-Tax (INET) addresses and authorization key are stored on the same page for the e-tax invoice step. Passwords and keys are saved in the database, never in the repository.
 
@@ -198,7 +209,7 @@ The e-Tax (INET) addresses and authorization key are stored on the same page for
 
 ## Accounting: Generate and Send windows
 
-- **Generate** starts a background job (`bin/erp-sync.php generate <job>`, state in `storage/cache/jobs/`) and answers at once; the window shows a centre animation (spinner → tick) while the page asks `/accounting/inet/job/<id>` once a second, then closes and reloads. A web request is never held while Chromium prints. Without `exec()` the job runs inside the request instead.
+- **Generate** starts a background job (`acme erp-sync generate <job>`, state in `storage/cache/jobs/`) and answers at once; the window shows a centre animation (spinner → tick) while the page asks `/accounting/inet/job/<id>` once a second, then closes and reloads. A web request is never held while Chromium prints. Without `exec()` the job runs inside the request instead.
 - **Send** opens a window: upload a PDF (drag or click, preview, then Send) or switch on *Show Generated* to send the generated PDF. Send shows the same animation and closes on success.
 - Success / error messages are toasts (`public/assets/toast.js`, `toast(msg, type)`), including the server's flash messages.
 
@@ -218,7 +229,7 @@ Plain text files, never the database: `storage/logs/accounting/YYYY-MM-DD.log`, 
 - **Session security:** the session id (access token) is replaced every 10 minutes (`security.session_rotate_minutes`); a sign-in can never last more than 12 hours (`security.session_max_hours`) — "remember me" included — then the person must sign in again. Every sign-in is a row in *Profile → Sessions* (device, browser, IP, last seen, sign-in/out log) and can be revoked; revoking your own current session signs you out. Administrators see everyone at *Administration → Sessions*.
 - **File manager** (`/files`, administrators): browse the storage and upload folders, search, sort, paginate, see sizes; upload, new folder, rename, move, download, delete. Paths are sandboxed, executable file types and dot-files are refused.
 - **Google connectors** (`/connectors` for the administrator, *Profile → Connectors* for everyone): create an OAuth client in Google Cloud Console (type *Web application*), enable the Gmail API and Google Calendar API, add the redirect URI shown on the Connectors page, paste the client id and secret. Each person then connects their own account; tokens are stored encrypted (AES-256-GCM, key derived from `app.key`). **Mail** (`/mail`) reads/searches/sends Gmail without copying it. **Calendar** (`/calendar`, and *CRM → Calendar*) shows CRM activities plus the Google Calendar; click a day to create an activity in the side sheet, click an activity to edit it. Every activity with a start time is also written to its owner's Google Calendar and kept in sync on edit, status change and delete.
-- Notification e-mails are sent by the `mail` driver in `config/config.php`: `log` only writes them to *Settings → Mail log*; set `smtp` to really send.
+- Notification e-mails are sent by the `mail` driver in `config/config.json`: `log` only writes them to *Settings → Mail log*; set `smtp` to really send.
 
 ## Machine Checklist (`/machines`)
 
@@ -230,7 +241,7 @@ Ported from the Spring service (entities, services, schedulers). Data lives in `
 - **Checklists** (mobile first): scan a QR code (`/machines/scan`: camera, photo of a QR code or typed code). Everybody does the *general* check. The responsible person's weekly/monthly *re-check* goes to the supervisor, then the manager, for approval; every step notifies the next person. NG answers and a non-operational status notify the team.
 - **Maintenance** and **Calibration**: lists by year/state/department, edit, *Do the maintenance* (maintenance checklist, work done, photo, documents, late detection), calibration certificate and measurements.
 - **Who sees what**: whole-company roles see everything; a department head sees the department; everybody else the machines they are responsible for, supervise or manage (plus what they checked or must approve).
-- **Background jobs** (`app/Modules/Machines/Support/Jobs.php`): items start again on their day, weekly (Mon 00:05) / monthly (1st) close-out marks unapproved re-checks `…-OVERDUE` and puts machines back to PENDING, Friday 15:00 / last day 23:55 automatic "no action taken" records, weekday 09:00 maintenance/calibration reminders (managers Mon/Wed 09:15), 25 December copies the rounds to next year. Run `*/5 * * * * php bin/machines-cron.php` from cron; without cron the website runs them about once a minute while somebody is signed in. They start counting from the first run (no catching up on the past).
+- **Background jobs** (`internal/modules/machines/jobs.go`): items start again on their day, weekly (Mon 00:05) / monthly (1st) close-out marks unapproved re-checks `…-OVERDUE` and puts machines back to PENDING, Friday 15:00 / last day 23:55 automatic "no action taken" records, weekday 09:00 maintenance/calibration reminders (managers Mon/Wed 09:15), 25 December copies the rounds to next year. Run `*/5 * * * * /srv/acme/acme -base /srv/acme sheets-sync` from cron; without cron the website runs them about once a minute while somebody is signed in. They start counting from the first run (no catching up on the past).
 - Differences from the old service: a general check never changes the machine's check state; approving moves the machine's state along; the monthly automatic record runs on the last day of the month.
 
 ## Google Sheets (`/sheets`)
@@ -241,7 +252,7 @@ People send tables to their own Google spreadsheets on a schedule. Each sync rep
 - **People** connect one or more Google accounts (separate from the Gmail/Calendar connection). For each allowed table they pick an account, a spreadsheet (one of theirs, a pasted link, or a new one) and a tab. One table can go to many sheets, each with its own schedule: **every day once** (on chosen weekdays, at a time) or **one day only**.
 - **Office hours** (default Mon–Fri 08:30–17:30, Google Sheets → Settings) are kept free. Schedules cannot be set inside them, "Sync now" is refused, and a sync that falls due during them waits until they end.
 - A failed sync shows its reason on the page and rings the owner's bell. A person who loses access stops syncing on the next run.
-- Setup: the Connectors OAuth client plus the Sheets API and Drive API (scopes `spreadsheets`, `drive.metadata.readonly`), same redirect URI. Run `*/5 * * * * php bin/sheets-sync.php` from cron, so evening and night syncs run when nobody is signed in. Without cron, the website runs one due sync per minute while somebody is signed in.
+- Setup: the Connectors OAuth client plus the Sheets API and Drive API (scopes `spreadsheets`, `drive.metadata.readonly`), same redirect URI. Run `*/5 * * * * /srv/acme/acme -base /srv/acme sheets-sync` from cron, so evening and night syncs run when nobody is signed in. Without cron, the website runs one due sync per minute while somebody is signed in.
 
 ## Mobile app & API (`/api/v1`)
 
@@ -259,10 +270,10 @@ The sign-in page says "Accounts are created by your administrator. Need access? 
 ## E-mail
 
 The installer defaults to **log** mode: every e-mail is saved as an HTML file in `storage/mail/`
-(open it in a browser). To really send, choose SMTP in the installer or edit `config/config.php`:
-```php
-'mail' => ['driver' => 'smtp', 'host' => 'smtp.gmail.com', 'port' => 587, 'encryption' => 'tls',
-           'username' => 'you@gmail.com', 'password' => 'your-app-password', …]
+(open it in a browser). To really send, choose SMTP in the installer or edit `config/config.json`:
+```json
+"mail": { "driver": "smtp", "host": "smtp.gmail.com", "port": 587, "encryption": "tls",
+          "username": "you@gmail.com", "password": "your-app-password", "from_address": "you@gmail.com" }
 ```
 Then use **Company settings → Send me a test e-mail**.
 
@@ -278,41 +289,7 @@ npx @tailwindcss/cli -i resources/css/app.css -o public/assets/app.css --minify
 ```
 Run it inside this project folder (it needs internet once to download Tailwind).
 
-## Go version
-
-The system also exists as one Go program (branch `acme-go`): same URLs, same pages, same PostgreSQL databases, same
-`public/assets`. It replaces PHP + php-fpm; nothing else changes on the server. The PHP code stays in the tree as the reference.
-
-### Build and run
-
-Go 1.24 is needed on the machine that builds (the result is one static file, `acme`, that you copy to the server together with
-`config/`, `database/`, `lang/`, `public/` and `web/`).
-
-```bash
-GOTOOLCHAIN=local go build -o acme ./cmd/acme
-./acme -addr 127.0.0.1:8000 -base .      # -base = the project folder (env ACME_BASE, ACME_ADDR work too)
-./acme migrate                           # apply new SQL upgrades (database/sql/migrations/…) and exit
-```
-
-A new server: open `/install` (or `/install.php`) — same page as the PHP installer: it creates the databases, runs
-`database/sql/*.sql` and the upgrades, creates the admin (and optional demo data), writes `config/config.json` (mode 0600; saved
-passwords are never shown, a blank password field keeps the saved one) and `storage/installed.lock`. The upgrades also run by
-themselves on the first request after you deploy new files, so `acme migrate` is only needed for scripted deploys.
-If `config/config.json` goes missing on an installed system, the program looks for the database login by itself (`DB_HOST`,
-`DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, the template login, the running user, `postgres`) and otherwise shows the
-"Reconnect the database" form on `/install` — on the server itself (localhost) only.
-
-### Moving an existing PHP install
-
-The Go version reads JSON instead of PHP arrays. In the project folder (PHP is only needed for this one step):
-
-```bash
-php tools/php-to-json.php          # config/core.json, modules.json, erp*.json, inet_schema.json, lang/*.json
-php tools/php-to-json.php config   # also config/config.json from config/config.php (passwords; written with mode 0600, never commit it)
-```
-
-The database stays as it is. Sessions are separate (the Go version keeps its own files in `storage/sessions/`), so everybody
-signs in once more. Mobile app tokens keep working (same `api_devices` table).
+## Deploying
 
 ### systemd
 
@@ -336,8 +313,8 @@ ReadWritePaths=/srv/acme/storage /srv/acme/public/uploads /srv/acme/config
 WantedBy=multi-user.target
 ```
 
-`sudo systemctl daemon-reload && sudo systemctl enable --now acme`. Logs: `journalctl -u acme`, and `storage/logs/php-error.log`
-(same format as before; "System logs" reads it). Cron-style jobs of `bin/*.php` run as `acme <command>`.
+`sudo systemctl daemon-reload && sudo systemctl enable --now acme`. Logs: `journalctl -u acme`, and `storage/logs/error.log`
+("System logs" reads it). Cron-style jobs run as `acme <command>`: `reminders`, `oil-prices`, `sheets-sync`, `machines-cron`, `erp-sync`.
 
 ### nginx (reverse proxy)
 
@@ -375,17 +352,22 @@ Static files under `public/assets/` can also be served by nginx directly (`locat
 ## Folder map
 
 ```
-public/            index.php (front door), install.php, assets/, uploads/
-app/Core/Auth      sign-in, remember me, passkeys
-app/Core/Support   DB, router, validation, permissions + data scope, activity log, mailer, CSV
-app/Core/Http      controllers (members, departments, teams, tasks, KPIs, roles, activity, settings…)
-app/Modules        one folder per module (CRM, Accounting, Machines …), _Template = starter
-config/            config.php (written by the installer from config.php.example; holds passwords, never in git), core.php (rule book), modules.php (menus)
-database/sql/      every SQL file
-resources/views    PHP templates (layouts, pages, e-mails)
-routes/web.php     all URLs
-storage/           logs, saved e-mails, install lock
+cmd/acme/          the program (main: serve, migrate, import-config and the job commands)
+internal/app       framework: server, sessions, sign-in, permissions, templates, standard list/form/detail screens, mailer, uploads
+internal/core      core pages: sign-in, dashboards, members, departments, teams, tasks, KPIs, roles, settings, API access, installer …
+internal/modules   one package per module: crm, accounting, machines, management, admin, sheets (each registers itself)
+internal/api       the mobile API kernel (tokens, rate limits, error format) used by the modules' APIs
+internal/db        PostgreSQL access (one pool per database)      internal/config  JSON configuration
+internal/i18n      translations                                   internal/conv    value and date helpers
+web/views          HTML templates (layouts, pages, e-mails), web/icons.json
+config/            core.json (rule book), modules.json (menus), erp*.json, inet_schema.json, config.json (server settings; never in git)
+lang/              en.json, th.json
+database/sql/      every SQL file and the upgrades
+public/            assets/ (CSS, JS), uploads/
+resources/         css/app.css (Tailwind source), pdf/ (fonts, logo and signature used for the e-tax PDFs)
+storage/           logs, saved e-mails, sessions, install lock
 ```
+
 
 ### CRM header, revenue vs target
 

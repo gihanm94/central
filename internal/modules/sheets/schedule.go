@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // When syncs may run (Support\Schedule). Two kinds: 'daily' (once a day at a time, on chosen weekdays) and 'once'
@@ -25,14 +25,14 @@ type officeHours struct {
 func office() officeHours {
 	var days []int
 	for _, d := range strings.Split(app.Setting("gsheet_office_days", "1,2,3,4,5"), ",") {
-		if n := php.Int(d); n >= 1 && n <= 7 {
+		if n := conv.Int(d); n >= 1 && n <= 7 {
 			days = append(days, n)
 		}
 	}
 	return officeHours{app.Setting("gsheet_office_start", "08:30"), app.Setting("gsheet_office_end", "17:30"), days}
 }
 
-func maxRows() int { return max(100, php.Int(app.Setting("gsheet_max_rows", "100000"))) }
+func maxRows() int { return max(100, conv.Int(app.Setting("gsheet_max_rows", "100000"))) }
 
 // officeTime: is hm (HH:MM) inside office hours (start inclusive, end exclusive)?
 func officeTime(hm string) bool {
@@ -58,7 +58,7 @@ func inList(n int, list []int) bool {
 }
 
 func inOffice(at time.Time) bool {
-	at = at.In(php.Loc)
+	at = at.In(conv.Loc)
 	return inList(isoDay(at), office().Days) && officeTime(at.Format("15:04"))
 }
 
@@ -97,7 +97,7 @@ type when struct {
 }
 
 func parseLocal(date, hm string) (time.Time, bool) {
-	t, err := time.ParseInLocation("2006-01-02 15:04", date+" "+hm, php.Loc)
+	t, err := time.ParseInLocation("2006-01-02 15:04", date+" "+hm, conv.Loc)
 	return t, err == nil
 }
 
@@ -117,7 +117,7 @@ func validateSchedule(c *app.Ctx, mode, runTime string, dayVals []string, date s
 	if mode == "daily" {
 		seen := map[int]bool{}
 		for _, v := range dayVals {
-			if n := php.Int(v); n >= 1 && n <= 7 && !seen[n] {
+			if n := conv.Int(v); n >= 1 && n <= 7 && !seen[n] {
 				seen[n] = true
 				days = append(days, n)
 			}
@@ -150,7 +150,7 @@ func validateSchedule(c *app.Ctx, mode, runTime string, dayVals []string, date s
 	}
 	ds := make([]string, len(days))
 	for i, d := range days {
-		ds[i] = php.Str(d)
+		ds[i] = conv.Str(d)
 	}
 	w := when{Mode: mode, Days: strings.Join(ds, ","), RunTime: runTime}
 	if mode == "once" {
@@ -161,16 +161,16 @@ func validateSchedule(c *app.Ctx, mode, runTime string, dayVals []string, date s
 
 // nextRun is the next moment after `after` at which the sync is due (false: a 'once' sync that is past).
 func nextRun(s db.Row, after time.Time) (time.Time, bool) {
-	hm := php.Substr(s.Str("run_time"), 0, 5)
+	hm := conv.Substr(s.Str("run_time"), 0, 5)
 	if s.Str("mode") == "once" {
-		at, ok := parseLocal(php.Substr(s.Str("run_date"), 0, 10), hm)
+		at, ok := parseLocal(conv.Substr(s.Str("run_date"), 0, 10), hm)
 		return at, ok && at.After(after)
 	}
 	var days []int
 	for _, d := range strings.Split(s.Str("days"), ",") {
-		days = append(days, php.Int(d))
+		days = append(days, conv.Int(d))
 	}
-	after = after.In(php.Loc)
+	after = after.In(conv.Loc)
 	for i := 0; i <= 7; i++ {
 		at, ok := parseLocal(after.AddDate(0, 0, i).Format("2006-01-02"), hm)
 		if ok && at.After(after) && inList(isoDay(at), days) {
@@ -182,13 +182,13 @@ func nextRun(s db.Row, after time.Time) (time.Time, bool) {
 
 // describe: "Every weekday at 19:00" / "Mon, Wed at 06:00" / "Once on 24 Oct 2026 at 18:00".
 func describe(c *app.Ctx, s db.Row) string {
-	hm := php.Substr(s.Str("run_time"), 0, 5)
+	hm := conv.Substr(s.Str("run_time"), 0, 5)
 	if s.Str("mode") == "once" {
 		return c.T("Once on :d at :t", "d", app.FormatDate(c, s.Str("run_date"), "d M Y"), "t", hm)
 	}
 	var parts []string
 	for _, d := range strings.Split(s.Str("days"), ",") {
-		parts = append(parts, php.Str(php.Int(d)))
+		parts = append(parts, conv.Str(conv.Int(d)))
 	}
 	label := ""
 	switch strings.Join(parts, ",") {
@@ -201,7 +201,7 @@ func describe(c *app.Ctx, s db.Row) string {
 	default:
 		var names []string
 		for _, p := range parts {
-			names = append(names, c.T(dayNames[php.Int(p)]))
+			names = append(names, c.T(dayNames[conv.Int(p)]))
 		}
 		label = strings.Join(names, ", ")
 	}

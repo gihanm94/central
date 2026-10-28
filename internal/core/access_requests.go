@@ -8,8 +8,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -23,7 +23,7 @@ func AccessRequestsEnabled() bool { return app.Setting("access_requests", "") !=
 
 // AccessRequestsPending is the number of requests waiting.
 func AccessRequestsPending() int {
-	return php.Int(db.Scalar("SELECT count(*) FROM access_requests WHERE status = 'pending'"))
+	return conv.Int(db.Scalar("SELECT count(*) FROM access_requests WHERE status = 'pending'"))
 }
 
 // accessRequestReply is json_response(['ok' => true, 'message' => …]) with PHP's key order.
@@ -56,9 +56,9 @@ func genderKeys() string {
 
 // accessRequestRateHit is RateLimit::hit(): fixed one-minute windows in api_rate; false when over the limit.
 func accessRequestRateHit(key string, perMinute int) bool {
-	window := php.Date("Y-m-d H:i:00", php.Now())
-	hits := php.Int(db.Scalar(`INSERT INTO api_rate (key, window_start, hits) VALUES (?, ?, 1)
-            ON CONFLICT (key, window_start) DO UPDATE SET hits = api_rate.hits + 1 RETURNING hits`, php.Substr(key, 0, 120), window))
+	window := conv.Date("Y-m-d H:i:00", conv.Now())
+	hits := conv.Int(db.Scalar(`INSERT INTO api_rate (key, window_start, hits) VALUES (?, ?, 1)
+            ON CONFLICT (key, window_start) DO UPDATE SET hits = api_rate.hits + 1 RETURNING hits`, conv.Substr(key, 0, 120), window))
 	if hits > perMinute {
 		return false
 	}
@@ -101,7 +101,7 @@ func accessRequestSubmit(c *app.Ctx) {
 	if !accessRequestRateHit("access-request:"+c.IP(), 3) {
 		app.Abort(http.StatusTooManyRequests, c.T("Too many requests from this network. Try again later."))
 	}
-	if php.Int(db.Scalar("SELECT count(*) FROM access_requests WHERE ip_address = ? AND created_at > now() - interval '1 hour'", c.IP())) >= 5 {
+	if conv.Int(db.Scalar("SELECT count(*) FROM access_requests WHERE ip_address = ? AND created_at > now() - interval '1 hour'", c.IP())) >= 5 {
 		app.Abort(http.StatusTooManyRequests, c.T("Too many requests from this network. Try again later."))
 	}
 	thanks := c.T("Thank you. Your request was sent. An administrator will review it and e-mail you.")
@@ -151,7 +151,7 @@ func accessRequestGuard(c *app.Ctx) {
 func accessRequestIndex(c *app.Ctx) {
 	accessRequestGuard(c)
 	status := c.Query("status")
-	if !php.InList(status, "pending", "approved", "rejected") {
+	if !conv.InList(status, "pending", "approved", "rejected") {
 		status = "pending"
 	}
 	q := strings.TrimSpace(c.Query("q"))
@@ -163,14 +163,14 @@ func accessRequestIndex(c *app.Ctx) {
 			par = append(par, "%"+q+"%")
 		}
 	}
-	per := php.Int(c.Query("per_page"))
+	per := conv.Int(c.Query("per_page"))
 	if per != 10 && per != 20 && per != 50 {
 		per = 10
 	}
-	page := max(1, php.Int(c.Query("page", "1")))
-	total := php.Int(db.Scalar("SELECT count(*) FROM access_requests r WHERE "+where, par...))
+	page := max(1, conv.Int(c.Query("page", "1")))
+	total := conv.Int(db.Scalar("SELECT count(*) FROM access_requests r WHERE "+where, par...))
 	rows := db.Select("SELECT r.*, u.name AS reviewer FROM access_requests r LEFT JOIN users u ON u.id = r.reviewed_by WHERE "+where+
-		" ORDER BY r.created_at DESC LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), par...)
+		" ORDER BY r.created_at DESC LIMIT "+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), par...)
 	counts := map[string]int{}
 	for _, r := range db.Select("SELECT status, count(*) n FROM access_requests GROUP BY status") {
 		counts[r.Str("status")] = r.Int("n")
@@ -240,10 +240,10 @@ func accessRequestApprove(c *app.Ctx) {
 		app.Rule{Field: "job_title", Rules: "nullable|max:120"},
 	)
 
-	if _, ok := app.OptLabel(app.OptionsDepartments(u), php.Str(d.Int("department_id"))); !ok {
+	if _, ok := app.OptLabel(app.OptionsDepartments(u), conv.Str(d.Int("department_id"))); !ok {
 		app.Invalid("department_id", c.T("Choose a department from the list."))
 	}
-	if _, ok := app.OptLabel(app.OptionsRoles(u), php.Str(d.Int("role_id"))); !ok {
+	if _, ok := app.OptLabel(app.OptionsRoles(u), conv.Str(d.Int("role_id"))); !ok {
 		app.Invalid("role_id", c.T("Choose a role from the list."))
 	}
 	email := strings.ToLower(d.Str("email"))
@@ -253,14 +253,14 @@ func accessRequestApprove(c *app.Ctx) {
 	if db.Scalar("SELECT 1 FROM employee_profiles WHERE lower(employee_code) = lower(?)", d.Str("employee_code")) != nil {
 		app.Invalid("employee_code", c.T("This employee ID already belongs to a member."))
 	}
-	if !php.Empty(d.Get("team_id")) {
+	if !conv.Empty(d.Get("team_id")) {
 		td := db.Scalar("SELECT department_id FROM teams WHERE id = ? AND deleted_at IS NULL", d.Get("team_id"))
-		if php.Int(td) != d.Int("department_id") {
+		if conv.Int(td) != d.Int("department_id") {
 			app.Invalid("team_id", c.T("This team belongs to another department."))
 		}
 	}
 	orNil := func(v any) any {
-		if php.Empty(v) {
+		if conv.Empty(v) {
 			return nil
 		}
 		return v
@@ -279,7 +279,7 @@ func accessRequestApprove(c *app.Ctx) {
 		tx.Exec("UPDATE access_requests SET status = 'approved', user_id = ?, reviewed_by = ?, reviewed_at = now(), password_hash = NULL WHERE id = ?", uid, u.ID, r["id"])
 	})
 	app.LogActivity(c, app.ActivityEntry{Action: "created", Type: "member", ID: uid, Label: d.Str("name"), Text: `Created member ":label" from an account request`,
-		Params: []any{"label", d.Str("name")}, Props: app.M{"_url": c.URL("/members/" + php.Str(uid))}})
+		Params: []any{"label", d.Str("name")}, Props: app.M{"_url": c.URL("/members/" + conv.Str(uid))}})
 	accessRequestMail(c, r, d.Str("name"), email, c.T("Your account is ready"),
 		[]template.HTML{app.HTML(c.T("Your request was approved. You can sign in now with the e-mail and password you chose."))},
 		&app.MailButton{Label: c.T("Sign in"), URL: c.URL("/login")})
@@ -297,7 +297,7 @@ func accessRequestReject(c *app.Ctx) {
 	why := strings.TrimSpace(c.Input("reason"))
 	var reason any
 	if why != "" {
-		reason = php.Substr(why, 0, 300)
+		reason = conv.Substr(why, 0, 300)
 	}
 	db.Exec("UPDATE access_requests SET status = 'rejected', reviewed_by = ?, reviewed_at = now(), reject_reason = ?, password_hash = NULL WHERE id = ?", c.UserID(), reason, r["id"])
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "access_request", ID: r.Int("id"), Label: r.Str("name"), Text: "Rejected the account request of :name",
@@ -316,7 +316,7 @@ func accessRequestDestroy(c *app.Ctx) {
 	accessRequestGuard(c)
 	db.Exec("DELETE FROM access_requests WHERE id = ? AND status <> 'pending'", c.ParamInt("id"))
 	c.Flash("success", c.T("Removed."))
-	c.Redirect("/members/requests?status=" + php.OrStr(c.Input("status"), "approved"))
+	c.Redirect("/members/requests?status=" + conv.OrStr(c.Input("status"), "approved"))
 }
 
 // accessRequestMail: the texts come translated by the caller (as in PHP); the mail's frame uses the person's language.

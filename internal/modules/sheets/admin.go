@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // Administrators (AdminController): every table of every module, which ones may go to Google Sheets and for whom;
@@ -58,13 +58,13 @@ func adminTables(c *app.Ctx) {
 	}
 	var rows []row
 	for _, t := range list {
-		r := row{Name: t.Name, Rows: php.NF(t.Rows, 0), Columns: len(t.Columns), Who: "—", Edit: c.URL("/sheets/tables/edit", "db", d, "table", t.Name)}
+		r := row{Name: t.Name, Rows: conv.NF(t.Rows, 0), Columns: len(t.Columns), Who: "—", Edit: c.URL("/sheets/tables/edit", "db", d, "table", t.Name)}
 		if en, ok := entries[t.Name]; ok {
 			r.Label = tableLabel(en)
 			r.Open = en.Bool("enabled")
 			r.Who = c.T(":r roles · :p people · :s syncs", "r", en["roles"], "p", en["people"], "s", en["syncs"])
 		} else {
-			r.Label = php.Ucfirst(strings.ReplaceAll(t.Name, "_", " "))
+			r.Label = conv.Ucfirst(strings.ReplaceAll(t.Name, "_", " "))
 		}
 		rows = append(rows, r)
 	}
@@ -97,7 +97,7 @@ func adminEditTable(c *app.Ctx) {
 	}
 	var cols []colView
 	for _, col := range info.Columns {
-		cols = append(cols, colView{col.Name, col.Type, secretColumn(col.Name), !php.InList(col.Name, hidden...)})
+		cols = append(cols, colView{col.Name, col.Type, secretColumn(col.Name), !conv.InList(col.Name, hidden...)})
 	}
 	type pick struct {
 		ID        int
@@ -112,12 +112,12 @@ func adminEditTable(c *app.Ctx) {
 		uv = append(uv, pick{p.Int("id"), p.Str("name"), p.Str("email") + " · " + p.Str("role"), inList(p.Int("id"), users)})
 	}
 	dn, _ := dbName(c, d)
-	label := php.Str(t["label"])
+	label := conv.Str(t["label"])
 	if o, ok := c.Sess.Old("label"); ok {
-		label = php.Str(o)
+		label = conv.Str(o)
 	}
-	c.View("sheets/admin-table", app.M{"title": tableLabel(t), "t": t, "db": d, "dbName": dn, "rowsAbout": php.NF(info.Rows, 0), "columns": cols,
-		"roles": rv, "users": uv, "open": t.Bool("enabled"), "label": label, "placeholder": php.Ucfirst(strings.ReplaceAll(t.Str("table_name"), "_", " ")),
+	c.View("sheets/admin-table", app.M{"title": tableLabel(t), "t": t, "db": d, "dbName": dn, "rowsAbout": conv.NF(info.Rows, 0), "columns": cols,
+		"roles": rv, "users": uv, "open": t.Bool("enabled"), "label": label, "placeholder": conv.Ucfirst(strings.ReplaceAll(t.Str("table_name"), "_", " ")),
 		"syncs": db.Select("SELECT s.id, s.sheet_tab, s.spreadsheet_name, s.active, u.name FROM gsheet_syncs s JOIN users u ON u.id = s.user_id WHERE s.table_id = ? ORDER BY u.name", t["id"])})
 }
 
@@ -140,29 +140,29 @@ func adminSaveTable(c *app.Ctx) {
 			hidden = append(hidden, col.Name)
 		}
 	}
-	enabled := php.Truthy(c.InputAny("enabled"))
+	enabled := conv.Truthy(c.InputAny("enabled"))
 	if enabled && len(hidden)+secrets >= len(info.Columns) {
 		app.Invalid("columns", c.T("Leave at least one column to send."))
 	}
 	var roles, users []int
 	for _, r := range c.Inputs("roles") {
-		if n := php.Int(r); !inList(n, roles) {
+		if n := conv.Int(r); !inList(n, roles) {
 			roles = append(roles, n)
 		}
 	}
 	for _, r := range c.Inputs("users") {
-		if n := php.Int(r); !inList(n, users) {
+		if n := conv.Int(r); !inList(n, users) {
 			users = append(users, n)
 		}
 	}
 	hj, _ := json.Marshal(hidden)
 	var label any
-	if l := php.Substr(strings.TrimSpace(php.Str(c.InputAny("label"))), 0, 120); l != "" {
+	if l := conv.Substr(strings.TrimSpace(conv.Str(c.InputAny("label"))), 0, 120); l != "" {
 		label = l
 	}
 	db.Core.Transaction(func(tx db.Q) {
 		tx.Update("gsheet_tables", db.Cols{{Name: "label", Value: label}, {Name: "enabled", Value: enabled}, {Name: "hidden_columns", Value: string(hj)},
-			{Name: "updated_by", Value: c.MustUser().ID}, {Name: "updated_at", Value: php.NowString()}}, db.Cols{{Name: "id", Value: t["id"]}})
+			{Name: "updated_by", Value: c.MustUser().ID}, {Name: "updated_at", Value: conv.NowString()}}, db.Cols{{Name: "id", Value: t["id"]}})
 		tx.Exec("DELETE FROM gsheet_table_access WHERE table_id = ?", t["id"])
 		for _, r := range roles {
 			tx.Exec("INSERT INTO gsheet_table_access (table_id, role_id) SELECT ?, id FROM roles WHERE id = ?", t["id"], r)
@@ -186,7 +186,7 @@ func adminSettings(c *app.Ctx) {
 	var days []int
 	if old, ok := c.Sess.Old("office_days"); ok {
 		for _, d := range app.InStrings(old) {
-			days = append(days, php.Int(d))
+			days = append(days, conv.Int(d))
 		}
 	} else {
 		days = o.Days
@@ -207,7 +207,7 @@ func adminSettings(c *app.Ctx) {
 func adminSaveSettings(c *app.Ctx) {
 	gate(c)
 	errs := app.NewErrors()
-	start, end := php.Str(c.InputAny("office_start")), php.Str(c.InputAny("office_end"))
+	start, end := conv.Str(c.InputAny("office_start")), conv.Str(c.InputAny("office_end"))
 	if !hmRe.MatchString(start) {
 		errs.Add("office_start", c.T("Enter a time like 08:30."))
 	}
@@ -219,11 +219,11 @@ func adminSaveSettings(c *app.Ctx) {
 	}
 	var days []string
 	for _, d := range c.Inputs("office_days") {
-		if n := php.Int(d); n >= 1 && n <= 7 {
-			days = append(days, php.Str(n))
+		if n := conv.Int(d); n >= 1 && n <= 7 {
+			days = append(days, conv.Str(n))
 		}
 	}
-	mx := php.Int(c.InputAny("max_rows"))
+	mx := conv.Int(c.InputAny("max_rows"))
 	if mx < 100 || mx > 1000000 {
 		errs.Add("max_rows", c.T("Between 100 and 1,000,000."))
 	}
@@ -233,7 +233,7 @@ func adminSaveSettings(c *app.Ctx) {
 	app.PutSetting("gsheet_office_start", start)
 	app.PutSetting("gsheet_office_end", end)
 	app.PutSetting("gsheet_office_days", strings.Join(days, ","))
-	app.PutSetting("gsheet_max_rows", php.Str(mx))
+	app.PutSetting("gsheet_max_rows", conv.Str(mx))
 	c.Flash("success", c.T("Settings saved. Existing schedules keep their times; syncs never run during the new office hours."))
 	c.Redirect("/sheets/settings")
 }

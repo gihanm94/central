@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -100,10 +100,10 @@ func (s *screen) setup() *screen {
 			ans := config.NewMap() // ordered like the PHP answer
 			ans.Set("ok", true)
 			ans.Set("id", id)
-			ans.Set("url", c.URL(r.Base+"/"+php.Str(id)))
+			ans.Set("url", c.URL(r.Base+"/"+conv.Str(id)))
 			c.JSON(ans)
 		}
-		c.Redirect(r.Base + "/" + php.Str(id))
+		c.Redirect(r.Base + "/" + conv.Str(id))
 	}
 	prevMeta := r.ExtraMeta
 	r.ExtraMeta = func(c *app.Ctx) app.M {
@@ -184,13 +184,13 @@ func (s *screen) figure(c *app.Ctx, expr, where string, params []any, from strin
 	if where == "" {
 		where = "TRUE"
 	}
-	return php.Float(db.On("crm").Scalar("SELECT COALESCE("+expr+", 0) FROM "+from+" WHERE t.deleted_at IS NULL AND ("+where+") AND "+sq, append(append([]any{}, params...), sp...)...))
+	return conv.Float(db.On("crm").Scalar("SELECT COALESCE("+expr+", 0) FROM "+from+" WHERE t.deleted_at IS NULL AND ("+where+") AND "+sq, append(append([]any{}, params...), sp...)...))
 }
 
 func card(label string, value any, sub, tone, icon, href string) app.Stat {
-	v := php.Str(value)
+	v := conv.Str(value)
 	if f, ok := value.(float64); ok {
-		v = php.NF(f, 0)
+		v = conv.NF(f, 0)
 	}
 	return app.Stat{Label: label, Value: v, Sub: sub, Tone: tone, Icon: icon, Href: href}
 }
@@ -228,7 +228,7 @@ func (s *screen) ownershipFields(c *app.Ctx, row db.Row) []app.Field {
 			if p.Department != "" {
 				l += " · " + p.Department
 			}
-			targets = append(targets, app.Opt{Value: "user:" + php.Str(p.ID), Label: l})
+			targets = append(targets, app.Opt{Value: "user:" + conv.Str(p.ID), Label: l})
 		}
 	}
 	for _, d := range departments() {
@@ -240,7 +240,7 @@ func (s *screen) ownershipFields(c *app.Ctx, row db.Row) []app.Field {
 			m := app.InMap(r)
 			t, _ := m.Get("target")
 			l, _ := m.Get("level")
-			rows = append(rows, accessRow{php.Str(i), app.InStr(t), app.InStr(l)})
+			rows = append(rows, accessRow{conv.Str(i), app.InStr(t), app.InStr(l)})
 		}
 	}
 	return []app.Field{
@@ -282,7 +282,7 @@ func remoteItem(c *app.Ctx, kind string, id int) app.M {
 func prefill(c *app.Ctx, key string) any {
 	v := c.Query(key)
 	if ctypeDigit(v) {
-		return php.Int(v)
+		return conv.Int(v)
 	}
 	return ""
 }
@@ -293,12 +293,12 @@ func (s *screen) remoteField(c *app.Ctx, column string, row db.Row, f app.Field)
 	var id int
 	o, _ := oldVal(c, column)
 	switch {
-	case !php.Empty(o):
-		id = php.Int(o)
+	case !conv.Empty(o):
+		id = conv.Int(o)
 	case row != nil && row[column] != nil:
 		id = row.Int(column)
 	default:
-		id = php.Int(prefill(c, column))
+		id = conv.Int(prefill(c, column))
 	}
 	f.Name = column
 	if f.Type == "" {
@@ -320,12 +320,12 @@ var remoteTables = map[string][2]string{"leads": {"leads", "lead"}, "contacts": 
 func (s *screen) checkRemote(c *app.Ctx, data *app.Clean, existing db.Row) {
 	for _, p := range s.remote {
 		v := data.Get(p.K)
-		if v == nil || php.Str(v) == "" || (existing != nil && existing.Str(p.K) == php.Str(v)) {
+		if v == nil || conv.Str(v) == "" || (existing != nil && existing.Str(p.K) == conv.Str(v)) {
 			continue
 		}
 		t := remoteTables[p.L]
 		sq, sp := visible(c.MustUser(), "t", t[1])
-		if !ctypeDigit(php.Str(v)) || db.On("crm").Scalar("SELECT 1 FROM "+t[0]+" t WHERE t.id = ? AND t.deleted_at IS NULL AND "+sq, append([]any{php.Int(v)}, sp...)...) == nil {
+		if !ctypeDigit(conv.Str(v)) || db.On("crm").Scalar("SELECT 1 FROM "+t[0]+" t WHERE t.id = ? AND t.deleted_at IS NULL AND "+sq, append([]any{conv.Int(v)}, sp...)...) == nil {
 			app.Invalid(p.K, c.T("Pick one from the list."))
 		}
 	}
@@ -364,7 +364,7 @@ func visibleRows(c *app.Ctx, typ, sel, where string, params []any, order string,
 	if limit == 0 {
 		limit = 8
 	}
-	return db.On("crm").Select("SELECT "+sel+" FROM "+table+" t WHERE t.deleted_at IS NULL AND ("+where+") AND "+sq+" ORDER BY "+order+" LIMIT "+php.Str(limit), append(append([]any{}, params...), sp...)...)
+	return db.On("crm").Select("SELECT "+sel+" FROM "+table+" t WHERE t.deleted_at IS NULL AND ("+where+") AND "+sq+" ORDER BY "+order+" LIMIT "+conv.Str(limit), append(append([]any{}, params...), sp...)...)
 }
 
 type relItem struct {
@@ -448,15 +448,15 @@ func (s *screen) prepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clea
 			m := app.InMap(r)
 			t, _ := m.Get("target")
 			typ, sid, _ := strings.Cut(app.InStr(t), ":")
-			id := php.Int(sid)
+			id := conv.Int(sid)
 			_, isPerson := pm[id]
-			if (typ == "user" && isPerson && id != u.ID) || (typ == "department" && optHas(deps, php.Str(id))) {
+			if (typ == "user" && isPerson && id != u.ID) || (typ == "department" && optHas(deps, conv.Str(id))) {
 				lv, _ := m.Get("level")
 				acc := "view"
 				if app.InStr(lv) == "edit" {
 					acc = "edit"
 				}
-				k := typ + ":" + php.Str(id)
+				k := typ + ":" + conv.Str(id)
 				if i, ok := idx[k]; ok {
 					list[i].Access = acc
 				} else {
@@ -493,7 +493,7 @@ func (s *screen) prepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clea
 // a lead / contact / opportunity may be given by name in the CSV.
 func (s *screen) importDefaults(c *app.Ctx, raw app.CsvRow) app.CsvRow {
 	if _, ok := raw.Vals["owner_id"]; !ok {
-		raw.Vals["owner_id"] = php.Str(c.MustUser().ID)
+		raw.Vals["owner_id"] = conv.Str(c.MustUser().ID)
 		raw.Keys = append(raw.Keys, "owner_id")
 	}
 	nameCols := map[string][3]string{"leads": {"leads", "name_en", "lead"}, "contacts": {"contacts", "name_en", "contact"}, "opportunities": {"opportunities", "name", "opportunity"}, "projects": {"projects", "name", "project"}}
@@ -506,7 +506,7 @@ func (s *screen) importDefaults(c *app.Ctx, raw app.CsvRow) app.CsvRow {
 		sq, sp := visible(c.MustUser(), "t", t[2])
 		id := db.On("crm").Scalar("SELECT t.id FROM "+t[0]+" t WHERE t.deleted_at IS NULL AND lower(t."+t[1]+") = lower(?) AND "+sq+" ORDER BY t.id LIMIT 1", append([]any{v}, sp...)...)
 		if id != nil {
-			raw.Vals[p.K] = php.Str(id)
+			raw.Vals[p.K] = conv.Str(id)
 		} else {
 			raw.Vals[p.K] = ""
 		}
@@ -526,7 +526,7 @@ func (s *screen) newCode(id int) string {
 }
 
 func padInt(n, w int) string {
-	v := php.Str(n)
+	v := conv.Str(n)
 	for len(v) < w {
 		v = "0" + v
 	}
@@ -535,12 +535,12 @@ func padInt(n, w int) string {
 
 // dateCodeNow: PREFIX-yyyyMMddHHmmss + 3 digits (milliseconds), e.g. LD-20261016061037142; the next free one if two are made at the same moment.
 func (s *screen) dateCodeNow() string {
-	t := time.Now().In(php.Loc)
-	n := php.Int(t.Format("20060102150405") + padInt(t.Nanosecond()/1e6, 3))
-	for db.On("crm").Scalar("SELECT 1 FROM "+s.res.Table+" WHERE code = ?", s.prefix+"-"+php.Str(n)) != nil {
+	t := time.Now().In(conv.Loc)
+	n := conv.Int(t.Format("20060102150405") + padInt(t.Nanosecond()/1e6, 3))
+	for db.On("crm").Scalar("SELECT 1 FROM "+s.res.Table+" WHERE code = ?", s.prefix+"-"+conv.Str(n)) != nil {
 		n++
 	}
-	return s.prefix + "-" + php.Str(n)
+	return s.prefix + "-" + conv.Str(n)
 }
 
 func (s *screen) saved(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
@@ -630,44 +630,44 @@ func detailValue(c *app.Ctx, f app.Field, row db.Row) (string, bool) {
 	t := f.TypeOr()
 	if f.Display != nil {
 		d := f.Display(row)
-		if d == nil || php.Str(d) == "" {
+		if d == nil || conv.Str(d) == "" {
 			return "", false
 		}
-		return php.Str(d), true
+		return conv.Str(d), true
 	}
 	v := row[f.Name]
 	if t == "checkbox" {
-		if php.Bool(v) {
+		if conv.Bool(v) {
 			return c.T("Yes"), true
 		}
 		return "", false
 	}
-	if v == nil || php.Str(v) == "" {
+	if v == nil || conv.Str(v) == "" {
 		return "", false
 	}
 	if l, ok := v.([]any); ok && len(l) == 0 {
 		return "", false
 	}
 	if len(f.Options) > 0 {
-		if l, ok := app.OptLabel(f.Options, php.Str(v)); ok {
+		if l, ok := app.OptLabel(f.Options, conv.Str(v)); ok {
 			return l, true
 		}
-		if l, ok := app.OptLabel(f.AllOptions, php.Str(v)); ok {
+		if l, ok := app.OptLabel(f.AllOptions, conv.Str(v)); ok {
 			return l, true
 		}
-		return php.Str(v), true
+		return conv.Str(v), true
 	}
 	switch t {
 	case "richtext":
-		return php.Str(app.HTMLClean(php.Str(v))), true
+		return conv.Str(app.HTMLClean(conv.Str(v))), true
 	case "date":
 		return app.FormatDate(c, v, "d M Y"), true
 	case "datetime":
 		return app.FormatDate(c, v, "d M Y H:i"), true
 	case "number":
-		return php.NumberClean(v), true
+		return conv.NumberClean(v), true
 	}
-	return php.Str(v), true
+	return conv.Str(v), true
 }
 
 func (s *screen) show(c *app.Ctx) {
@@ -739,7 +739,7 @@ func recordPanel(c *app.Ctx, row db.Row, typ string) string {
 		"history": historyDialog(c, "owner-history-"+typ+"-"+row.Str("id"), c.T("Owner history"), before, app.M{"at": row["created_at"], "by": row["creator_name"]}),
 		"path":    entities[typ].Path, "all": seesAll(u)}
 	if canHand {
-		data["targets"] = withoutOpt(assignable(u), php.Str(row.Int("owner_id")))
+		data["targets"] = withoutOpt(assignable(u), conv.Str(row.Int("owner_id")))
 	}
 	return string(c.Partial("crm/panels/record", data))
 }
@@ -757,7 +757,7 @@ func sharingPanel(c *app.Ctx, meta app.M, row db.Row, typ string) string {
 			if p.Department != "" {
 				l += " · " + p.Department
 			}
-			userOpts = append(userOpts, app.Opt{Value: php.Str(p.ID), Label: l})
+			userOpts = append(userOpts, app.Opt{Value: conv.Str(p.ID), Label: l})
 		}
 	}
 	return string(c.Partial("crm/panels/sharing", app.M{"c": meta, "row": row, "shares": shares(typ, row.Int("id")), "canManage": isManager(c.MustUser(), row),
@@ -776,7 +776,7 @@ func filesPanel(c *app.Ctx, meta app.M, row db.Row, items []db.Row, canUpload, c
 
 func commentsData(c *app.Ctx, meta app.M, row db.Row, items []db.Row) app.M {
 	for _, it := range items {
-		it["_iso"] = php.DateOf("c", it["created_at"])
+		it["_iso"] = conv.DateOf("c", it["created_at"])
 	}
 	return app.M{"c": meta, "row": row, "items": items, "canPost": true}
 }

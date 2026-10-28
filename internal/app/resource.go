@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -285,7 +285,7 @@ func (r *Resource) Query(c *Ctx, paginate bool) ([]db.Row, int) {
 		}
 	}
 	sql := r.selectSQL(c) + " WHERE " + strings.Join(where, " AND ")
-	total := php.Int(r.conn().Scalar("SELECT COUNT(*) FROM ("+sql+") x", params...))
+	total := conv.Int(r.conn().Scalar("SELECT COUNT(*) FROM ("+sql+") x", params...))
 	key, dir := r.sorting(c)
 	if key != "" {
 		col, _ := r.columnByKey(c, key)
@@ -298,9 +298,9 @@ func (r *Resource) Query(c *Ctx, paginate bool) ([]db.Row, int) {
 		sql += " ORDER BY " + ob
 	}
 	if paginate {
-		page := max(1, php.Int(c.Query("page", "1")))
+		page := max(1, conv.Int(c.Query("page", "1")))
 		size := r.pageSize(c)
-		sql += " LIMIT " + php.Str(size) + " OFFSET " + php.Str((page-1)*size)
+		sql += " LIMIT " + conv.Str(size) + " OFFSET " + conv.Str((page-1)*size)
 	}
 	return r.hydrate(c, r.conn().Select(sql, params...)), total
 }
@@ -329,10 +329,10 @@ func okSize(n int) bool {
 }
 
 func (r *Resource) pageSize(c *Ctx) int {
-	if q := php.Int(c.Query("per_page", "0")); okSize(q) {
+	if q := conv.Int(c.Query("per_page", "0")); okSize(q) {
 		return q
 	}
-	if saved := php.Int(TablePrefs(c.MustUser().ID, r.Resource)["per_page"]); okSize(saved) {
+	if saved := conv.Int(TablePrefs(c.MustUser().ID, r.Resource)["per_page"]); okSize(saved) {
 		return saved
 	}
 	if r.PerPage > 0 {
@@ -353,7 +353,7 @@ func (r *Resource) Find(c *Ctx, id int) db.Row {
 		row = r.hydrate(c, []db.Row{row})[0]
 	}
 	if row == nil {
-		Abort(http.StatusNotFound, c.T(":Item not found, or it is outside what you can see.", "Item", c.T(php.Ucfirst(r.Singular))))
+		Abort(http.StatusNotFound, c.T(":Item not found, or it is outside what you can see.", "Item", c.T(conv.Ucfirst(r.Singular))))
 	}
 	return row
 }
@@ -429,7 +429,7 @@ func (r *Resource) Index(c *Ctx) {
 	for _, row := range rows {
 		row["_label"] = r.LabelOf(c, row)
 	}
-	if asked := php.Int(c.Query("per_page", "0")); okSize(asked) {
+	if asked := conv.Int(c.Query("per_page", "0")); okSize(asked) {
 		RememberPageSize(c.MustUser().ID, r.Resource, asked)
 	}
 	actions := map[int]RowActions{}
@@ -446,9 +446,9 @@ func (r *Resource) Index(c *Ctx) {
 	}
 	key, dir := r.sorting(c)
 	data := M{
-		"title": c.T(php.Ucfirst(r.Plural)), "c": r.Meta(c), "rows": rows, "total": total,
+		"title": c.T(conv.Ucfirst(r.Plural)), "c": r.Meta(c), "rows": rows, "total": total,
 		"columns": r.Columns(c), "filters": r.filters(c), "rowActions": actions,
-		"perPage": r.pageSize(c), "page": max(1, php.Int(c.Query("page", "1"))),
+		"perPage": r.pageSize(c), "page": max(1, conv.Int(c.Query("page", "1"))),
 		"hidden": TablePrefs(c.MustUser().ID, r.Resource)["hidden"],
 		"sort":   key, "dir": strings.ToLower(dir),
 		"canDelete": c.Can(r.Resource, "delete"), "canSearch": len(r.Searchable) > 0,
@@ -487,9 +487,9 @@ func (r *Resource) Store(c *Ctx) {
 	r.editorImages(c, fields, id, data, nil)
 	row := r.Find(c, id)
 	LogActivity(c, ActivityEntry{Action: "created", Type: r.Type, ID: id, Label: r.LabelOf(c, row), Text: `Created :type ":label"`,
-		Params: []any{"type", r.Singular, "label", r.LabelOf(c, row)}, Props: M{"attributes": r.DisplayValues(c, fields, row), "_url": c.URL(r.Base + "/" + php.Str(id))},
+		Params: []any{"type", r.Singular, "label", r.LabelOf(c, row)}, Props: M{"attributes": r.DisplayValues(c, fields, row), "_url": c.URL(r.Base + "/" + conv.Str(id))},
 		Owner: r.owner(row), Module: r.module()})
-	c.Flash("success", c.T(":Item created.", "Item", c.T(php.Ucfirst(r.Singular))))
+	c.Flash("success", c.T(":Item created.", "Item", c.T(conv.Ucfirst(r.Singular))))
 	r.finish(c, id)
 }
 
@@ -528,7 +528,7 @@ func (r *Resource) Update(c *Ctx) {
 	data := r.prepare(c, r.ValidateFields(c, fields, c.All(), row), row)
 	table := r.TableData(fields, data)
 	if len(table) > 0 {
-		table = append(table, db.Col{Name: "updated_at", Value: php.NowString()})
+		table = append(table, db.Col{Name: "updated_at", Value: conv.NowString()})
 		r.conn().Update(r.Table, table, db.Cols{{Name: "id", Value: id}})
 	}
 	if r.Saved != nil {
@@ -546,9 +546,9 @@ func (r *Resource) Update(c *Ctx) {
 	}
 	if changes.Len() > 0 {
 		LogActivity(c, ActivityEntry{Action: "updated", Type: r.Type, ID: id, Label: r.LabelOf(c, after), Text: `Updated :type ":label"`,
-			Params: []any{"type", r.Singular, "label", r.LabelOf(c, after)}, Props: M{"changes": changes, "_url": c.URL(r.Base + "/" + php.Str(id))},
+			Params: []any{"type", r.Singular, "label", r.LabelOf(c, after)}, Props: M{"changes": changes, "_url": c.URL(r.Base + "/" + conv.Str(id))},
 			Owner: r.owner(after), Module: r.module()})
-		c.Flash("success", c.T(":Item saved.", "Item", c.T(php.Ucfirst(r.Singular))))
+		c.Flash("success", c.T(":Item saved.", "Item", c.T(conv.Ucfirst(r.Singular))))
 	} else {
 		c.Flash("status", c.T("Nothing changed."))
 	}
@@ -578,7 +578,7 @@ func (r *Resource) editorImages(c *Ctx, fields []Field, id int, data *Clean, exi
 		}
 		name := f.Name
 		_ = Catch(func() {
-			EditorImagesSaved(connName+"."+r.Table+"."+php.Str(id)+"."+name, data.Get(name), before, func(file string) bool {
+			EditorImagesSaved(connName+"."+r.Table+"."+conv.Str(id)+"."+name, data.Get(name), before, func(file string) bool {
 				return r.conn().Scalar("SELECT 1 FROM "+r.Table+" WHERE "+name+" LIKE ? AND id <> ? LIMIT 1", "%"+lastPart(file)+"%", id) != nil
 			})
 		})
@@ -599,9 +599,9 @@ func (r *Resource) finish(c *Ctx, id int) {
 		return
 	}
 	if c.IsJSON() {
-		c.JSON(M{"ok": true, "id": id, "url": c.URL(r.Base + "/" + php.Str(id))})
+		c.JSON(M{"ok": true, "id": id, "url": c.URL(r.Base + "/" + conv.Str(id))})
 	}
-	c.Redirect(r.Base + "/" + php.Str(id))
+	c.Redirect(r.Base + "/" + conv.Str(id))
 }
 
 // Destroy deletes one record (the word DELETE must be typed).
@@ -615,7 +615,7 @@ func (r *Resource) Destroy(c *Ctx) {
 	r.deleteRow(id)
 	LogActivity(c, ActivityEntry{Action: "deleted", Type: r.Type, ID: id, Label: r.LabelOf(c, row), Text: `Deleted :type ":label"`,
 		Params: []any{"type", r.Singular, "label", r.LabelOf(c, row)}, Owner: r.owner(row), Module: r.module()})
-	c.Flash("success", c.T(":Item deleted.", "Item", c.T(php.Ucfirst(r.Singular))))
+	c.Flash("success", c.T(":Item deleted.", "Item", c.T(conv.Ucfirst(r.Singular))))
 	c.Redirect(r.Base)
 }
 
@@ -640,7 +640,7 @@ func (r *Resource) BulkDestroy(c *Ctx) {
 	seen := map[int]bool{}
 	var ids []int
 	for _, v := range c.Inputs("ids") {
-		if n := php.Int(v); n != 0 && !seen[n] {
+		if n := conv.Int(v); n != 0 && !seen[n] {
 			seen[n] = true
 			ids = append(ids, n)
 		}
@@ -701,7 +701,7 @@ func (r *Resource) Export(c *Ctx) {
 			filters[k] = v
 		}
 	}
-	LogActivity(c, ActivityEntry{Action: "export", Type: r.Type, Label: php.Ucfirst(r.Plural), Text: "Exported :count :type", Params: []any{"count", len(rows), "type", r.Plural},
+	LogActivity(c, ActivityEntry{Action: "export", Type: r.Type, Label: conv.Ucfirst(r.Plural), Text: "Exported :count :type", Params: []any{"count", len(rows), "type", r.Plural},
 		Props: M{"count": len(rows), "filters": filters}, Module: r.module()})
 	header := []string{"id"}
 	for _, f := range fields {
@@ -716,7 +716,7 @@ func (r *Resource) Export(c *Ctx) {
 		}
 		out = append(out, line)
 	}
-	c.XlsxDownload(r.Plural+"-"+php.Date("Ymd-His", php.Now())+".xlsx", header, out)
+	c.XlsxDownload(r.Plural+"-"+conv.Date("Ymd-His", conv.Now())+".xlsx", header, out)
 }
 
 func (r *Resource) mayImport(c *Ctx) bool {
@@ -812,7 +812,7 @@ func (r *Resource) Import(c *Ctx) {
 		case *ValidationError:
 			errs = append(errs, c.T("Row :n", "n", line)+": "+strings.Join(e.Errors.List(), " "))
 		case *db.Error:
-			errs = append(errs, c.T("Row :n", "n", line)+": "+c.T("could not be saved")+" ("+php.Limit(e.Error(), 90)+")")
+			errs = append(errs, c.T("Row :n", "n", line)+": "+c.T("could not be saved")+" ("+conv.Limit(e.Error(), 90)+")")
 		default:
 			panic(err)
 		}
@@ -821,7 +821,7 @@ func (r *Resource) Import(c *Ctx) {
 	if len(first) > 20 {
 		first = first[:20]
 	}
-	LogActivity(c, ActivityEntry{Action: "import", Type: r.Type, Label: php.Ucfirst(r.Plural), Text: "Imported :created of :total :type",
+	LogActivity(c, ActivityEntry{Action: "import", Type: r.Type, Label: conv.Ucfirst(r.Plural), Text: "Imported :created of :total :type",
 		Params: []any{"created", created, "total", len(rows), "type", r.Plural},
 		Props:  M{"created": created, "skipped": skipped, "failed": len(errs), "errors": first, "file": file.Filename}, Module: r.module()})
 	title := c.T("Imported :created of :total rows.", "created", created, "total", len(rows))
@@ -870,12 +870,12 @@ func (r *Resource) Download(c *Ctx) {
 	LogActivity(c, ActivityEntry{Action: "download", Type: r.Type, ID: id, Label: r.LabelOf(c, row), Text: `Downloaded :type ":label"`,
 		Params: []any{"type", r.Singular, "label", r.LabelOf(c, row)}, Owner: r.owner(row), Module: r.module()})
 	vals := r.DisplayValues(c, fields, row)
-	lines := [][]any{{"ID", php.Str(id)}}
+	lines := [][]any{{"ID", conv.Str(id)}}
 	for _, f := range fields {
-		lines = append(lines, []any{f.Label, php.Str(vals[f.Name])})
+		lines = append(lines, []any{f.Label, conv.Str(vals[f.Name])})
 	}
-	lines = append(lines, []any{c.T("Downloaded by"), c.MustUser().Name + " · " + FormatDate(c, php.NowString(), "d M Y H:i")})
-	c.XlsxDownload(r.Type+"-"+php.Str(id)+".xlsx", []string{c.T("Field"), c.T("Value")}, lines)
+	lines = append(lines, []any{c.T("Downloaded by"), c.MustUser().Name + " · " + FormatDate(c, conv.NowString(), "d M Y H:i")})
+	c.XlsxDownload(r.Type+"-"+conv.Str(id)+".xlsx", []string{c.T("Field"), c.T("Value")}, lines)
 }
 
 // ---------------------------------------------------------------- helpers
@@ -990,15 +990,15 @@ func (r *Resource) DisplayValues(c *Ctx, fields []Field, row db.Row) map[string]
 		case f.Display != nil:
 			v = f.Display(row)
 		case f.TypeOr() == "checkbox":
-			if php.Bool(v) {
+			if conv.Bool(v) {
 				v = c.T("Yes")
 			} else {
 				v = c.T("No")
 			}
-		case len(f.Options) > 0 && v != nil && php.Str(v) != "":
-			if l, ok := OptLabel(f.Options, php.Str(v)); ok {
+		case len(f.Options) > 0 && v != nil && conv.Str(v) != "":
+			if l, ok := OptLabel(f.Options, conv.Str(v)); ok {
 				v = l
-			} else if l, ok := OptLabel(f.AllOptions, php.Str(v)); ok {
+			} else if l, ok := OptLabel(f.AllOptions, conv.Str(v)); ok {
 				v = l
 			}
 		case f.TypeOr() == "richtext":
@@ -1046,7 +1046,7 @@ func SaveTablePrefs(c *Ctx) {
 		}
 	}
 	var per any
-	if p := php.Int(c.Input("per_page")); okSize(p) {
+	if p := conv.Int(c.Input("per_page")); okSize(p) {
 		per = p
 	}
 	hj, _ := json.Marshal(hidden)

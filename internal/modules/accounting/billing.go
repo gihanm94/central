@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -109,23 +109,23 @@ func billingInvoices(customerID string) []billInv {
 		if r["r_credit"] != nil {
 			credit = r.Bool("r_credit")
 		}
-		vat := phpRound(r.Float("net")*0.07, 2)
+		vat := roundHalf(r.Float("net")*0.07, 2)
 		if r["vat_amount"] != nil {
 			vat = r.Float("vat_amount")
 		}
-		amount := phpRound(r.Float("net")+vat, 2)
+		amount := roundHalf(r.Float("net")+vat, 2)
 		if r["invoice_amount"] != nil {
 			amount = r.Float("invoice_amount")
 		}
 		var date, due any
-		if php.Truthy(r["invoice_date"]) {
-			date = php.Substr(r.Str("invoice_date"), 0, 10)
+		if conv.Truthy(r["invoice_date"]) {
+			date = conv.Substr(r.Str("invoice_date"), 0, 10)
 		}
-		if php.Truthy(r["due_date"]) {
-			due = php.Substr(r.Str("due_date"), 0, 10)
+		if conv.Truthy(r["due_date"]) {
+			due = conv.Substr(r.Str("due_date"), 0, 10)
 		} else if date != nil {
-			if t, ok := php.ParseTime(php.Str(date)); ok {
-				due = php.Date("Y-m-d", t.AddDate(0, 0, r.Int("grace")))
+			if t, ok := conv.ParseTime(conv.Str(date)); ok {
+				due = conv.Date("Y-m-d", t.AddDate(0, 0, r.Int("grace")))
 			}
 		}
 		if amount < 0 {
@@ -135,16 +135,16 @@ func billingInvoices(customerID string) []billInv {
 			vat = -vat
 		}
 		out = append(out, billInv{InvoiceNumber: r.Int("invoice_number"), OrderNo: r.Str("order_number"), InvoiceDate: date, DueDate: due, Amount: amount, VatAmount: vat,
-			IsCredit: credit, Currency: php.OrStr(r.Str("currency_code"), "THB"), HasReceivable: r["invoice_amount"] != nil})
+			IsCredit: credit, Currency: conv.OrStr(r.Str("currency_code"), "THB"), HasReceivable: r["invoice_amount"] != nil})
 	}
 	return out
 }
 
 // billingNextNumber: BI + yy + mm + 001, 002 … per month.
 func billingNextNumber(date string) string {
-	prefix := "BI" + php.DateOf("ym", date)
-	m := php.Int(acc().Scalar("SELECT coalesce(max(substring(billing_number FROM ?)::int), 0) FROM billing_notes WHERE billing_number ~ ?", len(prefix)+1, "^"+prefix+"[0-9]+$"))
-	n := php.Str(m + 1)
+	prefix := "BI" + conv.DateOf("ym", date)
+	m := conv.Int(acc().Scalar("SELECT coalesce(max(substring(billing_number FROM ?)::int), 0) FROM billing_notes WHERE billing_number ~ ?", len(prefix)+1, "^"+prefix+"[0-9]+$"))
+	n := conv.Str(m + 1)
 	for len(n) < 3 {
 		n = "0" + n
 	}
@@ -168,7 +168,7 @@ func wantInvoices(in []string) []int {
 	seen := map[int]bool{}
 	var out []int
 	for _, s := range in {
-		n := php.Int(s)
+		n := conv.Int(s)
 		if !seen[n] {
 			seen[n] = true
 			out = append(out, n)
@@ -212,7 +212,7 @@ func billingCreate(c *app.Ctx, in billingInput, by int, isAdmin bool) int {
 	}
 	date := in.BillingDate
 	if !ymdRe.MatchString(date) {
-		date = php.Date("Y-m-d", php.Now())
+		date = conv.Date("Y-m-d", conv.Now())
 	}
 	remind := in.RemindDate
 	if !ymdRe.MatchString(remind) {
@@ -239,13 +239,13 @@ func billingCreate(c *app.Ctx, in billingInput, by int, isAdmin bool) int {
 		if tx.Scalar("SELECT 1 FROM billing_notes WHERE billing_number = ?", number) != nil {
 			panic(errors.New(c.T("The number :n is already used.", "n", number)))
 		}
-		id = php.Int(tx.Insert("billing_notes", db.Cols{{Name: "billing_number", Value: number}, {Name: "is_thai", Value: bstr(in.IsThai)}, {Name: "customer_id", Value: cu["id"]},
-			{Name: "customer_code", Value: cu["code"]}, {Name: "customer_name", Value: cu["name"]}, {Name: "vat_number", Value: php.Or(cu["vat_number"], php.Coalesce(cu["corporation_identification_number"], nil))},
-			{Name: "address", Value: address}, {Name: "total_amount", Value: phpRound(total, 2)}, {Name: "currency_code", Value: cur}, {Name: "billing_at", Value: date}, {Name: "remind_date", Value: remind},
+		id = conv.Int(tx.Insert("billing_notes", db.Cols{{Name: "billing_number", Value: number}, {Name: "is_thai", Value: bstr(in.IsThai)}, {Name: "customer_id", Value: cu["id"]},
+			{Name: "customer_code", Value: cu["code"]}, {Name: "customer_name", Value: cu["name"]}, {Name: "vat_number", Value: conv.Or(cu["vat_number"], conv.Coalesce(cu["corporation_identification_number"], nil))},
+			{Name: "address", Value: address}, {Name: "total_amount", Value: roundHalf(total, 2)}, {Name: "currency_code", Value: cur}, {Name: "billing_at", Value: date}, {Name: "remind_date", Value: remind},
 			{Name: "created_by", Value: by}, {Name: "updated_by", Value: by}}))
 		insertBillRows(tx, id, rows)
 	})
-	logInfo("billing", number+": created", om("customer", cu["code"], "invoices", len(rows), "total", phpRound(total, 2), "by", by))
+	logInfo("billing", number+": created", om("customer", cu["code"], "invoices", len(rows), "total", roundHalf(total, 2), "by", by))
 	if err := app.Catch(func() { billingPDF(c, id, true) }); err != nil {
 		logException("billing", err, number+" PDF not made")
 	}
@@ -294,7 +294,7 @@ func billingChoices(note db.Row) []billInv {
 		byNo[r.Int("invoice_number")] = billInv{InvoiceNumber: r.Int("invoice_number"), OrderNo: r.Str("order_no"), InvoiceDate: r["invoice_date"], DueDate: r["due_date"], Amount: r.Float("amount"),
 			VatAmount: r.Float("vat_amount"), IsCredit: r.Bool("is_credit"), Currency: note.Str("currency_code"), OnNote: true}
 	}
-	if php.Truthy(note["customer_id"]) {
+	if conv.Truthy(note["customer_id"]) {
 		for _, r := range billingInvoices(note.Str("customer_id")) {
 			if _, ok := byNo[r.InvoiceNumber]; !ok {
 				byNo[r.InvoiceNumber] = r
@@ -367,19 +367,19 @@ func billingUpdate(c *app.Ctx, id int, in billingInput, by int, isAdmin bool) {
 		}
 		return strings.TrimSpace(s)
 	}
-	cur := php.OrStr(rows[0].Currency, n.Str("currency_code"))
+	cur := conv.OrStr(rows[0].Currency, n.Str("currency_code"))
 	acc().Transaction(func(tx db.Q) {
 		tx.Exec("DELETE FROM billing_note_invoices WHERE billing_id = ?", id)
 		insertBillRows(tx, id, rows)
 		tx.Update("billing_notes", db.Cols{{Name: "billing_number", Value: number}, {Name: "is_thai", Value: bstr(in.IsThai)}, {Name: "address", Value: address}, {Name: "billing_at", Value: date},
-			{Name: "remind_date", Value: remind}, {Name: "total_amount", Value: phpRound(total, 2)}, {Name: "currency_code", Value: cur}, {Name: "note", Value: nullIf(in.Note)},
-			{Name: "remark", Value: nullIf(in.Remark)}, {Name: "updated_by", Value: by}, {Name: "updated_at", Value: php.NowString()}}, db.Cols{{Name: "id", Value: id}})
+			{Name: "remind_date", Value: remind}, {Name: "total_amount", Value: roundHalf(total, 2)}, {Name: "currency_code", Value: cur}, {Name: "note", Value: nullIf(in.Note)},
+			{Name: "remark", Value: nullIf(in.Remark)}, {Name: "updated_by", Value: by}, {Name: "updated_at", Value: conv.NowString()}}, db.Cols{{Name: "id", Value: id}})
 	})
 	if number != n.Str("billing_number") && n.Str("file_key") != "" {
 		_ = os.Remove(filepath.Join(app.BasePath, "storage", n.Str("file_key")))
 		acc().Exec("UPDATE billing_notes SET file_key = NULL WHERE id = ?", id)
 	}
-	logInfo("billing", number+": edited", om("invoices", len(rows), "total", phpRound(total, 2), "by", by))
+	logInfo("billing", number+": edited", om("invoices", len(rows), "total", roundHalf(total, 2), "by", by))
 	if err := app.Catch(func() { billingPDF(c, id, true) }); err != nil {
 		logException("billing", err, number+" PDF not made")
 	}
@@ -398,17 +398,17 @@ func billingHTML(n db.Row, rows []db.Row, company db.Row, banks [][4]string) str
 		}
 	}
 	dfmt := func(v any) string {
-		if php.Empty(v) {
+		if conv.Empty(v) {
 			return ""
 		}
-		t, ok := php.ParseTime(php.Str(v))
+		t, ok := conv.ParseTime(conv.Str(v))
 		if !ok {
-			t = php.Unix(0)
+			t = conv.Unix(0)
 		}
 		if th {
-			return php.Date("d/m/", t) + php.Str(t.Year()+543)
+			return conv.Date("d/m/", t) + conv.Str(t.Year()+543)
 		}
-		return php.Date("d/m/Y", t)
+		return conv.Date("d/m/Y", t)
 	}
 	p := func(a, b string) string {
 		if th {
@@ -482,7 +482,7 @@ tr{page-break-inside:avoid}
         <p class="text-11px c-text">`, p("WEB SITE", "Web"), `: `, pe(cs("website")), `</p>
         <p class="text-11px c-text" style="text-align:right;">`, p("E-mail", "Email"), `: `, pe(cs("email")), `</p>
       </div>
-      <p class="text-11px font-medium c-text" style="text-align:right;">เลขประจำตัวผู้เสียภาษีอากร/TAX NO: `, pe(php.Or(company["tax_no"], company["tax_id"])), ` (`, p("สำนักงานใหญ่", "Head Office"), `)</p>
+      <p class="text-11px font-medium c-text" style="text-align:right;">เลขประจำตัวผู้เสียภาษีอากร/TAX NO: `, pe(conv.Or(company["tax_no"], company["tax_id"])), ` (`, p("สำนักงานใหญ่", "Head Office"), `)</p>
     </div>
   </div>
   <div style="width:250px;flex-shrink:0;padding-right:18px;display:flex;flex-direction:column;gap:8px;">

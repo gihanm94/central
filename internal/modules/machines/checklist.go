@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -38,7 +38,7 @@ var checklists = &app.Resource{
 	Owner:     func(row db.Row) int { return row.Int("created_by") },
 	CanModify: func(c *app.Ctx, row db.Row, action string) bool { return c.MustUser().IsAdmin() },
 	Filters: func(c *app.Ctx) []app.Filter {
-		me := php.Str(c.MustUser().ID)
+		me := conv.Str(c.MustUser().ID)
 		return []app.Filter{
 			{Name: "view", Label: c.T("All checklists"), Options: []app.Opt{{Value: "mine", Label: c.T("Done by me")}, {Value: "approve", Label: c.T("Waiting for my approval")}},
 				SQL: "(CASE ? WHEN 'mine' THEN t.created_by = " + me + " ELSE ((t.checklist_status = 'PENDING SUPERVISOR' AND t.supervisor = " + me + ") OR (t.checklist_status = 'PENDING MANAGER' AND t.manager = " + me + ")) END)"},
@@ -61,14 +61,14 @@ var checklists = &app.Resource{
 				return app.HTML(`<span class="font-medium tabular-nums">` + esc(r["machine_code"]) + `</span><span class="block text-xs text-steel">` + esc(r["machine_name"]) + `</span>`)
 			}},
 			{Key: "kind", Label: c.T("Kind"), Render: func(c *app.Ctx, r db.Row) template.HTML { return kindPill(c, r, c.T("General")) }},
-			{Key: "by", Label: c.T("Checked by"), Sort: "t.user_name", Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(php.Coalesce(r["user_name"], "—"))) }},
+			{Key: "by", Label: c.T("Checked by"), Sort: "t.user_name", Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(conv.Coalesce(r["user_name"], "—"))) }},
 			{Key: "mstatus", Label: c.T("Machine"), Render: func(c *app.Ctx, r db.Row) template.HTML { return pillH(c, r["machine_status"], "") }},
 			{Key: "status", Label: c.T("Approval"), Sort: "t.checklist_status", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				s := pill(c, r["checklist_status"], "")
 				if strings.HasPrefix(r.Str("checklist_status"), "PENDING") {
-					who := php.Coalesce(r["manager_name"], "")
+					who := conv.Coalesce(r["manager_name"], "")
 					if r.Str("checklist_status") == "PENDING SUPERVISOR" {
-						who = php.Coalesce(r["supervisor_name"], "")
+						who = conv.Coalesce(r["supervisor_name"], "")
 					}
 					s += `<span class="mt-0.5 block text-xs text-steel">` + esc(c.T("waiting for :n", "n", who)) + `</span>`
 				}
@@ -84,7 +84,7 @@ var checklists = &app.Resource{
 	},
 	TopExtra: func(c *app.Ctx) template.HTML {
 		me := c.MustUser().ID
-		n := php.Int(mdb().Scalar("SELECT count(*) FROM checklist_record WHERE (checklist_status = 'PENDING SUPERVISOR' AND supervisor = ?) OR (checklist_status = 'PENDING MANAGER' AND manager = ?)", me, me))
+		n := conv.Int(mdb().Scalar("SELECT count(*) FROM checklist_record WHERE (checklist_status = 'PENDING SUPERVISOR' AND supervisor = ?) OR (checklist_status = 'PENDING MANAGER' AND manager = ?)", me, me))
 		if n == 0 {
 			return ""
 		}
@@ -116,9 +116,9 @@ func checklistExport(c *app.Ctx) {
 		} else if x.Bool("recheck") {
 			kind = "recheck"
 		}
-		out = append(out, []any{x["id"], x["created_at"], x["machine_code"], x["machine_name"], kind, x["user_name"], x["machine_status"], x["checklist_status"], php.Coalesce(x["supervisor_name"], ""), php.Coalesce(x["manager_name"], ""), x["machine_note"]})
+		out = append(out, []any{x["id"], x["created_at"], x["machine_code"], x["machine_name"], kind, x["user_name"], x["machine_status"], x["checklist_status"], conv.Coalesce(x["supervisor_name"], ""), conv.Coalesce(x["manager_name"], ""), x["machine_note"]})
 	}
-	c.XlsxDownload("checklists-"+php.Date("Ymd-His", php.Now())+".xlsx", []string{"id", "date", "machine_code", "machine_name", "kind", "checked_by", "machine_status", "approval_status", "supervisor", "manager", "note"}, out)
+	c.XlsxDownload("checklists-"+conv.Date("Ymd-His", conv.Now())+".xlsx", []string{"id", "date", "machine_code", "machine_name", "kind", "checked_by", "machine_status", "approval_status", "supervisor", "manager", "note"}, out)
 }
 
 /* ----------------------------------------------------------------- do a check */
@@ -151,7 +151,7 @@ func questionsView(c *app.Ctx, items []db.Row) []questionView {
 	out := make([]questionView, 0, len(items))
 	for n, i := range items {
 		o, _ := rowOf(old[i.Str("id")])
-		out = append(out, questionView{N: n + 1, ID: i.Int("id"), Detail: i.Str("detail"), Desc: i.Str("description"), Choice: i.Bool("is_choice"), Ans: php.Str(o["answer"]), Remark: php.Str(o["remark"])})
+		out = append(out, questionView{N: n + 1, ID: i.Int("id"), Detail: i.Str("detail"), Desc: i.Str("description"), Choice: i.Bool("is_choice"), Ans: conv.Str(o["answer"]), Remark: conv.Str(o["remark"])})
 	}
 	return out
 }
@@ -169,19 +169,19 @@ func checklistCreate(c *app.Ctx) {
 		c.Redirect("/machines/scan")
 	}
 	u := c.MustUser()
-	p := plan(m, u, php.Now())
+	p := plan(m, u, conv.Now())
 	ppl := names(m["responsible_person_id"], m["supervisor_id"], m["manager_id"])
 	who := ""
-	if !php.Empty(m["supervisor_id"]) {
-		who = php.Str(nameOr(ppl, m["supervisor_id"], c.T("your supervisor")))
+	if !conv.Empty(m["supervisor_id"]) {
+		who = conv.Str(nameOr(ppl, m["supervisor_id"], c.T("your supervisor")))
 	} else {
-		who = php.Str(nameOr(ppl, m["manager_id"], c.T("your manager")))
+		who = conv.Str(nameOr(ppl, m["manager_id"], c.T("your manager")))
 	}
 	c.View("machines/check-new", app.M{"title": c.T("Check :code", "code", m["machine_code"]), "m": m, "plan": p, "who": who,
 		"weekendNote": m.Int("responsible_person_id") == u.ID && p.Weekend,
 		"typeLine":    strings.Trim(m.Str("machine_group_name")+" / "+m.Str("machine_type_name"), " /"),
-		"mstat":       php.Str(oldOr(c, "machine_status", m["machine_status"])), "statusChoices": statusChoices(c, ""),
-		"questions": questionsView(c, p.Items), "err": c.Sess.Errors().Get("answers"), "note": php.Str(oldOr(c, "machine_note", ""))})
+		"mstat":       conv.Str(oldOr(c, "machine_status", m["machine_status"])), "statusChoices": statusChoices(c, ""),
+		"questions": questionsView(c, p.Items), "err": c.Sess.Errors().Get("answers"), "note": conv.Str(oldOr(c, "machine_note", ""))})
 }
 
 // saveCheck stores a check from the request (machine_code, machine_status, answers, machine_note, image) and returns its id.
@@ -199,7 +199,7 @@ func saveCheck(c *app.Ctx) int {
 	if !isActive(status) {
 		app.Invalid("machine_status", c.T("Choose the machine status: operational or under maintenance."))
 	}
-	p := plan(m, u, php.Now())
+	p := plan(m, u, conv.Now())
 	ans := answers(c, p.Items, c.InputAny("answers"))
 
 	var image any
@@ -209,7 +209,7 @@ func saveCheck(c *app.Ctx) int {
 	cstatus := "COMPLETED"
 	if p.Recheck {
 		cstatus = "PENDING MANAGER"
-		if !php.Empty(m["supervisor_id"]) {
+		if !conv.Empty(m["supervisor_id"]) {
 			cstatus = "PENDING SUPERVISOR"
 		}
 	}
@@ -221,7 +221,7 @@ func saveCheck(c *app.Ctx) int {
 	mdb().Transaction(func(tx db.Q) {
 		id = tx.InsertID("checklist_record", db.Cols{
 			{Name: "check_type", Value: "GENERAL"}, {Name: "recheck", Value: p.Recheck}, {Name: "machine_code", Value: m["machine_code"]}, {Name: "machine_name", Value: m["machine_name"]}, {Name: "machine_status", Value: status},
-			{Name: "machine_checklist", Value: phpJSON(ans, flagUnicode)}, {Name: "machine_note", Value: note}, {Name: "image", Value: image},
+			{Name: "machine_checklist", Value: jsonCompat(ans, flagUnicode)}, {Name: "machine_note", Value: note}, {Name: "image", Value: image},
 			{Name: "user_id", Value: u.Email}, {Name: "user_name", Value: u.Name}, {Name: "created_by", Value: u.ID}, {Name: "updated_by", Value: u.ID},
 			{Name: "supervisor", Value: m["supervisor_id"]}, {Name: "manager", Value: m["manager_id"]},
 			{Name: "checklist_status", Value: cstatus}, {Name: "reason_not_checked", Value: nil}, {Name: "job_detail", Value: nil},
@@ -229,8 +229,8 @@ func saveCheck(c *app.Ctx) int {
 		if p.Recheck {
 			var ids []string
 			for _, a := range ans {
-				if php.Str(a.ResetTime) != generalRule && a.ID != 0 {
-					ids = append(ids, php.Str(a.ID))
+				if conv.Str(a.ResetTime) != generalRule && a.ID != 0 {
+					ids = append(ids, conv.Str(a.ID))
 				}
 			}
 			if len(ids) > 0 {
@@ -246,7 +246,7 @@ func saveCheck(c *app.Ctx) int {
 		kind = "recheck"
 	}
 	app.LogActivity(c, app.ActivityEntry{Action: "created", Type: "machine_checklist", ID: id, Label: m.Str("machine_code"), Text: "Checked machine :code", Params: []any{"code", m["machine_code"]},
-		Props: app.M{"_url": c.URL("/machines/checklists/" + php.Str(id)), "attributes": om("machine_status", status, "kind", kind)}, Owner: m.Int("responsible_person_id"), Module: "machines"})
+		Props: app.M{"_url": c.URL("/machines/checklists/" + conv.Str(id)), "attributes": om("machine_status", status, "kind", kind)}, Owner: m.Int("responsible_person_id"), Module: "machines"})
 	bad := 0
 	for _, a := range ans {
 		if a.Answer == "NG" {
@@ -265,9 +265,9 @@ func saveCheck(c *app.Ctx) int {
 func checklistStore(c *app.Ctx) {
 	id := saveCheck(c)
 	if c.IsJSON() {
-		c.JSON(app.M{"ok": true, "id": id, "url": c.URL("/machines/checklists/" + php.Str(id))})
+		c.JSON(app.M{"ok": true, "id": id, "url": c.URL("/machines/checklists/" + conv.Str(id))})
 	}
-	c.Redirect("/machines/checklists/" + php.Str(id))
+	c.Redirect("/machines/checklists/" + conv.Str(id))
 }
 
 /* ------------------------------------------------------------------ detail */
@@ -286,11 +286,11 @@ func checklistShow(c *app.Ctx) {
 	var ans []shownAnswer
 	ng := 0
 	for _, a := range jsonList(rec["machine_checklist"]) {
-		v := php.Str(a["answer"])
+		v := conv.Str(a["answer"])
 		if v == "NG" {
 			ng++
 		}
-		ans = append(ans, shownAnswer{Detail: php.Str(a["detail"]), Remark: php.Str(a["remark"]), V: v, Choice: !php.Empty(a["is_choice"])})
+		ans = append(ans, shownAnswer{Detail: conv.Str(a["detail"]), Remark: conv.Str(a["remark"]), V: v, Choice: !conv.Empty(a["is_choice"])})
 	}
 	m := machine(rec.Str("machine_code"))
 	title := r.LabelOf(c, rec)
@@ -299,7 +299,7 @@ func checklistShow(c *app.Ctx) {
 	tone := map[string]string{"done": "bg-emerald-600 text-white", "now": "bg-amber-500 text-white", "late": "bg-red-600 text-white", "waiting": "bg-graphite-900/10 text-steel"}
 	for i, s := range steps {
 		when := map[string]string{"now": c.T("waiting"), "late": c.T("overdue"), "waiting": "—"}[s.State]
-		if !php.Empty(s.At) {
+		if !conv.Empty(s.At) {
 			when = fmtDate(c, s.At, "d M H:i")
 		}
 		stepsView = append(stepsView, app.M{"n": i + 1, "label": s.Label, "who": s.Who, "when": when, "state": s.State, "tone": tone[s.State]})
@@ -315,9 +315,9 @@ func checklistShow(c *app.Ctx) {
 		"title": title, "r": rec, "answers": ans, "c": r.Meta(c), "mlink": mlink, "pills": pills, "ng": ng,
 		"ngPill":     pillH(c, c.T(":n NG", "n", ng), "bad"),
 		"canApprove": canApprove(rec, u), "canDelete": c.Can(r.Resource, "delete") && u.IsAdmin(),
-		"chain": stepsView, "by": php.Str(by),
-		"emptyText":  php.Str(php.Or(rec["reason_not_checked"], c.T("No answers were saved."))),
-		"showNotes":  !php.Empty(rec["machine_note"]) || !php.Empty(rec["job_detail"]) || !php.Empty(rec["image"]) || (len(ans) > 0 && !php.Empty(rec["reason_not_checked"])),
+		"chain": stepsView, "by": conv.Str(by),
+		"emptyText":  conv.Str(conv.Or(rec["reason_not_checked"], c.T("No answers were saved."))),
+		"showNotes":  !conv.Empty(rec["machine_note"]) || !conv.Empty(rec["job_detail"]) || !conv.Empty(rec["image"]) || (len(ans) > 0 && !conv.Empty(rec["reason_not_checked"])),
 		"choicePill": func(v string) template.HTML { return answerPill(c, v) },
 	})
 }
@@ -343,7 +343,7 @@ func approveCheck(c *app.Ctx, id int, rec db.Row) string {
 		var next string
 		if rec.Str("checklist_status") == "PENDING SUPERVISOR" {
 			next = "COMPLETED"
-			if !php.Empty(rec["manager"]) {
+			if !conv.Empty(rec["manager"]) {
 				next = "PENDING MANAGER"
 			}
 			tx.Exec("UPDATE checklist_record SET checklist_status = ?, date_supervisor_checked = now(), updated_by = ?, updated_at = now(), reason_not_checked = COALESCE(NULLIF(?, ''), reason_not_checked) WHERE id = ?", next, u.ID, note, rec["id"])
@@ -358,7 +358,7 @@ func approveCheck(c *app.Ctx, id int, rec db.Row) string {
 	ch := &app.Changes{}
 	ch.Set("status", app.Change{From: rec["checklist_status"], To: after["checklist_status"]})
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "machine_checklist", ID: id, Label: rec.Str("machine_code"), Text: "Approved the check of :code", Params: []any{"code", rec["machine_code"]},
-		Props: app.M{"changes": ch, "_url": c.URL("/machines/checklists/" + php.Str(id))}, Owner: rec.Int("created_by"), Module: "machines"})
+		Props: app.M{"changes": ch, "_url": c.URL("/machines/checklists/" + conv.Str(id))}, Owner: rec.Int("created_by"), Module: "machines"})
 	notifyApproval(c, rec, after.Str("checklist_status"), u)
 	if after.Str("checklist_status") == "COMPLETED" {
 		c.Flash("success", c.T("Approved. The checklist is complete."))
@@ -377,5 +377,5 @@ func checklistApprove(c *app.Ctx) {
 		c.Back("error", c.T("This checklist is not waiting for you."))
 	}
 	approveCheck(c, id, rec)
-	c.Redirect("/machines/checklists/" + php.Str(id))
+	c.Redirect("/machines/checklists/" + conv.Str(id))
 }

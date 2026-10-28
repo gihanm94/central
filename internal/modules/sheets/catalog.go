@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // Every table of the databases of core and the enabled modules, which ones the administrator opened (gsheet_tables),
@@ -122,7 +122,7 @@ func tableLabel(t db.Row) string {
 	if l := t.Str("label"); l != "" {
 		return l
 	}
-	return php.Ucfirst(strings.ReplaceAll(t.Str("table_name"), "_", " "))
+	return conv.Ucfirst(strings.ReplaceAll(t.Str("table_name"), "_", " "))
 }
 
 func hiddenColumns(t db.Row) []string {
@@ -237,11 +237,11 @@ func read(c *app.Ctx, t db.Row, limit int) (header []string, rows [][]any, trunc
 			case v == nil:
 				line = append(line, "")
 			case col.Type == "boolean":
-				line = append(line, php.Bool(v))
-			case php.InList(col.Type, numericTypes...) && isNumeric(v):
+				line = append(line, conv.Bool(v))
+			case conv.InList(col.Type, numericTypes...) && isNumeric(v):
 				line = append(line, numberOf(v))
 			default:
-				line = append(line, php.Substr(php.Str(v), 0, 50000)) // Sheets cell limit
+				line = append(line, conv.Substr(conv.Str(v), 0, 50000)) // Sheets cell limit
 			}
 		}
 		rows = append(rows, line)

@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -44,7 +44,7 @@ func arMonths(c *app.Ctx) []app.Opt {
 	names := []string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
 	out := make([]app.Opt, 12)
 	for i, n := range names {
-		out[i] = app.Opt{Value: php.Str(i + 1), Label: c.T(n)}
+		out[i] = app.Opt{Value: conv.Str(i + 1), Label: c.T(n)}
 	}
 	return out
 }
@@ -126,24 +126,24 @@ var accountReports = &app.Resource{
 		if len(deps) > 0 {
 			ex = deps[0]
 		}
-		year := php.Date("Y", php.Now())
+		year := conv.Date("Y", conv.Now())
 		f := []app.Field{
 			{Name: "account", Label: c.T("Account"), Rules: "required|max:60", Example: "410100"},
 			{Name: "name", Label: c.T("Name"), Rules: "required|max:200", Example: "Sales – local customers"},
-			{Name: "amount", Label: c.T("Amount"), Type: "number", Rules: "required|numeric", Example: "125000.00", Display: func(r db.Row) any { return php.NF(php.Coalesce(r["amount"], 0), 2) }},
+			{Name: "amount", Label: c.T("Amount"), Type: "number", Rules: "required|numeric", Example: "125000.00", Display: func(r db.Row) any { return conv.NF(conv.Coalesce(r["amount"], 0), 2) }},
 			{Name: "department", Label: c.T("Department"), Rules: "required|max:120", Example: ex, Help: c.T("The department name as in User Management → Departments.")},
 			{Name: "kind", Label: c.T("Income / Expenses"), Type: "select", Options: pairsOpts(c, arKinds), Rules: "required"},
-			{Name: "year", Label: c.T("Year"), Rules: "required|integer|max:4", Display: func(r db.Row) any { return php.Str(php.Int(r["year"])) }, Default: year, Example: year},
-			{Name: "month", Label: c.T("Month"), Type: "select", Options: arMonths(c), Rules: "required", Default: php.Str(int(php.Now().Month()))},
+			{Name: "year", Label: c.T("Year"), Rules: "required|integer|max:4", Display: func(r db.Row) any { return conv.Str(conv.Int(r["year"])) }, Default: year, Example: year},
+			{Name: "month", Label: c.T("Month"), Type: "select", Options: arMonths(c), Rules: "required", Default: conv.Str(int(conv.Now().Month()))},
 			{Name: "type", Label: c.T("Type"), Type: "select", Options: pairsOpts(c, arTypes), Rules: "required", Span: 2},
 		}
 		if row != nil {
 			f = append(f,
 				app.Field{Name: "created_by_name", Label: c.T("Created by"), Readonly: true, NoImport: true, NoTable: true, Display: func(r db.Row) any {
-					return strings.TrimSpace(php.Str(php.Coalesce(r["created_by_name"], "—")) + " · " + app.FormatDate(c, r["created_at"], "d M Y H:i"))
+					return strings.TrimSpace(conv.Str(conv.Coalesce(r["created_by_name"], "—")) + " · " + app.FormatDate(c, r["created_at"], "d M Y H:i"))
 				}},
 				app.Field{Name: "updated_by_name", Label: c.T("Updated by"), Readonly: true, NoImport: true, NoTable: true, Display: func(r db.Row) any {
-					return strings.TrimSpace(php.Str(php.Coalesce(r["updated_by_name"], "—")) + " · " + app.FormatDate(c, r["updated_at"], "d M Y H:i"))
+					return strings.TrimSpace(conv.Str(conv.Coalesce(r["updated_by_name"], "—")) + " · " + app.FormatDate(c, r["updated_at"], "d M Y H:i"))
 				}})
 		}
 		return f
@@ -161,7 +161,7 @@ var accountReports = &app.Resource{
 				if r.Str("kind") == "expense" {
 					cls = "text-signal-700"
 				}
-				return h(`<span class="block text-right font-medium tabular-nums ` + cls + `">` + php.NF(r["amount"], 2) + `</span>`)
+				return h(`<span class="block text-right font-medium tabular-nums ` + cls + `">` + conv.NF(r["amount"], 2) + `</span>`)
 			}},
 			{Key: "department", Label: c.T("Department"), Sort: "t.department", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(r["department"])) }},
 			{Key: "kind", Label: c.T("Income / Expenses"), Sort: "t.kind", Render: func(c *app.Ctx, r db.Row) template.HTML {
@@ -172,10 +172,10 @@ var accountReports = &app.Resource{
 				return h(`<span class="badge ` + kindTone[r.Str("kind")] + `">` + app.E(l) + `</span>`)
 			}},
 			{Key: "year", Label: c.T("Year"), Sort: "t.year", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(`<span class="tabular-nums">` + php.Str(r.Int("year")) + `</span>`)
+				return h(`<span class="tabular-nums">` + conv.Str(r.Int("year")) + `</span>`)
 			}},
 			{Key: "month", Label: c.T("Month"), Sort: "t.month", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				l, ok := app.OptLabel(months, php.Str(r.Int("month")))
+				l, ok := app.OptLabel(months, conv.Str(r.Int("month")))
 				if !ok {
 					l = r.Str("month")
 				}
@@ -189,10 +189,10 @@ var accountReports = &app.Resource{
 				return h(app.E(l))
 			}},
 			{Key: "created", Label: c.T("Created by"), Sort: "t.created_at", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(app.E(php.Coalesce(r["created_by_name"], "—")) + `<span class="block text-xs text-steel">` + app.E(app.FormatDate(c, r["created_at"], "d M Y H:i")) + `</span>`)
+				return h(app.E(conv.Coalesce(r["created_by_name"], "—")) + `<span class="block text-xs text-steel">` + app.E(app.FormatDate(c, r["created_at"], "d M Y H:i")) + `</span>`)
 			}},
 			{Key: "updated", Label: c.T("Updated by"), Sort: "t.updated_at", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(app.E(php.Coalesce(r["updated_by_name"], "—")) + `<span class="block text-xs text-steel">` + app.E(app.FormatDate(c, r["updated_at"], "d M Y H:i")) + `</span>`)
+				return h(app.E(conv.Coalesce(r["updated_by_name"], "—")) + `<span class="block text-xs text-steel">` + app.E(app.FormatDate(c, r["updated_at"], "d M Y H:i")) + `</span>`)
 			}},
 		}
 	},
@@ -232,7 +232,7 @@ var accountReports = &app.Resource{
 		data.Set("department", arAppDepartment(data.Str("department")))
 		data.Set("year", data.Int("year"))
 		data.Set("month", data.Int("month"))
-		data.Set("amount", phpRound(php.Float(data.Get("amount")), 2))
+		data.Set("amount", roundHalf(conv.Float(data.Get("amount")), 2))
 		if data.Int("year") < 2000 || data.Int("year") > 2100 {
 			app.Invalid("year", c.T("Enter a year between 2000 and 2100."))
 		}
@@ -311,9 +311,9 @@ var accountReports = &app.Resource{
 		if m, ok := raw.Vals["month"]; ok {
 			m = strings.TrimSpace(m)
 			if m != "" && strings.Trim(m, "0123456789") == "" {
-				raw.Vals["month"] = php.Str(php.Int(m))
+				raw.Vals["month"] = conv.Str(conv.Int(m))
 			} else if n := monthOf(m); n > 0 {
-				raw.Vals["month"] = php.Str(n)
+				raw.Vals["month"] = conv.Str(n)
 			} else {
 				for _, o := range arMonths(c) {
 					if strings.ToLower(o.Label) == strings.ToLower(m) {
@@ -352,7 +352,7 @@ func arTotals(c *app.Ctx) []app.Stat {
 	var params []any
 	if y != "" {
 		where = append(where, "year = ?")
-		params = append(params, php.Int(y))
+		params = append(params, conv.Int(y))
 	}
 	if d != "" {
 		where = append(where, "department = ?")
@@ -361,20 +361,20 @@ func arTotals(c *app.Ctx) []app.Stat {
 	t := acc().First(`SELECT COALESCE(SUM(amount) FILTER (WHERE kind = 'income'), 0) AS income, COALESCE(SUM(amount) FILTER (WHERE kind = 'expense'), 0) AS expense, COUNT(*) AS n
                           FROM account_reports WHERE `+strings.Join(where, " AND "), params...)
 	net := t.Float("income") - t.Float("expense")
-	sub := php.OrStr(y, c.T("All years")) + " · " + php.OrStr(d, c.T("All departments"))
+	sub := conv.OrStr(y, c.T("All years")) + " · " + conv.OrStr(d, c.T("All departments"))
 	netLabel, netTone := c.T("Net profit"), "info"
 	if net < 0 {
 		netLabel, netTone = c.T("Net loss"), "warn"
 	}
 	margin := ""
 	if t.Float("income") > 0 {
-		margin = c.T("Margin :p%", "p", php.NF(net/t.Float("income")*100, 1))
+		margin = c.T("Margin :p%", "p", conv.NF(net/t.Float("income")*100, 1))
 	}
 	return []app.Stat{
-		{Label: c.T("Total income"), Value: php.NF(t.Float("income"), 2), Sub: sub, Tone: "success", Icon: "chart"},
-		{Label: c.T("Total expenses"), Value: php.NF(t.Float("expense"), 2), Sub: sub, Tone: "danger", Icon: "calc"},
-		{Label: netLabel, Value: php.NF(net, 2), Sub: margin, Tone: netTone, Icon: "bolt"},
-		{Label: c.T("Lines"), Value: php.NF(t.Int("n"), 0), Sub: c.T("Imported or added"), Tone: "neutral", Icon: "doc"},
+		{Label: c.T("Total income"), Value: conv.NF(t.Float("income"), 2), Sub: sub, Tone: "success", Icon: "chart"},
+		{Label: c.T("Total expenses"), Value: conv.NF(t.Float("expense"), 2), Sub: sub, Tone: "danger", Icon: "calc"},
+		{Label: netLabel, Value: conv.NF(net, 2), Sub: margin, Tone: netTone, Icon: "bolt"},
+		{Label: c.T("Lines"), Value: conv.NF(t.Int("n"), 0), Sub: c.T("Imported or added"), Tone: "neutral", Icon: "doc"},
 	}
 }
 
@@ -387,17 +387,17 @@ func accountReportSummary(filters app.M) app.M {
 	}
 	departments := column(acc().Select("SELECT DISTINCT department FROM account_reports WHERE deleted_at IS NULL ORDER BY department"), "department")
 	var year, dept any
-	fy := php.Int(filters["year"])
+	fy := conv.Int(filters["year"])
 	for _, y := range years {
 		if y == fy && fy != 0 {
 			year = fy
 		}
 	}
-	if fd := php.Str(filters["department"]); inStrs(fd, departments) {
+	if fd := conv.Str(filters["department"]); inStrs(fd, departments) {
 		dept = fd
 	}
 	// months and the "vs last year" tile need one year: the one picked, else the latest
-	focus := php.Now().Year()
+	focus := conv.Now().Year()
 	if year != nil {
 		focus = year.(int)
 	} else if len(years) > 0 {
@@ -441,10 +441,10 @@ func accountReportSummary(filters app.M) app.M {
 	monthsOf := func(rows []db.Row) *config.Map {
 		m := config.NewMap()
 		for i := 1; i <= 12; i++ {
-			m.Set(php.Str(i), om("income", 0.0, "expense", 0.0))
+			m.Set(conv.Str(i), om("income", 0.0, "expense", 0.0))
 		}
 		for _, r := range rows {
-			m.Set(php.Str(r.Int("month")), om("income", r.Float("income"), "expense", r.Float("expense")))
+			m.Set(conv.Str(r.Int("month")), om("income", r.Float("income"), "expense", r.Float("expense")))
 		}
 		return m
 	}

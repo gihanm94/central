@@ -5,8 +5,8 @@ import (
 	"regexp"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ERP → Invoices and ERP → Billing notes (ErpInvoiceController, ErpBillingController), in User Management: the stamped
@@ -25,7 +25,7 @@ func init() {
 
 func erpFilters(c *app.Ctx) app.M {
 	return app.M{"q": c.Query("q", ""), "from": c.Query("from", ""), "to": c.Query("to", ""),
-		"department": php.Int(c.Query("department", "0")), "page": php.Int(c.Query("page", "1"))}
+		"department": conv.Int(c.Query("department", "0")), "page": conv.Int(c.Query("page", "1"))}
 }
 
 func erpList(c *app.Ctx, hook string, f app.M) app.M {
@@ -58,17 +58,17 @@ func erpPage(c *app.Ctx, view, title, base, hook string) {
 	}
 	data := app.M{"title": title, "f": f, "result": result, "deps": deps, "depNames": names, "myDept": myDept, "isAdmin": u.IsAdmin()}
 	if result != nil {
-		page, pages := php.Int(result["page"]), php.Int(result["pages"])
+		page, pages := conv.Int(result["page"]), conv.Int(result["pages"])
 		link := func(p int) string {
-			return c.URL(base, "q", f["q"], "from", f["from"], "to", f["to"], "department", php.Or(f["department"], nil), "page", php.Or(p, nil))
+			return c.URL(base, "q", f["q"], "from", f["from"], "to", f["to"], "department", conv.Or(f["department"], nil), "page", conv.Or(p, nil))
 		}
 		data["prev"], data["next"] = link(page-1), link(page+1)
 		data["page"], data["pages"] = page, pages
-		data["allDepartments"] = php.Truthy(result["all_departments"])
+		data["allDepartments"] = conv.Truthy(result["all_departments"])
 		data["rows"] = erpRows(result["rows"])
 		dep := ""
-		if php.Int(f["department"]) > 0 {
-			dep = php.Str(f["department"])
+		if conv.Int(f["department"]) > 0 {
+			dep = conv.Str(f["department"])
 		}
 		data["depSelect"] = app.SelectField(c, "department", deps, dep, app.M{"id": "f-dep", "placeholder": c.T("All departments")})
 	}
@@ -119,7 +119,7 @@ func erpSendPdf(c *app.Ctx, file app.M, missing, typ, text string, id int) {
 	if file != nil {
 		if b, ok := file["body"].([]byte); ok {
 			body = b
-		} else if p := php.Str(file["path"]); p != "" {
+		} else if p := conv.Str(file["path"]); p != "" {
 			if st, err := os.Stat(p); err == nil && st.Mode().IsRegular() {
 				body, _ = os.ReadFile(p)
 			}
@@ -128,9 +128,9 @@ func erpSendPdf(c *app.Ctx, file app.M, missing, typ, text string, id int) {
 	if body == nil {
 		app.Abort(404, missing)
 	}
-	label := php.Str(file["label"])
+	label := conv.Str(file["label"])
 	app.LogActivity(c, app.ActivityEntry{Action: "download", Type: typ, ID: id, Label: label, Text: text, Params: []any{"doc", label}, Props: app.M{}, NoNotify: true})
-	name := pdfNameRe.ReplaceAllString(php.Str(file["name"]), "_")
+	name := pdfNameRe.ReplaceAllString(conv.Str(file["name"]), "_")
 	if c.Query("download") == "1" {
 		c.Download(name, "application/pdf", body)
 	}

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"acme/internal/php"
+	"acme/internal/conv"
 
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -36,8 +36,8 @@ var (
 
 // HTMLClean sanitises posted rich text; nil when nothing is left.
 func HTMLClean(in any) any {
-	s := strings.TrimSpace(php.Str(in))
-	if s == "" || php.Len(s) > 200000 {
+	s := strings.TrimSpace(conv.Str(in))
+	if s == "" || conv.Len(s) > 200000 {
 		return nil
 	}
 	ctx := &xhtml.Node{Type: xhtml.ElementNode, Data: "div", DataAtom: atom.Div}
@@ -128,9 +128,9 @@ func rtAttributes(el *xhtml.Node, tag string) bool {
 		case tag == "img" && (name == "width" || name == "height"):
 			ok = imgSize.MatchString(strings.TrimSpace(val))
 		case tag == "img" && name == "alt":
-			ok = php.Len(val) < 200
+			ok = conv.Len(val) < 200
 		case name == "data-list" && tag == "li":
-			ok = php.InList(val, "bullet", "ordered", "checked", "unchecked")
+			ok = conv.InList(val, "bullet", "ordered", "checked", "unchecked")
 		}
 		if ok {
 			keep = append(keep, xhtml.Attribute{Key: name, Val: val})
@@ -148,7 +148,7 @@ func rtAttributes(el *xhtml.Node, tag string) bool {
 
 // HTMLRender: stored rich text → HTML for the browser.
 func (c *Ctx) HTMLRender(stored any) string {
-	s := php.Str(stored)
+	s := conv.Str(stored)
 	if s == "" {
 		return ""
 	}
@@ -157,7 +157,7 @@ func (c *Ctx) HTMLRender(stored any) string {
 
 // HTMLText: the plain text of stored rich text.
 func HTMLText(stored any) string {
-	s := php.Str(stored)
+	s := conv.Str(stored)
 	for _, t := range []string{"</p>", "<br>", "<br/>", "</li>", "</h1>", "</h2>", "</h3>", "</h4>", "</td>", "</th>"} {
 		s = strings.ReplaceAll(s, t, " ")
 	}

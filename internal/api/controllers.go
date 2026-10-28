@@ -8,8 +8,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- AuthController: sign in, refresh, sign out (mobile app)
@@ -19,7 +19,7 @@ var deviceIDRe = regexp.MustCompile(`^[A-Za-z0-9._-]{8,120}$`)
 // login: POST {username (or email), password, device_name, device_id?, platform?} → token pair + who you are.
 func login(c *app.Ctx) {
 	in := Input(c, "username", "email", "password", "device_name", "device_id", "platform")
-	str := func(k string) string { v, _ := in.Get(k); return php.Str(v) }
+	str := func(k string) string { v, _ := in.Get(k); return conv.Str(v) }
 	email := str("username")
 	if email == "" {
 		email = str("email")
@@ -33,18 +33,18 @@ func login(c *app.Ctx) {
 	}
 	platform := "other"
 	if p, ok := in.Get("platform"); ok {
-		if s, isStr := p.(string); isStr && php.InList(s, "ios", "android", "web", "other") {
+		if s, isStr := p.(string); isStr && conv.InList(s, "ios", "android", "web", "other") {
 			platform = s
 		}
 	}
 	errs := app.NewErrors()
-	if email == "" || php.Len(email) > 190 {
+	if email == "" || conv.Len(email) > 190 {
 		errs.Add("username", c.T("Enter your username."))
 	}
 	if password == "" || len(password) > 200 {
 		errs.Add("password", c.T("Enter your password."))
 	}
-	if name == "" || php.Len(name) > 120 {
+	if name == "" || conv.Len(name) > 120 {
 		errs.Add("device_name", c.T("Name this device (up to 120 characters)."))
 	}
 	if deviceKey != nil && !deviceIDRe.MatchString(deviceKey.(string)) {
@@ -57,7 +57,7 @@ func login(c *app.Ctx) {
 
 	userID, msg, locked := c.VerifyLogin(email, password, "api")
 	if locked > 0 {
-		Fail(http.StatusTooManyRequests, "locked", msg, "Retry-After", php.Str(locked))
+		Fail(http.StatusTooManyRequests, "locked", msg, "Retry-After", conv.Str(locked))
 	}
 	if msg != "" {
 		Fail(http.StatusUnauthorized, "invalid_credentials", msg)
@@ -74,7 +74,7 @@ func login(c *app.Ctx) {
 	tokens := Issue(c, u, name, deviceKey, platform)
 	c.ActAs(u)
 	db.Exec("UPDATE users SET last_login_at = now(), last_login_ip = ? WHERE id = ?", c.IP(), u.ID)
-	app.GuardEvent(c, u.ID, "login", "api", php.Substr(name, 0, 120), "")
+	app.GuardEvent(c, u.ID, "login", "api", conv.Substr(name, 0, 120), "")
 	devID, _ := tokens.Get("device_id")
 	app.LogActivity(c, app.ActivityEntry{Action: "login", Type: "user", ID: u.ID, Label: u.Name, Text: "Signed in on the mobile app (:device)",
 		Params: []any{"device", name}, Props: app.M{"method": "api", "device_id": devID}, Actor: u.ID, NoNotify: true})
@@ -84,7 +84,7 @@ func login(c *app.Ctx) {
 			return c.T("New sign-in to your account"), []template.HTML{
 					template.HTML(app.E(c.T("Your account was signed in on the mobile app."))),
 					template.HTML(app.E(c.T("Device")) + ": " + app.E(name)),
-					template.HTML(app.E(c.T("Time") + ": " + app.FormatDate(c, php.NowString(), "d M Y, H:i"))),
+					template.HTML(app.E(c.T("Time") + ": " + app.FormatDate(c, conv.NowString(), "d M Y, H:i"))),
 					template.HTML(app.E(c.T("IP address")) + ": " + app.E(ip)),
 				},
 				c.T("Not you? Reset your password now and tell your administrator.")
@@ -97,7 +97,7 @@ func login(c *app.Ctx) {
 // refresh: POST {refresh_token} → new token pair (the old refresh token stops working).
 func refresh(c *app.Ctx) {
 	v, _ := Input(c, "refresh_token").Get("refresh_token")
-	token := php.Str(v)
+	token := conv.Str(v)
 	if token == "" || len(token) > 100 {
 		Fail(http.StatusUnauthorized, "invalid_token", c.T("Sign in again."))
 	}
@@ -109,7 +109,7 @@ func refresh(c *app.Ctx) {
 func logout(c *app.Ctx) {
 	d := Device(c)
 	Revoke(d.Int("id"), "logout")
-	app.GuardEvent(c, User(c).ID, "logout", "api", php.Substr(d.Str("name"), 0, 120), "")
+	app.GuardEvent(c, User(c).ID, "logout", "api", conv.Substr(d.Str("name"), 0, 120), "")
 	c.JSON(Obj("ok", true))
 }
 
@@ -166,7 +166,7 @@ func devices(c *app.Ctx) {
 	rows := Rows(db.Core.SelectOrdered("SELECT id, name, platform, created_at, last_used_at, last_ip, expires_at FROM api_devices WHERE user_id = ? AND revoked_at IS NULL ORDER BY last_used_at DESC NULLS LAST", User(c).ID))
 	for _, r := range rows {
 		id, _ := r.Get("id")
-		r.Set("current", php.Int(id) == current)
+		r.Set("current", conv.Int(id) == current)
 	}
 	c.JSON(Obj("data", rows))
 }
@@ -201,13 +201,13 @@ func unavailable(c *app.Ctx) {
 
 // Hit counts a request in fixed one-minute windows (api_rate); over the limit → 429 with Retry-After.
 func Hit(c *app.Ctx, key string, perMinute int) {
-	now := php.Now()
-	window := php.Date("Y-m-d H:i:00", now)
-	hits := php.Int(db.Scalar(`INSERT INTO api_rate (key, window_start, hits) VALUES (?, ?, 1)
-            ON CONFLICT (key, window_start) DO UPDATE SET hits = api_rate.hits + 1 RETURNING hits`, php.Substr(key, 0, 120), window))
+	now := conv.Now()
+	window := conv.Date("Y-m-d H:i:00", now)
+	hits := conv.Int(db.Scalar(`INSERT INTO api_rate (key, window_start, hits) VALUES (?, ?, 1)
+            ON CONFLICT (key, window_start) DO UPDATE SET hits = api_rate.hits + 1 RETURNING hits`, conv.Substr(key, 0, 120), window))
 	if hits > perMinute {
 		retry := 60 - now.Second()
-		Fail(http.StatusTooManyRequests, "rate_limited", c.T("Too many requests. Try again in :s seconds.", "s", retry), "Retry-After", php.Str(retry))
+		Fail(http.StatusTooManyRequests, "rate_limited", c.T("Too many requests. Try again in :s seconds.", "s", retry), "Retry-After", conv.Str(retry))
 	}
 	if randInt(500) == 0 { // now and then, forget old windows
 		db.Exec("DELETE FROM api_rate WHERE window_start < now() - interval '10 minutes'")

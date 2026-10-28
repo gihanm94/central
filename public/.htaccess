@@ -1,8 +1,0 @@
-# Apache: send every request that is not a real file to index.php
-Options -Indexes
-RewriteEngine On
-# Hand the API's "Authorization: Bearer …" header to PHP (some Apache setups drop it)
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [L]

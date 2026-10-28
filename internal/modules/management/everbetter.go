@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/everbetter"
-	"acme/internal/php"
 )
 
 // Management → Everbetter (EverbetterController): who presents on this quarter's day, every request (acknowledge, then
@@ -44,7 +44,7 @@ func ebRequestRows(c *app.Ctx, rows []db.Row) {
 
 func ebYears(thisYear int) []int {
 	first := thisYear
-	if v := php.Int(db.Scalar("SELECT min(EXTRACT(YEAR FROM requested_at))::int FROM everbetter_presentations WHERE status <> 'withdrawn'")); v != 0 {
+	if v := conv.Int(db.Scalar("SELECT min(EXTRACT(YEAR FROM requested_at))::int FROM everbetter_presentations WHERE status <> 'withdrawn'")); v != 0 {
 		first = v
 	}
 	var out []int
@@ -58,7 +58,7 @@ func ebIndex(c *app.Ctx) {
 	c.Authorize("management", "view")
 	u := c.MustUser()
 	y, q := everbetter.QuarterOf("")
-	year := php.Int(c.Query("year", php.Str(y)))
+	year := conv.Int(c.Query("year", conv.Str(y)))
 	if year < 2020 || year > 2100 {
 		year = y
 	}
@@ -75,7 +75,7 @@ func ebIndex(c *app.Ctx) {
 	case "decided":
 		w = append(w, "x.result IS NOT NULL")
 	}
-	if sid := php.Int(c.Query("session", "0")); sid != 0 {
+	if sid := conv.Int(c.Query("session", "0")); sid != 0 {
 		w = append(w, "x.session_id = ?")
 		pp = append(pp, sid)
 	}
@@ -90,14 +90,14 @@ func ebIndex(c *app.Ctx) {
             LEFT JOIN users u ON u.id = x.requested_by WHERE x.session_id = ? AND x.status <> 'withdrawn' AND p.deleted_at IS NULL ORDER BY x.kind, x.requested_at`, session["id"])
 		ebRequestRows(c, thisQuarter)
 		for _, x := range thisQuarter {
-			x["note_short"] = php.Substr(x.Str("note"), 0, 120)
+			x["note_short"] = conv.Substr(x.Str("note"), 0, 120)
 		}
 	}
 	for _, x := range requests {
-		x["note_short"] = php.Substr(x.Str("note"), 0, 200)
+		x["note_short"] = conv.Substr(x.Str("note"), 0, 200)
 	}
 	tab := c.Query("tab", "projects")
-	if !php.InList(tab, "projects", "presentations", "departments", "ranking") {
+	if !conv.InList(tab, "projects", "presentations", "departments", "ranking") {
 		tab = "projects"
 	}
 	counts := db.First(`SELECT count(*) FILTER (WHERE x.status = 'submitted') AS waiting, count(*) FILTER (WHERE x.status = 'acknowledged' AND x.result IS NULL) AS accepted
@@ -136,10 +136,10 @@ func ebIndex(c *app.Ctx) {
 		var qs []qrow
 		for qq := 1; qq <= 4; qq++ {
 			r := qrow{Q: qq, Min: fmt.Sprintf("%04d-%02d-01", year, (qq-1)*3+1)}
-			t := time.Date(year, time.Month(qq*3)+1, 0, 0, 0, 0, 0, php.Loc)
+			t := time.Date(year, time.Month(qq*3)+1, 0, 0, 0, 0, 0, conv.Loc)
 			r.Max = t.Format("2006-01-02")
 			s := byQ[qq]
-			r.Day, r.Place = php.Str(oldOrRow(c, "day_"+php.Str(qq), s, "present_on")), php.Str(oldOrRow(c, "place_"+php.Str(qq), s, "place"))
+			r.Day, r.Place = conv.Str(oldOrRow(c, "day_"+conv.Str(qq), s, "present_on")), conv.Str(oldOrRow(c, "place_"+conv.Str(qq), s, "place"))
 			qs = append(qs, r)
 		}
 		var all []app.Opt
@@ -147,8 +147,8 @@ func ebIndex(c *app.Ctx) {
 			all = append(all, app.Opt{Value: s.Str("id"), Label: s.Str("label")})
 		}
 		sel := ""
-		if sid := php.Int(c.Query("session", "0")); sid != 0 {
-			sel = php.Str(sid)
+		if sid := conv.Int(c.Query("session", "0")); sid != 0 {
+			sel = conv.Str(sid)
 		}
 		link := func(st string, yr int) string {
 			return c.URL("/management/everbetter", "tab", "presentations", "status", st, "year", yr)
@@ -277,7 +277,7 @@ func ebByDepartment(c *app.Ctx, thisYear int) app.M {
 			cl, ok := r.Years[yr]
 			x := app.M{"n": cl.Submitted}
 			if ok && cl.Submitted > 0 {
-				x["style"] = fmt.Sprintf("background: rgba(209,26,42,%s); color: %s", php.Str(roundTo(0.08+0.5*float64(cl.Submitted)/float64(maxCell), 2)), map[bool]string{true: "#fff", false: "#7f1d1d"}[float64(cl.Submitted)/float64(maxCell) > 0.6])
+				x["style"] = fmt.Sprintf("background: rgba(209,26,42,%s); color: %s", conv.Str(roundTo(0.08+0.5*float64(cl.Submitted)/float64(maxCell), 2)), map[bool]string{true: "#fff", false: "#7f1d1d"}[float64(cl.Submitted)/float64(maxCell) > 0.6])
 				x["approved"] = c.T(":a approved", "a", cl.Approved)
 			}
 			cells = append(cells, x)
@@ -291,7 +291,7 @@ func ebByDepartment(c *app.Ctx, thisYear int) app.M {
 		tt = append(tt, app.M{"n": totals[yr]})
 		all += totals[yr]
 	}
-	drafts := php.Int(db.Scalar(`SELECT count(*) FROM everbetter_projects p WHERE p.deleted_at IS NULL
+	drafts := conv.Int(db.Scalar(`SELECT count(*) FROM everbetter_projects p WHERE p.deleted_at IS NULL
             AND NOT EXISTS (SELECT 1 FROM everbetter_presentations x WHERE x.project_id = p.id AND x.status <> 'withdrawn')`))
 	return app.M{"years": yh, "rows": out, "totals": tt, "all": all, "drafts": drafts}
 }
@@ -344,7 +344,7 @@ func ebRanking(c *app.Ctx, thisYear, year int) app.M {
 			x := app.M{"icon": m[0], "tone": m[1], "label": m[2]}
 			if p, ok := w[r]; ok {
 				x["p"] = p
-				x["sub"] = p.Str("owner_name") + " · " + php.Or(p["department_name"], "—").(string)
+				x["sub"] = p.Str("owner_name") + " · " + conv.Or(p["department_name"], "—").(string)
 			}
 			places = append(places, x)
 		}
@@ -352,7 +352,7 @@ func ebRanking(c *app.Ctx, thisYear, year int) app.M {
 	}
 	var opts []app.Opt
 	for _, cd := range candidates {
-		opts = append(opts, app.Opt{Value: cd.Str("id"), Label: cd.Str("title") + " · " + php.Str(php.Or(cd["department_name"], "—"))})
+		opts = append(opts, app.Opt{Value: cd.Str("id"), Label: cd.Str("title") + " · " + conv.Str(conv.Or(cd["department_name"], "—"))})
 	}
 	var picks []app.M
 	for r := 1; r <= 3; r++ {
@@ -369,7 +369,7 @@ func ebRanking(c *app.Ctx, thisYear, year int) app.M {
 // ebSaveRanking saves the 1st, 2nd and 3rd project of a year (empty = nobody in that place).
 func ebSaveRanking(c *app.Ctx) {
 	c.Authorize("management", "view")
-	year := php.Int(c.Input("year"))
+	year := conv.Int(c.Input("year"))
 	if year < 2020 || year > 2100 {
 		app.Invalid("year", c.T("Choose a year."))
 	}
@@ -381,15 +381,15 @@ func ebSaveRanking(c *app.Ctx) {
 	pick := map[int]int{}
 	used := map[int]bool{}
 	for r := 1; r <= 3; r++ {
-		id := php.Int(c.Input("rank_"+php.Str(r), "0"))
+		id := conv.Int(c.Input("rank_"+conv.Str(r), "0"))
 		if id == 0 {
 			continue
 		}
 		if !ok[id] {
-			app.Invalid("rank_"+php.Str(r), c.T("Choose a project that presented in :y.", "y", year))
+			app.Invalid("rank_"+conv.Str(r), c.T("Choose a project that presented in :y.", "y", year))
 		}
 		if used[id] {
-			app.Invalid("rank_"+php.Str(r), c.T("A project can only have one place."))
+			app.Invalid("rank_"+conv.Str(r), c.T("A project can only have one place."))
 		}
 		used[id] = true
 		pick[r] = id
@@ -403,7 +403,7 @@ func ebSaveRanking(c *app.Ctx) {
 	titles := map[int]string{}
 	var ids []string
 	for _, id := range pick {
-		ids = append(ids, php.Str(id))
+		ids = append(ids, conv.Str(id))
 	}
 	if len(ids) > 0 {
 		for _, r := range db.Select("SELECT id, title FROM everbetter_projects WHERE id IN (" + strings.Join(ids, ",") + ")") {
@@ -416,7 +416,7 @@ func ebSaveRanking(c *app.Ctx) {
 		if !has {
 			continue
 		}
-		to := []int{php.Int(db.Scalar("SELECT owner_id FROM everbetter_projects WHERE id = ?", id))}
+		to := []int{conv.Int(db.Scalar("SELECT owner_id FROM everbetter_projects WHERE id = ?", id))}
 		for _, m := range db.Select("SELECT user_id FROM everbetter_members WHERE project_id = ?", id) {
 			to = append(to, m.Int("user_id"))
 		}
@@ -425,20 +425,20 @@ func ebSaveRanking(c *app.Ctx) {
 			if uid != 0 && !seen[uid] && uid != me {
 				seen[uid] = true
 				app.Deliver(c, "core", "updated", uid, app.Text("Everbetter :y: \":title\" is ranked #:r", "y", year, "title", titles[id], "r", r),
-					app.Text("Congratulations to the team!"), c.URL("/everbetter/"+php.Str(id)), me)
+					app.Text("Congratulations to the team!"), c.URL("/everbetter/"+conv.Str(id)), me)
 			}
 		}
 	}
 	rank := app.M{}
 	for r := 1; r <= 3; r++ {
 		if id, has := pick[r]; has {
-			rank[php.Str(r)] = titles[id]
+			rank[conv.Str(r)] = titles[id]
 		}
 	}
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "everbetter", Label: "Everbetter", Text: "Set the Everbetter ranking of :year", Params: []any{"year", year},
 		Props: app.M{"ranking": rank}, NoNotify: true, Module: "management"})
 	c.Flash("success", c.T("Ranking of :year saved.", "year", year))
-	c.Redirect("/management/everbetter?tab=ranking&year=" + php.Str(year))
+	c.Redirect("/management/everbetter?tab=ranking&year=" + conv.Str(year))
 }
 
 // ebProject: one project in Management: details, team, every presentation, and the actions on a waiting request.
@@ -459,10 +459,10 @@ func ebProject(c *app.Ctx) {
 		x["title"] = p["title"]
 	}
 	days := 1.0
-	if s, e := php.StrToTime(p["start_date"]), php.StrToTime(p["end_date"]); float64(e-s)/86400 > 1 {
+	if s, e := conv.StrToTime(p["start_date"]), conv.StrToTime(p["end_date"]); float64(e-s)/86400 > 1 {
 		days = float64(e-s) / 86400
 	}
-	done := int(float64(time.Now().Unix()-php.StrToTime(p["start_date"]))/86400/days*100 + 0.5)
+	done := int(float64(time.Now().Unix()-conv.StrToTime(p["start_date"]))/86400/days*100 + 0.5)
 	done = min(100, max(0, done))
 	c.View("management/everbetter-project", app.M{"title": p["title"], "p": p, "presentations": presentations, "presented": presented, "members": everbetter.Members(p), "done": done})
 }
@@ -484,13 +484,13 @@ func ebDecide(c *app.Ctx) {
 // ebSessions saves the presentation day of each quarter of one year.
 func ebSessions(c *app.Ctx) {
 	c.Authorize("management", "view")
-	year := php.Int(c.Input("year"))
+	year := conv.Int(c.Input("year"))
 	if year < 2020 || year > 2100 {
 		app.Invalid("year", c.T("Choose a year."))
 	}
 	for q := 1; q <= 4; q++ {
-		day := strings.TrimSpace(c.Input("day_" + php.Str(q)))
-		place := php.Substr(strings.TrimSpace(c.Input("place_"+php.Str(q))), 0, 200)
+		day := strings.TrimSpace(c.Input("day_" + conv.Str(q)))
+		place := conv.Substr(strings.TrimSpace(c.Input("place_"+conv.Str(q))), 0, 200)
 		var placeV any
 		if place != "" {
 			placeV = place
@@ -503,14 +503,14 @@ func ebSessions(c *app.Ctx) {
 			continue
 		}
 		from := fmt.Sprintf("%04d-%02d-01", year, (q-1)*3+1)
-		to := time.Date(year, time.Month(q*3)+1, 0, 0, 0, 0, 0, php.Loc).Format("2006-01-02")
+		to := time.Date(year, time.Month(q*3)+1, 0, 0, 0, 0, 0, conv.Loc).Format("2006-01-02")
 		if !ymdRe.MatchString(day) || day < from || day > to {
-			app.Invalid("day_"+php.Str(q), c.T("The Q:q day must fall between :from and :to.", "q", q, "from", app.FormatDate(c, from, "d M Y"), "to", app.FormatDate(c, to, "d M Y")))
+			app.Invalid("day_"+conv.Str(q), c.T("The Q:q day must fall between :from and :to.", "q", q, "from", app.FormatDate(c, from, "d M Y"), "to", app.FormatDate(c, to, "d M Y")))
 		}
 		db.Exec(`INSERT INTO everbetter_sessions (year, quarter, present_on, place, created_by) VALUES (?, ?, ?, ?, ?)
                       ON CONFLICT (year, quarter) DO UPDATE SET present_on = EXCLUDED.present_on, place = EXCLUDED.place, updated_at = now()`, year, q, day, placeV, c.UserID())
 	}
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "everbetter", Label: "Everbetter", Text: "Set the Everbetter presentation days of :year", Params: []any{"year", year}, NoNotify: true, Module: "management"})
 	c.Flash("success", c.T("Presentation days of :year saved.", "year", year))
-	c.Redirect("/management/everbetter?tab=presentations&year=" + php.Str(year) + "#days")
+	c.Redirect("/management/everbetter?tab=presentations&year=" + conv.Str(year) + "#days")
 }

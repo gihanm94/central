@@ -4,8 +4,8 @@ import (
 	"html/template"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Teams (TeamController).
@@ -42,9 +42,9 @@ var teams = &app.Resource{
 				return app.HTML(`<a href="` + c.URL("/teams/"+r.Str("id")) + `" class="font-medium hover:text-signal-700">` + app.E(r["name"]) + `</a>`)
 			}},
 			{Key: "department", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(app.E(r["department_name"])) }},
-			{Key: "lead", Label: c.T("Lead"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(app.E(php.Coalesce(r["lead_name"], "—"))) }},
+			{Key: "lead", Label: c.T("Lead"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(app.E(conv.Coalesce(r["lead_name"], "—"))) }},
 			{Key: "members", Label: c.T("Members"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(`<span class="tabular-nums">` + php.Str(r.Int("members_count")) + `</span>`)
+				return app.HTML(`<span class="tabular-nums">` + conv.Str(r.Int("members_count")) + `</span>`)
 			}},
 		}
 	},

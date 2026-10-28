@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Administrator → System logs (SystemLogController): the application error log and the other server logs, with full
@@ -33,7 +33,7 @@ func systemLogsGate(c *app.Ctx) {
 
 // systemLogFile: the chosen file name and its info.
 func systemLogFile(c *app.Ctx, files []LogFile) (string, LogFile) {
-	name := c.Query("file", c.Input("file", "php-error.log"))
+	name := c.Query("file", c.Input("file", "error.log"))
 	find := func(n string) (LogFile, bool) {
 		for _, f := range files {
 			if f.Name == n {
@@ -45,8 +45,8 @@ func systemLogFile(c *app.Ctx, files []LogFile) (string, LogFile) {
 	if f, ok := find(name); ok {
 		return name, f
 	}
-	if f, ok := find("php-error.log"); ok {
-		return "php-error.log", f
+	if f, ok := find("error.log"); ok {
+		return "error.log", f
 	}
 	if len(files) > 0 {
 		return files[0].Name, files[0]
@@ -61,13 +61,13 @@ func systemLogsIndex(c *app.Ctx) {
 	files := LogFiles()
 	name, f := systemLogFile(c, files)
 	level := c.Query("level", "")
-	q := php.Substr(c.Query("q", ""), 0, 200)
+	q := conv.Substr(c.Query("q", ""), 0, 200)
 	ref := strings.ToUpper(c.Query("ref", ""))
 	var all []LogEntry
 	if f.Path != "" {
 		all = LogEntries(f.Path)
 	}
-	since := php.Date("Y-m-d H:i:s", php.Unix(time.Now().Unix()-86400))
+	since := conv.Date("Y-m-d H:i:s", conv.Unix(time.Now().Unix()-86400))
 	counts := map[string]int{}
 	for _, e := range all {
 		if e.HasTime && e.Time >= since {
@@ -81,7 +81,7 @@ func systemLogsIndex(c *app.Ctx) {
 			rows = append(rows, e)
 		}
 	}
-	page := max(1, php.Int(c.Query("page", "1")))
+	page := max(1, conv.Int(c.Query("page", "1")))
 	pages := max(1, int(math.Ceil(float64(len(rows))/logsPerPage)))
 	page = min(page, pages)
 	link := func(over ...any) string {
@@ -141,7 +141,7 @@ func systemLogsIndex(c *app.Ctx) {
 		older = link("page", page+1)
 	}
 	c.View("admin/system-logs", app.M{"title": c.T("System logs"), "files": fl, "name": name, "file": f, "level": level, "q": q, "ref": ref,
-		"rows": list, "total": len(rows), "all": len(all), "page": page, "pages": pages, "cards": cards, "php": ServerInfo(),
+		"rows": list, "total": len(rows), "all": len(all), "page": page, "pages": pages, "cards": cards, "runtime": ServerInfo(),
 		"newer": newer, "older": older, "filtered": q != "" || ref != "" || level != ""})
 }
 

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -30,7 +30,7 @@ const paymentRemarkSQL = `SELECT string_agg(trim(pc.raw_text), E'\n' ORDER BY ef
 
 // documentsRefresh refreshes what changed since the last time (everything the first time); returns the rows written.
 func documentsRefresh(full bool) int {
-	started := php.Str(acc().Scalar("SELECT now()"))
+	started := conv.Str(acc().Scalar("SELECT now()"))
 	since := ""
 	if !full {
 		since = sget("docs.watermark", "")
@@ -74,7 +74,7 @@ func documentsRefresh(full bool) int {
               currency_code = EXCLUDED.currency_code, line_count = EXCLUDED.line_count, amount = EXCLUDED.amount, payment_remark = EXCLUDED.payment_remark, seller_name = EXCLUDED.seller_name, missing = EXCLUDED.missing, search = EXCLUDED.search, refreshed_at = now()`, par...)
 	sput("docs.watermark", started, 0)
 	if n > 0 {
-		logInfo("sync", "documents: "+php.Str(n)+" invoice(s) prepared for Generate", om("ms", int(time.Since(t0).Milliseconds()), "full", since == ""))
+		logInfo("sync", "documents: "+conv.Str(n)+" invoice(s) prepared for Generate", om("ms", int(time.Since(t0).Milliseconds()), "full", since == ""))
 	}
 	return n
 }
@@ -142,7 +142,7 @@ func sellerStampRun() int {
 func sellerStampQuietly() {
 	if err := app.Catch(func() {
 		if n := sellerStampRun(); n > 0 {
-			logInfo("sync", "invoice seller / department stamped on "+php.Str(n)+" line(s)")
+			logInfo("sync", "invoice seller / department stamped on "+conv.Str(n)+" line(s)")
 		}
 	}); err != nil {
 		logException("sync", err, "invoice seller / department not stamped")

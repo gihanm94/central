@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Machine groups and their types (TypeController), e.g. "02 Press" → "01 Hydraulic press". A machine picks one type.
@@ -58,7 +58,7 @@ var types = &app.Resource{
 				return pillH(c, "INACTIVE", "neutral")
 			}},
 			{Key: "count", Label: c.T("Machines"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(php.Str(mdb().Scalar("SELECT count(*) FROM machine WHERE deleted_at IS NULL AND machine_group_id = ? AND machine_type_id = ?", r["machine_group_id"], r["machine_type_id"])))
+				return app.HTML(conv.Str(mdb().Scalar("SELECT count(*) FROM machine WHERE deleted_at IS NULL AND machine_group_id = ? AND machine_type_id = ?", r["machine_group_id"], r["machine_type_id"])))
 			}},
 		}
 	},
@@ -74,7 +74,7 @@ var types = &app.Resource{
 				if mdb().Scalar("SELECT 1 FROM machine_type WHERE lower(machine_group_name) = lower(?) AND deleted_at IS NULL", gname) != nil {
 					app.Invalid("machine_group_name", c.T("This group name already exists. Pick it from the list."))
 				}
-				next := php.Int(mdb().Scalar("SELECT COALESCE(MAX(machine_group_id::int), 0) FROM machine_type WHERE machine_group_id ~ '^[0-9]+$'")) + 1
+				next := conv.Int(mdb().Scalar("SELECT COALESCE(MAX(machine_group_id::int), 0) FROM machine_type WHERE machine_group_id ~ '^[0-9]+$'")) + 1
 				data.Set("machine_group_id", fmt.Sprintf("%02d", next))
 				data.Set("machine_group_name", gname)
 				data.Set("machine_type_id", "01")
@@ -85,7 +85,7 @@ var types = &app.Resource{
 				}
 				data.Set("machine_group_id", g["machine_group_id"])
 				data.Set("machine_group_name", g["machine_group_name"])
-				nextT := php.Int(mdb().Scalar("SELECT COALESCE(MAX(machine_type_id::int), 0) FROM machine_type WHERE machine_group_id = ? AND machine_type_id ~ '^[0-9]+$'", group)) + 1
+				nextT := conv.Int(mdb().Scalar("SELECT COALESCE(MAX(machine_type_id::int), 0) FROM machine_type WHERE machine_group_id = ? AND machine_type_id ~ '^[0-9]+$'", group)) + 1
 				data.Set("machine_type_id", fmt.Sprintf("%02d", nextT))
 			}
 			if mdb().Scalar("SELECT 1 FROM machine_type WHERE machine_group_id = ? AND lower(machine_type_name) = lower(?) AND deleted_at IS NULL", data.Get("machine_group_id"), name) != nil {
@@ -104,7 +104,7 @@ var types = &app.Resource{
 	},
 	Saved: func(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		// renaming a group renames every row of it
-		if existing != nil && !php.Empty(data.Get("machine_group_name")) && data.Str("machine_group_name") != existing.Str("machine_group_name") {
+		if existing != nil && !conv.Empty(data.Get("machine_group_name")) && data.Str("machine_group_name") != existing.Str("machine_group_name") {
 			mdb().Exec("UPDATE machine_type SET machine_group_name = ? WHERE machine_group_id = ?", data.Get("machine_group_name"), existing["machine_group_id"])
 		}
 	},
@@ -121,7 +121,7 @@ var questions = &app.Resource{
 	Base: "/machines/questions", Icon: "list", OrderBy: "t.id DESC", Module: "machines", Conn: conn,
 	Searchable: []string{"t.detail", "t.description"},
 	ScopeSQL:   func(c *app.Ctx) (string, []any) { return "TRUE", nil },
-	Label:      func(c *app.Ctx, row db.Row) string { return php.Limit(row.Str("detail"), 60) },
+	Label:      func(c *app.Ctx, row db.Row) string { return conv.Limit(row.Str("detail"), 60) },
 	Filters: func(c *app.Ctx) []app.Filter {
 		return []app.Filter{{Name: "kind", Label: c.T("All answer kinds"), Options: []app.Opt{{Value: "1", Label: c.T("OK / NG")}, {Value: "0", Label: c.T("Text or number")}}, SQL: "t.is_choice = (? = '1')"}}
 	},
@@ -136,7 +136,7 @@ var questions = &app.Resource{
 		return []app.Column{
 			{Key: "detail", Label: c.T("Question"), Primary: true, Sort: "t.detail", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				s := `<span class="font-medium">` + esc(r["detail"]) + `</span>`
-				if !php.Empty(r["description"]) {
+				if !conv.Empty(r["description"]) {
 					s += `<span class="block max-w-xl truncate text-xs text-steel">` + esc(r["description"]) + `</span>`
 				}
 				return app.HTML(s)
@@ -148,7 +148,7 @@ var questions = &app.Resource{
 				return pillH(c, c.T("Text / number"), "neutral")
 			}},
 			{Key: "used", Label: c.T("Used on machines"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(php.Str(mdb().Scalar("SELECT count(DISTINCT machine_code) FROM (SELECT machine_code FROM machine_checklist WHERE question_id = ? UNION SELECT machine_code FROM maintenance_checklist WHERE question_id = ?) x", r["id"], r["id"])))
+				return app.HTML(conv.Str(mdb().Scalar("SELECT count(DISTINCT machine_code) FROM (SELECT machine_code FROM machine_checklist WHERE question_id = ? UNION SELECT machine_code FROM maintenance_checklist WHERE question_id = ?) x", r["id"], r["id"])))
 			}},
 		}
 	},

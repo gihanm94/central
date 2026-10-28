@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // Calls, meetings, e-mails and tasks — linked to a company, a contact and/or an opportunity. Has files and comments (ActivityController).
@@ -115,7 +115,7 @@ func init() {
 				if r["start_at"] == nil {
 					return h(uiDash())
 				}
-				late := r.Str("status") == "PLANNED" && php.StrToTime(r["start_at"]) < php.Now().Unix()
+				late := r.Str("status") == "PLANNED" && conv.StrToTime(r["start_at"]) < conv.Now().Unix()
 				cl := "text-steel"
 				if late {
 					cl = "font-medium text-signal-700"
@@ -130,10 +130,10 @@ func init() {
 				if r.Int("lead_id") == 0 {
 					return h(uiDash())
 				}
-				return h(uiPerson(c, r.Str("lead_name"), php.OrStr(r.Str("opportunity_name"), r.Str("contact_name")), r.Str("lead_image"), "/crm/leads/"+r.Str("lead_id"), ""))
+				return h(uiPerson(c, r.Str("lead_name"), conv.OrStr(r.Str("opportunity_name"), r.Str("contact_name")), r.Str("lead_image"), "/crm/leads/"+r.Str("lead_id"), ""))
 			}},
 			{Key: "status", Label: c.T("Status"), Sort: "t.status", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(uiBadge(trLabel(c, activityStatuses, r.Str("status")), php.OrStr(activityTones[r.Str("status")], "neutral")))
+				return h(uiBadge(trLabel(c, activityStatuses, r.Str("status")), conv.OrStr(activityTones[r.Str("status")], "neutral")))
 			}},
 			createdColumn(c),
 		}
@@ -161,34 +161,34 @@ func init() {
 		if same {
 			var a, b int64 = -1, -1
 			if existing["start_at"] != nil {
-				a = php.StrToTime(existing["start_at"])
+				a = conv.StrToTime(existing["start_at"])
 			}
-			if !php.Empty(data.Get("start_at")) {
-				b = php.StrToTime(data.Get("start_at"))
+			if !conv.Empty(data.Get("start_at")) {
+				b = conv.StrToTime(data.Get("start_at"))
 			}
-			same = a == b && existing.Int("notify_before") == data.Int("notify_before") && existing.Bool("notify_me") == !php.Empty(data.Get("notify_me"))
+			same = a == b && existing.Int("notify_before") == data.Int("notify_before") && existing.Bool("notify_me") == !conv.Empty(data.Get("notify_me"))
 		}
 		if !same {
 			data.Set("reminder_sent_at", nil)
 		}
 		// Fill in the chain: opportunity → its company and contact; contact → its company
-		if !php.Empty(data.Get("opportunity_id")) {
+		if !conv.Empty(data.Get("opportunity_id")) {
 			o := db.On("crm").First("SELECT lead_id, contact_id FROM opportunities WHERE id = ?", data.Int("opportunity_id"))
-			if php.Empty(data.Get("lead_id")) {
+			if conv.Empty(data.Get("lead_id")) {
 				data.Set("lead_id", o["lead_id"])
 			}
-			if php.Empty(data.Get("contact_id")) {
+			if conv.Empty(data.Get("contact_id")) {
 				data.Set("contact_id", o["contact_id"])
 			}
 		}
-		if !php.Empty(data.Get("contact_id")) && php.Empty(data.Get("lead_id")) {
+		if !conv.Empty(data.Get("contact_id")) && conv.Empty(data.Get("lead_id")) {
 			data.Set("lead_id", db.On("crm").Scalar("SELECT lead_id FROM contacts WHERE id = ?", data.Int("contact_id")))
 		}
 		return data
 	}
 	s.badges = func(c *app.Ctx, r db.Row) []string {
-		b := []string{uiBadge(trLabel(c, activityTypes, r.Str("activity_type")), "violet"), uiBadge(trLabel(c, activityStatuses, r.Str("status")), php.OrStr(activityTones[r.Str("status")], "neutral"))}
-		if r.Str("status") == "PLANNED" && r["start_at"] != nil && php.StrToTime(r["start_at"]) < php.Now().Unix() {
+		b := []string{uiBadge(trLabel(c, activityTypes, r.Str("activity_type")), "violet"), uiBadge(trLabel(c, activityStatuses, r.Str("status")), conv.OrStr(activityTones[r.Str("status")], "neutral"))}
+		if r.Str("status") == "PLANNED" && r["start_at"] != nil && conv.StrToTime(r["start_at"]) < conv.Now().Unix() {
 			b = append(b, uiBadge(c.T("Overdue"), "danger"))
 		}
 		return b
@@ -198,14 +198,14 @@ func init() {
 		if r["start_at"] != nil {
 			when = app.FormatDate(c, r["start_at"], "d M Y H:i")
 		}
-		return joinNonEmpty(" · ", r.Str("code"), when, php.OrStr(r.Str("opportunity_name"), r.Str("contact_name"), r.Str("lead_name")))
+		return joinNonEmpty(" · ", r.Str("code"), when, conv.OrStr(r.Str("opportunity_name"), r.Str("contact_name"), r.Str("lead_name")))
 	}
 	s.showTop = func(c *app.Ctx, row db.Row) string {
 		edit := c.Can(s.res.Resource, "edit") && s.res.CanModify(c, row, "edit")
 		if !edit || row.Str("status") != "PLANNED" {
 			return ""
 		}
-		late := row["start_at"] != nil && php.StrToTime(row["start_at"]) < php.Now().Unix()
+		late := row["start_at"] != nil && conv.StrToTime(row["start_at"]) < conv.Now().Unix()
 		text := c.T("This activity is planned.")
 		if late {
 			text = c.T("This activity was due :time.", "time", app.TimeAgo(c, row["start_at"]))
@@ -237,5 +237,5 @@ func activitySetStatus(c *app.Ctx) {
 		Params: []any{"label", row.Str("topic"), "status", to},
 		Props:  app.M{"changes": app.M{"status": app.M{"from": trLabel(c, activityStatuses, row.Str("status")), "to": c.T(to)}}}, Owner: row.Int("owner_id"), Module: "crm"})
 	c.Flash("success", c.T("Marked as :status.", "status", strings.ToLower(c.T(to))))
-	c.Redirect("/crm/activities/" + php.Str(id))
+	c.Redirect("/crm/activities/" + conv.Str(id))
 }

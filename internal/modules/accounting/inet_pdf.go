@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -60,7 +60,7 @@ func chromium() string {
 
 // pe is the template's $e: htmlspecialchars(ENT_QUOTES | ENT_SUBSTITUTE).
 func pe(v any) string {
-	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&#039;").Replace(strings.ToValidUTF8(php.Str(v), "�"))
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&#039;").Replace(strings.ToValidUTF8(conv.Str(v), "�"))
 }
 
 func addslashes(s string) string {
@@ -73,14 +73,14 @@ func trimNum(v float64) string {
 }
 
 func dmy(v any, f string) string {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return "-"
 	}
-	t, ok := php.ParseTime(php.Str(v))
+	t, ok := conv.ParseTime(conv.Str(v))
 	if !ok {
-		return php.Str(v)
+		return conv.Str(v)
 	}
-	return php.Date(f, t)
+	return conv.Date(f, t)
 }
 
 func pdfData(file, mime string) string {
@@ -104,7 +104,7 @@ func pdfFonts() string {
 		}{{400, "Regular"}, {500, "Medium"}, {600, "SemiBold"}, {700, "Bold"}} {
 			raw, err := os.ReadFile(filepath.Join(app.BasePath, "resources", "pdf", "sarabun", "Sarabun-"+w.name+".ttf"))
 			if err == nil {
-				fontsCSS += "@font-face{font-family:'Sarabun';font-weight:" + php.Str(w.n) + ";src:url('data:font/truetype;base64," + base64.StdEncoding.EncodeToString(raw) + "') format('truetype');}\n"
+				fontsCSS += "@font-face{font-family:'Sarabun';font-weight:" + conv.Str(w.n) + ";src:url('data:font/truetype;base64," + base64.StdEncoding.EncodeToString(raw) + "') format('truetype');}\n"
 			}
 		}
 	})
@@ -124,7 +124,7 @@ type pdfItem struct {
 // documentHTML is PdfRenderer::html: the page that is printed.
 func documentHTML(doc app.M, lines []invLine, company db.Row, docType string, thai bool, totals docTotals, credit *creditInfo) string {
 	vat := docVat(doc)
-	fxd := php.Float(doc["exchange_rate"])
+	fxd := conv.Float(doc["exchange_rate"])
 	if fxd == 0 {
 		fxd = 1
 	}
@@ -189,12 +189,12 @@ func documentHTML(doc app.M, lines []invLine, company db.Row, docType string, th
 	if docType == "81" && credit != nil {
 		cc := *credit
 		if cc.ReferenceDate != "" {
-			cc.RefDate = php.DateOf("d/m/y", cc.ReferenceDate)
+			cc.RefDate = conv.DateOf("d/m/y", cc.ReferenceDate)
 		}
 		cr = &cc
 	}
 	footer := pick("**เอกสารนี้ได้จัดทำและส่งข้อมูลให้แก่กรมสรรพากรด้วยวิธีการทางอิเล็กทรอนิกส์**", "**This document has been prepared and submitted to the Revenue Department electronically.**")
-	return documentPage(doc, company, items, totals, thai, docType, php.Str(doc["invoice_no"]), dmy(doc["invoice_date"], "d-m-Y"), pdfTitles[docType], pdfThemes[docType],
+	return documentPage(doc, company, items, totals, thai, docType, conv.Str(doc["invoice_no"]), dmy(doc["invoice_date"], "d-m-Y"), pdfTitles[docType], pdfThemes[docType],
 		vat.Rate, moneyWords(totals.Grand, "THB", thai), cr, pdfFonts(), pdfData("logo.jpg", "image/jpeg"), pdfData("signature.jpeg", "image/jpeg"), footer, note, interest)
 }
 
@@ -216,7 +216,7 @@ func documentPage(d app.M, company db.Row, items []pdfItem, t docTotals, th bool
 		}
 	}
 	W(`<!DOCTYPE html>
-<html lang="`, p("th", "en"), `"><head><meta charset="UTF-8"><title>`, pe("acme-tax-"+php.Str(d["invoice_no"])), `</title>
+<html lang="`, p("th", "en"), `"><head><meta charset="UTF-8"><title>`, pe("acme-tax-"+conv.Str(d["invoice_no"])), `</title>
 <style>`, fonts, `</style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
@@ -270,7 +270,7 @@ tr{page-break-inside:avoid}
         <p class="text-11px c-text">`, p("WEB SITE", "Web"), `: `, pe(cs("website")), `</p>
         <p class="text-11px c-text" style="text-align:right;">`, p("E-mail", "Email"), `: `, pe(cs("email")), `</p>
       </div>
-      <p class="text-11px font-medium c-text" style="text-align:right;">เลขประจำตัวผู้เสียภาษีอากร/TAX NO: `, pe(php.Or(company["tax_no"], company["tax_id"])), ` (`, p("สำนักงานใหญ่", "Head Office"), `)</p>
+      <p class="text-11px font-medium c-text" style="text-align:right;">เลขประจำตัวผู้เสียภาษีอากร/TAX NO: `, pe(conv.Or(company["tax_no"], company["tax_id"])), ` (`, p("สำนักงานใหญ่", "Head Office"), `)</p>
     </div>
   </div>
   <div style="width:250px;flex-shrink:0;padding-right:18px;display:flex;flex-direction:column;gap:8px;">
@@ -321,7 +321,7 @@ tr{page-break-inside:avoid}
 		l string
 		v any
 	}
-	delAddr := php.Or(d["delivery_address"], d["mailing_address"])
+	delAddr := conv.Or(d["delivery_address"], d["mailing_address"])
 	for _, a := range []struct {
 		l    string
 		addr any
@@ -337,7 +337,7 @@ tr{page-break-inside:avoid}
       <div class="bg-white" style="display:flex;gap:28px;padding:2px 10px 5px;">
         `)
 		for _, f := range a.foot {
-			v := php.Str(f.v)
+			v := conv.Str(f.v)
 			if strings.TrimSpace(v) == "" {
 				v = "-"
 			}
@@ -352,11 +352,11 @@ tr{page-break-inside:avoid}
   <div class="bd" style="display:grid;grid-template-columns:minmax(90px,1.4fr) minmax(80px,1fr) minmax(60px,.8fr) minmax(60px,.8fr) minmax(50px,.7fr) minmax(70px,.9fr) minmax(70px,.9fr) minmax(90px,1.4fr);border-radius:6px;overflow:hidden;">
     `)
 	credDays := ""
-	if d["grace_days"] != nil && php.Str(d["grace_days"]) != "" {
-		credDays = php.Str(d["grace_days"]) + " days"
+	if d["grace_days"] != nil && conv.Str(d["grace_days"]) != "" {
+		credDays = conv.Str(d["grace_days"]) + " days"
 	}
-	cells := [][2]any{{p("คำสั่งซื้อ", "Order No"), php.Or(d["po_number"], "N/A")}, {p("เลขที่ใบสั่งขาย", "Sale Order No"), d["order_number"]},
-		{p("คลังสินค้า", "Warehouse"), php.Or(php.Coalesce(d["warehouse_code"], ""), d["warehouse"])}, {p("แผนก", "Division"), php.Or(php.Coalesce(d["seller_department_code"], ""), d["seller_department"])},
+	cells := [][2]any{{p("คำสั่งซื้อ", "Order No"), conv.Or(d["po_number"], "N/A")}, {p("เลขที่ใบสั่งขาย", "Sale Order No"), d["order_number"]},
+		{p("คลังสินค้า", "Warehouse"), conv.Or(conv.Coalesce(d["warehouse_code"], ""), d["warehouse"])}, {p("แผนก", "Division"), conv.Or(conv.Coalesce(d["seller_department_code"], ""), d["seller_department"])},
 		{p("เครดิต (วัน)", "Credit (Days)"), credDays}, {p("วันที่ครบกำหนด", "Due Date"), d["due_date"]}, {p("วิธีการจัดส่ง", "Delivery Method"), d["delivery_by"]}, {p("ผู้ขาย", "Seller"), d["seller_name"]}}
 	for i, c := range cells {
 		br := ""
@@ -398,7 +398,7 @@ tr{page-break-inside:avoid}
 			disc = trimNum(it.Discount)
 		}
 		W(`        <tr class="bg-white">
-          <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div>`, php.Str(it.No), `</div>`, sp, `</td>
+          <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div>`, conv.Str(it.No), `</div>`, sp, `</td>
           <td class="px-2 py-2 text-11px c-text" style="white-space:nowrap;vertical-align:top;"><div>`, pe(it.PartNumber), `</div>`)
 		if hb {
 			W(`<div class="text-10px c-text" style="margin-top:2px;">`, p("หมายเลขแบทช์", "Batch No."), `</div>`)
@@ -429,8 +429,8 @@ tr{page-break-inside:avoid}
 		W(`  <div class="bd bg-band avoid-break" style="border-radius:6px;padding:10px;font-size:10px;">
     <p class="font-semibold c-text" style="margin-bottom:4px;">`, p("หมายเหตุ", "Note"), `</p><p class="c-text">`, pe(credit.Purpose), `</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-      <div class="c-text" style="display:flex;justify-content:space-between;"><span>`, p("มูลค่าใบกำกับภาษีเดิม (ก่อน VAT)", "Original Amount (Before VAT)"), `</span><span>`, fmtN(php.Float(credit.Original)), ` (THB)</span></div>
-      <div class="c-text" style="display:flex;justify-content:space-between;"><span>`, p("มูลค่าใบกำกับภาษีที่ถูกต้อง (ก่อน VAT)", "Corrected Amount (Before VAT)"), `</span><span>`, fmtN(php.Float(credit.Adjusted)), ` (THB)</span></div>
+      <div class="c-text" style="display:flex;justify-content:space-between;"><span>`, p("มูลค่าใบกำกับภาษีเดิม (ก่อน VAT)", "Original Amount (Before VAT)"), `</span><span>`, fmtN(conv.Float(credit.Original)), ` (THB)</span></div>
+      <div class="c-text" style="display:flex;justify-content:space-between;"><span>`, p("มูลค่าใบกำกับภาษีที่ถูกต้อง (ก่อน VAT)", "Corrected Amount (Before VAT)"), `</span><span>`, fmtN(conv.Float(credit.Adjusted)), ` (THB)</span></div>
     </div>
   </div>
   `)
@@ -453,7 +453,7 @@ tr{page-break-inside:avoid}
 	W(`    <div style="display:grid;grid-template-columns:11fr 9fr;gap:10px;align-items:stretch;">
       <div class="bd-dash" style="border-radius:6px;padding:10px 14px;min-height:150px;display:flex;flex-direction:column;">
         `)
-	if strings.TrimSpace(php.Str(d["payment_remark"])) != "" {
+	if strings.TrimSpace(conv.Str(d["payment_remark"])) != "" {
 		W(`<p class="text-11px leading-relaxed c-text" style="white-space:pre-line;text-align:left;">`, pe(d["payment_remark"]), `</p>`)
 	}
 	W(`        `)
@@ -559,7 +559,7 @@ func renderMany(c *app.Ctx, pages map[string]string, parallel int, each func(n i
 	}
 	wg.Wait()
 	if len(pages) > 1 {
-		logInfo("pdf", php.Str(len(pages))+" PDFs printed, "+php.Str(min(parallel, len(pages)))+" at a time", om("ms", int(time.Since(t00).Milliseconds())))
+		logInfo("pdf", conv.Str(len(pages))+" PDFs printed, "+conv.Str(min(parallel, len(pages)))+" at a time", om("ms", int(time.Since(t00).Milliseconds())))
 	}
 	return out
 }
@@ -652,7 +652,7 @@ loop:
 		if len(tail) > 2 {
 			tail = tail[len(tail)-2:]
 		}
-		return pdfResult{err: errors.New(c.T("The PDF could not be made.") + " " + php.Substr(strings.Join(tail, " "), 0, 200))}
+		return pdfResult{err: errors.New(c.T("The PDF could not be made.") + " " + conv.Substr(strings.Join(tail, " "), 0, 200))}
 	}
 	logInfo("pdf", "PDF rendered", om("ms", ms, "bytes", len(pdf), "doc", key))
 	return pdfResult{pdf: pdf}

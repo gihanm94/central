@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Small HTML snippets of the list and detail screens (App\Core\Support\Ui + App\Modules\CRM\Support\Ui). Everything is escaped here.
@@ -46,7 +46,7 @@ func uiChips(items []app.M) string {
 	var b strings.Builder
 	b.WriteString(`<span class="flex flex-wrap gap-1">`)
 	for _, i := range items {
-		b.WriteString(uiChip(php.Str(i["name"]), php.Str(i["color"])))
+		b.WriteString(uiChip(conv.Str(i["name"]), conv.Str(i["color"])))
 	}
 	b.WriteString(`</span>`)
 	return b.String()
@@ -54,10 +54,10 @@ func uiChips(items []app.M) string {
 
 // uiMoney: 1,234.50 THB, "—" when empty (escaped text).
 func uiMoney(amount any, currency string) string {
-	if amount == nil || php.Str(amount) == "" {
+	if amount == nil || conv.Str(amount) == "" {
 		return "—"
 	}
-	s := php.NF(php.Float(amount), 2)
+	s := conv.NF(conv.Float(amount), 2)
 	if currency != "" {
 		s += " " + currency
 	}
@@ -72,12 +72,12 @@ func uiCompact(n float64) string {
 		sfx string
 	}{{1e9, "B"}, {1e6, "M"}, {1e3, "K"}} {
 		if a >= d.div {
-			s := php.NF(n/d.div, 1)
+			s := conv.NF(n/d.div, 1)
 			s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
 			return s + d.sfx
 		}
 	}
-	return php.NF(n, 0)
+	return conv.NF(n, 0)
 }
 
 // uiPerson: avatar (picture or initials) with a name and a small second line — the first cell of most lists.
@@ -89,7 +89,7 @@ func uiPerson(c *app.Ctx, name, sub, img, href, shape string) string {
 	if img != "" {
 		pic = `<img src="` + app.E(c.UploadURL(img)) + `" alt="" class="size-9 shrink-0 ` + shape + ` bg-white object-contain ring-1 ring-graphite-900/10">`
 	} else {
-		pic = `<span class="inline-flex size-9 shrink-0 items-center justify-center ` + shape + ` bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(php.Initials(name)) + `</span>`
+		pic = `<span class="inline-flex size-9 shrink-0 items-center justify-center ` + shape + ` bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(conv.Initials(name)) + `</span>`
 	}
 	var title string
 	if href != "" {
@@ -136,10 +136,10 @@ func uiAvatars(names []string, max int) string {
 		if i >= max {
 			break
 		}
-		b.WriteString(`<span title="` + app.E(n) + `" class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-900/8 text-[10px] font-semibold text-graphite-700 ring-2 ring-white">` + app.E(php.Initials(n)) + `</span>`)
+		b.WriteString(`<span title="` + app.E(n) + `" class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-900/8 text-[10px] font-semibold text-graphite-700 ring-2 ring-white">` + app.E(conv.Initials(n)) + `</span>`)
 	}
 	if len(names) > max {
-		b.WriteString(`<span title="` + app.E(strings.Join(names[max:], ", ")) + `" class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-900 text-[10px] font-semibold text-white ring-2 ring-white">+` + php.Str(len(names)-max) + `</span>`)
+		b.WriteString(`<span title="` + app.E(strings.Join(names[max:], ", ")) + `" class="inline-flex size-7 items-center justify-center rounded-full bg-graphite-900 text-[10px] font-semibold text-white ring-2 ring-white">+` + conv.Str(len(names)-max) + `</span>`)
 	}
 	return `<span class="inline-flex -space-x-2">` + b.String() + `</span>`
 }
@@ -161,5 +161,5 @@ func meter(c *app.Ctx, value float64, label string) string {
 
 func meterHTML(c *app.Ctx, value float64, label string) template.HTML {
 	pct := math.Max(0, math.Min(100, value))
-	return c.Partial("crm/meter", app.M{"pct": int(pct), "w": template.CSS(fmtFloat(phpRound(pct, 1))), "label": label})
+	return c.Partial("crm/meter", app.M{"pct": int(pct), "w": template.CSS(fmtFloat(roundHalf(pct, 1))), "label": label})
 }

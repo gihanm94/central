@@ -8,7 +8,7 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 /*
@@ -76,7 +76,7 @@ func (s *syncer) run(key, mode, id string, size int, filter *string, force *bool
 		if mode == "latest" {
 			limit = size
 			if size == 0 {
-				limit = php.Int(mget(def, "size"))
+				limit = conv.Int(mget(def, "size"))
 			}
 		} else if mode == "one" {
 			limit = 1
@@ -120,11 +120,11 @@ func (s *syncer) run(key, mode, id string, size int, filter *string, force *bool
 		if inStrs(key, []string{"invoice", "seller", "department"}) {
 			sellerStampQuietly() // seller + department on the invoice lines
 		}
-		logInfo("sync", key+": done — fetched "+php.Str(fetched)+", saved "+php.Str(saved), om("ms", ms()))
+		logInfo("sync", key+": done — fetched "+conv.Str(fetched)+", saved "+conv.Str(saved), om("ms", ms()))
 	})
 	if err != nil {
 		logException("sync", err, key+" failed", om("fetched", fetched, "saved", saved, "mode", mode))
-		acc().Exec("UPDATE erp_sync_state SET status = 'failed', fetched = ?, saved = ?, duration_ms = ?, error = ? WHERE entity = ?", fetched, saved, ms(), php.Substr(err.Error(), 0, 500), key)
+		acc().Exec("UPDATE erp_sync_state SET status = 'failed', fetched = ?, saved = ?, duration_ms = ?, error = ? WHERE entity = ?", fetched, saved, ms(), conv.Substr(err.Error(), 0, 500), key)
 		panic(err)
 	}
 	return syncResult{fetched, saved}
@@ -156,7 +156,7 @@ func (s *syncer) save(def *config.Map, raw []*config.Map, forced bool, key strin
 				if len(x) == 0 {
 					continue
 				}
-				if php.Truthy(mget(c, "many")) {
+				if conv.Truthy(mget(c, "many")) {
 					list = x
 				} else {
 					list = []any{x}
@@ -165,7 +165,7 @@ func (s *syncer) save(def *config.Map, raw []*config.Map, forced bool, key strin
 				if x.Len() == 0 {
 					continue
 				}
-				if php.Truthy(mget(c, "many")) {
+				if conv.Truthy(mget(c, "many")) {
 					for _, k := range x.Keys {
 						list = append(list, x.Vals[k])
 					}
@@ -178,7 +178,7 @@ func (s *syncer) save(def *config.Map, raw []*config.Map, forced bool, key strin
 			stamp := map[string]any{}
 			if sm := mmap(c, "stamp"); sm != nil {
 				for _, col := range sm.Keys {
-					stamp[col] = row.vals[php.Str(sm.Vals[col])]
+					stamp[col] = row.vals[conv.Str(sm.Vals[col])]
 				}
 			}
 			ent := mstr(c, "entity")

@@ -13,8 +13,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // The INET e-Tax portal (Inet\InetClient): send a signed document (text + PDF), ask for its status, look a document up by
@@ -31,7 +31,7 @@ func inetAuth(c *app.Ctx) string {
 	if authSchemeRe.MatchString(v) {
 		return v
 	}
-	return php.OrStr(sget("inet.auth_scheme", "Bearer"), "Bearer") + " " + v
+	return conv.OrStr(sget("inet.auth_scheme", "Bearer"), "Bearer") + " " + v
 }
 
 func inetPost(c *app.Ctx, url string, payload *config.Map) string {
@@ -58,16 +58,16 @@ func inetPost(c *app.Ctx, url string, payload *config.Map) string {
 	for _, k := range payload.Keys {
 		fields = append(fields, k)
 	}
-	ctx := om("status", st, "ms", int(time.Since(t0).Milliseconds()), "fields", fields, "answer", php.Substr(strings.TrimSpace(string(out)), 0, 600))
+	ctx := om("status", st, "ms", int(time.Since(t0).Milliseconds()), "fields", fields, "answer", conv.Substr(strings.TrimSpace(string(out)), 0, 600))
 	if err != nil {
 		logError("inet", "POST "+url+" failed: "+err.Error(), ctx)
 		panic(errors.New("INET: " + err.Error()))
 	}
 	if st < 200 || st >= 300 {
-		logError("inet", "POST "+url+" → HTTP "+php.Str(st), ctx)
-		panic(errors.New("INET answered HTTP " + php.Str(st) + ": " + php.Substr(strings.TrimSpace(stripTags(string(out))), 0, 300)))
+		logError("inet", "POST "+url+" → HTTP "+conv.Str(st), ctx)
+		panic(errors.New("INET answered HTTP " + conv.Str(st) + ": " + conv.Substr(strings.TrimSpace(stripTags(string(out))), 0, 300)))
 	}
-	logInfo("inet", "POST "+url+" → HTTP "+php.Str(st), ctx)
+	logInfo("inet", "POST "+url+" → HTTP "+conv.Str(st), ctx)
 	return string(out)
 }
 
@@ -97,12 +97,12 @@ func inetDownload(url string) []byte {
 	}
 	ctx := om("bytes", len(b), "url", queryRe.ReplaceAllString(url, "?…"))
 	if err != nil || st >= 400 {
-		logError("inet", "GET signed PDF → HTTP "+php.Str(st), ctx)
+		logError("inet", "GET signed PDF → HTTP "+conv.Str(st), ctx)
 	} else {
-		logInfo("inet", "GET signed PDF → HTTP "+php.Str(st), ctx)
+		logInfo("inet", "GET signed PDF → HTTP "+conv.Str(st), ctx)
 	}
 	if err != nil || st >= 400 || len(b) == 0 {
-		panic(errors.New("The signed PDF could not be downloaded (HTTP " + php.Str(st) + ")."))
+		panic(errors.New("The signed PDF could not be downloaded (HTTP " + conv.Str(st) + ")."))
 	}
 	return b
 }
@@ -127,10 +127,10 @@ func inetSend(c *app.Ctx, row db.Row, typ string, pdf []byte) string {
 	content, _ := decodeOrdered([]byte(text))
 	r := inetJ(inetPost(c, inetSetting("sendApi"), om("SellerTaxId", company["tax_id"], "SellerBranchId", company["branch_id"], "ServiceCode", company.Str("service_code"), "ServiceType", "Recurring",
 		"TextContent", content, "PDFContent", base64.StdEncoding.EncodeToString(pdf))))
-	status := php.Str(r["status"])
-	tx := php.Str(r["transactioncode"])
-	url := php.Str(r["pdfurl"])
-	if status == "ER" && php.Str(r["errorcode"]) == "ER011" && url != "" { // already in INET: take its copy
+	status := conv.Str(r["status"])
+	tx := conv.Str(r["transactioncode"])
+	url := conv.Str(r["pdfurl"])
+	if status == "ER" && conv.Str(r["errorcode"]) == "ER011" && url != "" { // already in INET: take its copy
 		status = "OK"
 	}
 	if status == "OK" {
@@ -143,11 +143,11 @@ func inetSend(c *app.Ctx, row db.Row, typ string, pdf []byte) string {
 		return c.T("Sent and signed. The signed PDF is saved.")
 	}
 	if status == "PC" {
-		inetMark(id, col, inetMarks{send: boolp(true), tx: tx, msg: strp("PC – " + php.Str(php.Coalesce(r["errormessage"], "processing")))})
+		inetMark(id, col, inetMarks{send: boolp(true), tx: tx, msg: strp("PC – " + conv.Str(conv.Coalesce(r["errormessage"], "processing")))})
 		return c.T("INET is still processing it. Press Inet in a minute to fetch the signed PDF.")
 	}
-	msg := "[" + php.Str(php.Coalesce(r["errorcode"], "?")) + "] " + php.Str(php.Coalesce(r["errormessage"], "Unknown error"))
-	logError("inet", php.Str(inv)+" "+typ+": INET refused it — "+msg)
+	msg := "[" + conv.Str(conv.Coalesce(r["errorcode"], "?")) + "] " + conv.Str(conv.Coalesce(r["errormessage"], "Unknown error"))
+	logError("inet", conv.Str(inv)+" "+typ+": INET refused it — "+msg)
 	inetMark(id, col, inetMarks{msg: &msg})
 	panic(errors.New(msg))
 }
@@ -164,9 +164,9 @@ func inetFetch(c *app.Ctx, row db.Row, typ string) string {
 	if tx != "" {
 		for try := 0; try < 4 && found == nil; try++ {
 			r := inetJ(inetPost(c, inetSetting("statusApi"), om("sellerTaxId", company["tax_id"], "sellerBranchId", company["branch_id"], "serviceCode", company.Str("service_code"), "transactionCode", tx)))
-			st := php.Str(r["status"])
-			if st == "OK" && !php.Empty(r["pdfurl"]) {
-				found = &[2]string{php.Str(r["pdfurl"]), tx}
+			st := conv.Str(r["status"])
+			if st == "OK" && !conv.Empty(r["pdfurl"]) {
+				found = &[2]string{conv.Str(r["pdfurl"]), tx}
 			} else if st == "PC" && try < 3 {
 				time.Sleep(5 * time.Second)
 			} else {
@@ -175,13 +175,13 @@ func inetFetch(c *app.Ctx, row db.Row, typ string) string {
 		}
 	}
 	if found == nil {
-		r := inetJ(inetPost(c, inetSetting("paramsApi"), om("SellerTaxId", company["tax_id"], "SellerBranchId", company["branch_id"], "InvoiceNumber", php.Str(inv), "InvoiceType", strings.ToUpper(typ), "OutputType", "PDF")))
+		r := inetJ(inetPost(c, inetSetting("paramsApi"), om("SellerTaxId", company["tax_id"], "SellerBranchId", company["branch_id"], "InvoiceNumber", conv.Str(inv), "InvoiceType", strings.ToUpper(typ), "OutputType", "PDF")))
 		list, _ := r["responseinvoices"].([]any)
 		for _, x := range list {
 			d, _ := x.(map[string]any)
-			if php.Str(d["status"]) == "OK" && !php.Empty(d["pdfURL"]) {
-				found = &[2]string{php.Str(d["pdfURL"]), php.Str(d["processId"])}
-				if php.Str(d["invoiceId"]) == php.Str(inv) {
+			if conv.Str(d["status"]) == "OK" && !conv.Empty(d["pdfURL"]) {
+				found = &[2]string{conv.Str(d["pdfURL"]), conv.Str(d["processId"])}
+				if conv.Str(d["invoiceId"]) == conv.Str(inv) {
 					break
 				}
 			}
@@ -221,7 +221,7 @@ func inetMark(id int, col string, x inetMarks) {
 	}
 	if x.msg != nil {
 		sets = append(sets, "message_"+col+" = ?")
-		par = append(par, php.Substr(*x.msg, 0, 1000))
+		par = append(par, conv.Substr(*x.msg, 0, 1000))
 	}
 	if x.signed != "" {
 		sets = append(sets, "inet_pdf_"+col+" = ?")

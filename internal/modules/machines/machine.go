@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // The machines (MachineController): one row per machine with code + QR label, people, plans, documents and its checklist items.
@@ -55,10 +55,10 @@ var machines = &app.Resource{
 				return app.HTML(esc(t) + `<span class="block text-xs text-steel">` + esc(strings.TrimSpace(r.Str("brand")+" "+r.Str("model"))) + `</span>`)
 			}},
 			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+				return app.HTML(esc(conv.Coalesce(r["department_name"], "—")))
 			}},
 			{Key: "resp", Label: c.T("Responsible"), Sort: "t.responsible_person_name", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(esc(php.Coalesce(r["responsible_person_id_name"], r["responsible_person_name"], "—")))
+				return app.HTML(esc(conv.Coalesce(r["responsible_person_id_name"], r["responsible_person_name"], "—")))
 			}},
 			{Key: "status", Label: c.T("Status"), Sort: "t.machine_status", Render: func(c *app.Ctx, r db.Row) template.HTML { return pillH(c, r["machine_status"], "") }},
 			{Key: "check", Label: c.T("Check"), Sort: "t.check_status", Render: func(c *app.Ctx, r db.Row) template.HTML { return pillH(c, r["check_status"], "") }},
@@ -100,9 +100,9 @@ func machineRegister(c *app.Ctx) db.Row {
 	}
 	var id int
 	if c.QueryHas("register") {
-		id = php.Int(c.Query("register"))
+		id = conv.Int(c.Query("register"))
 	} else {
-		id = php.Int(c.Input("register_id", "0"))
+		id = conv.Int(c.Input("register_id", "0"))
 	}
 	var r db.Row
 	if id != 0 {
@@ -166,7 +166,7 @@ func filesField(c *app.Ctx, name, label, col string, row db.Row, extra app.Field
 	if o, ok := c.Sess.Old("keep_" + col); ok {
 		post := app.InStrings(o)
 		for i := range list {
-			list[i].On = php.InList(list[i].F, post...)
+			list[i].On = conv.InList(list[i].F, post...)
 		}
 	}
 	f := extra
@@ -181,7 +181,7 @@ func planField(c *app.Ctx, name, label, kind string, rows []map[string]any, help
 	rs := formRows(c, name, rows)
 	var view []app.M
 	for i, p := range rs {
-		view = append(view, app.M{"i": php.Str(i), "id": php.Str(p["id"]), "due_date": php.Substr(php.Str(p["due_date"]), 0, 10), "plan_date": php.Substr(php.Str(p["plan_date"]), 0, 10), "note": php.Str(p["note"])})
+		view = append(view, app.M{"i": conv.Str(i), "id": conv.Str(p["id"]), "due_date": conv.Substr(conv.Str(p["due_date"]), 0, 10), "plan_date": conv.Substr(conv.Str(p["plan_date"]), 0, 10), "note": conv.Str(p["note"])})
 	}
 	return app.Field{Name: name, Label: label, Type: "custom", Partial: "machines/fields/plan", NoTable: true, NoImport: true, Span: 2, Rules: "nullable", Help: help,
 		Display: func(db.Row) any { return "" }, Extra: app.M{"maint": kind == "maintenance", "rows": view, "next": len(rs)}}
@@ -192,8 +192,8 @@ func itemsField(c *app.Ctx, name, label string, qs []app.Opt, withResets bool, r
 	rs := formRows(c, name, rows)
 	var view []app.M
 	for i, p := range rs {
-		rt := php.Str(php.Coalesce(p["reset_time"], generalRule))
-		view = append(view, app.M{"i": php.Str(i), "question_id": php.Str(p["question_id"]), "reset_time": rt})
+		rt := conv.Str(conv.Coalesce(p["reset_time"], generalRule))
+		view = append(view, app.M{"i": conv.Str(i), "question_id": conv.Str(p["question_id"]), "reset_time": rt})
 	}
 	return app.Field{Name: name, Label: label, Type: "custom", Partial: "machines/fields/items", NoTable: true, NoImport: true, Span: 2, Rules: "nullable", Help: help,
 		Display: func(db.Row) any { return "" }, Extra: app.M{"questions": qs, "resets": withResets, "resetOpts": trOpts(c, resets), "rows": view, "next": len(rs)}}
@@ -259,7 +259,7 @@ func machineFields(c *app.Ctx, row db.Row) []app.Field {
 	}
 	isCal := false
 	if reg != nil {
-		isCal = !php.Empty(reg["calibration"])
+		isCal = !conv.Empty(reg["calibration"])
 	}
 	maintHelp := ""
 	if edit {
@@ -287,7 +287,7 @@ func machineFields(c *app.Ctx, row db.Row) []app.Field {
 		app.Field{Name: "note", Label: c.T("Note"), Type: "textarea", Rules: "nullable|max:3000", Span: 2, Default: regv("note")},
 		app.Field{Name: "register_id", Label: c.T("Register request"), Type: "custom", Partial: "machines/fields/hidden", Rules: "nullable|integer", Default: regID, NoImport: true,
 			Display: func(r db.Row) any {
-				if php.Empty(r["register_id"]) {
+				if conv.Empty(r["register_id"]) {
 					return ""
 				}
 				return "#" + r.Str("register_id")
@@ -295,11 +295,11 @@ func machineFields(c *app.Ctx, row db.Row) []app.Field {
 
 		app.Field{Section: c.T("Who looks after it")},
 		app.Field{Name: "responsible_person_id", Label: c.T("Responsible person"), Type: "select", Options: ppl, Rules: "required", Default: respDefault, Help: c.T("Does the weekly or monthly check."),
-			Display: func(r db.Row) any { return php.Coalesce(r["responsible_person_id_name"], "") }},
+			Display: func(r db.Row) any { return conv.Coalesce(r["responsible_person_id_name"], "") }},
 		app.Field{Name: "supervisor_id", Label: c.T("Supervisor"), Type: "select", Options: ppl, Rules: "nullable", Default: d("supervisor_id", nil), Help: c.T("Approves the check first. Without one, the manager approves."),
-			Display: func(r db.Row) any { return php.Coalesce(r["supervisor_id_name"], "") }},
+			Display: func(r db.Row) any { return conv.Coalesce(r["supervisor_id_name"], "") }},
 		app.Field{Name: "manager_id", Label: c.T("Manager"), Type: "select", Options: ppl, Rules: "nullable", Default: d("manager_id", nil), Help: c.T("Gives the final approval."),
-			Display: func(r db.Row) any { return php.Coalesce(r["manager_id_name"], "") }},
+			Display: func(r db.Row) any { return conv.Coalesce(r["manager_id_name"], "") }},
 		app.Field{Name: "reset_period", Label: c.T("Responsible re-checks"), Type: "select", Options: trOpts(c, periods), Rules: "required", Default: "WEEKLY", Search: boolPtr(false), Help: c.T("How often the responsible person checks and sends it for approval.")},
 
 		app.Field{Section: c.T("Maintenance and calibration")},
@@ -342,7 +342,7 @@ func machinePrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		data.Set("responsible_person_name", nil)
 	}
 	for _, k := range []string{"supervisor_id", "manager_id"} {
-		if php.Empty(data.Get(k)) {
+		if conv.Empty(data.Get(k)) {
 			data.Set(k, nil)
 		}
 	}
@@ -350,7 +350,7 @@ func machinePrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		app.Invalid("manager_id", c.T("Pick a supervisor or a manager: somebody has to approve the checks."))
 	}
 	reg := machineRegister(c)
-	if !php.Empty(data.Get("register_id")) && reg != nil {
+	if !conv.Empty(data.Get("register_id")) && reg != nil {
 		data.Set("register_id", reg.Int("id"))
 	} else if existing != nil {
 		data.Set("register_id", existing["register_id"])
@@ -394,7 +394,7 @@ func machinePrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		if existing != nil && existing["cancel_date"] != nil {
 			data.Set("cancel_date", existing["cancel_date"])
 		} else {
-			data.Set("cancel_date", php.Today())
+			data.Set("cancel_date", conv.Today())
 		}
 	} else {
 		data.Set("cancel_date", nil)
@@ -402,7 +402,7 @@ func machinePrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 			data.Set("check_status", "PENDING")
 		}
 	}
-	data.Set("is_calibration", !php.Empty(data.Get("is_calibration")))
+	data.Set("is_calibration", !conv.Empty(data.Get("is_calibration")))
 
 	if existing == nil {
 		code := nextCode(data.Int("department_id"), g, t)
@@ -413,8 +413,8 @@ func machinePrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		} else {
 			data.Set("check_status", "OUT OF SERVICE")
 		}
-		if !php.Empty(data.Get("register_id")) {
-			data.Set("register_date", php.Today())
+		if !conv.Empty(data.Get("register_id")) {
+			data.Set("register_date", conv.Today())
 		} else {
 			data.Set("register_date", nil)
 		}
@@ -434,8 +434,8 @@ func machineSaved(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		mdb().Exec("UPDATE responsible_history SET effective_to = CURRENT_DATE - 1 WHERE id = ?", open["id"])
 		open = nil
 	}
-	if open == nil && act && !php.Empty(m["responsible_person_id"]) {
-		mdb().Insert("responsible_history", db.Cols{{Name: "machine_code", Value: code}, {Name: "responsible_person_id", Value: m["responsible_person_id"]}, {Name: "effective_from", Value: php.Today()}})
+	if open == nil && act && !conv.Empty(m["responsible_person_id"]) {
+		mdb().Insert("responsible_history", db.Cols{{Name: "machine_code", Value: code}, {Name: "responsible_person_id", Value: m["responsible_person_id"]}, {Name: "effective_from", Value: conv.Today()}})
 	}
 
 	if !act {
@@ -450,18 +450,18 @@ func machineSaved(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		}
 		syncCalibration(c, m, cal)
 	}
-	syncItems(c, "machine_checklist", php.Str(code), postedList(c.InputAny("items_general")), true)
-	syncItems(c, "maintenance_checklist", php.Str(code), postedList(c.InputAny("items_maint")), false)
+	syncItems(c, "machine_checklist", conv.Str(code), postedList(c.InputAny("items_general")), true)
+	syncItems(c, "maintenance_checklist", conv.Str(code), postedList(c.InputAny("items_maint")), false)
 
 	// the new responsible person hears about it
-	if !php.Empty(m["responsible_person_id"]) && m.Int("responsible_person_id") != u.ID && (existing == nil || existing.Int("responsible_person_id") != m.Int("responsible_person_id")) {
+	if !conv.Empty(m["responsible_person_id"]) && m.Int("responsible_person_id") != u.ID && (existing == nil || existing.Int("responsible_person_id") != m.Int("responsible_person_id")) {
 		app.Deliver(c, "machines", "assigned", m.Int("responsible_person_id"), app.Text("You look after machine :code", "code", code),
-			app.Text(":who made you responsible for :code · :name. Do its checklist when it is due.", "who", u.Name, "code", code, "name", m["machine_name"]), c.URL("/machines/machines/"+php.Str(id)), u.ID)
+			app.Text(":who made you responsible for :code · :name. Do its checklist when it is due.", "who", u.Name, "code", code, "name", m["machine_name"]), c.URL("/machines/machines/"+conv.Str(id)), u.ID)
 	}
 }
 
 // validDate is ! empty($v) && strtotime($v)
-func validDate(v any) bool { return !php.Empty(v) && php.StrToTime(app.InStr(v)) != 0 }
+func validDate(v any) bool { return !conv.Empty(v) && conv.StrToTime(app.InStr(v)) != 0 }
 
 func syncMaintenance(c *app.Ctx, m db.Row, rows []any) {
 	code := m["machine_code"]
@@ -473,22 +473,22 @@ func syncMaintenance(c *app.Ctx, m db.Row, rows []any) {
 		if !ok || !validDate(p["due_date"]) {
 			continue
 		}
-		due := php.Substr(app.InStr(p["due_date"]), 0, 10)
-		year := php.Substr(due, 0, 4)
+		due := conv.Substr(app.InStr(p["due_date"]), 0, 10)
+		year := conv.Substr(due, 0, 4)
 		if _, ok := perYear[year]; !ok {
-			perYear[year] = php.Int(mdb().Scalar("SELECT count(*) FROM maintenance_record WHERE machine_code = ? AND years = ? AND actual_date IS NOT NULL", code, year))
+			perYear[year] = conv.Int(mdb().Scalar("SELECT count(*) FROM maintenance_record WHERE machine_code = ? AND years = ? AND actual_date IS NOT NULL", code, year))
 		}
 		perYear[year]++
 		var planDate, note any
 		if validDate(p["plan_date"]) {
-			planDate = php.Substr(app.InStr(p["plan_date"]), 0, 10)
+			planDate = conv.Substr(app.InStr(p["plan_date"]), 0, 10)
 		}
 		if n := strings.TrimSpace(app.InStr(p["note"])); n != "" {
 			note = n
 		}
 		vals := db.Cols{{Name: "machine_name", Value: m["machine_name"]}, {Name: "years", Value: year}, {Name: "round", Value: perYear[year]}, {Name: "due_date", Value: due},
-			{Name: "plan_date", Value: planDate}, {Name: "note", Value: note}, {Name: "updated_by", Value: uid}, {Name: "updated_at", Value: php.NowString()}}
-		id := php.Int(app.InStr(p["id"]))
+			{Name: "plan_date", Value: planDate}, {Name: "note", Value: note}, {Name: "updated_by", Value: uid}, {Name: "updated_at", Value: conv.NowString()}}
+		id := conv.Int(app.InStr(p["id"]))
 		if id != 0 && mdb().Scalar("SELECT 1 FROM maintenance_record WHERE id = ? AND machine_code = ? AND actual_date IS NULL", id, code) != nil {
 			mdb().Update("maintenance_record", vals, db.Cols{{Name: "id", Value: id}})
 			keep = append(keep, id)
@@ -508,14 +508,14 @@ func syncCalibration(c *app.Ctx, m db.Row, rows []any) {
 		if !ok || !validDate(p["due_date"]) {
 			continue
 		}
-		due := php.Substr(app.InStr(p["due_date"]), 0, 10)
+		due := conv.Substr(app.InStr(p["due_date"]), 0, 10)
 		var note any
 		if n := strings.TrimSpace(app.InStr(p["note"])); n != "" {
 			note = n
 		}
-		vals := db.Cols{{Name: "machine_name", Value: m["machine_name"]}, {Name: "years", Value: php.Substr(due, 0, 4)}, {Name: "due_date", Value: due}, {Name: "note", Value: note},
-			{Name: "updated_by", Value: uid}, {Name: "updated_at", Value: php.NowString()}}
-		id := php.Int(app.InStr(p["id"]))
+		vals := db.Cols{{Name: "machine_name", Value: m["machine_name"]}, {Name: "years", Value: conv.Substr(due, 0, 4)}, {Name: "due_date", Value: due}, {Name: "note", Value: note},
+			{Name: "updated_by", Value: uid}, {Name: "updated_at", Value: conv.NowString()}}
+		id := conv.Int(app.InStr(p["id"]))
 		if id != 0 && mdb().Scalar("SELECT 1 FROM calibration_record WHERE id = ? AND machine_code = ? AND certificate_date IS NULL", id, code) != nil {
 			mdb().Update("calibration_record", vals, db.Cols{{Name: "id", Value: id}})
 			keep = append(keep, id)
@@ -532,7 +532,7 @@ func dropPending(table, doneCol string, code any, keep []int) {
 	if len(keep) > 0 {
 		ids := make([]string, len(keep))
 		for i, k := range keep {
-			ids[i] = php.Str(k)
+			ids[i] = conv.Str(k)
 		}
 		not = " AND id NOT IN (" + strings.Join(ids, ",") + ")"
 	}
@@ -548,7 +548,7 @@ func syncItems(c *app.Ctx, table, code string, rows []any, withReset bool) {
 	var order []string
 	for _, raw := range rows {
 		p, _ := rowOf(raw)
-		qid := php.Int(app.InStr(p["question_id"]))
+		qid := conv.Int(app.InStr(p["question_id"]))
 		if qid == 0 || mdb().Scalar("SELECT 1 FROM question WHERE id = ? AND deleted_at IS NULL", qid) == nil {
 			continue
 		}
@@ -561,7 +561,7 @@ func syncItems(c *app.Ctx, table, code string, rows []any, withReset bool) {
 				reset = generalRule
 			}
 		}
-		k := php.Str(qid) + "|" + php.Str(reset)
+		k := conv.Str(qid) + "|" + conv.Str(reset)
 		if _, ok := wanted[k]; !ok {
 			order = append(order, k)
 		}
@@ -623,12 +623,12 @@ func machineShow(c *app.Ctx) {
 		h["name"] = nameOr(n, h["responsible_person_id"], "—")
 	}
 	canEdit := c.Can(r.Resource, "edit") && manages(c.MustUser(), m)
-	today := php.Today()
+	today := conv.Today()
 	maintRecords := mdb().Select("SELECT * FROM maintenance_record WHERE machine_code = ? AND NOT is_canceled ORDER BY years DESC, round, due_date", code)
 	for _, x := range maintRecords {
-		late := php.Empty(x["actual_date"]) && !php.Empty(x["due_date"]) && x.Str("due_date") < today
+		late := conv.Empty(x["actual_date"]) && !conv.Empty(x["due_date"]) && x.Str("due_date") < today
 		switch {
-		case !php.Empty(x["status"]):
+		case !conv.Empty(x["status"]):
 			x["_pill"] = pillH(c, x["status"], "")
 		case late:
 			x["_pill"] = pillH(c, c.T("Overdue"), "bad")
@@ -638,9 +638,9 @@ func machineShow(c *app.Ctx) {
 	}
 	calRecords := mdb().Select("SELECT * FROM calibration_record WHERE machine_code = ? AND NOT is_canceled ORDER BY due_date DESC", code)
 	for _, x := range calRecords {
-		late := php.Empty(x["certificate_date"]) && !php.Empty(x["due_date"]) && x.Str("due_date") < today
+		late := conv.Empty(x["certificate_date"]) && !conv.Empty(x["due_date"]) && x.Str("due_date") < today
 		switch {
-		case !php.Empty(x["results"]):
+		case !conv.Empty(x["results"]):
 			x["_pill"] = pillH(c, x["results"], "")
 		case late:
 			x["_pill"] = pillH(c, c.T("Overdue"), "bad")
@@ -678,7 +678,7 @@ func machineShow(c *app.Ctx) {
 	switch m.Str("has_warranty") {
 	case "YES":
 		warranty = c.T("Yes")
-		if !php.Empty(m["warranty_expire_date"]) {
+		if !conv.Empty(m["warranty_expire_date"]) {
 			warranty += " · " + c.T("ends :date", "date", fmtDate(c, m["warranty_expire_date"]))
 		}
 	case "NO":
@@ -694,21 +694,21 @@ func machineShow(c *app.Ctx) {
 	cal := c.T("No")
 	if m.Bool("is_calibration") {
 		cal = c.T("Yes")
-		if !php.Empty(m["certificate_period"]) {
+		if !conv.Empty(m["certificate_period"]) {
 			cal += " · " + m.Str("certificate_period")
 		}
 	}
 	var registered, reviewed any
-	if !php.Empty(m["register_id"]) {
+	if !conv.Empty(m["register_id"]) {
 		s := "#" + m.Str("register_id")
-		if !php.Empty(m["register_date"]) {
+		if !conv.Empty(m["register_date"]) {
 			s += " · " + fmtDate(c, m["register_date"])
 		}
 		registered = s
 	}
-	if !php.Empty(m["last_review"]) {
+	if !conv.Empty(m["last_review"]) {
 		s := fmtDate(c, m["last_review"])
-		if !php.Empty(m["review_by"]) {
+		if !conv.Empty(m["review_by"]) {
 			s += " · " + m.Str("review_by")
 		}
 		reviewed = s
@@ -716,7 +716,7 @@ func machineShow(c *app.Ctx) {
 	info := []infoItem{
 		{c.T("Department"), m["department_name"], 1, false}, {c.T("Brand"), m["brand"], 1, false}, {c.T("Model"), m["model"], 1, false},
 		{c.T("Serial number"), m["serial_number"], 1, false}, {c.T("Asset number"), m["machine_number"], 1, false}, {c.T("Bought new"), isNew, 1, false},
-		{c.T("Responsible person"), php.Coalesce(m["responsible_person_id_name"], m["responsible_person_name"]), 1, false}, {c.T("Supervisor"), m["supervisor_id_name"], 1, false}, {c.T("Manager"), m["manager_id_name"], 1, false},
+		{c.T("Responsible person"), conv.Coalesce(m["responsible_person_id_name"], m["responsible_person_name"]), 1, false}, {c.T("Supervisor"), m["supervisor_id_name"], 1, false}, {c.T("Manager"), m["manager_id_name"], 1, false},
 		{c.T("Responsible re-checks"), trLabel(c, periods, m["reset_period"]), 1, false}, {c.T("Maintenance every"), m["maintenance_period"], 1, false}, {c.T("Calibration"), cal, 1, false},
 		{c.T("Warranty"), nilIfEmpty(warranty), 1, false},
 		{c.T("Registered"), registered, 1, false}, {c.T("Last reviewed"), reviewed, 1, false},
@@ -759,16 +759,16 @@ func (i infoItem) Empty() bool {
 	if i.Val == nil {
 		return true
 	}
-	return php.Str(i.Val) == ""
+	return conv.Str(i.Val) == ""
 }
 
-func (i infoItem) Text() string { return php.Str(i.Val) }
+func (i infoItem) Text() string { return conv.Str(i.Val) }
 
 func (i infoItem) HTML() template.HTML {
 	if h, ok := i.Val.(template.HTML); ok {
 		return h
 	}
-	return template.HTML(php.Str(i.Val))
+	return template.HTML(conv.Str(i.Val))
 }
 
 // filesHTML is partial('machines/_files', ['list' => Files::decode($json)]).
@@ -782,7 +782,7 @@ func machineChangeResponsible(c *app.Ctx) {
 	id := c.ParamInt("id")
 	m := r.FindForChange(c, id, "edit")
 	u := c.MustUser()
-	nw := php.Int(c.Input("responsible_person_id"))
+	nw := conv.Int(c.Input("responsible_person_id"))
 	name, ok := names(nw)[nw]
 	if !ok {
 		c.Back("error", c.T("Pick a person."))
@@ -790,20 +790,20 @@ func machineChangeResponsible(c *app.Ctx) {
 	if nw == m.Int("responsible_person_id") {
 		c.Back("success", c.T("Nothing changed."))
 	}
-	mdb().Update("machine", db.Cols{{Name: "responsible_person_id", Value: nw}, {Name: "responsible_person_name", Value: name}, {Name: "updated_at", Value: php.NowString()}, {Name: "updated_by", Value: u.ID}}, db.Cols{{Name: "id", Value: id}})
+	mdb().Update("machine", db.Cols{{Name: "responsible_person_id", Value: nw}, {Name: "responsible_person_name", Value: name}, {Name: "updated_at", Value: conv.NowString()}, {Name: "updated_by", Value: u.ID}}, db.Cols{{Name: "id", Value: id}})
 	mdb().Exec("UPDATE responsible_history SET effective_to = CURRENT_DATE - 1 WHERE machine_code = ? AND effective_to IS NULL", m["machine_code"])
-	mdb().Insert("responsible_history", db.Cols{{Name: "machine_code", Value: m["machine_code"]}, {Name: "responsible_person_id", Value: nw}, {Name: "effective_from", Value: php.Today()}})
+	mdb().Insert("responsible_history", db.Cols{{Name: "machine_code", Value: m["machine_code"]}, {Name: "responsible_person_id", Value: nw}, {Name: "effective_from", Value: conv.Today()}})
 	ch := &app.Changes{}
 	ch.Set("responsible", app.Change{From: m["responsible_person_name"], To: name})
 	label := r.LabelOf(c, m)
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: r.Type, ID: id, Label: label, Text: `Changed the person responsible for ":label"`, Params: []any{"label", label},
-		Props: app.M{"changes": ch, "_url": c.URL(r.Base + "/" + php.Str(id))}, Owner: nw, Module: "machines"})
+		Props: app.M{"changes": ch, "_url": c.URL(r.Base + "/" + conv.Str(id))}, Owner: nw, Module: "machines"})
 	if nw != u.ID {
 		app.Deliver(c, "machines", "assigned", nw, app.Text("You look after machine :code", "code", m["machine_code"]),
-			app.Text(":who made you responsible for :code · :name. Do its checklist when it is due.", "who", u.Name, "code", m["machine_code"], "name", m["machine_name"]), c.URL("/machines/machines/"+php.Str(id)), u.ID)
+			app.Text(":who made you responsible for :code · :name. Do its checklist when it is due.", "who", u.Name, "code", m["machine_code"], "name", m["machine_name"]), c.URL("/machines/machines/"+conv.Str(id)), u.ID)
 	}
 	c.Flash("success", c.T("Responsible person changed."))
-	c.Redirect(r.Base + "/" + php.Str(id))
+	c.Redirect(r.Base + "/" + conv.Str(id))
 }
 
 // machineLabels: printable QR labels for the machines in ?ids=1,2,3 (or every machine in the list when empty).
@@ -811,8 +811,8 @@ func machineLabels(c *app.Ctx) {
 	c.Authorize(machines.Resource, "view")
 	var ids []string
 	for _, s := range strings.Split(c.Query("ids", ""), ",") {
-		if n := php.Int(s); n != 0 {
-			ids = append(ids, php.Str(n))
+		if n := conv.Int(s); n != 0 {
+			ids = append(ids, conv.Str(n))
 		}
 	}
 	s, par := scope(c.MustUser(), "t")

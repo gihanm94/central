@@ -8,9 +8,9 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/kpisub"
-	"acme/internal/php"
 )
 
 /*
@@ -120,9 +120,9 @@ func periodsOf(period string, upTo int) []periodDef {
 		label := time.Month(start).String()[:3]
 		switch period {
 		case "quarter":
-			label = "Q" + php.Str((start-1)/3+1)
+			label = "Q" + conv.Str((start-1)/3+1)
 		case "half":
-			label = "H" + php.Str((start-1)/6+1)
+			label = "H" + conv.Str((start-1)/6+1)
 		case "year":
 			label = "Year"
 		}
@@ -435,17 +435,17 @@ func cleanInputs(raw map[string]any) map[string]any {
 		}
 		switch {
 		case k == "note":
-			out[k] = php.Substr(strings.TrimSpace(php.Str(v)), 0, 2000)
+			out[k] = conv.Substr(strings.TrimSpace(conv.Str(v)), 0, 2000)
 		case k == "severe":
-			if !php.Empty(v) {
+			if !conv.Empty(v) {
 				out[k] = 1
 			} else {
 				out[k] = 0
 			}
-		case v == nil || php.Str(v) == "":
+		case v == nil || conv.Str(v) == "":
 			out[k] = inputDefaults[k]
 		default:
-			out[k] = math.Max(0, math.Min(1e9, php.Float(v)))
+			out[k] = math.Max(0, math.Min(1e9, conv.Float(v)))
 		}
 	}
 	if out["leader"] != nil {
@@ -480,10 +480,10 @@ type calcRes struct {
 }
 
 func nullF(v any) *float64 {
-	if v == nil || php.Str(v) == "" {
+	if v == nil || conv.Str(v) == "" {
 		return nil
 	}
-	return fp(php.Float(v))
+	return fp(conv.Float(v))
 }
 
 // calculate: everything for one person and year, up to upTo: KPI results from approved submissions, on-time months,
@@ -492,8 +492,8 @@ func calculate(userID, year, upTo int, group string, in map[string]any) calcRes 
 	if _, ok := points[group]; !ok {
 		group = "bu"
 	}
-	first := time.Date(year, 1, 1, 0, 0, 0, 0, php.Loc).Format("2006-01-02")
-	last := time.Date(year, time.Month(upTo)+1, 0, 0, 0, 0, 0, php.Loc).Format("2006-01-02")
+	first := time.Date(year, 1, 1, 0, 0, 0, 0, conv.Loc).Format("2006-01-02")
+	last := time.Date(year, time.Month(upTo)+1, 0, 0, 0, 0, 0, conv.Loc).Format("2006-01-02")
 	kpis := db.Select(`SELECT id, title, kind, criteria, direction, measure, period, weight, period_start, period_end FROM kpis
             WHERE user_id = ? AND deleted_at IS NULL AND status <> 'archived' AND period_start <= ?::date AND period_end >= ?::date ORDER BY kind, title`, userID, last, first)
 	subs := db.Select(`SELECT s.id, s.kpi_id, s.period_month, s.finished, s.total, s.percentage, s.approved_at,
@@ -536,8 +536,8 @@ func calculate(userID, year, upTo int, group string, in map[string]any) calcRes 
 	submitter := map[int]float64{}
 	for m := 1; m <= upTo; m++ {
 		due := kpisub.DueDate(year, m)
-		mEnd := time.Date(year, time.Month(m)+1, 0, 0, 0, 0, 0, php.Loc).Format("2006-01-02")
-		mStart := time.Date(year, time.Month(m), 1, 0, 0, 0, 0, php.Loc).Format("2006-01-02")
+		mEnd := time.Date(year, time.Month(m)+1, 0, 0, 0, 0, 0, conv.Loc).Format("2006-01-02")
+		mStart := time.Date(year, time.Month(m), 1, 0, 0, 0, 0, conv.Loc).Format("2006-01-02")
 		var active []db.Row
 		for _, k := range kpis {
 			if k.Str("period_start") <= mEnd && k.Str("period_end") >= mStart {
@@ -574,7 +574,7 @@ func calculate(userID, year, upTo int, group string, in map[string]any) calcRes 
 		var at time.Time
 		switch {
 		case !a.Nil("approved_at"):
-			at, _ = php.ParseTime(php.Substr(a.Str("approved_at"), 0, 10))
+			at, _ = conv.ParseTime(conv.Substr(a.Str("approved_at"), 0, 10))
 		case today.After(by):
 			at = today
 		default:
@@ -617,7 +617,7 @@ func calculate(userID, year, upTo int, group string, in map[string]any) calcRes 
 // inputsMap reads saved inputs (JSON text) into a plain map.
 func inputsMap(raw any) map[string]any {
 	out := map[string]any{}
-	if s := php.Str(raw); s != "" {
+	if s := conv.Str(raw); s != "" {
 		if v, err := config.Decode([]byte(s)); err == nil {
 			for k, x := range asMap(v) {
 				out[k] = x

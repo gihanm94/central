@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // A lead is the company / account. Contacts, opportunities and activities hang off it (LeadController).
@@ -101,18 +101,18 @@ func init() {
 	r.Columns = func(c *app.Ctx) []app.Column {
 		return []app.Column{
 			{Key: "name_en", Label: c.T("Name"), Primary: true, Sort: "t.name_en", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(uiPerson(c, r.Str("name_en"), php.OrStr(r.Str("name_th"), r.Str("code")), r.Str("image"), "/crm/leads/"+r.Str("id"), ""))
+				return h(uiPerson(c, r.Str("name_en"), conv.OrStr(r.Str("name_th"), r.Str("code")), r.Str("image"), "/crm/leads/"+r.Str("id"), ""))
 			}},
-			{Key: "code", Label: c.T("Code"), Sort: "t.code", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(php.Coalesce(r["code"], "—"))) }},
+			{Key: "code", Label: c.T("Code"), Sort: "t.code", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(conv.Coalesce(r["code"], "—"))) }},
 			{Key: "industries", Label: c.T("Industries"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				l, _ := r["industry_list"].([]app.M)
 				return h(uiChips(l))
 			}},
 			{Key: "phone", Label: c.T("Phone"), Sort: "t.phone", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(app.E(php.OrStr(r.Str("phone"), r.Str("mobile"), "—")))
+				return h(app.E(conv.OrStr(r.Str("phone"), r.Str("mobile"), "—")))
 			}},
 			{Key: "place", Label: c.T("Location"), Sort: "t.city", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(app.E(php.OrStr(joinNonEmpty(", ", r.Str("city"), r.Str("country")), "—")))
+				return h(app.E(conv.OrStr(joinNonEmpty(", ", r.Str("city"), r.Str("country")), "—")))
 			}},
 			createdColumn(c),
 		}
@@ -177,11 +177,11 @@ func init() {
 		for _, k := range []string{"industries", "lead_sources"} {
 			valid := map[int]bool{}
 			for _, v := range db.On("crm").Column("SELECT id FROM " + k) {
-				valid[php.Int(v)] = true
+				valid[conv.Int(v)] = true
 			}
 			var list []int
 			for _, v := range app.InList(data.Get(k)) {
-				if n := php.Int(v); valid[n] {
+				if n := conv.Int(v); valid[n] {
 					list = append(list, n)
 				}
 			}
@@ -211,11 +211,11 @@ func init() {
 				}
 				ids := db.On("crm").Column(sql+" LIMIT 2", params...)
 				if len(ids) == 1 {
-					data.Set("company_id", php.Int(ids[0]))
+					data.Set("company_id", conv.Int(ids[0]))
 				}
 			}
-		} else if data.Int("company_id") != 0 && php.Empty(data.Get("parent_company")) {
-			data.Set("parent_company", php.Or(db.On("crm").Scalar("SELECT name_en FROM leads WHERE id = ?", data.Int("company_id")), nil)) // import by parent id / name
+		} else if data.Int("company_id") != 0 && conv.Empty(data.Get("parent_company")) {
+			data.Set("parent_company", conv.Or(db.On("crm").Scalar("SELECT name_en FROM leads WHERE id = ?", data.Int("company_id")), nil)) // import by parent id / name
 		}
 		// Sector and registration status are two choices in the form, two yes / no columns in the table
 		if data.Get("sector") != nil {
@@ -253,11 +253,11 @@ func init() {
 		var b []string
 		il, _ := r["industry_list"].([]app.M)
 		for _, i := range il {
-			b = append(b, uiChip(php.Str(i["name"]), php.Str(i["color"])))
+			b = append(b, uiChip(conv.Str(i["name"]), conv.Str(i["color"])))
 		}
 		sl, _ := r["source_list"].([]app.M)
 		for _, x := range sl {
-			b = append(b, uiChip(c.T("Source")+": "+php.Str(x["name"]), php.Str(x["color"])))
+			b = append(b, uiChip(c.T("Source")+": "+conv.Str(x["name"]), conv.Str(x["color"])))
 		}
 		if r.Bool("is_government") {
 			b = append(b, uiBadge(c.T("Government"), "violet"))
@@ -302,7 +302,7 @@ func leadLogo(c *app.Ctx, r db.Row, size string) string {
 	if r.Str("image") != "" {
 		return `<img src="` + app.E(c.UploadURL(r["image"])) + `" alt="" class="` + size + ` shrink-0 rounded-md bg-white object-contain ring-1 ring-graphite-900/10">`
 	}
-	return `<span class="` + size + ` inline-flex shrink-0 items-center justify-center rounded-md bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(php.Initials(r.Str("name_en"))) + `</span>`
+	return `<span class="` + size + ` inline-flex shrink-0 items-center justify-center rounded-md bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(conv.Initials(r.Str("name_en"))) + `</span>`
 }
 
 // toMaps reads a hook's list of rows ([]M, []any of M, or nil).
@@ -354,7 +354,7 @@ func leadTabs(c *app.Ctx, row db.Row) []recTab {
 		}
 		return ""
 	}
-	sid := php.Str(id)
+	sid := conv.Str(id)
 	tabs := []recTab{
 		{Key: "opportunities", Label: c.T("Opportunities"), HasCount: true, Count: len(opps),
 			HTML: h(relatedPanel(c, c.T("Opportunities"), opps, create("crm_opportunities", "/crm/opportunities/create?lead_id="+sid), c.T("No opportunities yet."), c.T("Add opportunity")))},
@@ -376,14 +376,14 @@ func leadTabs(c *app.Ctx, row db.Row) []recTab {
 		t := recTab{Key: "invoices", Label: c.T("Invoices")}
 		data := app.M{"row": row, "data": nil}
 		if inv != nil {
-			t.HasCount, t.Count = true, php.Int(inv["total"])
+			t.HasCount, t.Count = true, conv.Int(inv["total"])
 			rows := toMaps(inv["rows"])
 			for _, r := range rows {
-				credit := php.Bool(r["is_credit"])
+				credit := conv.Bool(r["is_credit"])
 				r["_credit"] = credit
-				r["_ref"] = strings.Trim(php.Str(r["order_number"])+func() string {
-					if php.Str(r["customer_name"]) != "" {
-						return " · " + php.Str(r["customer_name"])
+				r["_ref"] = strings.Trim(conv.Str(r["order_number"])+func() string {
+					if conv.Str(r["customer_name"]) != "" {
+						return " · " + conv.Str(r["customer_name"])
 					}
 					return ""
 				}(), " ·")
@@ -391,9 +391,9 @@ func leadTabs(c *app.Ctx, row db.Row) []recTab {
 				if credit {
 					sign = "−"
 				}
-				r["_amount"] = sign + php.NF(php.Float(r["amount"]), 2) + " " + php.Str(r["currency_code"])
+				r["_amount"] = sign + conv.NF(conv.Float(r["amount"]), 2) + " " + conv.Str(r["currency_code"])
 			}
-			data["data"] = app.M{"rows": rows, "total": php.Int(inv["total"]), "sum": php.NF(php.Float(inv["sum"]), 2), "more": php.Int(inv["total"]) > len(rows)}
+			data["data"] = app.M{"rows": rows, "total": conv.Int(inv["total"]), "sum": conv.NF(conv.Float(inv["sum"]), 2), "more": conv.Int(inv["total"]) > len(rows)}
 		}
 		t.HTML = c.Partial("crm/panels/lead-invoices", data)
 		tabs = append(tabs, t)
@@ -413,23 +413,23 @@ func leadTabs(c *app.Ctx, row db.Row) []recTab {
 		if erp && cid == "" && c.Query("pick") == "1" {
 			choices = toMaps(accountingHook(c, "customer.by_tax", row.Str("tax_id")))
 		}
-		today := php.Today()
+		today := conv.Today()
 		for _, q := range quotes {
-			q["_expired"] = php.Str(q["valid_through_date"]) != "" && php.StrToTime(q["valid_through_date"]) < php.StrToTime(today)
-			if php.Str(q["order_number"]) != "" {
-				q["_no"] = php.Str(q["order_number"])
+			q["_expired"] = conv.Str(q["valid_through_date"]) != "" && conv.StrToTime(q["valid_through_date"]) < conv.StrToTime(today)
+			if conv.Str(q["order_number"]) != "" {
+				q["_no"] = conv.Str(q["order_number"])
 			} else {
-				q["_no"] = "#" + php.Str(q["id"])
+				q["_no"] = "#" + conv.Str(q["id"])
 			}
-			q["_seller"] = php.OrStr(php.Str(q["seller"]), php.Str(q["our_reference_name"]), "—")
+			q["_seller"] = conv.OrStr(conv.Str(q["seller"]), conv.Str(q["our_reference_name"]), "—")
 			if q["amount"] != nil {
-				q["_amount"] = php.NF(php.Float(q["amount"]), 2)
+				q["_amount"] = conv.NF(conv.Float(q["amount"]), 2)
 			} else {
 				q["_amount"] = "—"
 			}
 		}
 		for _, ch := range choices {
-			ch["_sub"] = joinNonEmpty(" · ", php.Str(ch["code"]), "#"+php.Str(ch["id"]), c.T(":n invoices", "n", ch["invoices"]), c.T(":n quotes", "n", ch["quotes"]))
+			ch["_sub"] = joinNonEmpty(" · ", conv.Str(ch["code"]), "#"+conv.Str(ch["id"]), c.T(":n invoices", "n", ch["invoices"]), c.T(":n quotes", "n", ch["quotes"]))
 		}
 		qt := recTab{Key: "quotes", Label: c.T("Quotes")}
 		if hasQuotes {
@@ -447,7 +447,7 @@ func leadTabs(c *app.Ctx, row db.Row) []recTab {
 func leadErpConnect(c *app.Ctx) {
 	id := c.ParamInt("id")
 	row := leads.res.FindForChange(c, id, "edit")
-	back := "/crm/leads/" + php.Str(id)
+	back := "/crm/leads/" + conv.Str(id)
 	if !app.ModuleUsable("accounting") {
 		c.Back("error", c.T("The ERP data is not available right now (the Accounting module is off or unavailable)."))
 	}
@@ -458,7 +458,7 @@ func leadErpConnect(c *app.Ctx) {
 	if pick := c.Input("customer_id"); pick != "" {
 		var only []app.M
 		for _, f := range found {
-			if php.Str(f["id"]) == pick { // only a customer with this tax ID
+			if conv.Str(f["id"]) == pick { // only a customer with this tax ID
 				only = append(only, f)
 			}
 		}
@@ -471,16 +471,16 @@ func leadErpConnect(c *app.Ctx) {
 		c.Redirect(back + "?pick=1#quotes")
 	}
 	cu := found[0]
-	db.On("crm").Update("leads", db.Cols{{Name: "erp_customer_id", Value: php.Int(cu["id"])}, {Name: "erp_customer_name", Value: cu["name"]}, {Name: "erp_connected_at", Value: php.NowString()},
-		{Name: "erp_connected_by", Value: c.MustUser().ID}, {Name: "updated_at", Value: php.NowString()}}, db.Cols{{Name: "id", Value: id}})
+	db.On("crm").Update("leads", db.Cols{{Name: "erp_customer_id", Value: conv.Int(cu["id"])}, {Name: "erp_customer_name", Value: cu["name"]}, {Name: "erp_connected_at", Value: conv.NowString()},
+		{Name: "erp_connected_by", Value: c.MustUser().ID}, {Name: "updated_at", Value: conv.NowString()}}, db.Cols{{Name: "id", Value: id}})
 	code := ""
-	if php.Str(cu["code"]) != "" {
-		code = php.Str(cu["code"]) + " "
+	if conv.Str(cu["code"]) != "" {
+		code = conv.Str(cu["code"]) + " "
 	}
 	label := leads.label(c, row)
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "lead", ID: id, Label: label, Text: `Connected lead ":label" to ERP customer :customer`,
-		Params: []any{"label", label, "customer", strings.TrimSpace(code + php.Str(cu["name"]))},
-		Props:  app.M{"changes": app.M{"erp_customer": app.M{"from": row.Str("erp_customer_name"), "to": php.Str(cu["name"]) + " (#" + php.Str(cu["id"]) + ")"}}, "_url": c.URL(back)},
+		Params: []any{"label", label, "customer", strings.TrimSpace(code + conv.Str(cu["name"]))},
+		Props:  app.M{"changes": app.M{"erp_customer": app.M{"from": row.Str("erp_customer_name"), "to": conv.Str(cu["name"]) + " (#" + conv.Str(cu["id"]) + ")"}}, "_url": c.URL(back)},
 		Owner:  row.Int("owner_id"), NoNotify: true, Module: "crm"})
 	c.Flash("success", c.T("Connected to :name. Its quotes are shown below.", "name", cu["name"]))
 	c.Redirect(back + "#quotes")
@@ -490,11 +490,11 @@ func leadErpDisconnect(c *app.Ctx) {
 	id := c.ParamInt("id")
 	row := leads.res.FindForChange(c, id, "edit")
 	db.On("crm").Update("leads", db.Cols{{Name: "erp_customer_id", Value: nil}, {Name: "erp_customer_name", Value: nil}, {Name: "erp_connected_at", Value: nil}, {Name: "erp_connected_by", Value: nil},
-		{Name: "updated_at", Value: php.NowString()}}, db.Cols{{Name: "id", Value: id}})
+		{Name: "updated_at", Value: conv.NowString()}}, db.Cols{{Name: "id", Value: id}})
 	label := leads.label(c, row)
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "lead", ID: id, Label: label, Text: `Disconnected lead ":label" from its ERP customer`,
 		Params: []any{"label", label}, Props: app.M{"changes": app.M{"erp_customer": app.M{"from": row.Str("erp_customer_name"), "to": ""}}},
 		Owner: row.Int("owner_id"), NoNotify: true, Module: "crm"})
 	c.Flash("success", c.T("Disconnected from the ERP customer."))
-	c.Redirect("/crm/leads/" + php.Str(id) + "#quotes")
+	c.Redirect("/crm/leads/" + conv.Str(id) + "#quotes")
 }

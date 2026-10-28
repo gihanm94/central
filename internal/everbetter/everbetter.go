@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // KindKeys / Kinds: what a presentation is (KINDS).
@@ -48,7 +48,7 @@ func VisibleSQL(u *app.CurrentUser, alias string) (string, []any) {
 }
 
 func likeOf(q string) string {
-	return "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(php.Substr(q, 0, 100)) + "%"
+	return "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(conv.Substr(q, 0, 100)) + "%"
 }
 
 // Projects with their members and latest presentation. f: q, status.
@@ -86,7 +86,7 @@ func WithMembers(rows []db.Row) []db.Row {
 	}
 	ids := make([]string, len(rows))
 	for i, r := range rows {
-		ids[i] = php.Str(r.Int("id"))
+		ids[i] = conv.Str(r.Int("id"))
 	}
 	all := db.Select(`SELECT m.project_id, u.id, u.name, u.avatar FROM everbetter_members m JOIN users u ON u.id = m.user_id
                            WHERE m.project_id IN (` + strings.Join(ids, ",") + `) ORDER BY u.name`)
@@ -160,7 +160,7 @@ func SetMembers(projectID int, memberIDs []int) {
 	for _, id := range memberIDs {
 		if id != 0 && !seen[id] {
 			seen[id] = true
-			ids = append(ids, php.Str(id))
+			ids = append(ids, conv.Str(id))
 		}
 	}
 	var valid []int
@@ -179,9 +179,9 @@ func SetMembers(projectID int, memberIDs []int) {
 
 // QuarterOf is the year and quarter of a date ("" = today).
 func QuarterOf(date string) (int, int) {
-	t := php.Now()
+	t := conv.Now()
 	if date != "" {
-		t = php.Unix(php.StrToTime(date))
+		t = conv.Unix(conv.StrToTime(date))
 	}
 	return t.Year(), (int(t.Month())-1)/3 + 1
 }
@@ -224,9 +224,9 @@ func StateOf(c *app.Ctx, x db.Row) (string, string) {
 	switch {
 	case x.Str("status") == "withdrawn":
 		return c.T("Withdrawn"), "bg-graphite-900/6 text-steel"
-	case php.Str(x["result"]) == "approved":
+	case conv.Str(x["result"]) == "approved":
 		return c.T("Approved"), "bg-emerald-50 text-emerald-800"
-	case php.Str(x["result"]) == "rejected":
+	case conv.Str(x["result"]) == "rejected":
 		return c.T("Not approved"), "bg-signal-50 text-signal-800"
 	case x.Str("status") == "acknowledged":
 		return c.T("Accepted by Management"), "bg-sky-50 text-sky-800"
@@ -240,12 +240,12 @@ func noteOrNil(note string) any {
 	if strings.TrimSpace(note) == "" {
 		return nil
 	}
-	return php.Substr(strings.TrimSpace(note), 0, 4000)
+	return conv.Substr(strings.TrimSpace(note), 0, 4000)
 }
 
 // Request asks to present on a day.
 func Request(c *app.Ctx, u *app.CurrentUser, p db.Row, sessionID int, kind, newEnd, note string) int {
-	if !php.InList(kind, AllowedKinds(p)...) {
+	if !conv.InList(kind, AllowedKinds(p)...) {
 		if p.Str("status") == "approved" {
 			app.Invalid("kind", c.T("An approved project can present its closure or ask to extend its time."))
 		}
@@ -377,7 +377,7 @@ func tell(c *app.Ctx, x db.Row, title, body app.M, actor int) {
 		}
 		seen[uid] = true
 		if uid != actor {
-			app.Deliver(c, "core", "updated", uid, title, body, c.URL("/everbetter/"+php.Str(x.Int("project_id"))), actor)
+			app.Deliver(c, "core", "updated", uid, title, body, c.URL("/everbetter/"+conv.Str(x.Int("project_id"))), actor)
 		}
 	}
 }

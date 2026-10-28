@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -59,7 +59,7 @@ func jobsTick(c *app.Ctx, force bool, at *time.Time) []string {
 		}
 	}
 	touch(stampFile)
-	now := php.Now()
+	now := conv.Now()
 	if at != nil {
 		now = *at
 	}
@@ -143,11 +143,11 @@ func touch(p string) {
 }
 
 func lastJob(name string) int64 {
-	return php.StrToTime(mdb().Scalar("SELECT value FROM job_state WHERE key = ?", name))
+	return conv.StrToTime(mdb().Scalar("SELECT value FROM job_state WHERE key = ?", name))
 }
 
 func markJob(name string, at time.Time) {
-	mdb().Exec("INSERT INTO job_state (key, value, updated_at) VALUES (?, ?, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()", name, php.Date("c", at))
+	mdb().Exec("INSERT INTO job_state (key, value, updated_at) VALUES (?, ?, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()", name, conv.Date("c", at))
 }
 
 // resetItems: questions that came due today start again.
@@ -176,12 +176,12 @@ func autoRecord(c *app.Ctx, period string, from, to time.Time) int {
 	machines := mdb().Select("SELECT * FROM machine WHERE deleted_at IS NULL AND reset_period = ? AND check_status = 'PENDING' AND responsible_person_id IS NOT NULL AND machine_status IN ("+activeIn()+")", period)
 	for _, m := range machines {
 		if mdb().Scalar("SELECT 1 FROM checklist_record WHERE machine_code = ? AND created_by = ? AND recheck AND check_type = 'GENERAL' AND created_at BETWEEN ? AND ?",
-			m["machine_code"], m["responsible_person_id"], php.Date("c", from), php.Date("c", to)) != nil {
+			m["machine_code"], m["responsible_person_id"], conv.Date("c", from), conv.Date("c", to)) != nil {
 			continue
 		}
 		who := db.First("SELECT name, email FROM users WHERE id = ?", m["responsible_person_id"])
 		status := "PENDING MANAGER"
-		if !php.Empty(m["supervisor_id"]) {
+		if !conv.Empty(m["supervisor_id"]) {
 			status = "PENDING SUPERVISOR"
 		}
 		var email, name any = nil, m["responsible_person_name"]
@@ -217,7 +217,7 @@ func autoRecord(c *app.Ctx, period string, from, to time.Time) int {
 
 // remind: maintenance and calibration due within 30 days (or already late), one message per person.
 func remind(c *app.Ctx, managers bool) int {
-	limit := php.Date("Y-m-d", php.Now().AddDate(0, 0, 30))
+	limit := conv.Date("Y-m-d", conv.Now().AddDate(0, 0, 30))
 	type bucket struct {
 		uid  int
 		kind string
@@ -242,7 +242,7 @@ func remind(c *app.Ctx, managers bool) int {
 			}
 			seen := map[int]bool{}
 			for _, p := range ppl {
-				uid := php.Int(p)
+				uid := conv.Int(p)
 				if uid == 0 || seen[uid] {
 					continue
 				}
@@ -261,7 +261,7 @@ func remind(c *app.Ctx, managers bool) int {
 		}
 	}
 	sent := 0
-	today := php.Today()
+	today := conv.Today()
 	for _, uid := range uids {
 		for _, kind := range []string{"maintenance", "calibration"} {
 			b := per[fmt.Sprintf("%d|%s", uid, kind)]
@@ -287,7 +287,7 @@ func remind(c *app.Ctx, managers bool) int {
 			if kind == "maintenance" {
 				key = ":n machines need maintenance soon"
 			}
-			app.Deliver(c, "machines", "reminder", uid, app.Text(key, "n", php.Str(len(b.rows))), app.Text(":list", "list", list), c.URL("/machines/"+kind), 0)
+			app.Deliver(c, "machines", "reminder", uid, app.Text(key, "n", conv.Str(len(b.rows))), app.Text(":list", "list", list), c.URL("/machines/"+kind), 0)
 			sent++
 		}
 	}
@@ -299,16 +299,16 @@ func remind(c *app.Ctx, managers bool) int {
 func nextYear(year int) int {
 	next := year + 1
 	n := 0
-	if mdb().Scalar("SELECT 1 FROM maintenance_record WHERE years = ? LIMIT 1", php.Str(next)) == nil {
-		for _, r := range mdb().Select("SELECT r.* FROM maintenance_record r JOIN machine m ON m.machine_code = r.machine_code WHERE r.years = ? AND NOT r.is_canceled AND m.deleted_at IS NULL AND m.machine_status IN ("+activeIn()+")", php.Str(year)) {
-			mdb().Insert("maintenance_record", db.Cols{{Name: "machine_code", Value: r["machine_code"]}, {Name: "machine_name", Value: r["machine_name"]}, {Name: "years", Value: php.Str(next)}, {Name: "round", Value: r["round"]},
+	if mdb().Scalar("SELECT 1 FROM maintenance_record WHERE years = ? LIMIT 1", conv.Str(next)) == nil {
+		for _, r := range mdb().Select("SELECT r.* FROM maintenance_record r JOIN machine m ON m.machine_code = r.machine_code WHERE r.years = ? AND NOT r.is_canceled AND m.deleted_at IS NULL AND m.machine_status IN ("+activeIn()+")", conv.Str(year)) {
+			mdb().Insert("maintenance_record", db.Cols{{Name: "machine_code", Value: r["machine_code"]}, {Name: "machine_name", Value: r["machine_name"]}, {Name: "years", Value: conv.Str(next)}, {Name: "round", Value: r["round"]},
 				{Name: "note", Value: r["note"]}, {Name: "maintenance_type", Value: r["maintenance_type"]}, {Name: "due_date", Value: shiftYear(r["due_date"], next)}, {Name: "plan_date", Value: shiftYear(r["plan_date"], next)}})
 			n++
 		}
 	}
-	if mdb().Scalar("SELECT 1 FROM calibration_record WHERE years = ? LIMIT 1", php.Str(next)) == nil {
-		for _, r := range mdb().Select("SELECT r.* FROM calibration_record r JOIN machine m ON m.machine_code = r.machine_code WHERE r.years = ? AND NOT r.is_canceled AND m.deleted_at IS NULL AND m.machine_status IN ("+activeIn()+")", php.Str(year)) {
-			mdb().Insert("calibration_record", db.Cols{{Name: "machine_code", Value: r["machine_code"]}, {Name: "machine_name", Value: r["machine_name"]}, {Name: "years", Value: php.Str(next)}, {Name: "due_date", Value: shiftYear(r["due_date"], next)},
+	if mdb().Scalar("SELECT 1 FROM calibration_record WHERE years = ? LIMIT 1", conv.Str(next)) == nil {
+		for _, r := range mdb().Select("SELECT r.* FROM calibration_record r JOIN machine m ON m.machine_code = r.machine_code WHERE r.years = ? AND NOT r.is_canceled AND m.deleted_at IS NULL AND m.machine_status IN ("+activeIn()+")", conv.Str(year)) {
+			mdb().Insert("calibration_record", db.Cols{{Name: "machine_code", Value: r["machine_code"]}, {Name: "machine_name", Value: r["machine_name"]}, {Name: "years", Value: conv.Str(next)}, {Name: "due_date", Value: shiftYear(r["due_date"], next)},
 				{Name: "criteria", Value: r["criteria"]}, {Name: "measuring_range", Value: r["measuring_range"]}, {Name: "accuracy", Value: r["accuracy"]}, {Name: "calibration_range", Value: r["calibration_range"]}, {Name: "permissible_capacity", Value: r["permissible_capacity"]},
 				{Name: "resolution", Value: r["resolution"]}, {Name: "max_uncertainty", Value: r["max_uncertainty"]}, {Name: "mpe", Value: r["mpe"]}, {Name: "note", Value: r["note"]}})
 			n++
@@ -319,11 +319,11 @@ func nextYear(year int) int {
 
 // shiftYear: same month and day in another year (29 Feb → 28 Feb); nil stays nil.
 func shiftYear(v any, year int) any {
-	s := php.Str(v)
-	if php.Empty(v) || len(s) < 10 {
+	s := conv.Str(v)
+	if conv.Empty(v) || len(s) < 10 {
 		return nil
 	}
-	m, d := php.Int(s[5:7]), php.Int(s[8:10])
+	m, d := conv.Int(s[5:7]), conv.Int(s[8:10])
 	days := time.Date(year, time.Month(m)+1, 0, 0, 0, 0, 0, time.UTC).Day()
 	return fmt.Sprintf("%04d-%02d-%02d", year, m, min(d, days))
 }

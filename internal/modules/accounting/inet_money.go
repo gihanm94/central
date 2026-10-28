@@ -14,7 +14,7 @@ func moneyR(v float64, p int) float64 {
 	} else {
 		v += 1e-9
 	}
-	return phpRound(v*f, 0) / f
+	return roundHalf(v*f, 0) / f
 }
 
 func r2(v float64) float64 { return moneyR(v, 2) }
@@ -42,7 +42,7 @@ func moneyWords(amount float64, cur string, thai bool) string {
 	}
 	abs := math.Abs(r2(amount))
 	main := int(math.Floor(abs))
-	sub := int(phpRound((abs-float64(main))*100, 0))
+	sub := int(roundHalf((abs-float64(main))*100, 0))
 	if thai {
 		if main == 0 && sub == 0 {
 			return "ศูนย์" + c[0] + "ถ้วน"

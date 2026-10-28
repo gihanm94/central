@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -182,7 +182,7 @@ func NewServer(routes func(r Router), api func(r chi.Router), installer http.Han
 			serveStatic(w, r, path, static)
 			return
 		}
-		if path == "/install" || path == "/install.php" {
+		if path == "/install" {
 			if installer != nil {
 				installer.ServeHTTP(w, r)
 				return
@@ -329,7 +329,7 @@ func handlePanic(c *Ctx, rec any) {
 			old := map[string]any{}
 			all := c.All()
 			for _, k := range all.Keys {
-				if php.InList(k, secretFields...) {
+				if conv.InList(k, secretFields...) {
 					continue
 				}
 				old[k] = plain(all.Vals[k])
@@ -348,7 +348,7 @@ func handlePanic(c *Ctx, rec any) {
 				}
 				c.JSON(M{"message": msg}, e.Status)
 			}
-			if c.Method() == http.MethodPost && php.InList(php.Str(e.Status), "403", "404", "405", "409", "419", "422", "429") && c.Sess != nil && c.User() != nil {
+			if c.Method() == http.MethodPost && conv.InList(conv.Str(e.Status), "403", "404", "405", "409", "419", "422", "429") && c.Sess != nil && c.User() != nil {
 				msg := e.Message
 				if msg == "" {
 					switch e.Status {
@@ -436,7 +436,7 @@ func escapeHTML(s string) string {
 
 var logMu sync.Mutex
 
-// LogError appends to storage/logs/php-error.log in PHP's error_log format (System logs reads it).
+// LogError appends to storage/logs/error.log in PHP's error_log format (System logs reads it).
 func LogError(c *Ctx, err error, stack []byte) {
 	msg := err.Error()
 	if len(stack) > 0 {
@@ -451,14 +451,14 @@ func WriteErrorLog(msg string) {
 	defer logMu.Unlock()
 	dir := filepath.Join(BasePath, "storage", "logs")
 	_ = os.MkdirAll(dir, 0o775)
-	f, err := os.OpenFile(filepath.Join(dir, "php-error.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o664)
+	f, err := os.OpenFile(filepath.Join(dir, "error.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o664)
 	if err != nil {
 		log.Print(msg)
 		return
 	}
 	defer f.Close()
-	now := php.Now()
-	fmt.Fprintf(f, "[%s %s] %s\n", now.Format("02-Jan-2006 15:04:05"), php.Loc.String(), msg)
+	now := conv.Now()
+	fmt.Fprintf(f, "[%s %s] %s\n", now.Format("02-Jan-2006 15:04:05"), conv.Loc.String(), msg)
 }
 
 // JSONBody decodes a JSON request body into v.

@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Safe image uploads into public/uploads/<folder> (App\Core\Support\Upload). Returns "folder/file.ext".
@@ -39,7 +39,7 @@ func UploadImage(c *Ctx, fh *multipart.FileHeader, folder string, maxKB int, all
 		Invalid(folder, "The upload failed. Try a smaller file.")
 	}
 	if fh.Size > int64(maxKB)*1024 {
-		Invalid(folder, "Images must be "+php.NumberClean(float64(maxKB)/1024)+" MB or smaller.")
+		Invalid(folder, "Images must be "+conv.NumberClean(float64(maxKB)/1024)+" MB or smaller.")
 	}
 	f, err := fh.Open()
 	if err != nil {
@@ -87,7 +87,7 @@ var editorFile = regexp.MustCompile(`^editor/[a-f0-9]{24}\.(png|jpg|webp|gif)$`)
 func EditorImagesIn(html any) []string {
 	seen := map[string]bool{}
 	var out []string
-	for _, m := range editorRef.FindAllStringSubmatch(php.Str(html), -1) {
+	for _, m := range editorRef.FindAllStringSubmatch(conv.Str(html), -1) {
 		f := strings.ToLower(m[1])
 		if !seen[f] {
 			seen[f] = true

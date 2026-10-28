@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Store (Erp\Store) saves ERP rows into the erp_* tables (insert, or update when the id is already there).
@@ -120,7 +120,7 @@ func storeValue(typ string, v any) any {
 	switch typ {
 	case "int":
 		if isNumeric(v) {
-			return php.Int(numStr(v))
+			return conv.Int(numStr(v))
 		}
 		return nil
 	case "num":
@@ -146,7 +146,7 @@ func numStr(v any) string {
 	if n, ok := v.(json.Number); ok {
 		return n.String()
 	}
-	return php.Str(v)
+	return conv.Str(v)
 }
 
 // valStr is (string) $v.
@@ -160,7 +160,7 @@ func valStr(v any) string {
 		}
 		return ""
 	}
-	return php.Str(v)
+	return conv.Str(v)
 }
 
 var erpDateRe = regexp.MustCompile(`^(\d{4})-\d{2}-\d{2}`)
@@ -168,10 +168,10 @@ var erpDateRe = regexp.MustCompile(`^(\d{4})-\d{2}-\d{2}`)
 // storeDate: the ERP uses 0001-01-01 for "no date".
 func storeDate(v string) any {
 	m := erpDateRe.FindStringSubmatch(v)
-	if m == nil || php.Int(m[1]) < 1900 {
+	if m == nil || conv.Int(m[1]) < 1900 {
 		return nil
 	}
-	if _, ok := php.ParseTime(v); !ok {
+	if _, ok := conv.ParseTime(v); !ok {
 		return nil
 	}
 	return v
@@ -191,7 +191,7 @@ func storeUpsert(entity string, rows []*erpRow, overwrite bool) int {
 	byID := map[string]int{}
 	var uniq []*erpRow
 	for _, r := range rows {
-		k := php.Str(r.vals["id"])
+		k := conv.Str(r.vals["id"])
 		if i, ok := byID[k]; ok {
 			uniq[i] = r
 			continue

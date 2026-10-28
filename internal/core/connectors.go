@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // Connectors (ConnectorController): the administrator enters the Google OAuth client once; each person connects their
@@ -98,7 +98,7 @@ func pickQuery(c *app.Ctx, keys ...string) string {
 		k, v, _ := strings.Cut(part, "=")
 		k, _ = url.QueryUnescape(k)
 		v, _ = url.QueryUnescape(v)
-		if !php.InList(k, keys...) {
+		if !conv.InList(k, keys...) {
 			continue
 		}
 		if !seen[k] {
@@ -116,19 +116,19 @@ func pickQuery(c *app.Ctx, keys ...string) string {
 
 func connectorsCallback(c *app.Ctx) {
 	u := c.MustUser()
-	forward := php.Str(c.Sess.Get("google_forward"))
+	forward := conv.Str(c.Sess.Get("google_forward"))
 	if forward != "" { // a module's own Google sign-in (see google.ForwardTo)
 		c.Sess.Delete("google_forward")
 		if strings.HasPrefix(forward, "/") && !strings.HasPrefix(forward, "//") {
 			c.Redirect(forward + "?" + pickQuery(c, "code", "state", "error"))
 		}
 	}
-	back := map[string]string{"mail": "/mail", "calendar": "/calendar"}[php.Str(c.Sess.Get("google_back"))]
+	back := map[string]string{"mail": "/mail", "calendar": "/calendar"}[conv.Str(c.Sess.Get("google_back"))]
 	if back == "" {
 		back = "/profile/connectors"
 	}
 	state := c.Query("state", "")
-	saved := php.Str(c.Sess.Get("google_state"))
+	saved := conv.Str(c.Sess.Get("google_state"))
 	if state == "" || subtle.ConstantTimeCompare([]byte(saved), []byte(state)) != 1 {
 		c.Flash("error", c.T("The Google sign-in could not be checked. Try again."))
 		c.Redirect("/profile/connectors")

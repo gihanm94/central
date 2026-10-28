@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Values that come from other modules' hooks keep PHP's array keys but may be M, db.Row, *config.Map or lists of
@@ -128,7 +128,7 @@ func values(v any) []any {
 	return out
 }
 
-func f(v any) float64 { return php.Float(v) }
-func n(v any) int     { return php.Int(v) }
+func f(v any) float64 { return conv.Float(v) }
+func n(v any) int     { return conv.Int(v) }
 
 func rawHTML(s string) template.HTML { return template.HTML(s) }

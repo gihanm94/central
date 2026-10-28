@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Industries, lead sources, products and currencies: simple lists the whole CRM draws from.
@@ -38,7 +38,7 @@ func lookup(res *app.Resource, unique string, fields func(c *app.Ctx, row db.Row
 	res.TopExtra = func(c *app.Ctx) template.HTML { return c.Partial("partials/tabs", app.M{"tabs": settingsTabs(c)}) }
 	if res.Label == nil {
 		res.Label = func(c *app.Ctx, row db.Row) string {
-			return php.OrStr(row.Str("name"), row.Str("code"), "#"+row.Str("id"))
+			return conv.OrStr(row.Str("name"), row.Str("code"), "#"+row.Str("id"))
 		}
 	}
 	prev := res.Prepare
@@ -157,7 +157,7 @@ var currencies = lookup(&app.Resource{Resource: "crm_settings", Table: "currenci
 				return h(out)
 			}},
 			{Key: "rate", Label: c.T("Rate to base"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				s := strings.TrimRight(strings.TrimRight(php.NF(r.Float("rate_to_base"), 6), "0"), ".")
+				s := strings.TrimRight(strings.TrimRight(conv.NF(r.Float("rate_to_base"), 6), "0"), ".")
 				return h(`<span class="tabular-nums">` + app.E(s) + `</span>`)
 			}},
 		}
@@ -183,7 +183,7 @@ var currencies = lookup(&app.Resource{Resource: "crm_settings", Table: "currenci
 				app.Invalid("code", c.T("Use three letters, e.g. USD."))
 			}
 		}
-		if data.Get("rate_to_base") != nil && php.Float(data.Get("rate_to_base")) <= 0 {
+		if data.Get("rate_to_base") != nil && conv.Float(data.Get("rate_to_base")) <= 0 {
 			app.Invalid("rate_to_base", c.T("The rate must be more than zero."))
 		}
 		if data.Bool("is_base") {
@@ -208,5 +208,5 @@ func settingsHome(c *app.Ctx) {
 	if len(tabs) == 0 {
 		app.Abort(http.StatusForbidden, c.T("You do not have access to CRM settings."))
 	}
-	c.Redirect(php.Str(tabs[0][0]))
+	c.Redirect(conv.Str(tabs[0][0]))
 }

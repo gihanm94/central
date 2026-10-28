@@ -7,9 +7,9 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/oil"
-	"acme/internal/php"
 )
 
 // Dashboards (DashboardController): /dashboard picks the person's dashboard, My workspace and the control room.
@@ -82,9 +82,9 @@ func DashboardsFor(c *app.Ctx, u *app.CurrentUser) []ModuleBoards {
 
 // wsPeriod: the period the control room shows: from, to (inclusive), preset key. Default: this month.
 func wsPeriod(c *app.Ctx) (time.Time, time.Time, string) {
-	n := php.Now()
-	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, php.Loc)
-	first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, php.Loc)
+	n := conv.Now()
+	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, conv.Loc)
+	first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, conv.Loc)
 	key := c.Query("range", "month")
 	from, to := first, today
 	switch key {
@@ -99,10 +99,10 @@ func wsPeriod(c *app.Ctx) (time.Time, time.Time, string) {
 	case "last_month":
 		from, to = first.AddDate(0, -1, 0), first.AddDate(0, 0, -1)
 	case "year":
-		from = time.Date(today.Year(), 1, 1, 0, 0, 0, 0, php.Loc)
+		from = time.Date(today.Year(), 1, 1, 0, 0, 0, 0, conv.Loc)
 	case "custom":
-		f, e1 := time.ParseInLocation("2006-01-02", c.Query("from"), php.Loc)
-		t, e2 := time.ParseInLocation("2006-01-02", c.Query("to"), php.Loc)
+		f, e1 := time.ParseInLocation("2006-01-02", c.Query("from"), conv.Loc)
+		t, e2 := time.ParseInLocation("2006-01-02", c.Query("to"), conv.Loc)
 		if e1 == nil && e2 == nil {
 			from, to = f, t
 			if t.Before(f) {
@@ -162,7 +162,7 @@ func dashboardAdmin(c *app.Ctx) {
 	from, to, rng := wsPeriod(c)
 	tzName := config.String("app.timezone", "Asia/Bangkok")
 	days := wsDays(from, to) + 1
-	dept := php.Int(c.Query("department", "0"))
+	dept := conv.Int(c.Query("department", "0"))
 	unit := "month"
 	if days <= 62 {
 		unit = "day"
@@ -212,7 +212,7 @@ func dashboardAdmin(c *app.Ctx) {
 	}
 	now := figures(wSQL, wPar)
 	prev := figures(pSQL, pPar)
-	members := php.Int(db.Scalar("SELECT COUNT(*) FROM users u WHERE u.deleted_at IS NULL AND u.is_active "+onlyDept, dp...))
+	members := conv.Int(db.Scalar("SELECT COUNT(*) FROM users u WHERE u.deleted_at IS NULL AND u.is_active "+onlyDept, dp...))
 
 	// sign-ins per bucket and department (stacked chart)
 	rows := db.Select(`SELECT to_char(date_trunc('`+unit+`', l.created_at AT TIME ZONE '`+tzName+`'), 'YYYY-MM-DD') AS b, COALESCE(u.department_id, 0) AS d, COUNT(*) AS n
@@ -225,7 +225,7 @@ func dashboardAdmin(c *app.Ctx) {
 		wd := (int(cur.Weekday()) + 6) % 7 // Monday = 0
 		cur = cur.AddDate(0, 0, -wd)
 	case "month":
-		cur = time.Date(cur.Year(), cur.Month(), 1, 0, 0, 0, 0, php.Loc)
+		cur = time.Date(cur.Year(), cur.Month(), 1, 0, 0, 0, 0, conv.Loc)
 	}
 	for !cur.After(to) {
 		buckets = append(buckets, cur.Format("2006-01-02"))
@@ -342,7 +342,7 @@ func dashboardAdmin(c *app.Ctx) {
 		} else if p < 0 {
 			dir = "down"
 		}
-		return sign + php.Str(p) + "%", dir
+		return sign + conv.Str(p) + "%", dir
 	}
 	tones := map[string]string{"up": "bg-emerald-50 text-emerald-700", "down": "bg-amber-50 text-amber-700", "flat": "bg-graphite-900/6 text-steel"}
 	share := 0.0
@@ -357,7 +357,7 @@ func dashboardAdmin(c *app.Ctx) {
 	}
 	defs := []tileDef{
 		{c.T("Sign-ins"), now.Int("logins"), prev.Int("logins"), c.T(":n different people", "n", now.Int("signers")), c.URL("/activity", "action", "login"), false},
-		{c.T("Active people"), now.Int("signers"), prev.Int("signers"), c.T("of :n members", "n", members) + " · " + php.Str(share) + "%", "", false},
+		{c.T("Active people"), now.Int("signers"), prev.Int("signers"), c.T("of :n members", "n", members) + " · " + conv.Str(share) + "%", "", false},
 		{c.T("Changes made"), now.Int("changes"), prev.Int("changes"), c.T("created, edited, deleted, imported …"), c.URL("/activity"), false},
 		{c.T("Failed sign-ins"), now.Int("failed"), prev.Int("failed"), c.T("wrong password or locked"), c.URL("/activity", "action", "login_failed"), true},
 	}
@@ -390,12 +390,12 @@ func dashboardAdmin(c *app.Ctx) {
 		d := r.Int("d")
 		item := app.M{
 			"pos": i + 1, "name": name(d), "color": color(d, "#9ca3af"), "total": r.Int("total"),
-			"width": php.Str(math.Max(2, float64(r.Int("total"))/float64(maxRank)*100)),
+			"width": conv.Str(math.Max(2, float64(r.Int("total"))/float64(maxRank)*100)),
 			"line":  c.T(":l sign-ins · :c changes · :p of :h people active", "l", r.Int("logins"), "c", r.Int("changes"), "p", r.Int("people"), "h", heads[d]),
 		}
 		rankView = append(rankView, item)
 		if i == 0 {
-			best = app.M{"name": name(d), "color": color(d, "#475569"), "line": c.T(":a actions · :b people", "a", php.NF(r.Int("total"), 0), "b", r.Int("people"))}
+			best = app.M{"name": name(d), "color": color(d, "#475569"), "line": c.T(":a actions · :b people", "a", conv.NF(r.Int("total"), 0), "b", r.Int("people"))}
 		}
 		if list := topBy[d]; len(list) > 0 {
 			anyTop = true
@@ -410,7 +410,7 @@ func dashboardAdmin(c *app.Ctx) {
 		d := p.Int("d")
 		peopleView = append(peopleView, app.M{
 			"pos": i + 1, "row": p, "color": color(d, "#9ca3af"), "dept": name(d),
-			"lw": php.Str(float64(p.Int("logins")) / float64(maxPeople) * 100), "cw": php.Str(float64(p.Int("changes")) / float64(maxPeople) * 100),
+			"lw": conv.Str(float64(p.Int("logins")) / float64(maxPeople) * 100), "cw": conv.Str(float64(p.Int("changes")) / float64(maxPeople) * 100),
 		})
 	}
 
@@ -427,9 +427,9 @@ func dashboardAdmin(c *app.Ctx) {
 	unitLabel := map[string]string{"day": c.T("per day"), "week": c.T("per week"), "month": c.T("per month")}[unit]
 
 	c.View("dashboard/admin", app.M{
-		"title": c.T("Control room"), "from": from, "to": to, "range": rng, "days": days, "unit": unit, "dept": php.Str(dept),
+		"title": c.T("Control room"), "from": from, "to": to, "range": rng, "days": days, "unit": unit, "dept": conv.Str(dept),
 		"deptOpts": deptOpts, "presets": presets, "sub": sub, "tiles": tiles, "unitLabel": unitLabel,
-		"loginsTotal": c.T(":count total", "count", php.NF(now.Int("logins"), 0)), "compared": c.T("compared with the :n days before", "n", days),
+		"loginsTotal": c.T(":count total", "count", conv.NF(now.Int("logins"), 0)), "compared": c.T("compared with the :n days before", "n", days),
 		"series": series, "best": best, "rank": rankView, "people": peopleView, "cards": cards, "anyTop": anyTop, "recent": recent,
 		"chart": app.M{"unit": unit, "buckets": buckets, "series": series, "hours": hours,
 			"label": app.M{"signins": c.T("sign-ins"), "hour": c.T("Hour")}},
@@ -459,7 +459,7 @@ func dashboardPersonal(c *app.Ctx) {
 	userCols := app.ScopeCols{Owner: []string{"id"}, Department: "department_id", Team: "team_id"}
 	if c.Can("members", "view") {
 		sql, par := app.ScopeSQL(u, "u", userCols)
-		figures = append(figures, figure{Label: c.T("People you can see"), Value: php.Int(db.Scalar("SELECT COUNT(*) FROM users u WHERE u.deleted_at IS NULL AND u.is_active AND "+sql, par...))})
+		figures = append(figures, figure{Label: c.T("People you can see"), Value: conv.Int(db.Scalar("SELECT COUNT(*) FROM users u WHERE u.deleted_at IS NULL AND u.is_active AND "+sql, par...))})
 	}
 	if c.Can("tasks", "view") {
 		sql, par := app.ScopeSQL(u, "t", app.ScopeCols{Owner: []string{"assigned_to", "created_by"}, Department: "department_id", Team: "team_id"})
@@ -496,7 +496,7 @@ func dashboardPersonal(c *app.Ctx) {
 	}
 
 	// This year's appraisal score so far (saved by Management → KPI calculator); not calculated yet = 0
-	year := php.Now().Year()
+	year := conv.Now().Year()
 	kpiScore := db.First("SELECT month, score, details, calculated_at FROM kpi_scores WHERE user_id = ? AND year = ?", u.ID, year)
 	score := 0.0
 	var sections []app.M
@@ -538,26 +538,26 @@ func dashboardPersonal(c *app.Ctx) {
 					continue
 				}
 				ptsV, _ := s.Get("points")
-				pts := php.Int(ptsV)
+				pts := conv.Int(ptsV)
 				if pts <= 0 {
 					continue
 				}
 				gotV, _ := s.Get("earned")
-				got := php.Float(gotV)
+				got := conv.Float(gotV)
 				label := k
 				if l, ok := secName.Get(k); ok {
-					label = php.Str(l)
+					label = conv.Str(l)
 				}
 				pct := 0
 				if pts != 0 {
 					pct = int(math.Round(got / float64(pts) * 100))
 				}
-				sections = append(sections, app.M{"label": c.T(label), "got": php.NumberClean(math.Round(got*100) / 100), "pts": pts, "pct": pct})
+				sections = append(sections, app.M{"label": c.T(label), "got": conv.NumberClean(math.Round(got*100) / 100), "pts": pts, "pct": pct})
 			}
 		}
 		dv, _ := details.Get("deduction")
-		deduction = php.Float(dv)
-		scoreNote = c.T("Calculated up to :month · :date", "month", app.FormatDate(c, php.Str(year)+"-"+wsTwoDigits(kpiScore.Int("month"))+"-01", "F"),
+		deduction = conv.Float(dv)
+		scoreNote = c.T("Calculated up to :month · :date", "month", app.FormatDate(c, conv.Str(year)+"-"+wsTwoDigits(kpiScore.Int("month"))+"-01", "F"),
 			"date", app.FormatDate(c, kpiScore["calculated_at"], "j M Y"))
 		switch {
 		case score >= 80:
@@ -575,7 +575,7 @@ func dashboardPersonal(c *app.Ctx) {
 		oilSync = oil.LastSync()
 	}
 
-	h := php.Now().Hour()
+	h := conv.Now().Hour()
 	greeting := "Good evening"
 	if h < 12 {
 		greeting = "Good morning"
@@ -594,10 +594,10 @@ func dashboardPersonal(c *app.Ctx) {
 	}
 
 	bar := map[string]string{"urgent": "bg-signal-600", "high": "bg-signal-500/70", "medium": "bg-graphite-600", "low": "bg-graphite-300"}
-	today := php.StrToTime(php.Today())
+	today := conv.StrToTime(conv.Today())
 	var tasks []app.M
 	for _, t := range myTasks {
-		pr := php.Ucfirst(t.Str("priority"))
+		pr := conv.Ucfirst(t.Str("priority"))
 		b := bar[t.Str("priority")]
 		if b == "" {
 			b = "bg-graphite-300"
@@ -605,7 +605,7 @@ func dashboardPersonal(c *app.Ctx) {
 		due := ""
 		overdue := false
 		if t.Str("due_date") != "" {
-			overdue = php.StrToTime(t["due_date"]) < today
+			overdue = conv.StrToTime(t["due_date"]) < today
 			key := "Due :date"
 			if overdue {
 				key = "Overdue, :date"
@@ -621,21 +621,21 @@ func dashboardPersonal(c *app.Ctx) {
 			pct = int(math.Round(k.Float("actual") / k.Float("target") * 100))
 		}
 		kpis = append(kpis, app.M{"title": k.Str("title"), "pct": pct,
-			"line": c.T(":actual of :target :unit · ends :date", "actual", php.NumberClean(k["actual"]), "target", php.NumberClean(k["target"]), "unit", k.Str("unit"), "date", app.FormatDate(c, k["period_end"], "d M"))})
+			"line": c.T(":actual of :target :unit · ends :date", "actual", conv.NumberClean(k["actual"]), "target", conv.NumberClean(k["target"]), "unit", k.Str("unit"), "date", app.FormatDate(c, k["period_end"], "d M"))})
 	}
 
 	c.View("dashboard/employee", app.M{
 		"title": c.T("My workspace"), "u": u, "scope": scope, "greeting": c.T(greeting) + ", " + u.FirstName(), "who": who,
 		"figures": figures, "lg": lg, "tasks": tasks, "kpis": kpis, "teammates": teammates, "activity": activity,
-		"score": php.NF(score, 2), "scorePct": int(math.Round(score)), "tone": tone, "scoreNote": scoreNote, "sections": sections,
-		"deduction": deduction > 0, "deductionText": c.T("Warnings deducted: −:n", "n", php.NumberClean(deduction)),
+		"score": conv.NF(score, 2), "scorePct": int(math.Round(score)), "tone": tone, "scoreNote": scoreNote, "sections": sections,
+		"deduction": deduction > 0, "deductionText": c.T("Warnings deducted: −:n", "n", conv.NumberClean(deduction)),
 		"year": year, "oil": oilRows, "oilSync": oilSync,
 	})
 }
 
 func wsTwoDigits(n int) string {
 	if n < 10 && n >= 0 {
-		return "0" + php.Str(n)
+		return "0" + conv.Str(n)
 	}
-	return php.Str(n)
+	return conv.Str(n)
 }

@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Things every CRM record can have: comments, files and sharing (RecordController).
@@ -23,7 +23,7 @@ func openKind(c *app.Ctx) (*screen, db.Row, int) {
 }
 
 func backTo(c *app.Ctx, s *screen, id int, anchor string) {
-	c.Redirect("/crm/" + entities[s.entity].Path + "/" + php.Str(id) + anchor)
+	c.Redirect("/crm/" + entities[s.entity].Path + "/" + conv.Str(id) + anchor)
 }
 
 func ownerOf(row db.Row) int { return row.Int("owner_id") }
@@ -53,13 +53,13 @@ func recordComment(c *app.Ctx) {
 	db.On("crm").Insert("comments", db.Cols{{Name: "entity_type", Value: s.entity}, {Name: "entity_id", Value: id}, {Name: "body", Value: data.Get("body")}, {Name: "created_by", Value: u.ID}})
 	label := s.label(c, row)
 	app.LogActivity(c, app.ActivityEntry{Action: "commented", Type: s.entity, ID: id, Label: label, Text: `Commented on :type ":label"`,
-		Params: []any{"type", s.entity, "label", label}, Props: app.M{"comment": php.Limit(data.Str("body"), 200)}, Owner: ownerOf(row), NoNotify: true, Module: "crm"})
+		Params: []any{"type", s.entity, "label", label}, Props: app.M{"comment": conv.Limit(data.Str("body"), 200)}, Owner: ownerOf(row), NoNotify: true, Module: "crm"})
 	// The owner hears about it (bell, e-mail — whatever is switched on), unless they wrote it themselves.
 	if row.Int("owner_id") != 0 && row.Int("owner_id") != u.ID {
 		app.Deliver(c, "crm", "commented", row.Int("owner_id"),
 			app.Text(`:name commented on :type ":label"`, "name", u.Name, "type", s.entity, "label", label),
-			app.Text(":comment", "comment", php.Limit(data.Str("body"), 300)),
-			c.URL("/crm/"+entities[s.entity].Path+"/"+php.Str(id)+"#comments"), u.ID)
+			app.Text(":comment", "comment", conv.Limit(data.Str("body"), 300)),
+			c.URL("/crm/"+entities[s.entity].Path+"/"+conv.Str(id)+"#comments"), u.ID)
 	}
 	c.Flash("success", c.T("Comment added."))
 	backTo(c, s, id, "#comments")
@@ -154,13 +154,13 @@ func recordShare(c *app.Ctx) {
 	if typ == "department" {
 		field = "department_id"
 	}
-	target := php.Int(c.Input(field))
+	target := conv.Int(c.Input(field))
 	pm := peopleMap(people())
 	deps := departments()
 	if _, ok := pm[target]; typ == "user" && !ok {
 		app.Invalid(field, c.T("Pick a person from the list."))
 	}
-	if typ == "department" && !optHas(deps, php.Str(target)) {
+	if typ == "department" && !optHas(deps, conv.Str(target)) {
 		app.Invalid(field, c.T("Pick a department from the list."))
 	}
 	if typ == "department" && row.Int("department_id") == target && access == "view" {
@@ -172,7 +172,7 @@ func recordShare(c *app.Ctx) {
 	addShare(s.entity, id, typ, target, access, u.ID)
 	name := pm[target].Name
 	if typ == "department" {
-		name, _ = app.OptLabel(deps, php.Str(target))
+		name, _ = app.OptLabel(deps, conv.Str(target))
 	}
 	label := s.label(c, row)
 	acc := "view only"
@@ -188,7 +188,7 @@ func recordShare(c *app.Ctx) {
 		recipients = []int{target}
 	} else {
 		for _, v := range db.Core.Column("SELECT id FROM users WHERE department_id = ? AND is_active AND deleted_at IS NULL AND id <> ? LIMIT 60", target, u.ID) {
-			recipients = append(recipients, php.Int(v))
+			recipients = append(recipients, conv.Int(v))
 		}
 	}
 	body := "You can view it."
@@ -198,7 +198,7 @@ func recordShare(c *app.Ctx) {
 	for _, to := range recipients {
 		if to != u.ID {
 			app.Deliver(c, "crm", "shared", to, app.Text(`:name shared :type ":label" with you`, "name", u.Name, "type", s.entity, "label", label),
-				app.Text(body), c.URL("/crm/"+entities[s.entity].Path+"/"+php.Str(id)), u.ID)
+				app.Text(body), c.URL("/crm/"+entities[s.entity].Path+"/"+conv.Str(id)), u.ID)
 		}
 	}
 	c.Flash("success", c.T("Shared with :who.", "who", name))

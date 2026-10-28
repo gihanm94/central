@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Reassign: hand records to somebody else (somebody left, changed team, is overloaded) without losing who had them before:
@@ -81,7 +81,7 @@ func recordsOf(viewer *app.CurrentUser, t reassignType, userID int, openOnly boo
 	if t.Status != "" {
 		status = ", " + t.Status + " AS status"
 	}
-	return db.On("crm").Select("SELECT t.id, t."+t.Label+" AS label, t.owner_id, t.department_id, t.updated_at"+status+" FROM "+t.Table+" t WHERE "+strings.Join(where, " AND ")+" ORDER BY t.updated_at DESC, t.id DESC LIMIT "+php.Str(limit), par...)
+	return db.On("crm").Select("SELECT t.id, t."+t.Label+" AS label, t.owner_id, t.department_id, t.updated_at"+status+" FROM "+t.Table+" t WHERE "+strings.Join(where, " AND ")+" ORDER BY t.updated_at DESC, t.id DESC LIMIT "+conv.Str(limit), par...)
 }
 
 // reassignCounts: how many of each type a person has (open / all).
@@ -133,7 +133,7 @@ func reassignApply(c *app.Ctx, by *app.CurrentUser, typ string, ids []int, to, f
 		oldOwner := row.Int("owner_id")
 		changed := false
 		if oldOwner != to {
-			set := db.Cols{{Name: "owner_id", Value: to}, {Name: "updated_by", Value: by.ID}, {Name: "updated_at", Value: php.NowString()}}
+			set := db.Cols{{Name: "owner_id", Value: to}, {Name: "updated_by", Value: by.ID}, {Name: "updated_at", Value: conv.NowString()}}
 			if moveDepartment && target.DepartmentID != 0 && target.DepartmentID != row.Int("department_id") {
 				set = append(set, db.Col{Name: "department_id", Value: target.DepartmentID})
 			}
@@ -162,7 +162,7 @@ func reassignApply(c *app.Ctx, by *app.CurrentUser, typ string, ids []int, to, f
 		}
 		app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: typ, ID: id, Label: label, Text: `Reassigned :type ":label" from :from to :to`,
 			Params: []any{"type", typ, "label", label, "from", fromName, "to", target.Name},
-			Props:  app.M{"changes": app.M{"owner": app.M{"from": fromName, "to": target.Name}}, "_url": c.URL("/crm/" + entities[typ].Path + "/" + php.Str(id))},
+			Props:  app.M{"changes": app.M{"owner": app.M{"from": fromName, "to": target.Name}}, "_url": c.URL("/crm/" + entities[typ].Path + "/" + conv.Str(id))},
 			Owner:  to, NoNotify: true, Module: "crm"})
 	}
 	if moved > 0 && to != by.ID {
@@ -252,5 +252,5 @@ func stageRows(u *app.CurrentUser, stage string, f stageFilter, limit int) []db.
 	return db.On("crm").Select(`SELECT t.id, t.code, t.name, t.amount, t.currency, t.owner_id, t.department_id, t.created_at, t.updated_at, t.follow_at,
                 (`+stageDateSQL["since"]+`) AS since, l.name_en AS customer
             FROM opportunities t LEFT JOIN leads l ON l.id = t.lead_id
-            WHERE `+w+` AND t.opportunity_stage = ? ORDER BY since ASC, t.id ASC LIMIT `+php.Str(limit), p...)
+            WHERE `+w+` AND t.opportunity_stage = ? ORDER BY since ASC, t.id ASC LIMIT `+conv.Str(limit), p...)
 }

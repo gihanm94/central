@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // KPIs & OKRs (KpiController).
@@ -54,7 +54,7 @@ func kpiResCanManage(u *app.CurrentUser, departmentID any) bool {
 	if u.IsAdmin() {
 		return true
 	}
-	return u.Scope() == "department" && u.DepartmentID != 0 && php.Int(departmentID) == u.DepartmentID
+	return u.Scope() == "department" && u.DepartmentID != 0 && conv.Int(departmentID) == u.DepartmentID
 }
 
 // kpiResCanAdd: may this person add KPIs & OKRs at all (administrator or a department role)?
@@ -77,8 +77,8 @@ func kpiKindBadge(kind string) string {
 }
 
 func kpiPct(row db.Row) int {
-	if php.Float(row["target"]) > 0 {
-		return int(math.Round(php.Float(row["actual"]) / php.Float(row["target"]) * 100))
+	if conv.Float(row["target"]) > 0 {
+		return int(math.Round(conv.Float(row["actual"]) / conv.Float(row["target"]) * 100))
 	}
 	return 0
 }
@@ -105,7 +105,7 @@ var kpis = &app.Resource{
 			{Key: "criteria", Label: c.T("Criteria"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				v := "—"
 				if r["criteria"] != nil {
-					v = app.E(php.NumberClean(r["criteria"]))
+					v = app.E(conv.NumberClean(r["criteria"]))
 				}
 				return app.HTML(`<span class="tabular-nums">` + v + `</span>`)
 			}},
@@ -117,8 +117,8 @@ var kpis = &app.Resource{
 			}},
 			{Key: "progress", Label: c.T("Progress"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				pct := kpiPct(r)
-				return app.HTML(`<div class="flex min-w-40 items-center gap-3">` + string(c.Partial("partials/progress", app.M{"value": pct})) + `<span class="w-10 text-right text-xs tabular-nums">` + php.Str(pct) + `%</span></div>` +
-					`<p class="mt-1 text-xs text-steel">` + php.NumberClean(r["actual"]) + ` / ` + php.NumberClean(r["target"]) + ` ` + app.E(r["unit"]) + `</p>`)
+				return app.HTML(`<div class="flex min-w-40 items-center gap-3">` + string(c.Partial("partials/progress", app.M{"value": pct})) + `<span class="w-10 text-right text-xs tabular-nums">` + conv.Str(pct) + `%</span></div>` +
+					`<p class="mt-1 text-xs text-steel">` + conv.NumberClean(r["actual"]) + ` / ` + conv.NumberClean(r["target"]) + ` ` + app.E(r["unit"]) + `</p>`)
 			}},
 			{Key: "period", Label: c.T("Period"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return app.HTML(`<span class="text-xs text-steel">` + app.FormatDate(c, r["period_start"], "d M") + ` – ` + app.FormatDate(c, r["period_end"], "d M Y") + `</span>`)
@@ -153,7 +153,7 @@ func kpiFields(c *app.Ctx, row db.Row) []app.Field {
 	if row != nil {
 		all = []app.Opt{{Value: row.Str("user_id"), Label: row.Str("owner_name"), Img: c.UploadURL(row["owner_avatar"])}}
 	}
-	y := php.Date("Y", php.Now())
+	y := conv.Date("Y", conv.Now())
 	return []app.Field{
 		{Name: "title", Label: c.T("KPI / OKR"), Rules: "required|max:160", Span: 2, Example: "Finish assigned work on time at least 90% per month"},
 		{Name: "kind", Label: c.T("Type"), Type: "select", Options: KpiKinds(c), Rules: "required", Default: "kpi", Search: &no, Example: "kpi"},
@@ -180,19 +180,19 @@ func kpiFields(c *app.Ctx, row db.Row) []app.Field {
 }
 
 func kpiPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
-	if data.Get("period_start") != nil && data.Get("period_end") != nil && php.StrToTime(data.Str("period_end")) < php.StrToTime(data.Str("period_start")) {
+	if data.Get("period_start") != nil && data.Get("period_end") != nil && conv.StrToTime(data.Str("period_end")) < conv.StrToTime(data.Str("period_start")) {
 		app.Invalid("period_end", c.T("Period end must be on or after the start."))
 	}
-	if v := data.Get("criteria"); v != nil && php.Str(v) != "" && (php.Float(v) < 1 || php.Float(v) > 100) {
+	if v := data.Get("criteria"); v != nil && conv.Str(v) != "" && (conv.Float(v) < 1 || conv.Float(v) > 100) {
 		app.Invalid("criteria", c.T("Criteria must be between 1 and 100."))
 	}
-	if v := data.Get("weight"); v != nil && php.Str(v) != "" && (php.Float(v) <= 0 || php.Float(v) > 100) {
+	if v := data.Get("weight"); v != nil && conv.Str(v) != "" && (conv.Float(v) <= 0 || conv.Float(v) > 100) {
 		app.Invalid("weight", c.T("Weight must be between 1 and 100."))
 	}
 	if existing == nil {
 		data.Set("created_by", c.UserID())
 	}
-	if !php.Empty(data.Get("user_id")) {
+	if !conv.Empty(data.Get("user_id")) {
 		o := db.First("SELECT department_id, team_id FROM users WHERE id = ?", data.Get("user_id"))
 		var dep, team any
 		if o != nil {
@@ -251,9 +251,9 @@ func kpiShowExtra(c *app.Ctx, row db.Row) template.HTML {
 		if s.Str("approved_at") != "" {
 			approved++
 		}
-		sum += php.Float(s["percentage"])
-		pc := php.Int(s["percentage"])
-		s["_month"] = app.FormatDate(c, fmt.Sprintf("%04d-%02d-01", php.Int(s["period_year"]), php.Int(s["period_month"])), "F Y")
+		sum += conv.Float(s["percentage"])
+		pc := conv.Int(s["percentage"])
+		s["_month"] = app.FormatDate(c, fmt.Sprintf("%04d-%02d-01", conv.Int(s["period_year"]), conv.Int(s["period_month"])), "F Y")
 		switch {
 		case pc >= 100:
 			s["_pctTone"] = "bg-emerald-50 text-emerald-800"
@@ -264,7 +264,7 @@ func kpiShowExtra(c *app.Ctx, row db.Row) template.HTML {
 		}
 		s["_pct"] = pc
 		lateTone := "bg-signal-50 text-signal-800"
-		if !php.Empty(s["percentage"]) {
+		if !conv.Empty(s["percentage"]) {
 			lateTone = "bg-amber-50 text-amber-800"
 		}
 		s["_lateTone"] = lateTone
@@ -273,7 +273,7 @@ func kpiShowExtra(c *app.Ctx, row db.Row) template.HTML {
 	avgTone := "text-steel"
 	if len(subs) > 0 {
 		a := sum / float64(len(subs))
-		avg = php.NF(a, 0) + "%"
+		avg = conv.NF(a, 0) + "%"
 		avgTone = kpiTone(a)
 	}
 
@@ -299,16 +299,16 @@ func kpiShowExtra(c *app.Ctx, row db.Row) template.HTML {
 				_ = json.Unmarshal(kv.val, &ch)
 				l, ok := labels[kv.key]
 				if !ok {
-					l = php.Ucfirst(strings.ReplaceAll(kv.key, "_", " "))
+					l = conv.Ucfirst(strings.ReplaceAll(kv.key, "_", " "))
 				}
-				from, to := php.Str(ch["from"]), php.Str(ch["to"])
+				from, to := conv.Str(ch["from"]), conv.Str(ch["to"])
 				if from == "" {
 					from = "—"
 				}
 				if to == "" {
 					to = "—"
 				}
-				changes = append(changes, kpiChange{Label: l, From: php.Limit(from, 80), To: php.Limit(to, 80)})
+				changes = append(changes, kpiChange{Label: l, From: conv.Limit(from, 80), To: conv.Limit(to, 80)})
 			}
 		}
 		log["_changes"] = changes
@@ -317,7 +317,7 @@ func kpiShowExtra(c *app.Ctx, row db.Row) template.HTML {
 			tone = "bg-graphite-900/6 text-graphite-800"
 		}
 		log["_tone"] = tone
-		log["_iso"] = php.DateOf("c", log["created_at"])
+		log["_iso"] = conv.DateOf("c", log["created_at"])
 	}
 	statusTone, ok := KpiStatusTones[row.Str("status")]
 	if !ok {
@@ -335,9 +335,9 @@ func kpiShowExtra(c *app.Ctx, row db.Row) template.HTML {
 			if row["criteria"] == nil {
 				return "—"
 			}
-			return php.NumberClean(row["criteria"])
+			return conv.NumberClean(row["criteria"])
 		}(),
-		"amount": php.NumberClean(row["actual"]) + " / " + php.NumberClean(row["target"]) + " " + row.Str("unit"),
+		"amount": conv.NumberClean(row["actual"]) + " / " + conv.NumberClean(row["target"]) + " " + row.Str("unit"),
 	})
 }
 
@@ -366,7 +366,7 @@ func orderedObject(raw json.RawMessage) []jsonKV {
 		if err := dec.Decode(&v); err != nil {
 			return out
 		}
-		out = append(out, jsonKV{key: php.Str(kt), val: v})
+		out = append(out, jsonKV{key: conv.Str(kt), val: v})
 	}
 	return out
 }

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/oil"
-	"acme/internal/php"
 )
 
 // Management → Oil prices (OilPriceController): today's PTT prices, a chart of every price change, the change history
@@ -20,11 +20,11 @@ var rangeKeys = []string{"3m", "6m", "1y", "all"}
 var rangeLabels = map[string]string{"3m": "3 months", "6m": "6 months", "1y": "1 year", "all": "All"}
 
 func oilName(c *app.Ctx, nameEn, nameTh any, code string) string {
-	if c.Locale() == "th" && php.Str(nameTh) != "" {
-		return php.Str(nameTh)
+	if c.Locale() == "th" && conv.Str(nameTh) != "" {
+		return conv.Str(nameTh)
 	}
-	if php.Str(nameEn) != "" {
-		return php.Str(nameEn)
+	if conv.Str(nameEn) != "" {
+		return conv.Str(nameEn)
 	}
 	return code
 }
@@ -36,7 +36,7 @@ func oilIndex(c *app.Ctx) {
 		rng = "6m"
 	}
 	fuel := c.Query("fuel")
-	now := time.Now().In(php.Loc)
+	now := time.Now().In(conv.Loc)
 	ago := func(m, y int) string { return now.AddDate(-y, -m, 0).Format("2006-01-02") }
 	from := ago(6, 0)
 	switch rng {
@@ -58,7 +58,7 @@ func oilIndex(c *app.Ctx) {
                 UNION SELECT DISTINCT ON (product_code) product_code, price, ?::date FROM oil_prices WHERE effective_at < ?::date ORDER BY 3, 1`, from, from, from)
 	dset := map[string]bool{}
 	for _, r := range rows {
-		dset[php.Substr(r.Str("effective_at"), 0, 10)] = true
+		dset[conv.Substr(r.Str("effective_at"), 0, 10)] = true
 	}
 	dates := []string{}
 	for d := range dset {
@@ -72,7 +72,7 @@ func oilIndex(c *app.Ctx) {
 		has := false
 		for _, r := range rows {
 			if r.Str("product_code") == code {
-				byDay[php.Substr(r.Str("effective_at"), 0, 10)] = r.Float("price")
+				byDay[conv.Substr(r.Str("effective_at"), 0, 10)] = r.Float("price")
 				has = true
 			}
 		}
@@ -109,19 +109,19 @@ func oilIndex(c *app.Ctx) {
 	for _, h := range db.Select(`SELECT o.product_code, o.price, o.effective_at, lag(o.price) OVER (PARTITION BY o.product_code ORDER BY o.effective_at) AS before
             FROM oil_prices o WHERE `+hw+` ORDER BY o.effective_at DESC, o.product_code LIMIT 300`, hp...) {
 		p := products[h.Str("product_code")]
-		hr := histRow{Date: app.FormatDate(c, h["effective_at"], "d M Y"), Color: oil.Color(h.Str("product_code")), Price: php.NF(h.Float("price"), 2), Before: "—", Tone: "text-steel"}
+		hr := histRow{Date: app.FormatDate(c, h["effective_at"], "d M Y"), Color: oil.Color(h.Str("product_code")), Price: conv.NF(h.Float("price"), 2), Before: "—", Tone: "text-steel"}
 		if p != nil {
 			hr.Name = oilName(c, p["name_en"], p["name_th"], h.Str("product_code"))
 		} else {
 			hr.Name = h.Str("product_code")
 		}
 		if !h.Nil("before") {
-			hr.Before = php.NF(h.Float("before"), 2)
+			hr.Before = conv.NF(h.Float("before"), 2)
 			d := float64(int((h.Float("price")-h.Float("before"))*100+sign(h.Float("price")-h.Float("before"))*0.5)) / 100
 			if d > 0 {
-				hr.Change, hr.Tone = "▲ +"+php.NF(d, 2), "text-signal-700"
+				hr.Change, hr.Tone = "▲ +"+conv.NF(d, 2), "text-signal-700"
 			} else {
-				hr.Change, hr.Tone = "▼ "+php.NF(d, 2), "text-emerald-700"
+				hr.Change, hr.Tone = "▼ "+conv.NF(d, 2), "text-emerald-700"
 			}
 		} else {
 			hr.First = true
@@ -169,7 +169,7 @@ func oilIndex(c *app.Ctx) {
 	}
 	times := oil.Times()
 	due := oil.Due()
-	dueLine := c.T("Runs from the server's cron (bin/oil-prices.php), or by the website itself while someone is signed in.")
+	dueLine := c.T("Runs from the server's cron (acme oil-prices), or by the website itself while someone is signed in.")
 	if due != "" {
 		dueLine = c.T("The :t sync is due and runs within a minute.", "t", due)
 	}
@@ -214,8 +214,8 @@ func oilSync(c *app.Ctx) {
 // oilHistory loads past days from PTT (one request per day), to fill the history and the chart.
 func oilHistory(c *app.Ctx) {
 	c.Authorize("management", "view")
-	days := php.Int(c.Input("days", "30"))
-	if !php.InList(php.Str(days), "30", "90", "180", "365") {
+	days := conv.Int(c.Input("days", "30"))
+	if !conv.InList(conv.Str(days), "30", "90", "180", "365") {
 		app.Invalid("days", c.T("Choose how far back to load."))
 	}
 	u := c.MustUser()
@@ -263,7 +263,7 @@ func oilTimes(c *app.Ctx) {
 		if len(parts) != 2 || !timeOK(parts[0], parts[1]) {
 			app.Invalid("times", c.T("Use times like 05:10."))
 		}
-		s := fmt.Sprintf("%02d:%s", php.Int(parts[0]), parts[1])
+		s := fmt.Sprintf("%02d:%s", conv.Int(parts[0]), parts[1])
 		if !seen[s] {
 			seen[s] = true
 			ok = append(ok, s)
@@ -284,7 +284,7 @@ func oilTimes(c *app.Ctx) {
 }
 
 func timeOK(h, m string) bool {
-	hh, mm := php.Int(h), php.Int(m)
+	hh, mm := conv.Int(h), conv.Int(m)
 	if len(h) < 1 || len(h) > 2 || len(m) != 2 {
 		return false
 	}

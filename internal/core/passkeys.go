@@ -17,8 +17,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Passkeys (PasskeyController + App\Core\Auth\WebAuthn), with no external library.
@@ -47,7 +47,7 @@ func passkeyLogin(c *app.Ctx) {
 		app.Invalid("passkey", c.T("This account is deactivated."))
 	}
 	c.Login(user, c.Bool("remember"), "passkey")
-	to := php.Str(c.Sess.Get("_intended"))
+	to := conv.Str(c.Sess.Get("_intended"))
 	if to == "" {
 		to = user.HomeURL()
 	}
@@ -66,7 +66,7 @@ func passkeyRegisterOptions(c *app.Ctx) { c.JSON(webauthnRegistrationOptions(c, 
 func passkeyRegister(c *app.Ctx) {
 	u := c.MustUser()
 	id := webauthnRegister(c, u)
-	name := php.Str(db.Scalar("SELECT name FROM passkeys WHERE id = ?", id))
+	name := conv.Str(db.Scalar("SELECT name FROM passkeys WHERE id = ?", id))
 	app.LogActivity(c, app.ActivityEntry{Action: "passkey_added", Type: "user", ID: u.ID, Label: u.Name, Text: `Added passkey ":label"`, Params: []any{"label", name}, NoNotify: true})
 	c.JSON(app.M{"ok": true})
 }
@@ -110,7 +110,7 @@ func webauthnRegistrationOptions(c *app.Ctx, u *app.CurrentUser) app.M {
 	challenge := make([]byte, 32)
 	_, _ = rand.Read(challenge)
 	c.Sess.Set("webauthn_register", wsB64u(challenge))
-	uid := sha256.Sum256([]byte(config.String("app.key", "") + "|" + php.Str(u.ID)))
+	uid := sha256.Sum256([]byte(config.String("app.key", "") + "|" + conv.Str(u.ID)))
 	exclude := []app.M{}
 	for _, r := range db.Select("SELECT credential_id FROM passkeys WHERE user_id = ?", u.ID) {
 		exclude = append(exclude, app.M{"type": "public-key", "id": r.Str("credential_id")})
@@ -128,7 +128,7 @@ func webauthnRegistrationOptions(c *app.Ctx, u *app.CurrentUser) app.M {
 }
 
 func webauthnRegister(c *app.Ctx, u *app.CurrentUser) int {
-	expected := php.Str(c.Sess.Get("webauthn_register"))
+	expected := conv.Str(c.Sess.Get("webauthn_register"))
 	c.Sess.Delete("webauthn_register")
 
 	webauthnCheckClient(c, c.Input("clientDataJSON"), "webauthn.create", expected)
@@ -147,7 +147,7 @@ func webauthnRegister(c *app.Ctx, u *app.CurrentUser) int {
 	}
 	chunks = append(chunks, enc)
 	pemText := "-----BEGIN PUBLIC KEY-----\n" + strings.Join(chunks, "\n") + "\n-----END PUBLIC KEY-----\n"
-	alg := php.Int(c.InputAny("publicKeyAlgorithm"))
+	alg := conv.Int(c.InputAny("publicKeyAlgorithm"))
 	if !(alg == -7 || alg == -8 || alg == -257) {
 		webauthnFail(c, "Unsupported passkey type.")
 	}
@@ -164,7 +164,7 @@ func webauthnRegister(c *app.Ctx, u *app.CurrentUser) int {
 	if name == "" {
 		name = "Passkey"
 	}
-	return db.Core.InsertID("passkeys", db.Cols{{Name: "user_id", Value: u.ID}, {Name: "name", Value: php.Substr(name, 0, 80)}, {Name: "credential_id", Value: rawID},
+	return db.Core.InsertID("passkeys", db.Cols{{Name: "user_id", Value: u.ID}, {Name: "name", Value: conv.Substr(name, 0, 80)}, {Name: "credential_id", Value: rawID},
 		{Name: "public_key", Value: pemText}, {Name: "algorithm", Value: alg}, {Name: "sign_count", Value: int64(binary.BigEndian.Uint32(auth[33:37]))}})
 }
 
@@ -177,7 +177,7 @@ func webauthnLoginOptions(c *app.Ctx) app.M {
 
 // webauthnVerifyLogin returns the user id the passkey belongs to.
 func webauthnVerifyLogin(c *app.Ctx) int {
-	expected := php.Str(c.Sess.Get("webauthn_login"))
+	expected := conv.Str(c.Sess.Get("webauthn_login"))
 	c.Sess.Delete("webauthn_login")
 
 	key := db.First("SELECT * FROM passkeys WHERE credential_id = ?", c.Input("rawId"))
@@ -234,13 +234,13 @@ func webauthnVerifySignature(alg int, pemText string, data, sig []byte) bool {
 
 func webauthnCheckClient(c *app.Ctx, b64 string, typ, challenge string) {
 	var cd map[string]any
-	if err := json.Unmarshal(wsB64uDecode(b64), &cd); err != nil || cd == nil || php.Str(cd["type"]) != typ {
+	if err := json.Unmarshal(wsB64uDecode(b64), &cd); err != nil || cd == nil || conv.Str(cd["type"]) != typ {
 		webauthnFail(c, "Unexpected passkey response.")
 	}
-	if challenge == "" || subtle.ConstantTimeCompare([]byte(challenge), []byte(php.Str(cd["challenge"]))) != 1 {
+	if challenge == "" || subtle.ConstantTimeCompare([]byte(challenge), []byte(conv.Str(cd["challenge"]))) != 1 {
 		webauthnFail(c, "The passkey request expired. Try again.")
 	}
-	if strings.TrimRight(php.Str(cd["origin"]), "/") != c.Origin() {
+	if strings.TrimRight(conv.Str(cd["origin"]), "/") != c.Origin() {
 		webauthnFail(c, "Passkey origin does not match this site.")
 	}
 }

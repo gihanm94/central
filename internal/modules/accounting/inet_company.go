@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Our own company (Inet\Company): the seller on every e-tax document.
@@ -45,7 +45,7 @@ func companySave(in func(k string) string) {
 	}
 	id := acc().Scalar("SELECT id FROM companies WHERE is_primary ORDER BY id LIMIT 1")
 	if id != nil {
-		acc().Update("companies", append(cols, db.Col{Name: "updated_at", Value: php.NowString()}), db.Cols{{Name: "id", Value: id}})
+		acc().Update("companies", append(cols, db.Col{Name: "updated_at", Value: conv.NowString()}), db.Cols{{Name: "id", Value: id}})
 	} else {
 		acc().Insert("companies", append(cols, db.Col{Name: "is_primary", Value: true}), "")
 	}

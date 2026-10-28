@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // CRM dashboard (DashboardController).
@@ -22,8 +22,8 @@ func dashboardIndex(c *app.Ctx) {
 	deps := departments()
 	pick := 0
 	if all {
-		pick = php.Int(c.Query("department", "0"))
-		if !optHas(deps, php.Str(pick)) {
+		pick = conv.Int(c.Query("department", "0"))
+		if !optHas(deps, conv.Str(pick)) {
 			pick = 0
 		}
 	}
@@ -33,8 +33,8 @@ func dashboardIndex(c *app.Ctx) {
 
 	// who can be picked: everybody with CRM access for whole-company roles, the own department's for BU managers and managers, nobody for members
 	people := crmMembers(u, pick)
-	member := php.Int(c.Query("member", "0"))
-	if !optHas(people, php.Str(member)) {
+	member := conv.Int(c.Query("member", "0"))
+	if !optHas(people, conv.Str(member)) {
 		member = 0
 	}
 	if len(people) > 0 {
@@ -50,11 +50,11 @@ func dashboardIndex(c *app.Ctx) {
 		sql, scopeName = "TRUE", c.T("All departments")
 		if pick != 0 {
 			sql, params = "t.department_id = ?", []any{pick}
-			scopeName, _ = app.OptLabel(deps, php.Str(pick))
+			scopeName, _ = app.OptLabel(deps, conv.Str(pick))
 		}
 	case u.DepartmentID != 0:
 		sql, params = "t.department_id = ?", []any{u.DepartmentID}
-		scopeName, _ = app.OptLabel(deps, php.Str(u.DepartmentID))
+		scopeName, _ = app.OptLabel(deps, conv.Str(u.DepartmentID))
 		if scopeName == "" {
 			scopeName = u.DepartmentName
 		}
@@ -116,7 +116,7 @@ func dashboardIndex(c *app.Ctx) {
 	closed := won.Int("won12") + won.Int("lost12")
 	winRate := "—"
 	if closed > 0 {
-		winRate = fmtFloat(phpRound(float64(won.Int("won12"))/float64(closed)*100, 0)) + "%"
+		winRate = fmtFloat(roundHalf(float64(won.Int("won12"))/float64(closed)*100, 0)) + "%"
 	}
 
 	months := q.Select(`SELECT to_char(m, 'YYYY-MM') AS ym, to_char(m, 'Mon') AS label, COALESCE(sum(`+val+`), 0) AS v, count(t.id) AS n
@@ -197,7 +197,7 @@ func dashboardIndex(c *app.Ctx) {
 	}
 	memberName := ""
 	if member != 0 {
-		l, _ := app.OptLabel(people, php.Str(member))
+		l, _ := app.OptLabel(people, conv.Str(member))
 		memberName = strings.SplitN(l, " · ", 2)[0]
 	}
 	link := func(over app.M) string {
@@ -229,17 +229,17 @@ func dashboardIndex(c *app.Ctx) {
 		{c.T("Open pipeline"), money(pipeline), pl(openCount, ":n open opportunity", ":n open opportunities") + forecastNote, ""},
 		{c.T("Won in period"), money(won.Float("month_v")), pl(won.Int("month_n"), ":n deal", ":n deals") + " · " + c.T("this year :v", "v", money(won.Float("year_v"))), ""},
 		{c.T("Win rate, 12 months"), winRate, c.T(":w won · :l lost", "w", won.Int("won12"), "l", won.Int("lost12")), ""},
-		{c.T("Activities to do"), php.Str(actCount.Int("overdue")), c.T("overdue") + " · " + c.T(":n in the next 7 days", "n", actCount.Int("week")), overdue},
-		{c.T("Leads"), php.NF(counts.Float("leads"), 0), c.T(":n new in period", "n", counts.Int("leads_new")) + " · " + pl(counts.Int("contacts"), ":n contact", ":n contacts"), ""},
+		{c.T("Activities to do"), conv.Str(actCount.Int("overdue")), c.T("overdue") + " · " + c.T(":n in the next 7 days", "n", actCount.Int("week")), overdue},
+		{c.T("Leads"), conv.NF(counts.Float("leads"), 0), c.T(":n new in period", "n", counts.Int("leads_new")) + " · " + pl(counts.Int("contacts"), ":n contact", ":n contacts"), ""},
 	}
 
 	// filter bar
 	var selects []app.RangeSelect
 	if all {
-		selects = append(selects, app.RangeSelect{Name: "department", Label: c.T("Department"), Options: deps, Value: ternaryStr(pick != 0, php.Str(pick), ""), Placeholder: c.T("All departments")})
+		selects = append(selects, app.RangeSelect{Name: "department", Label: c.T("Department"), Options: deps, Value: ternaryStr(pick != 0, conv.Str(pick), ""), Placeholder: c.T("All departments")})
 	}
 	if len(people) > 0 {
-		selects = append(selects, app.RangeSelect{Name: "member", Label: c.T("Member"), Options: people, Value: ternaryStr(member != 0, php.Str(member), ""), Placeholder: c.T("All members")})
+		selects = append(selects, app.RangeSelect{Name: "member", Label: c.T("Member"), Options: people, Value: ternaryStr(member != 0, conv.Str(member), ""), Placeholder: c.T("All members")})
 	}
 	keep := map[string]any{"department": nilZero(pick), "member": nilZero(member), "mine": nil}
 	if mine {
@@ -255,9 +255,9 @@ func dashboardIndex(c *app.Ctx) {
 		}
 		pt := 0
 		if tt > 0 {
-			pt = int(phpRound(target.ActualTotal/tt*100, 0))
+			pt = int(roundHalf(target.ActualTotal/tt*100, 0))
 		}
-		curQ := int(math.Ceil(float64(php.Now().Month()) / 3))
+		curQ := int(math.Ceil(float64(conv.Now().Month()) / 3))
 		type qcell struct {
 			Q                      int
 			Now                    bool
@@ -271,8 +271,8 @@ func dashboardIndex(c *app.Ctx) {
 			w := 0
 			col := "#2a78d6"
 			if t > 0 {
-				p := int(phpRound(a/t*100, 0))
-				pc, w = php.Str(p)+"%", min(100, p)
+				p := int(roundHalf(a/t*100, 0))
+				pc, w = conv.Str(p)+"%", min(100, p)
 				if p >= 100 {
 					col = "#16a34a"
 				}
@@ -291,7 +291,7 @@ func dashboardIndex(c *app.Ctx) {
 		if c.Can("crm_targets", "view") {
 			setURL = c.URL("/crm/targets", "year", year, "department", nilZero(depFor))
 		}
-		tgt = app.M{"year": year, "sub": sub, "setURL": setURL, "cells": qcells, "yearPct": php.Str(pt) + "%", "yearActual": money(target.ActualTotal),
+		tgt = app.M{"year": year, "sub": sub, "setURL": setURL, "cells": qcells, "yearPct": conv.Str(pt) + "%", "yearActual": money(target.ActualTotal),
 			"yearOf": c.T("of :t", "t", money(tt)), "yearColor": ycol, "yearWidth": min(100, pt), "none": tt <= 0}
 	}
 
@@ -308,7 +308,7 @@ func dashboardIndex(c *app.Ctx) {
 			qm["scope"] = "mine"
 		}
 		bars = append(bars, stageBar{s.Label, s.Color, c.URL("/crm/opportunities", map[string]any(qm)),
-			pl(s.N, ":n deal", ":n deals") + " · ", s.Label + ": " + php.NF(s.V, 0) + " " + cur, money(s.V), fmtFloat(phpRound(s.Width, 1))})
+			pl(s.N, ":n deal", ":n deals") + " · ", s.Label + ": " + conv.NF(s.V, 0) + " " + cur, money(s.V), fmtFloat(roundHalf(s.Width, 1))})
 	}
 	// bars: months
 	maxMonth := 1.0
@@ -327,7 +327,7 @@ func dashboardIndex(c *app.Ctx) {
 		if m.Float("v") > 0 {
 			hh = math.Max(3, m.Float("v")/maxMonth*100)
 		}
-		mbars = append(mbars, monthBar{c.T(m.Str("label")), uiCompact(m.Float("v")), m.Str("label") + ": " + php.NF(m.Float("v"), 0) + " " + cur + " (" + m.Str("n") + ")", fmtFloat(phpRound(hh, 1)), m.Float("v") > 0})
+		mbars = append(mbars, monthBar{c.T(m.Str("label")), uiCompact(m.Float("v")), m.Str("label") + ": " + conv.NF(m.Float("v"), 0) + " " + cur + " (" + m.Str("n") + ")", fmtFloat(roundHalf(hh, 1)), m.Float("v") > 0})
 	}
 	// lists
 	type upRow struct {
@@ -336,7 +336,7 @@ func dashboardIndex(c *app.Ctx) {
 	}
 	var ups []upRow
 	for _, a := range upcoming {
-		late := a["start_at"] != nil && php.StrToTime(a["start_at"]) < php.Now().Unix()
+		late := a["start_at"] != nil && conv.StrToTime(a["start_at"]) < conv.Now().Unix()
 		meta := trLabel(c, activityTypes, a.Str("activity_type"))
 		if a.Str("lead_name") != "" {
 			meta += " · " + a.Str("lead_name")
@@ -356,7 +356,7 @@ func dashboardIndex(c *app.Ctx) {
 	}
 	var tops []topRow
 	for _, o := range top {
-		meta := php.OrStr(o.Str("lead_name"), "—")
+		meta := conv.OrStr(o.Str("lead_name"), "—")
 		if n, ok := owners[o.Int("owner_id")]; ok {
 			meta += " · " + n
 		}
@@ -379,7 +379,7 @@ func dashboardIndex(c *app.Ctx) {
 		}
 		var out []distRow
 		for _, i := range list {
-			out = append(out, distRow{i.Str("name"), i.Str("color"), fmtFloat(phpRound(float64(i.Int("n"))/float64(mx)*100, 0)), i.Int("n")})
+			out = append(out, distRow{i.Str("name"), i.Str("color"), fmtFloat(roundHalf(float64(i.Int("n"))/float64(mx)*100, 0)), i.Int("n")})
 		}
 		return out
 	}
@@ -393,7 +393,7 @@ func dashboardIndex(c *app.Ctx) {
 		cr := campRow{URL: c.URL("/crm/campaigns/" + k.Str("id")), Name: k.Str("name"), Ends: c.T("Ends :date", "date", app.FormatDate(c, k["end_date"], "d M Y"))}
 		if k.Float("budget") > 0 {
 			used := k.Float("actual_cost") / k.Float("budget") * 100
-			cr.HasMeter, cr.Meter = true, meterHTML(c, used, fmtFloat(phpRound(used, 0))+"%")
+			cr.HasMeter, cr.Meter = true, meterHTML(c, used, fmtFloat(roundHalf(used, 0))+"%")
 		}
 		cps = append(cps, cr)
 	}
@@ -404,7 +404,7 @@ func dashboardIndex(c *app.Ctx) {
 	}
 	var cmps []cmpOut
 	for _, d := range compare {
-		x := cmpOut{ID: d.ID, Name: d.Name, Leads: php.Str(d.Leads), Open: php.Str(d.Open), Pipeline: money(d.Pipeline), Won: money(d.WonYear), Overdue: php.Str(d.Overdue), HasOverdue: d.Overdue > 0}
+		x := cmpOut{ID: d.ID, Name: d.Name, Leads: conv.Str(d.Leads), Open: conv.Str(d.Open), Pipeline: money(d.Pipeline), Won: money(d.WonYear), Overdue: conv.Str(d.Overdue), HasOverdue: d.Overdue > 0}
 		if d.ID != 0 {
 			x.URL = link(app.M{"department": d.ID})
 		}
@@ -441,16 +441,16 @@ type compareRow struct {
 func dashCompare(c *app.Ctx, deps []app.Opt, val string, mineID int) []compareRow {
 	own := ""
 	if mineID != 0 {
-		own = " AND t.owner_id = " + php.Str(mineID)
+		own = " AND t.owner_id = " + conv.Str(mineID)
 	}
 	rows := map[int]*compareRow{}
 	touch := func(d any) *compareRow {
-		k := php.Int(d)
+		k := conv.Int(d)
 		if rows[k] == nil {
 			name := c.T("No department")
 			if k != 0 {
-				name = "#" + php.Str(k)
-				if l, ok := app.OptLabel(deps, php.Str(k)); ok {
+				name = "#" + conv.Str(k)
+				if l, ok := app.OptLabel(deps, conv.Str(k)); ok {
 					name = l
 				}
 			}

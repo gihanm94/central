@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -54,13 +54,13 @@ var register = &app.Resource{
 				return app.HTML(`<span class="font-medium">` + esc(r["machine_name"]) + `</span><span class="block text-xs text-steel">` + esc(strings.TrimSpace(r.Str("brand")+" "+r.Str("model"))) + `</span>`)
 			}},
 			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+				return app.HTML(esc(conv.Coalesce(r["department_name"], "—")))
 			}},
 			{Key: "by", Label: c.T("Requested by"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(esc(php.Coalesce(r["created_by_name"], "—")) + `<span class="block text-xs text-steel">` + esc(fmtDate(c, r["created_at"])) + `</span>`)
+				return app.HTML(esc(conv.Coalesce(r["created_by_name"], "—")) + `<span class="block text-xs text-steel">` + esc(fmtDate(c, r["created_at"])) + `</span>`)
 			}},
 			{Key: "resp", Label: c.T("Responsible"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(esc(php.Coalesce(r["responsible_id_name"], "—")))
+				return app.HTML(esc(conv.Coalesce(r["responsible_id_name"], "—")))
 			}},
 			{Key: "state", Label: c.T("Status"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r.Int("machine_count") > 0 {
@@ -169,15 +169,15 @@ func registerPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		var list []*config_item
 		for _, raw := range postedList(c.InputAny(kp.key)) {
 			p, ok := rowOf(raw)
-			if !ok || php.Empty(p["due_date"]) {
+			if !ok || conv.Empty(p["due_date"]) {
 				continue
 			}
-			if php.StrToTime(app.InStr(p["due_date"])) == 0 {
+			if conv.StrToTime(app.InStr(p["due_date"])) == 0 {
 				app.Invalid(kp.key, c.T("A due date is not a valid date."))
 			}
-			it := &config_item{due: php.Substr(app.InStr(p["due_date"]), 0, 10), note: php.Substr(strings.TrimSpace(app.InStr(p["note"])), 0, 500), withPlan: kp.withPlan}
+			it := &config_item{due: conv.Substr(app.InStr(p["due_date"]), 0, 10), note: conv.Substr(strings.TrimSpace(app.InStr(p["note"])), 0, 500), withPlan: kp.withPlan}
 			if kp.withPlan && validDate(p["plan_date"]) {
-				it.plan = php.Substr(app.InStr(p["plan_date"]), 0, 10)
+				it.plan = conv.Substr(app.InStr(p["plan_date"]), 0, 10)
 			}
 			list = append(list, it)
 		}
@@ -194,7 +194,7 @@ func registerPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 				out = append(out, om("due_date", it.due, "note", it.note))
 			}
 		}
-		data.Set(kp.col, phpJSON(out, 0))
+		data.Set(kp.col, jsonCompat(out, 0))
 	}
 	return stamp(c, data, existing)
 }
@@ -221,7 +221,7 @@ func registerSaved(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		seen[uid] = true
 		if uid != u.ID {
 			app.Deliver(c, "machines", "created", uid, app.Text("New machine register request: :name", "name", row["machine_name"]),
-				app.Text(`:who asks to register ":name". Open the request to create the machine.`, "who", u.Name, "name", row["machine_name"]), c.URL("/machines/register/"+php.Str(id)), u.ID)
+				app.Text(`:who asks to register ":name". Open the request to create the machine.`, "who", u.Name, "name", row["machine_name"]), c.URL("/machines/register/"+conv.Str(id)), u.ID)
 		}
 	}
 }
@@ -241,20 +241,20 @@ func registerShow(c *app.Ctx) {
 	}
 	var price any
 	if row["price"] != nil {
-		price = php.NF(row["price"], 2)
+		price = conv.NF(row["price"], 2)
 	}
 	power := ""
-	if !php.Empty(row["watt"]) {
+	if !conv.Empty(row["watt"]) {
 		power += row.Str("watt") + " W "
 	}
-	if !php.Empty(row["horse_power"]) {
+	if !conv.Empty(row["horse_power"]) {
 		power += row.Str("horse_power") + " HP"
 	}
 	warranty := ""
 	switch row.Str("has_warranty") {
 	case "YES":
 		warranty = c.T("Yes")
-		if !php.Empty(row["warranty_expire_date"]) {
+		if !conv.Empty(row["warranty_expire_date"]) {
 			warranty += " · " + c.T("ends :date", "date", fmtDate(c, row["warranty_expire_date"]))
 		}
 	case "NO":
@@ -262,14 +262,14 @@ func registerShow(c *app.Ctx) {
 	}
 	var maint, cal []app.M
 	for i, p := range jsonList(row["maintenance"]) {
-		m := app.M{"n": i + 1, "due": fmtDate(c, p["due_date"]), "plan": "", "note": php.Str(p["note"])}
-		if !php.Empty(p["plan_date"]) {
+		m := app.M{"n": i + 1, "due": fmtDate(c, p["due_date"]), "plan": "", "note": conv.Str(p["note"])}
+		if !conv.Empty(p["plan_date"]) {
 			m["plan"] = fmtDate(c, p["plan_date"])
 		}
 		maint = append(maint, m)
 	}
 	for _, p := range jsonList(row["calibration"]) {
-		cal = append(cal, app.M{"due": fmtDate(c, p["due_date"]), "note": php.Str(p["note"])})
+		cal = append(cal, app.M{"due": fmtDate(c, p["due_date"]), "note": conv.Str(p["note"])})
 	}
 	c.View("machines/register-show", app.M{"title": title, "row": row, "c": r.Meta(c),
 		"canEdit":   c.Can(r.Resource, "edit") && r.CanModify(c, row, "edit"),

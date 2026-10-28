@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Calibration of measuring machines (CalibrationController): the due date, the certificate and what the lab measured.
@@ -27,16 +27,16 @@ var calibration = &app.Resource{
 	},
 	Hydrate: func(c *app.Ctx, rows []db.Row) []db.Row {
 		rows = withDept(rows)
-		today := php.Today()
+		today := conv.Today()
 		for _, r := range rows {
 			switch {
-			case !php.Empty(r["certificate_date"]):
-				if !php.Empty(r["due_date"]) && r.Str("certificate_date") > r.Str("due_date") {
+			case !conv.Empty(r["certificate_date"]):
+				if !conv.Empty(r["due_date"]) && r.Str("certificate_date") > r.Str("due_date") {
 					r["state"] = "late"
 				} else {
 					r["state"] = "done"
 				}
-			case !php.Empty(r["due_date"]) && r.Str("due_date") < today:
+			case !conv.Empty(r["due_date"]) && r.Str("due_date") < today:
 				r["state"] = "overdue"
 			default:
 				r["state"] = "planned"
@@ -45,7 +45,7 @@ var calibration = &app.Resource{
 		return rows
 	},
 	Label: func(c *app.Ctx, row db.Row) string {
-		if !php.Empty(row["due_date"]) {
+		if !conv.Empty(row["due_date"]) {
 			return row.Str("machine_code") + " · " + fmtDate(c, row["due_date"])
 		}
 		return row.Str("machine_code") + " · " + row.Str("years")
@@ -54,9 +54,9 @@ var calibration = &app.Resource{
 	CanModify: func(c *app.Ctx, row db.Row, action string) bool {
 		u := c.MustUser()
 		if action == "delete" {
-			return u.Scope() == "all" && php.Empty(row["certificate_date"])
+			return u.Scope() == "all" && conv.Empty(row["certificate_date"])
 		}
-		if !php.Empty(row["machine_id"]) {
+		if !conv.Empty(row["machine_id"]) {
 			return manages(u, row)
 		}
 		return u.Scope() == "all"
@@ -66,7 +66,7 @@ var calibration = &app.Resource{
 		for _, r := range mdb().Select("SELECT DISTINCT years FROM calibration_record ORDER BY years DESC") {
 			years = append(years, app.Opt{Value: r.Str("years"), Label: r.Str("years")})
 		}
-		today := php.Today()
+		today := conv.Today()
 		return []app.Filter{
 			{Name: "year", Label: c.T("All years"), Options: years, Column: "t.years"},
 			{Name: "state", Label: c.T("All states"), Options: []app.Opt{{Value: "planned", Label: c.T("Planned")}, {Value: "overdue", Label: c.T("Overdue")}, {Value: "done", Label: c.T("Done on time")}, {Value: "late", Label: c.T("Done late")}},
@@ -109,7 +109,7 @@ var calibration = &app.Resource{
 	Columns: func(c *app.Ctx) []app.Column {
 		return []app.Column{
 			{Key: "machine", Label: c.T("Machine"), Primary: true, Sort: "t.machine_code", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(`<span class="font-medium tabular-nums">` + esc(r["machine_code"]) + `</span><span class="block text-xs text-steel">` + esc(php.Coalesce(r["machine_name"], r["m_name"])) + `</span>`)
+				return app.HTML(`<span class="font-medium tabular-nums">` + esc(r["machine_code"]) + `</span><span class="block text-xs text-steel">` + esc(conv.Coalesce(r["machine_name"], r["m_name"])) + `</span>`)
 			}},
 			{Key: "due", Label: c.T("Due"), Sort: "t.due_date", Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(dateOrDash(c, r["due_date"]))) }},
 			{Key: "cert", Label: c.T("Certificate"), Sort: "t.certificate_date", Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(esc(dateOrDash(c, r["certificate_date"]))) }},
@@ -125,13 +125,13 @@ var calibration = &app.Resource{
 				default:
 					s = pill(c, c.T("Planned"), "neutral")
 				}
-				if !php.Empty(r["calibration_status"]) {
+				if !conv.Empty(r["calibration_status"]) {
 					s += `<span class="block text-xs text-steel">` + esc(r["calibration_status"]) + `</span>`
 				}
 				return app.HTML(s)
 			}},
 			{Key: "result", Label: c.T("Result"), Sort: "t.results", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				if php.Empty(r["results"]) {
+				if conv.Empty(r["results"]) {
 					return app.HTML(`<span class="text-steel">—</span>`)
 				}
 				if r.Str("results") == "PASS" {
@@ -140,7 +140,7 @@ var calibration = &app.Resource{
 				return pillH(c, c.T("Failed"), "bad")
 			}},
 			{Key: "dept", Label: c.T("Department"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(esc(php.Coalesce(r["department_name"], "—")))
+				return app.HTML(esc(conv.Coalesce(r["department_name"], "—")))
 			}},
 		}
 	},
@@ -152,14 +152,14 @@ var calibration = &app.Resource{
 			}
 			data.Set("machine_name", m["machine_name"])
 		}
-		data.Set("years", php.Substr(data.Str("due_date"), 0, 4))
+		data.Set("years", conv.Substr(data.Str("due_date"), 0, 4))
 		if data.Str("results") == "FAILED" && strings.TrimSpace(data.Str("reason_not_pass")) == "" {
 			app.Invalid("reason_not_pass", c.T("Write why the calibration failed."))
 		}
 		if data.Str("results") != "FAILED" {
 			data.Set("reason_not_pass", nil)
 		}
-		if !php.Empty(data.Get("certificate_date")) && php.Empty(data.Get("results")) {
+		if !conv.Empty(data.Get("certificate_date")) && conv.Empty(data.Get("results")) {
 			app.Invalid("results", c.T("Choose pass or failed for a calibration with a certificate."))
 		}
 		var cur any
@@ -171,7 +171,7 @@ var calibration = &app.Resource{
 	},
 	Saved: func(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		row := mdb().First("SELECT c.*, m.id AS mid, m.machine_name AS mname, m.responsible_person_id, m.supervisor_id, m.manager_id FROM calibration_record c JOIN machine m ON m.machine_code = c.machine_code WHERE c.id = ?", id)
-		if row == nil || php.Empty(row["certificate_date"]) || (existing != nil && !php.Empty(existing["certificate_date"])) {
+		if row == nil || conv.Empty(row["certificate_date"]) || (existing != nil && !conv.Empty(existing["certificate_date"])) {
 			return // only the moment the certificate arrives
 		}
 		u := c.MustUser()
@@ -182,7 +182,7 @@ var calibration = &app.Resource{
 		for _, uid := range team(row, true) {
 			if uid != u.ID {
 				app.Deliver(c, "machines", "updated", uid, app.Text("Calibration of :code: :result", "code", row["machine_code"], "result", result),
-					app.Text("The calibration of :code · :name was closed as :result.", "code", row["machine_code"], "name", row["mname"], "result", result), c.URL("/machines/calibration/"+php.Str(id)), u.ID)
+					app.Text("The calibration of :code · :name was closed as :result.", "code", row["machine_code"], "name", row["mname"], "result", result), c.URL("/machines/calibration/"+conv.Str(id)), u.ID)
 			}
 		}
 	},

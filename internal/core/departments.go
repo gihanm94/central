@@ -4,8 +4,8 @@ import (
 	"html/template"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Departments (DepartmentController).
@@ -41,7 +41,7 @@ var departments = &app.Resource{
 				allErp = []app.Opt{{Value: row.Str("erp_department_id"), Label: "#" + row.Str("erp_department_id")}}
 			}
 		} else {
-			color = app.DeptColor(php.Int(db.Scalar("SELECT COALESCE(MAX(id), 0) + 1 FROM departments")), "")
+			color = app.DeptColor(conv.Int(db.Scalar("SELECT COALESCE(MAX(id), 0) + 1 FROM departments")), "")
 		}
 		return []app.Field{
 			{Name: "name", Label: c.T("Name"), Rules: "required|max:120", Example: "Operations"},
@@ -65,12 +65,12 @@ var departments = &app.Resource{
 				}
 				return app.HTML(`<span class="text-graphite-400">—</span>`)
 			}},
-			{Key: "head", Label: c.T("Head"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(app.E(php.Coalesce(r["head_name"], "—"))) }},
+			{Key: "head", Label: c.T("Head"), Render: func(c *app.Ctx, r db.Row) template.HTML { return app.HTML(app.E(conv.Coalesce(r["head_name"], "—"))) }},
 			{Key: "members", Label: c.T("Members"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(`<span class="tabular-nums">` + php.Str(r.Int("members_count")) + `</span>`)
+				return app.HTML(`<span class="tabular-nums">` + conv.Str(r.Int("members_count")) + `</span>`)
 			}},
 			{Key: "teams", Label: c.T("Teams"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return app.HTML(`<span class="tabular-nums">` + php.Str(r.Int("teams_count")) + `</span>`)
+				return app.HTML(`<span class="tabular-nums">` + conv.Str(r.Int("teams_count")) + `</span>`)
 			}},
 			{Key: "status", Label: c.T("Status"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r.Bool("is_active") {

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -60,7 +60,7 @@ func newCurrentUser(r db.Row) *CurrentUser {
 	if u.NotifyPrefs == nil {
 		u.NotifyPrefs = map[string]any{}
 	}
-	u.UIScale = php.Int(r["ui_scale"])
+	u.UIScale = conv.Int(r["ui_scale"])
 	if u.UIScale == 0 {
 		u.UIScale = 100
 	}
@@ -71,7 +71,7 @@ func newCurrentUser(r db.Row) *CurrentUser {
 func (u *CurrentUser) IsAdmin() bool { return u != nil && u.RoleSlug == "admin" }
 
 func (u *CurrentUser) HasRole(slugs ...string) bool {
-	return u != nil && php.InList(u.RoleSlug, slugs...)
+	return u != nil && conv.InList(u.RoleSlug, slugs...)
 }
 
 // DeptID / TeamIDOrNil are the ids as SQL values (nil when unset).
@@ -131,7 +131,7 @@ func (u *CurrentUser) FirstName() string {
 	return f[0]
 }
 
-func (u *CurrentUser) Initials() string { return php.Initials(u.Name) }
+func (u *CurrentUser) Initials() string { return conv.Initials(u.Name) }
 
 // HomeURL is where to land after sign-in: the default module's home.
 func (u *CurrentUser) HomeURL() string {
@@ -238,8 +238,8 @@ func (c *Ctx) VerifyLogin(email, password, method string) (int, string, int) {
 	email = strings.TrimSpace(email)
 	key := strings.ToLower(email) + "|" + c.IP()
 	lock := db.First("SELECT attempts, locked_until FROM login_attempts WHERE key = ?", key)
-	if lock != nil && lock.Str("locked_until") != "" && php.StrToTime(lock["locked_until"]) > time.Now().Unix() {
-		wait := max(1, int(php.StrToTime(lock["locked_until"])-time.Now().Unix()))
+	if lock != nil && lock.Str("locked_until") != "" && conv.StrToTime(lock["locked_until"]) > time.Now().Unix() {
+		wait := max(1, int(conv.StrToTime(lock["locked_until"])-time.Now().Unix()))
 		return 0, c.T("Too many attempts. Try again in :seconds seconds.", "seconds", wait), wait
 	}
 	var row db.Row
@@ -253,8 +253,8 @@ func (c *Ctx) VerifyLogin(email, password, method string) (int, string, int) {
 		acct = "acct|#" + row.Str("id")
 	}
 	acctLock := db.First("SELECT attempts, locked_until FROM login_attempts WHERE key = ?", acct)
-	if acctLock != nil && acctLock.Str("locked_until") != "" && php.StrToTime(acctLock["locked_until"]) > time.Now().Unix() {
-		wait := max(1, int(php.StrToTime(acctLock["locked_until"])-time.Now().Unix()))
+	if acctLock != nil && acctLock.Str("locked_until") != "" && conv.StrToTime(acctLock["locked_until"]) > time.Now().Unix() {
+		wait := max(1, int(conv.StrToTime(acctLock["locked_until"])-time.Now().Unix()))
 		return 0, c.T("Too many attempts. Try again in :seconds seconds.", "seconds", wait), wait
 	}
 	hash := dummyHash
@@ -272,7 +272,7 @@ func (c *Ctx) VerifyLogin(email, password, method string) (int, string, int) {
 		n := attempts
 		if attempts >= maxTries {
 			n = 0
-			until = php.Date("c", php.Now().Add(time.Duration(config.Int("security.lockout_minutes", 1))*time.Minute))
+			until = conv.Date("c", conv.Now().Add(time.Duration(config.Int("security.lockout_minutes", 1))*time.Minute))
 		}
 		db.Exec(`INSERT INTO login_attempts (key, attempts, locked_until) VALUES (?, ?, ?)
                       ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until`, key, n, until)
@@ -284,7 +284,7 @@ func (c *Ctx) VerifyLogin(email, password, method string) (int, string, int) {
 		an := acctTries
 		if acctTries >= 10 {
 			an = 0
-			acctUntil = php.Date("c", php.Now().Add(15*time.Minute))
+			acctUntil = conv.Date("c", conv.Now().Add(15*time.Minute))
 		}
 		db.Exec(`INSERT INTO login_attempts (key, attempts, locked_until) VALUES (?, ?, ?)
                       ON CONFLICT (key) DO UPDATE SET attempts = EXCLUDED.attempts, locked_until = EXCLUDED.locked_until`, acct, an, acctUntil)
@@ -358,7 +358,7 @@ func (c *Ctx) Logout() {
 // LogoutOtherDevices: sign out everywhere else (password change); this browser stays signed in.
 func (c *Ctx) LogoutOtherDevices(userID int) {
 	db.Exec("UPDATE users SET session_version = session_version + 1 WHERE id = ?", userID)
-	c.Sess.Set("sv", php.Int(db.Scalar("SELECT session_version FROM users WHERE id = ?", userID)))
+	c.Sess.Set("sv", conv.Int(db.Scalar("SELECT session_version FROM users WHERE id = ?", userID)))
 	cur := strings.SplitN(c.Cookie(rememberCookie), ":", 2)[0]
 	db.Exec("DELETE FROM remember_tokens WHERE user_id = ? AND selector <> ?", userID, cur)
 	RevokeAllSessions(c, userID, c.Sess.Int("sid"), userID)
@@ -395,11 +395,11 @@ func (c *Ctx) issueRemember(userID int, startedAt string) {
 	sel, val := randHex(12), randHex(32)
 	started := startedAt
 	if started == "" {
-		started = php.Date("c", php.Now())
+		started = conv.Date("c", conv.Now())
 	}
-	until := min(php.StrToTime(started)+int64(SessionMaxHours())*3600, time.Now().Unix()+86400*int64(config.Int("security.remember_days", 30)))
+	until := min(conv.StrToTime(started)+int64(SessionMaxHours())*3600, time.Now().Unix()+86400*int64(config.Int("security.remember_days", 30)))
 	db.Insert("remember_tokens", db.Cols{{"user_id", userID}, {"selector", sel}, {"token_hash", sha256Hex(val)}, {"user_agent", c.UserAgent()},
-		{"expires_at", php.Date("c", php.Unix(until))}, {"started_at", started}})
+		{"expires_at", conv.Date("c", conv.Unix(until))}, {"started_at", started}})
 	http.SetCookie(c.W, &http.Cookie{Name: rememberCookie, Value: sel + ":" + val, Path: cookiePath(), Expires: time.Unix(until, 0), HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: c.IsHTTPS()})
 	if sid := c.Sess.Int("sid"); sid > 0 {
 		db.Exec("UPDATE user_sessions SET remember_selector = ? WHERE id = ?", sel, sid)
@@ -420,7 +420,7 @@ func (c *Ctx) fromRemember(cookie string) (*CurrentUser, string) {
 	if started == "" {
 		started = row.Str("created_at")
 	}
-	if php.StrToTime(started)+int64(SessionMaxHours())*3600 <= time.Now().Unix() {
+	if conv.StrToTime(started)+int64(SessionMaxHours())*3600 <= time.Now().Unix() {
 		return nil, ""
 	}
 	return LoadUser(row.Int("user_id")), started
@@ -469,12 +469,12 @@ const sessionGrace = 60
 func (c *Ctx) guardStart(userID int, method, startedAt string) int {
 	started := startedAt
 	if started == "" {
-		started = php.Date("c", php.Now())
+		started = conv.Date("c", conv.Now())
 	}
 	ua := c.UserAgent()
 	id := db.Core.InsertID("user_sessions", db.Cols{{"user_id", userID}, {"session_hash", sha256Hex(c.Sess.ID)}, {"method", method}, {"ip", c.IP()},
-		{"user_agent", php.Substr(ua, 0, 255)}, {"device", DeviceLabel(c, ua)}, {"created_at", started},
-		{"expires_at", php.Date("c", php.Unix(php.StrToTime(started)+int64(SessionMaxHours())*3600))}})
+		{"user_agent", conv.Substr(ua, 0, 255)}, {"device", DeviceLabel(c, ua)}, {"created_at", started},
+		{"expires_at", conv.Date("c", conv.Unix(conv.StrToTime(started)+int64(SessionMaxHours())*3600))}})
 	GuardEvent(c, userID, "login", method, "", "")
 	c.Sess.Set("sid", id)
 	return id
@@ -492,13 +492,13 @@ func GuardEvent(c *Ctx, userID int, event, method, note, email string) {
 			m = method
 		}
 		if note != "" {
-			n = php.Substr(note, 0, 190)
+			n = conv.Substr(note, 0, 190)
 		}
 		if email != "" {
-			e = php.Substr(email, 0, 190)
+			e = conv.Substr(email, 0, 190)
 		}
 		db.Insert("login_events", db.Cols{{"user_id", uid}, {"email", e}, {"event", event}, {"method", m}, {"ip", c.IP()},
-			{"user_agent", php.Substr(ua, 0, 255)}, {"device", DeviceLabel(c, ua)}, {"note", n}}, "")
+			{"user_agent", conv.Substr(ua, 0, 255)}, {"device", DeviceLabel(c, ua)}, {"note", n}}, "")
 	})
 }
 
@@ -521,22 +521,22 @@ func (c *Ctx) guardCheck(userID int) string {
 		return "revoked"
 	}
 	now := time.Now().Unix()
-	if php.StrToTime(row["expires_at"]) <= now {
+	if conv.StrToTime(row["expires_at"]) <= now {
 		db.Exec("UPDATE user_sessions SET revoked_at = now(), revoke_reason = 'expired' WHERE id = ?", row["id"])
-		GuardEvent(c, userID, "expired", row.Str("method"), php.Str(SessionMaxHours())+" h limit", "")
+		GuardEvent(c, userID, "expired", row.Str("method"), conv.Str(SessionMaxHours())+" h limit", "")
 		return "expired"
 	}
 	if row.Str("session_hash") != cur {
-		if php.StrToTime(row["prev_until"]) >= now {
+		if conv.StrToTime(row["prev_until"]) >= now {
 			return ""
 		}
 		return "revoked"
 	}
-	if now-php.StrToTime(row["rotated_at"]) >= int64(SessionRotateMinutes())*60 {
+	if now-conv.StrToTime(row["rotated_at"]) >= int64(SessionRotateMinutes())*60 {
 		c.Sess.Regenerate(true)
 		db.Exec("UPDATE user_sessions SET prev_hash = ?, prev_until = ?, session_hash = ?, rotated_at = now(), last_seen_at = now(), ip = ? WHERE id = ?",
-			cur, php.Date("c", php.Unix(now+sessionGrace)), sha256Hex(c.Sess.ID), c.IP(), row["id"])
-	} else if now-php.StrToTime(row["last_seen_at"]) >= 60 {
+			cur, conv.Date("c", conv.Unix(now+sessionGrace)), sha256Hex(c.Sess.ID), c.IP(), row["id"])
+	} else if now-conv.StrToTime(row["last_seen_at"]) >= 60 {
 		db.Exec("UPDATE user_sessions SET last_seen_at = now() WHERE id = ?", row["id"])
 	}
 	return ""

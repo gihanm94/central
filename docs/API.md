@@ -17,21 +17,23 @@ Base URL: `https://<your-server>/api/v1`. All examples assume that prefix.
 | Abuse | 120 requests per minute per device (`429 rate_limited` + `Retry-After`). Bodies up to 12 MB. POST only as `application/json` or `multipart/form-data`. |
 | No cookies | The API never uses the website's session cookie, so CSRF does not apply. A browser session cannot call the API. |
 | Audit | Every request is in `api_log` (person, device, path, status, time, IP; kept 90 days) and shown on Administration → Mobile app & API. Changes also appear in the normal activity log. |
-| Isolation | Each module's API lives in its own `app/Modules/<Name>/api.php`. If one breaks, only its URLs answer `503 module_unavailable`. |
+| Isolation | Each module registers its API in `app.Module.API` (its own file in `internal/modules/<key>`). If one breaks, only its URLs answer `503 module_unavailable`. |
 
-Settings (`config/config.php`, all optional):
+Settings (`config/config.json`, all optional):
 
-```php
-'api' => [
-    'enabled'          => true,
-    'require_https'    => true,   // ignored when app.env = local
-    'access_minutes'   => 15,     // 1–60
-    'refresh_days'     => 30,
-    'max_days'         => 90,
-    'rate_per_minute'  => 120,
-    'login_per_minute' => 10,     // per IP
-],
+```json
+"api": {
+    "enabled": true,
+    "require_https": true,
+    "access_minutes": 15,
+    "refresh_days": 30,
+    "max_days": 90,
+    "rate_per_minute": 120,
+    "login_per_minute": 10
+}
 ```
+
+`require_https` is ignored when `app.env` is `local`; `access_minutes` is 1–60; `login_per_minute` counts per IP.
 
 ## Conventions
 
@@ -172,6 +174,7 @@ Generating Inets, billing notes and tax reports stays on the website.
 
 ## Adding endpoints to a module
 
-Create `app/Modules/<Name>/api.php` (routes under `/api/v1/<key>/...`) and a controller extending `App\Core\Api\Controller`.
-It provides `need()` for permission checks, `paged()`, `q()`/`like()` for safe search, `input([...])` for whitelisted input and `pick()` for whitelisted output.
-To reuse a website save action with all its rules, call `Kernel::delegate(fn () => (new XController())->store(), $input)`.
+Set `API: func(r app.Router) { … }` on the module's `app.Module` (paths are relative to `/api/v1`, e.g. `r.Get("/crm/stats", stats)`).
+The helpers in `internal/api` give a handler `api.Need` for permission checks, `api.Paged`, `api.Q` / `api.Like` for safe search,
+`api.Input` for whitelisted input and `api.Pick` for whitelisted output. To reuse a website save action with all its rules, call
+`api.Delegate`.

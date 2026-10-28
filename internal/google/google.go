@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Scopes: Gmail + Calendar (Google::SCOPES).
@@ -52,15 +52,15 @@ func Configured() bool { return ClientID() != "" && ClientSecret() != "" }
 func RedirectURI(c *app.Ctx) string { return c.URL("/connect/google/callback") }
 
 func authURL() string {
-	return php.OrStr(app.Setting("google_auth_url", ""), "https://accounts.google.com/o/oauth2/v2/auth")
+	return conv.OrStr(app.Setting("google_auth_url", ""), "https://accounts.google.com/o/oauth2/v2/auth")
 }
 func tokenURL() string {
-	return php.OrStr(app.Setting("google_token_url", ""), "https://oauth2.googleapis.com/token")
+	return conv.OrStr(app.Setting("google_token_url", ""), "https://oauth2.googleapis.com/token")
 }
 
 // APIURL is the API base address.
 func APIURL() string {
-	return strings.TrimRight(php.OrStr(app.Setting("google_api_url", ""), "https://www.googleapis.com"), "/")
+	return strings.TrimRight(conv.OrStr(app.Setting("google_api_url", ""), "https://www.googleapis.com"), "/")
 }
 
 // AllScopes: Gmail + Calendar and every scope a module asks for (hook 'google.scopes'), so one consent covers all.
@@ -105,7 +105,7 @@ type Query []KV
 func (q Query) Filter() Query {
 	out := Query{}
 	for _, kv := range q {
-		if !php.Empty(kv.V) {
+		if !conv.Empty(kv.V) {
 			out = append(out, kv)
 		}
 	}
@@ -131,7 +131,7 @@ func (q Query) Encode() string {
 			parts = append(parts, phpEscape(kv.K)+"="+b)
 		case nil:
 		default:
-			parts = append(parts, phpEscape(kv.K)+"="+phpEscape(php.Str(v)))
+			parts = append(parts, phpEscape(kv.K)+"="+phpEscape(conv.Str(v)))
 		}
 	}
 	return strings.Join(parts, "&")
@@ -163,22 +163,24 @@ func Connection(userID int) db.Row {
 
 func Connected(userID int) bool {
 	c := Connection(userID)
-	return c != nil && !php.Empty(c["refresh_token"])
+	return c != nil && !conv.Empty(c["refresh_token"])
 }
 
-func decrypt(v any) string { s, _ := app.Decrypt(php.Str(v)); return s }
+func decrypt(v any) string { s, _ := app.Decrypt(conv.Str(v)); return s }
 
-func expiry(seconds int) string { return php.Date("c", php.Unix(time.Now().Unix()+int64(seconds)-30)) }
+func expiry(seconds int) string {
+	return conv.Date("c", conv.Unix(time.Now().Unix()+int64(seconds)-30))
+}
 
 // Connect finishes the sign-in: swap the code for tokens and keep them. Returns the saved row values.
 func Connect(c *app.Ctx, userID int, code string) app.M {
 	t := token(c, Query{{"grant_type", "authorization_code"}, {"code", code}, {"redirect_uri", RedirectURI(c)}})
-	if php.Empty(t["access_token"]) {
-		Fail(c.T("Google did not accept the sign-in.") + " " + php.Str(php.Coalesce(t["error_description"], t["error"], "")))
+	if conv.Empty(t["access_token"]) {
+		Fail(c.T("Google did not accept the sign-in.") + " " + conv.Str(conv.Coalesce(t["error_description"], t["error"], "")))
 	}
-	access := php.Str(t["access_token"])
+	access := conv.Str(t["access_token"])
 	old := Connection(userID)
-	refresh := php.Str(t["refresh_token"])
+	refresh := conv.Str(t["refresh_token"])
 	if t["refresh_token"] == nil && old != nil {
 		refresh = decrypt(old["refresh_token"])
 	}
@@ -188,17 +190,17 @@ func Connect(c *app.Ctx, userID int, code string) app.M {
 	_, me := APIRaw(access, "GET", "/gmail/v1/users/me/profile", nil, nil)
 	expiresIn := 3600
 	if t["expires_in"] != nil {
-		expiresIn = php.Int(t["expires_in"])
+		expiresIn = conv.Int(t["expires_in"])
 	}
 	scopes := strings.Join(Scopes, " ")
 	if t["scope"] != nil {
-		scopes = php.Str(t["scope"])
+		scopes = conv.Str(t["scope"])
 	}
-	row := app.M{"google_email": php.Str(me["emailAddress"]), "access_token": app.Encrypt(access), "refresh_token": app.Encrypt(refresh),
-		"expires_at": expiry(expiresIn), "scopes": scopes, "last_error": nil, "updated_at": php.NowString()}
+	row := app.M{"google_email": conv.Str(me["emailAddress"]), "access_token": app.Encrypt(access), "refresh_token": app.Encrypt(refresh),
+		"expires_at": expiry(expiresIn), "scopes": scopes, "last_error": nil, "updated_at": conv.NowString()}
 	save(userID, row)
 	// Modules that use the same Google account (Sheets) take it too, when the grant covers them.
-	email := php.Str(row["google_email"])
+	email := conv.Str(row["google_email"])
 	granted := strings.Split(scopes, " ")
 	app.RunHooks("google.connected", "", func(_ string, fn any) any {
 		if f, ok := fn.(app.HookGoogleConnected); ok {
@@ -228,7 +230,7 @@ func Adopt(userID int, email, access, refresh string, expiresIn int, scopes []st
 		}
 	}
 	c := Connection(userID)
-	if c != nil && !php.Empty(c["refresh_token"]) && php.Empty(c["last_error"]) && !strings.EqualFold(c.Str("google_email"), email) {
+	if c != nil && !conv.Empty(c["refresh_token"]) && conv.Empty(c["last_error"]) && !strings.EqualFold(c.Str("google_email"), email) {
 		return false // keep their own, different account
 	}
 	save(userID, app.M{"google_email": email, "access_token": app.Encrypt(access), "refresh_token": app.Encrypt(refresh),
@@ -247,30 +249,30 @@ func AccessToken(c *app.Ctx, userID int) string {
 	if conn == nil {
 		Fail(c.T("Google is not connected."))
 	}
-	if !php.Empty(conn["expires_at"]) && php.StrToTime(conn["expires_at"]) > time.Now().Unix()+60 && !php.Empty(conn["access_token"]) {
+	if !conv.Empty(conn["expires_at"]) && conv.StrToTime(conn["expires_at"]) > time.Now().Unix()+60 && !conv.Empty(conn["access_token"]) {
 		return decrypt(conn["access_token"])
 	}
 	rt := decrypt(conn["refresh_token"])
-	if rt == "" { // saved under another app key (config/config.php was rebuilt)
+	if rt == "" { // saved under another app key (config/config.json was rebuilt)
 		db.Exec("UPDATE google_connections SET access_token = NULL, refresh_token = NULL, last_error = 'The saved Google key can no longer be read (the app key changed). Connect again.' WHERE user_id = ?", userID)
 		Fail(c.T("Google needs you to connect again."))
 	}
 	t := token(c, Query{{"grant_type", "refresh_token"}, {"refresh_token", rt}})
-	if php.Empty(t["access_token"]) {
-		if php.Str(t["error"]) == "invalid_grant" { // ended at Google: removed by the person, password change, or a 'Testing' OAuth app (7-day limit)
+	if conv.Empty(t["access_token"]) {
+		if conv.Str(t["error"]) == "invalid_grant" { // ended at Google: removed by the person, password change, or a 'Testing' OAuth app (7-day limit)
 			db.Exec("UPDATE google_connections SET access_token = NULL, refresh_token = NULL, last_error = ? WHERE user_id = ?",
-				"Google ended the connection ("+php.Substr(php.Str(php.Coalesce(t["error_description"], "invalid_grant")), 0, 120)+"). Connect again.", userID)
+				"Google ended the connection ("+conv.Substr(conv.Str(conv.Coalesce(t["error_description"], "invalid_grant")), 0, 120)+"). Connect again.", userID)
 		} else { // network or Google trouble: keep the connection, try again later
-			db.Exec("UPDATE google_connections SET last_error = ? WHERE user_id = ?", "Google could not be reached just now: "+php.Substr(php.Str(php.Coalesce(t["error"], "no answer")), 0, 120), userID)
+			db.Exec("UPDATE google_connections SET last_error = ? WHERE user_id = ?", "Google could not be reached just now: "+conv.Substr(conv.Str(conv.Coalesce(t["error"], "no answer")), 0, 120), userID)
 		}
 		Fail(c.T("Google needs you to connect again."))
 	}
 	expiresIn := 3600
 	if t["expires_in"] != nil {
-		expiresIn = php.Int(t["expires_in"])
+		expiresIn = conv.Int(t["expires_in"])
 	}
-	db.Exec("UPDATE google_connections SET access_token = ?, expires_at = ?, last_error = NULL, updated_at = now() WHERE user_id = ?", app.Encrypt(php.Str(t["access_token"])), expiry(expiresIn), userID)
-	return php.Str(t["access_token"])
+	db.Exec("UPDATE google_connections SET access_token = ?, expires_at = ?, last_error = NULL, updated_at = now() WHERE user_id = ?", app.Encrypt(conv.Str(t["access_token"])), expiry(expiresIn), userID)
+	return conv.Str(t["access_token"])
 }
 
 // API calls Google with the person's token; a refused token is refreshed once and the call retried.
@@ -379,7 +381,7 @@ func List(v any) []any {
 // ErrorMessage is $body['error']['message'] ?? def.
 func ErrorMessage(body map[string]any, def string) string {
 	if m, ok := Map(body["error"])["message"]; ok && m != nil {
-		return php.Str(m)
+		return conv.Str(m)
 	}
 	return def
 }

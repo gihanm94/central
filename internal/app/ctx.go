@@ -17,8 +17,8 @@ import (
 	"strings"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/i18n"
-	"acme/internal/php"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -77,7 +77,7 @@ func (c *Ctx) Param(name string) string {
 }
 
 // ParamInt is a numeric route parameter.
-func (c *Ctx) ParamInt(name string) int { return php.Int(c.Param(name)) }
+func (c *Ctx) ParamInt(name string) int { return conv.Int(c.Param(name)) }
 
 // IsJSON: the client sent or wants JSON.
 func (c *Ctx) IsJSON() bool {
@@ -156,7 +156,7 @@ func (c *Ctx) Input(k string, def ...string) string {
 func (c *Ctx) Inputs(k string) []string { return InStrings(c.InputAny(k)) }
 
 // Bool is Request::boolean($k).
-func (c *Ctx) Bool(k string) bool { return php.Bool(c.InputAny(k)) }
+func (c *Ctx) Bool(k string) bool { return conv.Bool(c.InputAny(k)) }
 
 // Query is Request::query($k): a GET field, trimmed.
 func (c *Ctx) Query(k string, def ...string) string {
@@ -222,7 +222,7 @@ func (c *Ctx) IP() string {
 	return h
 }
 
-func (c *Ctx) UserAgent() string { return php.Substr(c.R.UserAgent(), 0, 250) }
+func (c *Ctx) UserAgent() string { return conv.Substr(c.R.UserAgent(), 0, 250) }
 
 // Host is the host name without port.
 func (c *Ctx) Host() string {
@@ -304,7 +304,7 @@ func (c *Ctx) BaseURL() string {
 	if c == nil || c.R == nil || c.R.Host == "" {
 		return strings.TrimRight(config.String("app.url", ""), "/")
 	}
-	if !php.InList(strings.ToLower(c.R.Host), AllowedHosts()...) {
+	if !conv.InList(strings.ToLower(c.R.Host), AllowedHosts()...) {
 		return strings.TrimRight(config.String("app.url", ""), "/")
 	}
 	return c.Origin() + BasePrefix()
@@ -324,7 +324,7 @@ func buildQuery(query ...any) string {
 	v := url.Values{}
 	var keys []string
 	add := func(k string, val any) {
-		s := php.Str(val)
+		s := conv.Str(val)
 		if val == nil || s == "" {
 			return
 		}
@@ -356,7 +356,7 @@ func buildQuery(query ...any) string {
 		}
 	} else {
 		for i := 0; i+1 < len(query); i += 2 {
-			add(php.Str(query[i]), query[i+1])
+			add(conv.Str(query[i]), query[i+1])
 		}
 	}
 	parts := make([]string, 0, len(keys))
@@ -377,7 +377,7 @@ func (c *Ctx) Asset(path string) string {
 
 // UploadURL is upload_url(): public/uploads/<path>, or "".
 func (c *Ctx) UploadURL(path any) string {
-	p := php.Str(path)
+	p := conv.Str(path)
 	if p == "" {
 		return ""
 	}

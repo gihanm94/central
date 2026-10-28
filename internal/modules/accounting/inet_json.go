@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -36,20 +36,20 @@ func docVat(doc app.M) vatInfo {
 	if doc["vat_percentage"] == nil {
 		return vatInfo{0, "VAT"}
 	}
-	u := strings.ToUpper(php.Str(doc["vat_name"]))
+	u := strings.ToUpper(conv.Str(doc["vat_name"]))
 	t := "VAT"
 	if strings.Contains(u, "FREE") || strings.Contains(u, "FRE") {
 		t = "FRE"
 	} else if strings.Contains(u, "ZERO") || strings.Contains(u, "0%") {
 		t = "ZERO"
 	}
-	return vatInfo{php.Float(doc["vat_percentage"]), t}
+	return vatInfo{conv.Float(doc["vat_percentage"]), t}
 }
 
-func clean(s any) string { return strings.TrimSpace(php.Str(s)) }
+func clean(s any) string { return strings.TrimSpace(conv.Str(s)) }
 
 func orDef(v any, d string) string {
-	if t := strings.TrimSpace(php.Str(v)); t != "" {
+	if t := strings.TrimSpace(conv.Str(v)); t != "" {
 		return t
 	}
 	return d
@@ -57,15 +57,15 @@ func orDef(v any, d string) string {
 
 // dtm: 2026-10-07T00:00:00 — the date and time as written in the ERP, no zone conversion.
 func dtm(v any) string {
-	s := php.Str(v)
+	s := conv.Str(v)
 	if s == "" {
 		return ""
 	}
-	t, ok := php.ParseTime(s)
+	t, ok := conv.ParseTime(s)
 	if !ok {
 		return s
 	}
-	return php.Date("Y-m-d", t) + "T" + php.Date("H:i:s", t)
+	return conv.Date("Y-m-d", t) + "T" + conv.Date("H:i:s", t)
 }
 
 func jsonBuild(c *app.Ctx, doc app.M, lines []invLine, docType string, company db.Row, credit *creditInfo) builtDoc {
@@ -75,7 +75,7 @@ func jsonBuild(c *app.Ctx, doc app.M, lines []invLine, docType string, company d
 	vat := docVat(doc)
 	var rows []any
 	for i, l := range lines {
-		rows = append(rows, inetLine(i+1, l, php.Bool(doc["is_foreign"]), vat))
+		rows = append(rows, inetLine(i+1, l, conv.Bool(doc["is_foreign"]), vat))
 	}
 	t := docTotalsOf(lines, vat)
 
@@ -85,7 +85,7 @@ func jsonBuild(c *app.Ctx, doc app.M, lines []invLine, docType string, company d
 		cm.Set(k, "")
 	}
 	set := func(k, v string) { cm.Set(k, v) }
-	inv := php.Str(doc["invoice_no"])
+	inv := conv.Str(doc["invoice_no"])
 	date := dtm(doc["invoice_date"])
 
 	set("C01-SELLER_TAX_ID", clean(company["tax_id"]))
@@ -126,7 +126,7 @@ func jsonBuild(c *app.Ctx, doc app.M, lines []invLine, docType string, company d
 	switch {
 	case taxNo == "":
 		set("B03-BUYER_TAX_ID_TYPE", "OTHR")
-	case php.Bool(doc["is_private"]):
+	case conv.Bool(doc["is_private"]):
 		set("B03-BUYER_TAX_ID_TYPE", "NIDN")
 	case taxNo == "0000000000000":
 		set("B03-BUYER_TAX_ID_TYPE", "OTHR")
@@ -143,12 +143,12 @@ func jsonBuild(c *app.Ctx, doc app.M, lines []invLine, docType string, company d
 	set("B07-BUYER_CONTACT_DEPARTMENT_NAME", orDef(doc["seller_department"], defaultDept))
 	set("B10-BUYER_POST_CODE", orDef(doc["postal_code"], "00000"))
 	if clean(doc["mailing_address"]) != "" {
-		set("B13-BUYER_ADDRESS_LINE1", php.Str(doc["mailing_address"]))
+		set("B13-BUYER_ADDRESS_LINE1", conv.Str(doc["mailing_address"]))
 	}
 	set("B25-BUYER_COUNTRY_ID", orDef(doc["country_code"], "TH"))
 
 	cur := "THB"
-	set("F01-LINE_TOTAL_COUNT", php.Str(len(lines)))
+	set("F01-LINE_TOTAL_COUNT", conv.Str(len(lines)))
 	set("F03-INVOICE_CURRENCY_CODE", cur)
 	set("F04-TAX_TYPE_CODE1", vat.Type)
 	set("F05-TAX_CAL_RATE1", s2(math.Abs(vat.Rate)))
@@ -235,14 +235,14 @@ func inetLine(no int, l invLine, foreign bool, vat vatInfo) *config.Map {
 	for _, k := range config.Strings("inet_schema.line_zero") {
 		s.Set(k, "0.00")
 	}
-	s.Set("L01-LINE_ID", php.Str(no))
+	s.Set("L01-LINE_ID", conv.Str(no))
 	s.Set("L02-PRODUCT_ID", clean(l.PartNumber))
 	s.Set("L10-PRODUCT_CHARGE_AMOUNT", s2(basis))
 	s.Set("L11-PRODUCT_CHARGE_CURRENCY_CODE", cur)
 	s.Set("L17-PRODUCT_QUANTITY", nf(math.Abs(l.OrderedQty), 4, ".", ""))
 	s.Set("L20-LINE_TAX_TYPE_CODE", vat.Type)
 	s.Set("L21-LINE_TAX_CAL_RATE", s2(vat.Rate))
-	typ := php.OrStr(l.ItemType, "OTHER")
+	typ := conv.OrStr(l.ItemType, "OTHER")
 	if typ == "DEPOSIT" || typ == "DISCOUNT" {
 		if typ == "DEPOSIT" {
 			s.Set("L03-PRODUCT_NAME", "Deposit from customer")

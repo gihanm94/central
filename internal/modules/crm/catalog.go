@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Fixed lists of the CRM (Catalog): values are stored; labels are translated when shown.
@@ -209,7 +209,7 @@ func stageHiddenFor(departmentID int) []string {
 	}
 	var out []string
 	for _, v := range db.On("crm").Column("SELECT stage FROM stage_hidden WHERE department_id = ?", departmentID) {
-		out = append(out, php.Str(v))
+		out = append(out, conv.Str(v))
 	}
 	return out
 }
@@ -267,8 +267,8 @@ func fmtFloat(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
-// phpRound is round($n, $dec) (half away from zero).
-func phpRound(n float64, dec int) float64 {
+// roundHalf is round($n, $dec) (half away from zero).
+func roundHalf(n float64, dec int) float64 {
 	p := math.Pow(10, float64(dec))
 	v := n * p
 	if v < 0 {

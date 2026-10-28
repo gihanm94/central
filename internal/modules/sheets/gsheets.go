@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // The few Drive + Sheets calls the module needs (Support\GSheets).
@@ -14,7 +14,7 @@ import (
 const chunkRows = 2000 // rows per write request
 
 func sheetsURL() string {
-	return strings.TrimRight(php.OrStr(app.Setting("google_sheets_url", ""), "https://sheets.googleapis.com"), "/")
+	return strings.TrimRight(conv.OrStr(app.Setting("google_sheets_url", ""), "https://sheets.googleapis.com"), "/")
 }
 
 func check(st int, body map[string]any, what string) map[string]any {
@@ -44,7 +44,7 @@ func spreadsheets(c *app.Ctx, accountID int, search string) []spreadsheetFile {
 	out := []spreadsheetFile{}
 	for _, f := range google.List(body["files"]) {
 		m := google.Map(f)
-		out = append(out, spreadsheetFile{php.Str(m["id"]), php.Str(m["name"]), php.Str(m["modifiedTime"])})
+		out = append(out, spreadsheetFile{conv.Str(m["id"]), conv.Str(m["name"]), conv.Str(m["modifiedTime"])})
 	}
 	return out
 }
@@ -63,10 +63,10 @@ func spreadsheet(c *app.Ctx, accountID int, id string) spreadsheetInfo {
 	st, b := accountAPI(c, accountID, "GET", sheetsURL()+"/v4/spreadsheets/"+google.RawURLEncode(id),
 		google.Query{{K: "fields", V: "properties.title,sheets.properties(sheetId,title)"}}, nil)
 	body := check(st, b, c.T("Google Sheets"))
-	out := spreadsheetInfo{Name: php.Str(google.Map(body["properties"])["title"]), Tabs: []sheetTab{}}
+	out := spreadsheetInfo{Name: conv.Str(google.Map(body["properties"])["title"]), Tabs: []sheetTab{}}
 	for _, s := range google.List(body["sheets"]) {
 		p := google.Map(google.Map(s)["properties"])
-		out.Tabs = append(out.Tabs, sheetTab{php.Int(p["sheetId"]), php.Str(p["title"])})
+		out.Tabs = append(out.Tabs, sheetTab{conv.Int(p["sheetId"]), conv.Str(p["title"])})
 	}
 	return out
 }
@@ -79,9 +79,9 @@ func create(c *app.Ctx, accountID int, title, tab string) (string, string) {
 	body := check(st, b, c.T("Google Sheets"))
 	name := title
 	if t, ok := google.Map(body["properties"])["title"]; ok && t != nil {
-		name = php.Str(t)
+		name = conv.Str(t)
 	}
-	return php.Str(body["spreadsheetId"]), name
+	return conv.Str(body["spreadsheetId"]), name
 }
 
 // write replaces the whole tab with header + rows (the tab is created when missing and sized to fit, so rows left

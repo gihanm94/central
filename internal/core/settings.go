@@ -11,9 +11,9 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/i18n"
-	"acme/internal/php"
 )
 
 // Company settings: branding (logo, sign-in picture, language) and notifications (e-mail, Lark) (SettingsController).
@@ -86,7 +86,7 @@ func settingsUpdate(c *app.Ctx) {
 	for _, key := range data.Keys {
 		value := data.Get(key)
 		old := wsSetting(key)
-		if php.Str(old) != php.Str(value) || (old == nil) != (value == nil) {
+		if conv.Str(old) != conv.Str(value) || (old == nil) != (value == nil) {
 			changed.Set(key, app.Change{From: old, To: value})
 			app.PutSetting(key, value)
 		}
@@ -97,7 +97,7 @@ func settingsUpdate(c *app.Ctx) {
 		if c.Bool(sw) {
 			on = "1"
 		}
-		cur := php.Str(php.Coalesce(wsSetting(sw), "1"))
+		cur := conv.Str(conv.Coalesce(wsSetting(sw), "1"))
 		if !app.SettingSet(sw) {
 			cur = "1"
 		}
@@ -225,17 +225,17 @@ func wsChecked(v any, path ...string) bool {
 		}
 		v, _ = m.Get(k)
 	}
-	return !php.Empty(v)
+	return !conv.Empty(v)
 }
 
 func settingsSaveNotifications(c *app.Ctx) {
 	c.Authorize("settings", "edit")
 	mode := c.Input("lark_mode", "off")
-	if !php.InList(mode, "off", "webhook", "app") {
+	if !conv.InList(mode, "off", "webhook", "app") {
 		app.Invalid("lark_mode", c.T("Choose how Lark messages are sent."))
 	}
 	domain := c.Input("lark_domain")
-	if !php.InList(domain, "https://open.larksuite.com", "https://open.feishu.cn") {
+	if !conv.InList(domain, "https://open.larksuite.com", "https://open.feishu.cn") {
 		domain = "https://open.larksuite.com"
 	}
 	webhook := c.Input("lark_webhook_url")
@@ -259,7 +259,7 @@ func settingsSaveNotifications(c *app.Ctx) {
 		v := c.Input(secret)
 		if v != "" && v != "••••••••" {
 			app.PutSetting(secret, v)
-		} else if !php.Empty(c.InputAny("clear_" + secret)) {
+		} else if !conv.Empty(c.InputAny("clear_" + secret)) {
 			app.PutSetting(secret, nil)
 		}
 	}

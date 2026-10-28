@@ -4,8 +4,8 @@ import (
 	"html/template"
 	"strings"
 
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // FormStep is one section of a form (a wizard step when the form has several).
@@ -114,19 +114,19 @@ func formField(c *Ctx, f Field, row db.Row) FormField {
 	} else {
 		raw = ""
 	}
-	val := php.Str(raw)
+	val := conv.Str(raw)
 	switch f.TypeOr() {
 	case "date":
 		if val != "" {
-			val = php.Substr(val, 0, 10)
+			val = conv.Substr(val, 0, 10)
 		}
 	case "datetime":
 		if val != "" {
-			val = php.DateOf("Y-m-d\\TH:i", val)
+			val = conv.DateOf("Y-m-d\\TH:i", val)
 		}
 	case "number":
 		if val != "" {
-			val = strings.ReplaceAll(php.NumberClean(val), ",", "")
+			val = strings.ReplaceAll(conv.NumberClean(val), ",", "")
 		}
 	case "richtext":
 		val = c.HTMLRender(val)
@@ -139,7 +139,7 @@ func formField(c *Ctx, f Field, row db.Row) FormField {
 		} else {
 			cv = f.Default
 		}
-		ff.Checked = php.Bool(cv)
+		ff.Checked = conv.Bool(cv)
 	case "multi", "picker":
 		if o, ok := c.Sess.Old(f.Name); ok {
 			ff.Picked = InStrings(o)
@@ -151,7 +151,7 @@ func formField(c *Ctx, f Field, row db.Row) FormField {
 		if f.Other { // the list plus "Other…", which opens a box to type in
 			other := ""
 			if o, ok := c.Sess.Old(f.Name + "__other"); ok {
-				other = php.Str(o)
+				other = conv.Str(o)
 			} else if val != "" {
 				if _, known := OptLabel(opts, val); !known {
 					other = val
@@ -207,19 +207,19 @@ func ShowFields(c *Ctx, fields []Field, row db.Row) []ShowItem {
 		case t == "password":
 			continue
 		case t == "checkbox":
-			if php.Bool(v) {
+			if conv.Bool(v) {
 				it.Text = c.T("Yes")
 			} else {
 				it.Text = c.T("No")
 			}
-		case v == nil || php.Str(v) == "":
+		case v == nil || conv.Str(v) == "":
 			it.Text, it.Empty = "—", true
 		case t == "file":
 			it.IsPic, it.ImgOnly, it.Img = true, true, c.UploadURL(v)
 		case len(f.Options) > 0:
-			o, ok := findOpt(f.Options, php.Str(v))
+			o, ok := findOpt(f.Options, conv.Str(v))
 			if !ok {
-				o, ok = findOpt(f.AllOptions, php.Str(v))
+				o, ok = findOpt(f.AllOptions, conv.Str(v))
 			}
 			if ok {
 				if o.Img != "" || o.Sub != "" {
@@ -228,16 +228,16 @@ func ShowFields(c *Ctx, fields []Field, row db.Row) []ShowItem {
 					it.Text = o.Label
 				}
 			} else {
-				it.Text = php.Str(v)
+				it.Text = conv.Str(v)
 			}
 		case t == "date":
 			it.Text = FormatDate(c, v, "d M Y")
 		case t == "datetime":
 			it.Text = FormatDate(c, v, "d M Y H:i")
 		case t == "number":
-			it.Text = php.NumberClean(v)
+			it.Text = conv.NumberClean(v)
 		default:
-			it.Text = php.Str(v)
+			it.Text = conv.Str(v)
 		}
 		out = append(out, it)
 	}
@@ -309,7 +309,7 @@ func pickerData(f Field, picked []string) pickerView {
 		byID[ch.ID] = ch
 		out = append(out, ch)
 	}
-	v := pickerView{Max: php.Int(f.Extra["max"]), Choices: out}
+	v := pickerView{Max: conv.Int(f.Extra["max"]), Choices: out}
 	// options keep their order in the JSON object
 	var b strings.Builder
 	b.WriteString("{")

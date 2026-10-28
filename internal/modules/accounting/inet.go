@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -94,7 +94,7 @@ func docButtons(c *app.Ctx, r db.Row, typ string) string {
 	}
 	seq++
 	c.Shared["_inetMenuSeq"] = seq
-	menuID := "dm-" + r.Str("id") + "-" + strings.ToLower(typ) + "-" + php.Str(seq) // the phone list renders the same cells again: ids must differ
+	menuID := "dm-" + r.Str("id") + "-" + strings.ToLower(typ) + "-" + conv.Str(seq) // the phone list renders the same cells again: ids must differ
 	item := "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left hover:bg-mist"
 	dead := "flex w-full cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-graphite-400"
 	fileURL := ""
@@ -141,7 +141,7 @@ var inetsList = newErpList(&erpList{syncKey: "", res: &app.Resource{
 	CanModify: func(c *app.Ctx, row db.Row, action string) bool { return action == "delete" },
 	ExtraMeta: func(c *app.Ctx) app.M { return app.M{"selectable": c.Can("accounting_inet", "delete")} },
 	BeforeDelete: func(c *app.Ctx, row db.Row) {
-		dir := filepath.Join(app.BasePath, "storage", "inet", php.Str(row.Int("no_invoice")))
+		dir := filepath.Join(app.BasePath, "storage", "inet", conv.Str(row.Int("no_invoice")))
 		files, _ := filepath.Glob(filepath.Join(dir, "*"))
 		for _, f := range files {
 			_ = os.Remove(f)
@@ -162,7 +162,7 @@ var inetsList = newErpList(&erpList{syncKey: "", res: &app.Resource{
 	Columns: func(c *app.Ctx) []app.Column {
 		cols := []app.Column{
 			{Key: "no", Label: c.T("Invoice number"), Primary: true, Sort: "t.no_invoice", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return cell(`<a href="` + app.E(c.URL("/accounting/inet/"+r.Str("id"))) + `" class="font-medium hover:text-signal-700">` + app.E(r["no_invoice"]) + `</a><span class="block text-xs text-steel">` + app.E(php.Coalesce(r["customer_order_number"], "")) + `</span>`)
+				return cell(`<a href="` + app.E(c.URL("/accounting/inet/"+r.Str("id"))) + `" class="font-medium hover:text-signal-700">` + app.E(r["no_invoice"]) + `</a><span class="block text-xs text-steel">` + app.E(conv.Coalesce(r["customer_order_number"], "")) + `</span>`)
 			}},
 			{Key: "customer", Label: c.T("Customer code"), Sort: "t.customer_code", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return cell(`<span title="` + app.E(r["customer_name"]) + `">` + orDash(r["customer_code"]) + `</span>`)
@@ -248,7 +248,7 @@ func inetCandidates(c *app.Ctx) {
 	c.Authorize("accounting_inet", "create")
 	credit := c.Query("credit") == "1"
 	qs := strings.TrimSpace(c.Query("q"))
-	page := max(1, php.Int(c.Query("page", "1")))
+	page := max(1, conv.Int(c.Query("page", "1")))
 	if acc().Scalar("SELECT 1 FROM erp_documents LIMIT 1") == nil {
 		documentsRefreshQuietly() // first time: prepare everything once
 	}
@@ -260,9 +260,9 @@ func inetCandidates(c *app.Ctx) {
 		par = append(par, "%"+likeEscape(w)+"%")
 	}
 	from := "FROM erp_documents d WHERE " + strings.Join(where, " AND ")
-	total := php.Int(acc().Scalar("SELECT count(*) "+from, par...))
+	total := conv.Int(acc().Scalar("SELECT count(*) "+from, par...))
 	rows := acc().Select("SELECT d.invoice_number, d.order_number AS order_no, d.vat_no, d.customer_code, d.delivery_no, d.remark, d.payment_remark, d.seller_name, d.missing "+from+
-		" ORDER BY d.invoice_number DESC LIMIT "+php.Str(inetPer)+" OFFSET "+php.Str((page-1)*inetPer), par...)
+		" ORDER BY d.invoice_number DESC LIMIT "+conv.Str(inetPer)+" OFFSET "+conv.Str((page-1)*inetPer), par...)
 	c.JSON(app.M{"rows": rowsM(rows), "total": total, "pages": max(1, int(math.Ceil(float64(total)/inetPer))), "credit": credit})
 }
 
@@ -282,12 +282,12 @@ func inetGenerate(c *app.Ctx) {
 		}
 		v, _ := m.Get("invoice")
 		a, _ := m.Get("auto_pdf")
-		if n := php.Int(v); n > 0 {
-			items = append(items, genItem{Invoice: n, AutoPDF: !php.Empty(a) && php.Str(a) != "false"})
+		if n := conv.Int(v); n > 0 {
+			items = append(items, genItem{Invoice: n, AutoPDF: !conv.Empty(a) && conv.Str(a) != "false"})
 		}
 	}
 	id := jobCreate(items, c.UserID())
-	logInfo("inet", "Generate queued: "+php.Str(len(items))+" invoice(s)", om("job", id, "by", c.MustUser().Email))
+	logInfo("inet", "Generate queued: "+conv.Str(len(items))+" invoice(s)", om("job", id, "by", c.MustUser().Email))
 	if !jobStart(id) { // this server cannot start processes: do it here, the page still gets the finished job
 		jobRun(c, id)
 	}
@@ -313,10 +313,10 @@ func inetSyncOne(c *app.Ctx) {
 	}
 	err := app.Catch(func() {
 		s := newSyncer()
-		s.run("invoice", "all", "", 0, strp("InvoiceNumber eq "+php.Str(row.Int("no_invoice"))), boolp(true))
-		if php.Truthy(row["order_id"]) {
-			s.run("order", "one", php.Str(row["order_id"]), 0, nil, nil)
-			s.run("order_row", "all", "", 0, strp("ParentOrderId eq '"+php.Str(row.Int("order_id"))+"'"), boolp(true))
+		s.run("invoice", "all", "", 0, strp("InvoiceNumber eq "+conv.Str(row.Int("no_invoice"))), boolp(true))
+		if conv.Truthy(row["order_id"]) {
+			s.run("order", "one", conv.Str(row["order_id"]), 0, nil, nil)
+			s.run("order_row", "all", "", 0, strp("ParentOrderId eq '"+conv.Str(row.Int("order_id"))+"'"), boolp(true))
 		}
 		inetSave(row.Int("no_invoice"), !row.Bool("is_manual"), c.UserID())
 		c.Flash("success", c.T("Invoice :no read from the ERP again.", "no", row["no_invoice"]))

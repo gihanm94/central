@@ -13,8 +13,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // API sign-ins, one row per device (api_devices) — App\Core\Api\Tokens.
@@ -46,7 +46,7 @@ func random(prefix string) string {
 // Allowed: may this person use the API at all?
 func Allowed(u *app.CurrentUser) bool { return u.Can("api_access", "view") }
 
-func iso(t time.Time) string { return php.Date("c", t.In(php.Loc)) }
+func iso(t time.Time) string { return conv.Date("c", t.In(conv.Loc)) }
 
 // Issue: after a correct sign-in name + password, a new device sign-in; returns the token pair for the app.
 func Issue(c *app.Ctx, u *app.CurrentUser, name string, deviceKey any, platform string) *config.Map {
@@ -60,7 +60,7 @@ func Issue(c *app.Ctx, u *app.CurrentUser, name string, deviceKey any, platform 
 		{Name: "user_id", Value: u.ID}, {Name: "name", Value: name}, {Name: "device_key", Value: deviceKey}, {Name: "platform", Value: platform},
 		{Name: "session_version", Value: u.SessionVersion}, {Name: "expires_at", Value: iso(now.Add(time.Duration(MaxDays()) * 24 * time.Hour))},
 		{Name: "created_ip", Value: c.IP()}, {Name: "last_ip", Value: c.IP()}, {Name: "last_used_at", Value: iso(now)},
-		{Name: "user_agent", Value: php.Substr(ua, 0, 255)},
+		{Name: "user_agent", Value: conv.Substr(ua, 0, 255)},
 	})
 	return rotate(c, id, nil)
 }
@@ -71,7 +71,7 @@ func rotate(c *app.Ctx, deviceID int, oldRefreshHash any) *config.Map {
 	refresh := random(refreshPrefix)
 	d := db.First("SELECT expires_at FROM api_devices WHERE id = ?", deviceID)
 	now := time.Now().Unix()
-	end := php.StrToTime(d["expires_at"])
+	end := conv.StrToTime(d["expires_at"])
 	accessEnd := min(now+int64(AccessMinutes()*60), end)
 	refreshEnd := min(now+int64(RefreshDays()*86400), end)
 	db.Exec(`UPDATE api_devices SET access_hash = ?, access_expires_at = ?, refresh_hash = ?, refresh_expires_at = ?, prev_refresh_hash = ?,
@@ -101,7 +101,7 @@ func Refresh(c *app.Ctx, refresh string) (*config.Map, int) {
 		Fail(http.StatusUnauthorized, "invalid_token", c.T("Sign in again."))
 	}
 	now := time.Now().Unix()
-	if php.StrToTime(d["refresh_expires_at"]) <= now || php.StrToTime(d["expires_at"]) <= now {
+	if conv.StrToTime(d["refresh_expires_at"]) <= now || conv.StrToTime(d["expires_at"]) <= now {
 		Revoke(d.Int("id"), "expired")
 		Fail(http.StatusUnauthorized, "session_ended", c.T("Your sign-in on this device has ended. Sign in again."))
 	}
@@ -118,11 +118,11 @@ func Authenticate(c *app.Ctx, header string) (*app.CurrentUser, db.Row) {
 		Fail(http.StatusUnauthorized, "unauthenticated", c.T("Sign in first."), "WWW-Authenticate", "Bearer")
 	}
 	d := db.First("SELECT * FROM api_devices WHERE access_hash = ? AND revoked_at IS NULL", hash(m[1]))
-	if d == nil || php.StrToTime(d["access_expires_at"]) <= time.Now().Unix() {
+	if d == nil || conv.StrToTime(d["access_expires_at"]) <= time.Now().Unix() {
 		Fail(http.StatusUnauthorized, "token_expired", c.T("The access token has expired. Refresh it."), "WWW-Authenticate", `Bearer error="invalid_token"`)
 	}
 	u := deviceUser(c, d)
-	if d["last_used_at"] == nil || php.StrToTime(d["last_used_at"]) < time.Now().Unix()-60 || d.Str("last_ip") != c.IP() {
+	if d["last_used_at"] == nil || conv.StrToTime(d["last_used_at"]) < time.Now().Unix()-60 || d.Str("last_ip") != c.IP() {
 		db.Exec("UPDATE api_devices SET last_used_at = now(), last_ip = ? WHERE id = ?", c.IP(), d["id"])
 	}
 	return u, d
@@ -137,7 +137,7 @@ func deviceUser(c *app.Ctx, d db.Row) *app.CurrentUser {
 		why = "user_inactive"
 	case u.SessionVersion != d.Int("session_version"):
 		why = "signed_out_everywhere"
-	case php.StrToTime(d["expires_at"]) <= time.Now().Unix():
+	case conv.StrToTime(d["expires_at"]) <= time.Now().Unix():
 		why = "expired"
 	case !Allowed(u):
 		why = "no_api_access"
@@ -155,13 +155,13 @@ func deviceUser(c *app.Ctx, d db.Row) *app.CurrentUser {
 // Revoke signs one device out (both tokens stop working).
 func Revoke(deviceID int, reason string) {
 	db.Exec(`UPDATE api_devices SET revoked_at = coalesce(revoked_at, now()), revoked_reason = coalesce(revoked_reason, ?), access_hash = NULL, refresh_hash = NULL, prev_refresh_hash = NULL WHERE id = ?`,
-		php.Substr(reason, 0, 40), deviceID)
+		conv.Substr(reason, 0, 40), deviceID)
 }
 
 // RevokeAll signs out every device of a person; returns how many.
 func RevokeAll(userID int, reason string) int {
 	return db.Exec(`UPDATE api_devices SET revoked_at = now(), revoked_reason = ?, access_hash = NULL, refresh_hash = NULL, prev_refresh_hash = NULL
-                         WHERE user_id = ? AND revoked_at IS NULL`, php.Substr(reason, 0, 40), userID)
+                         WHERE user_id = ? AND revoked_at IS NULL`, conv.Substr(reason, 0, 40), userID)
 }
 
 func alert(c *app.Ctx, userID int, device string) {

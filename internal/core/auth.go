@@ -8,9 +8,9 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/i18n"
-	"acme/internal/php"
 )
 
 // Sign in, sign out, forgot / reset password (AuthController). There is no public sign-up.
@@ -24,7 +24,7 @@ func login(c *app.Ctx) {
 	if msg := c.Attempt(data.Str("username"), data.Str("password"), c.Bool("remember")); msg != "" {
 		app.Invalid("username", msg)
 	}
-	to := php.Str(c.Sess.Get("_intended"))
+	to := conv.Str(c.Sess.Get("_intended"))
 	if to == "" {
 		to = c.User().HomeURL()
 	}
@@ -100,7 +100,7 @@ func reset(c *app.Ctx) {
 	row := db.First("SELECT * FROM password_resets WHERE email = lower(?)", data.Str("email"))
 	minutes := config.Int("security.reset_minutes", 60)
 	if row == nil || subtle.ConstantTimeCompare([]byte(row.Str("token_hash")), []byte(sha256Hex(data.Str("token")))) != 1 ||
-		php.StrToTime(row["created_at"]) < time.Now().Unix()-int64(60*minutes) {
+		conv.StrToTime(row["created_at"]) < time.Now().Unix()-int64(60*minutes) {
 		app.Invalid("email", c.T("This reset link is invalid or has expired. Request a new one."))
 	}
 	user := db.First("SELECT id, name, email FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL", data.Str("email"))
@@ -116,7 +116,7 @@ func reset(c *app.Ctx) {
 	{
 		app.SecurityAlert(c, "password", user.Int("id"), func() (string, []template.HTML, string) {
 			return c.T("Your password was changed"),
-				[]template.HTML{esc(c.T("Your password was reset using an e-mail link.")), template.HTML(template.HTMLEscapeString(c.T("IP address")+": "+ip) + " | " + template.HTMLEscapeString(app.FormatDate(c, php.NowString(), "d M Y, H:i")))},
+				[]template.HTML{esc(c.T("Your password was reset using an e-mail link.")), template.HTML(template.HTMLEscapeString(c.T("IP address")+": "+ip) + " | " + template.HTMLEscapeString(app.FormatDate(c, conv.NowString(), "d M Y, H:i")))},
 				c.T("If this was not you, contact your administrator immediately.")
 		}, &app.MailButton{Label: c.T("Sign in"), URL: c.URL("/login")})
 	}

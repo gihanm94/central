@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- stages (StageController)
@@ -27,7 +27,7 @@ func stagesIndex(c *app.Ctx) {
 			mine = append(mine, d.Value)
 		}
 	} else if u.DepartmentID != 0 {
-		mine = []string{php.Str(u.DepartmentID)}
+		mine = []string{conv.Str(u.DepartmentID)}
 	}
 	hidden := map[string]bool{}
 	for _, r := range db.On("crm").Select("SELECT stage, department_id FROM stage_hidden") {
@@ -70,7 +70,7 @@ func stagesSave(c *app.Ctx) {
 			mine = append(mine, d.Value)
 		}
 	} else if u.DepartmentID != 0 {
-		mine = []string{php.Str(u.DepartmentID)}
+		mine = []string{conv.Str(u.DepartmentID)}
 	}
 	if all {
 		mob := app.InMap(c.InputAny("mobile"))
@@ -78,7 +78,7 @@ func stagesSave(c *app.Ctx) {
 			name := mob.Vals[code]
 			n := strings.TrimSpace(stripTags(app.InStr(name)))
 			if isStage(code) {
-				if php.Len(n) > 24 {
+				if conv.Len(n) > 24 {
 					app.Invalid("mobile", c.T("A mobile name can have at most 24 characters."))
 				}
 				var v any
@@ -102,7 +102,7 @@ func stagesSave(c *app.Ctx) {
 		var use []string
 		dm := app.InMap(d)
 		for _, k := range dm.Keys {
-			if isStage(k) && !php.Empty(dm.Vals[k]) {
+			if isStage(k) && !conv.Empty(dm.Vals[k]) {
 				use = append(use, k)
 			}
 		}
@@ -113,10 +113,10 @@ func stagesSave(c *app.Ctx) {
 			}
 			app.Invalid("use", c.T("Every department needs at least one stage (:dept).", "dept", name))
 		}
-		db.On("crm").Exec("DELETE FROM stage_hidden WHERE department_id = ?", php.Int(dep))
+		db.On("crm").Exec("DELETE FROM stage_hidden WHERE department_id = ?", conv.Int(dep))
 		for _, code := range stageCodes() {
 			if !inStrs(code, use) {
-				db.On("crm").Exec("INSERT INTO stage_hidden (stage, department_id, updated_by) VALUES (?, ?, ?)", code, php.Int(dep), u.ID)
+				db.On("crm").Exec("INSERT INTO stage_hidden (stage, department_id, updated_by) VALUES (?, ?, ?)", code, conv.Int(dep), u.ID)
 			}
 		}
 	}
@@ -150,12 +150,12 @@ func targetDepartment(c *app.Ctx) int {
 	u := c.MustUser()
 	deps := departments()
 	if seesAll(u) {
-		pick := php.Int(c.Input("department", "0"))
-		if optHas(deps, php.Str(pick)) {
+		pick := conv.Int(c.Input("department", "0"))
+		if optHas(deps, conv.Str(pick)) {
 			return pick
 		}
 		if len(deps) > 0 {
-			return php.Int(deps[0].Value)
+			return conv.Int(deps[0].Value)
 		}
 		return 0
 	}
@@ -166,11 +166,11 @@ func targetDepartment(c *app.Ctx) int {
 }
 
 func targetYear(c *app.Ctx) int {
-	y := php.Int(c.Input("year", php.Date("Y", php.Now())))
+	y := conv.Int(c.Input("year", conv.Date("Y", conv.Now())))
 	if y >= 2000 && y <= 2100 {
 		return y
 	}
-	return php.Now().Year()
+	return conv.Now().Year()
 }
 
 // targetsMoved: sales targets used to live under CRM settings.
@@ -199,14 +199,14 @@ func targetsIndex(c *app.Ctx) {
 	live := targetLive(dep, year)
 
 	num := func(v any) string {
-		if v == nil || php.Str(v) == "" {
+		if v == nil || conv.Str(v) == "" {
 			return ""
 		}
-		return strings.TrimRight(strings.TrimRight(php.NumberFormat(php.Float(v), 2, ".", ""), "0"), ".")
+		return strings.TrimRight(strings.TrimRight(conv.NumberFormat(conv.Float(v), 2, ".", ""), "0"), ".")
 	}
 	pct := func(a, t float64) (int, bool) {
 		if t > 0 {
-			return int(phpRound(a/t*100, 0)), true
+			return int(roundHalf(a/t*100, 0)), true
 		}
 		return 0, false
 	}
@@ -220,11 +220,11 @@ func targetsIndex(c *app.Ctx) {
 	months := []string{"Jan–Mar", "Apr–Jun", "Jul–Sep", "Oct–Dec"}
 	qsum := 0.0
 	for q := 1; q <= 4; q++ {
-		t := row.Float("q" + php.Str(q))
+		t := row.Float("q" + conv.Str(q))
 		qsum += t
-		x := qrow{Q: q, Months: months[q-1], Target: num(t), Saved: num(row["a"+php.Str(q)]), Live: php.NF(live[q], 2)}
+		x := qrow{Q: q, Months: months[q-1], Target: num(t), Saved: num(row["a"+conv.Str(q)]), Live: conv.NF(live[q], 2)}
 		if p, ok := pct(live[q], t); ok {
-			x.Meter, x.HasMeter = meterHTML(c, float64(p), php.Str(p)+"%"), true
+			x.Meter, x.HasMeter = meterHTML(c, float64(p), conv.Str(p)+"%"), true
 		}
 		qs = append(qs, x)
 	}
@@ -235,11 +235,11 @@ func targetsIndex(c *app.Ctx) {
 	}
 	var yearMeter template.HTML
 	if p, ok := pct(liveT, yearTarget); ok {
-		yearMeter = meterHTML(c, float64(p), php.Str(p)+"%")
+		yearMeter = meterHTML(c, float64(p), conv.Str(p)+"%")
 	}
 	savedTotal := "—"
 	if row["a1"] != nil {
-		savedTotal = php.NF(row.Float("a1")+row.Float("a2")+row.Float("a3")+row.Float("a4"), 2)
+		savedTotal = conv.NF(row.Float("a1")+row.Float("a2")+row.Float("a3")+row.Float("a4"), 2)
 	}
 	type hrow struct {
 		Year, Total, Actual, URL string
@@ -250,16 +250,16 @@ func targetsIndex(c *app.Ctx) {
 	var hs []hrow
 	for _, hh := range history {
 		act := hh.Float("a1") + hh.Float("a2") + hh.Float("a3") + hh.Float("a4")
-		x := hrow{Year: hh.Str("year"), Total: php.NF(hh.Float("total"), 2), Actual: php.NF(act, 2), URL: c.URL("/crm/targets", "year", hh["year"], "department", dep)}
+		x := hrow{Year: hh.Str("year"), Total: conv.NF(hh.Float("total"), 2), Actual: conv.NF(act, 2), URL: c.URL("/crm/targets", "year", hh["year"], "department", dep)}
 		for _, k := range []string{"a1", "a2", "a3", "a4"} {
 			if hh[k] == nil {
 				x.A = append(x.A, "—")
 			} else {
-				x.A = append(x.A, php.NF(hh.Float(k), 2))
+				x.A = append(x.A, conv.NF(hh.Float(k), 2))
 			}
 		}
 		if p, ok := pct(act, hh.Float("total")); ok {
-			x.Meter, x.HasMeter = meterHTML(c, float64(p), php.Str(p)+"%"), true
+			x.Meter, x.HasMeter = meterHTML(c, float64(p), conv.Str(p)+"%"), true
 		}
 		hs = append(hs, x)
 	}
@@ -280,11 +280,11 @@ func targetsIndex(c *app.Ctx) {
 	if row["actuals_saved_at"] != nil {
 		savedAt = c.T("Actuals last saved :time.", "time", app.TimeAgo(c, row["actuals_saved_at"]))
 	}
-	depName, _ := app.OptLabel(deps, php.Str(dep))
-	c.View("crm/targets", app.M{"title": c.T("Sales targets"), "deps": deps, "dep": php.Str(dep), "depName": depName, "year": year, "cur": cur,
+	depName, _ := app.OptLabel(deps, conv.Str(dep))
+	c.View("crm/targets", app.M{"title": c.T("Sales targets"), "deps": deps, "dep": conv.Str(dep), "depName": depName, "year": year, "cur": cur,
 		"canEdit": c.Can("crm_targets", "edit") && (seesAll(u) || dep == u.DepartmentID), "pickDept": seesAll(u), "source": source, "note": note,
 		"prev": c.URL("/crm/targets", "year", year-1, "department", dep), "next": c.URL("/crm/targets", "year", year+1, "department", dep),
-		"rows": qs, "total": num(row["total"]), "qsum": php.NF(qsum, 2), "liveT": php.NF(liveT, 2), "savedTotal": savedTotal, "yearMeter": yearMeter,
+		"rows": qs, "total": num(row["total"]), "qsum": conv.NF(qsum, 2), "liveT": conv.NF(liveT, 2), "savedTotal": savedTotal, "yearMeter": yearMeter,
 		"savedAt": savedAt, "history": hs})
 }
 
@@ -293,10 +293,10 @@ func targetMoney(c *app.Ctx, key string) float64 {
 	if v == "" {
 		return 0
 	}
-	if !app.IsNumeric(v) || php.Float(v) < 0 || php.Float(v) > 1e13 {
+	if !app.IsNumeric(v) || conv.Float(v) < 0 || conv.Float(v) > 1e13 {
 		app.Invalid(key, c.T("Enter an amount of zero or more."))
 	}
-	return phpRound(php.Float(v), 2)
+	return roundHalf(conv.Float(v), 2)
 }
 
 func targetsSave(c *app.Ctx) {
@@ -316,7 +316,7 @@ func targetsSave(c *app.Ctx) {
 		q := [5]float64{}
 		sum := 0.0
 		for i := 1; i <= 4; i++ {
-			q[i] = targetMoney(c, "q"+php.Str(i))
+			q[i] = targetMoney(c, "q"+conv.Str(i))
 			sum += q[i]
 		}
 		total := targetMoney(c, "total")
@@ -324,7 +324,7 @@ func targetsSave(c *app.Ctx) {
 			total = sum
 		}
 		data = db.Cols{{Name: "q1", Value: q[1]}, {Name: "q2", Value: q[2]}, {Name: "q3", Value: q[3]}, {Name: "q4", Value: q[4]}, {Name: "total", Value: total},
-			{Name: "updated_by", Value: u.ID}, {Name: "updated_at", Value: php.NowString()}}
+			{Name: "updated_by", Value: u.ID}, {Name: "updated_at", Value: conv.NowString()}}
 		msg = c.T("Targets for :year saved.", "year", year)
 	} else {
 		// actuals: take the live figures, or the numbers typed in the "saved" column
@@ -333,13 +333,13 @@ func targetsSave(c *app.Ctx) {
 		for i := 1; i <= 4; i++ {
 			var v float64
 			if action == "actuals_live" {
-				v = phpRound(live[i], 2)
+				v = roundHalf(live[i], 2)
 			} else {
-				v = targetMoney(c, "a"+php.Str(i))
+				v = targetMoney(c, "a"+conv.Str(i))
 			}
-			data = append(data, db.Col{Name: "a" + php.Str(i), Value: v})
+			data = append(data, db.Col{Name: "a" + conv.Str(i), Value: v})
 		}
-		data = append(data, db.Col{Name: "actuals_saved_at", Value: php.NowString()}, db.Col{Name: "actuals_saved_by", Value: u.ID}, db.Col{Name: "updated_by", Value: u.ID}, db.Col{Name: "updated_at", Value: php.NowString()})
+		data = append(data, db.Col{Name: "actuals_saved_at", Value: conv.NowString()}, db.Col{Name: "actuals_saved_by", Value: u.ID}, db.Col{Name: "updated_by", Value: u.ID}, db.Col{Name: "updated_at", Value: conv.NowString()})
 		msg = c.T("Actuals for :year saved.", "year", year)
 	}
 	if exists {
@@ -347,14 +347,14 @@ func targetsSave(c *app.Ctx) {
 	} else {
 		db.On("crm").Insert("sales_targets", append(data, db.Col{Name: "department_id", Value: dep}, db.Col{Name: "year", Value: year}, db.Col{Name: "created_by", Value: u.ID}), "")
 	}
-	dn, _ := app.OptLabel(departments(), php.Str(dep))
+	dn, _ := app.OptLabel(departments(), conv.Str(dep))
 	if dn == "" {
-		dn = php.Str(dep)
+		dn = conv.Str(dep)
 	}
-	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "sales_target", Label: php.Str(year) + " · " + dn, Text: "Updated sales targets for :year", Params: []any{"year", year},
+	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "sales_target", Label: conv.Str(year) + " · " + dn, Text: "Updated sales targets for :year", Params: []any{"year", year},
 		Props: app.M{"department_id": dep}, NoNotify: true, Module: "crm"})
 	c.Flash("success", msg)
-	c.Redirect("/crm/targets?year=" + php.Str(year) + "&department=" + php.Str(dep))
+	c.Redirect("/crm/targets?year=" + conv.Str(year) + "&department=" + conv.Str(dep))
 }
 
 // ---------------------------------------------------------------- dropdown search (SearchController)
@@ -388,8 +388,8 @@ func searchFind(c *app.Ctx) {
 	}
 	c.Authorize(perm, "view")
 	q := strings.TrimSpace(c.Query("q"))
-	page := max(1, php.Int(c.Query("page", "1")))
-	lead := php.Int(c.Query("lead", "0"))
+	page := max(1, conv.Int(c.Query("page", "1")))
+	lead := conv.Int(c.Query("lead", "0"))
 	vs, vp := visible(c.MustUser(), "t", typ)
 	where := []string{"t.deleted_at IS NULL", vs}
 	params := append([]any{}, vp...)
@@ -431,7 +431,7 @@ func searchFind(c *app.Ctx) {
 			params = append(params, like, like, like)
 		}
 	}
-	rows := db.On("crm").Select("SELECT "+sel+" FROM "+from+" WHERE "+strings.Join(where, " AND ")+" ORDER BY "+order+" LIMIT "+php.Str(searchPerPage+1)+" OFFSET "+php.Str((page-1)*searchPerPage), params...)
+	rows := db.On("crm").Select("SELECT "+sel+" FROM "+from+" WHERE "+strings.Join(where, " AND ")+" ORDER BY "+order+" LIMIT "+conv.Str(searchPerPage+1)+" OFFSET "+conv.Str((page-1)*searchPerPage), params...)
 	more := len(rows) > searchPerPage
 	if more {
 		rows = rows[:searchPerPage]
@@ -458,7 +458,7 @@ func searchErpProducts(c *app.Ctx) {
 	if app.ModuleUsable("accounting") {
 		if v, ok := app.Hook("product.search", "accounting", func(fn any) any {
 			if f, ok := fn.(app.HookSearch); ok {
-				return f(c, strings.TrimSpace(c.Query("q")), max(1, php.Int(c.Query("page", "1"))), searchPerPage)
+				return f(c, strings.TrimSpace(c.Query("q")), max(1, conv.Int(c.Query("page", "1"))), searchPerPage)
 			}
 			return nil
 		}).(app.M); ok {
@@ -467,9 +467,9 @@ func searchErpProducts(c *app.Ctx) {
 	}
 	items := []app.M{}
 	for _, p := range toMaps(r["items"]) {
-		sub := strings.Trim(php.Str(p["part_number"])+func() string {
+		sub := strings.Trim(conv.Str(p["part_number"])+func() string {
 			if p["price"] != nil {
-				return " · " + php.NF(php.Float(p["price"]), 2)
+				return " · " + conv.NF(conv.Float(p["price"]), 2)
 			}
 			return ""
 		}(), " ·")
@@ -480,5 +480,5 @@ func searchErpProducts(c *app.Ctx) {
 		items = append(items, app.M{"id": p["id"], "label": p["name"], "sub": subv, "img": nil,
 			"extra": app.M{"no": p["part_number"], "name": p["name"], "price": p["price"]}})
 	}
-	c.JSON(app.M{"items": items, "more": php.Bool(r["more"])})
+	c.JSON(app.M{"items": items, "more": conv.Bool(r["more"])})
 }

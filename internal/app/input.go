@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"acme/internal/config"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // ParseForm turns form values into PHP's nested arrays: "ids[]" → list, "lines[0][qty]" → lines → 0 → qty.
@@ -74,7 +74,7 @@ func setPath(root *config.Map, name, value string) {
 		last := i == len(keys)-1
 		m := cur.(*config.Map)
 		if k == "" { // "x[]": append
-			k = php.Str(m.Len())
+			k = conv.Str(m.Len())
 		}
 		if last {
 			m.Set(k, value)
@@ -99,7 +99,7 @@ func InStr(v any) string {
 	case nil, *config.Map, []any:
 		return ""
 	}
-	return strings.TrimSpace(php.Str(v))
+	return strings.TrimSpace(conv.Str(v))
 }
 
 // InList is (array) $v: the values of a list or map, or a one-item list.

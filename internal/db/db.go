@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"acme/internal/config"
-	"acme/internal/php"
+	"acme/internal/conv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -35,16 +35,16 @@ import (
 type Row map[string]any
 
 // Str is (string) $row[$k].
-func (r Row) Str(k string) string { return php.Str(r[k]) }
+func (r Row) Str(k string) string { return conv.Str(r[k]) }
 
 // Int is (int) $row[$k].
-func (r Row) Int(k string) int { return php.Int(r[k]) }
+func (r Row) Int(k string) int { return conv.Int(r[k]) }
 
 // Float is (float) $row[$k].
-func (r Row) Float(k string) float64 { return php.Float(r[k]) }
+func (r Row) Float(k string) float64 { return conv.Float(r[k]) }
 
 // Bool is filter_var($row[$k], FILTER_VALIDATE_BOOL).
-func (r Row) Bool(k string) bool { return php.Bool(r[k]) }
+func (r Row) Bool(k string) bool { return conv.Bool(r[k]) }
 
 // Has is array_key_exists.
 func (r Row) Has(k string) bool { _, ok := r[k]; return ok }
@@ -456,7 +456,7 @@ func (q Q) Insert(table string, data Cols, returning ...string) any {
 }
 
 // InsertID is Insert returning the id as an int.
-func (q Q) InsertID(table string, data Cols) int { return php.Int(q.Insert(table, data)) }
+func (q Q) InsertID(table string, data Cols) int { return conv.Int(q.Insert(table, data)) }
 
 // Update sets columns where every where-column matches.
 func (q Q) Update(table string, data Cols, where Cols) int {

@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Administrators (FileController): look at the files the system keeps, search them, move / rename / delete / upload /
@@ -70,11 +70,11 @@ func filesIndex(c *app.Ctx) {
 	if err := app.Catch(func() { path = FilesClean(c, c.Query("path", "")); FilesAbs(c, root, path, false) }); err != nil {
 		path = ""
 	}
-	per := php.Int(c.Query("per_page", "20"))
-	if !php.InList(php.Str(per), "10", "20", "50", "100") {
+	per := conv.Int(c.Query("per_page", "20"))
+	if !conv.InList(conv.Str(per), "10", "20", "50", "100") {
 		per = 20
 	}
-	page := max(1, php.Int(c.Query("page", "1")))
+	page := max(1, conv.Int(c.Query("page", "1")))
 	q := c.Query("q", "")
 	sortKey := c.Query("sort", "name")
 	dir := strings.ToLower(c.Query("dir", "asc"))
@@ -99,7 +99,7 @@ func filesIndex(c *app.Ctx) {
 			vals["dir"] = "desc"
 		}
 		if per != 20 {
-			vals["per_page"] = php.Str(per)
+			vals["per_page"] = conv.Str(per)
 		}
 		// PHP: [...] + $extra — keys already in the array win, so only new keys (page) are taken from extra
 		for i := 0; i+1 < len(extra); i += 2 {
@@ -153,14 +153,14 @@ func filesIndex(c *app.Ctx) {
 	var list []view
 	for _, r := range rows {
 		sum := md5.Sum([]byte(r.Rel))
-		v := view{FileEntry: r, ID: hex.EncodeToString(sum[:]), Modified: php.Date("d M Y, H:i", php.Unix(r.Mtime)),
+		v := view{FileEntry: r, ID: hex.EncodeToString(sum[:]), Modified: conv.Date("d M Y, H:i", conv.Unix(r.Mtime)),
 			Download: c.URL("/files/download", "root", root, "path", r.Rel), DeleteURL: c.URL("/files/delete", "root", root, "path", path, "item", r.Rel)}
 		if r.Dir {
 			v.Icon, v.Size, v.Kind, v.TypeLabel = "folder", "—", c.T("folder"), c.T("Folder")
 			v.Open = c.URL("/files", "root", root, "path", r.Rel)
 		} else {
 			v.Icon = "doc"
-			if php.InList(r.Ext, "png", "jpg", "jpeg", "gif", "webp", "svg") {
+			if conv.InList(r.Ext, "png", "jpg", "jpeg", "gif", "webp", "svg") {
 				v.Icon = "eye"
 			}
 			v.Size, v.Kind = FilesSize(r.Size), c.T("file")
@@ -192,8 +192,8 @@ func filesIndex(c *app.Ctx) {
 		"perPage": per, "page": page, "q": q, "folders": folders, "sort": sortKey, "dir": dir, "trail": trail, "up": up,
 		"clearURL": link("q", ""), "hName": head("name", c.T("Name")), "hExt": head("ext", c.T("Type")), "hSize": head("size", c.T("Size")), "hMtime": head("mtime", c.T("Modified")),
 		"bulkURL":  c.URL("/files/delete", "root", root, "path", path),
-		"labels":   template.JS("{ mkdir: " + phpJSONAscii(c.T("New folder")) + ", rename: " + phpJSONAscii(c.T("Rename")) + ", move: " + phpJSONAscii(c.T("Move to…")) + " }"),
-		"filesURL": template.JS(phpJSON(c.URL("/files/")))})
+		"labels":   template.JS("{ mkdir: " + jsonCompatAscii(c.T("New folder")) + ", rename: " + jsonCompatAscii(c.T("Rename")) + ", move: " + jsonCompatAscii(c.T("Move to…")) + " }"),
+		"filesURL": template.JS(jsonCompat(c.URL("/files/")))})
 }
 
 func filesDownload(c *app.Ctx) {
@@ -228,7 +228,7 @@ func filesUpload(c *app.Ctx) {
 			name := FilesName(c, fh.Filename)
 			target := dir + "/" + name
 			if exists(target) {
-				name = filenameOf(name) + "-" + php.Date("His", php.Now()) + "." + extOf(name)
+				name = filenameOf(name) + "-" + conv.Date("His", conv.Now()) + "." + extOf(name)
 				target = dir + "/" + name
 			}
 			src, err := fh.Open()

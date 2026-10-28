@@ -8,8 +8,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Every employee manages their own details, security, preferences and notifications (ProfileController).
@@ -47,7 +47,7 @@ func profileEdit(c *app.Ctx) {
 	if p == nil {
 		p = db.Row{}
 	}
-	manager := php.Str(db.Scalar("SELECT m.name FROM users u JOIN users m ON m.id = u.manager_id WHERE u.id = ?", u.ID))
+	manager := conv.Str(db.Scalar("SELECT m.name FROM users u JOIN users m ON m.id = u.manager_id WHERE u.id = ?", u.ID))
 	level := ""
 	if p["employee_level"] != nil {
 		level = app.EnumLabel(c, "levels", p.Str("employee_level"))
@@ -123,7 +123,7 @@ func profileUpdate(c *app.Ctx) {
 		b = before
 	}
 	changes := app.Diff(b, data.Map(), data.Keys)
-	if php.Str(avatar) != u.Avatar {
+	if conv.Str(avatar) != u.Avatar {
 		from, to := "none", "removed"
 		if u.Avatar != "" {
 			from = "old photo"
@@ -155,15 +155,15 @@ func profileSecurity(c *app.Ctx) {
 // My signed-in browsers + the device log.
 func profileSessions(c *app.Ctx) {
 	u := c.MustUser()
-	page := max(1, php.Int(c.Query("page", "1")))
+	page := max(1, conv.Int(c.Query("page", "1")))
 	per := 15
-	total := php.Int(db.Scalar("SELECT count(*) FROM login_events WHERE user_id = ?", u.ID))
+	total := conv.Int(db.Scalar("SELECT count(*) FROM login_events WHERE user_id = ?", u.ID))
 	sessions := db.Select("SELECT * FROM user_sessions WHERE user_id = ? AND revoked_at IS NULL AND expires_at > now() ORDER BY last_seen_at DESC", u.ID)
 	var list []app.M
 	for _, s := range sessions {
 		list = append(list, app.M{"row": s, "cur": c.IsCurrentSession(s)})
 	}
-	events := db.Select("SELECT * FROM login_events WHERE user_id = ? ORDER BY id DESC LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), u.ID)
+	events := db.Select("SELECT * FROM login_events WHERE user_id = ? ORDER BY id DESC LIMIT "+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), u.ID)
 	c.View("profile/sessions", app.M{
 		"title": c.T("Sessions"), "me": wsMe(c, u), "sessions": list, "events": wsEvents(c, events), "page": page,
 		"pages": max(1, int(math.Ceil(float64(total)/float64(per)))), "total": total, "maxHours": app.SessionMaxHours(),
@@ -204,7 +204,7 @@ func profilePassword(c *app.Ctx) {
 		app.Rule{Field: "password", Rules: "required|password", Label: c.T("New password")},
 		app.Rule{Field: "password_confirmation", Rules: "required|same:password", Label: c.T("Confirm new password")},
 	)
-	hash := php.Str(db.Scalar("SELECT password FROM users WHERE id = ?", u.ID))
+	hash := conv.Str(db.Scalar("SELECT password FROM users WHERE id = ?", u.ID))
 	if !app.PasswordVerify(data.Str("current_password"), hash) {
 		app.Invalid("current_password", c.T("Your current password is not correct."))
 	}
@@ -216,7 +216,7 @@ func profilePassword(c *app.Ctx) {
 	app.SecurityAlert(c, "password", u.ID, func() (string, []template.HTML, string) {
 		return c.T("Your password was changed"), []template.HTML{
 				template.HTML(app.E(c.T("Your password was changed from your profile. Other devices were signed out."))),
-				template.HTML(app.E(c.T("IP address") + ": " + ip + " | " + app.FormatDate(c, php.NowString(), "d M Y, H:i"))),
+				template.HTML(app.E(c.T("IP address") + ": " + ip + " | " + app.FormatDate(c, conv.NowString(), "d M Y, H:i"))),
 			},
 			c.T("If this was not you, contact your administrator immediately.")
 	}, nil)
@@ -245,7 +245,7 @@ func profilePreferences(c *app.Ctx) {
 		cur = u.DefaultModule
 	}
 	if v, ok := c.Sess.Old("default_module"); ok {
-		cur = php.Str(v)
+		cur = conv.Str(v)
 	}
 	locale := u.Locale
 	if locale == "" {
@@ -294,7 +294,7 @@ func profileSavePreferences(c *app.Ctx) {
 
 // Display size (zoom) — saved per person, applied as the page's base text size.
 func profileScale(c *app.Ctx) {
-	pct := php.Int(c.Input("scale", "100"))
+	pct := conv.Int(c.Input("scale", "100"))
 	pct = max(70, min(150, pct))
 	db.Exec("UPDATE users SET ui_scale = ? WHERE id = ?", pct, c.MustUser().ID)
 	c.JSON(app.M{"scale": pct})
@@ -311,7 +311,7 @@ func profileNotifications(c *app.Ctx) {
 	actions, channels := wsPairs("core.notify_actions"), wsPairs("core.notify_channels")
 	pref := func(m, a, ch string) bool {
 		v, ok := prefs[m][a][ch]
-		return !ok || v == nil || php.Truthy(v)
+		return !ok || v == nil || conv.Truthy(v)
 	}
 	type cell struct {
 		Name, Aria  string

@@ -9,9 +9,9 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/kpisub"
-	"acme/internal/php"
 )
 
 // Management → KPI calculator (KpiCalculatorController): everyone's yearly appraisal score (0 until calculated), and
@@ -19,24 +19,24 @@ import (
 // warnings are typed in. Who: the Management module (administrators and Management); saving needs kpi_calculator.edit.
 
 func kcYear(c *app.Ctx) int {
-	def := php.Str(php.Now().Year())
-	y := php.Int(c.Query("year", c.Input("year", def)))
+	def := conv.Str(conv.Now().Year())
+	y := conv.Int(c.Query("year", c.Input("year", def)))
 	if y >= 2000 && y <= 2100 {
 		return y
 	}
-	return php.Now().Year()
+	return conv.Now().Year()
 }
 
 // kcMonth: calculate up to this month: by default this month for the current year, December for earlier years.
 func kcMonth(c *app.Ctx, year int, saved int) int {
 	def := 12
-	if year == php.Now().Year() {
-		def = int(php.Now().Month())
+	if year == conv.Now().Year() {
+		def = int(conv.Now().Month())
 	}
 	if saved != 0 {
 		def = saved
 	}
-	m := php.Int(c.Query("month", c.Input("month", php.Str(def))))
+	m := conv.Int(c.Query("month", c.Input("month", conv.Str(def))))
 	return max(1, min(12, m))
 }
 
@@ -83,7 +83,7 @@ func scoreTone(s float64) string {
 func kcIndex(c *app.Ctx) {
 	c.Authorize("kpi_calculator", "view")
 	year := kcYear(c)
-	q := php.Substr(strings.TrimSpace(c.Query("q")), 0, 100)
+	q := conv.Substr(strings.TrimSpace(c.Query("q")), 0, 100)
 	rows := kcList(c, year, q)
 	done, sum := 0, 0.0
 	for _, r := range rows {
@@ -101,7 +101,7 @@ func kcIndex(c *app.Ctx) {
 		score := r.Float("score")
 		calc := c.T("Not calculated")
 		if !r.Nil("calculated_at") {
-			calc = app.FormatDate(c, r["calculated_at"], "j M Y") + " · " + php.Str(php.Coalesce(r["calculated_by_name"], ""))
+			calc = app.FormatDate(c, r["calculated_at"], "j M Y") + " · " + conv.Str(conv.Coalesce(r["calculated_by_name"], ""))
 		}
 		month := ""
 		if r.Int("month") != 0 {
@@ -116,15 +116,15 @@ func kcIndex(c *app.Ctx) {
 				grp = c.T(g)
 			}
 		}
-		out = append(out, app.M{"r": r, "link": c.URL(fmt.Sprintf("/management/kpi-calculator/%d", r.Int("id")), "year", year), "tone": scoreTone(score), "score": php.NF(score, 2),
+		out = append(out, app.M{"r": r, "link": c.URL(fmt.Sprintf("/management/kpi-calculator/%d", r.Int("id")), "year", year), "tone": scoreTone(score), "score": conv.NF(score, 2),
 			"calc": calc, "month": month, "group": grp})
 	}
-	c.View("management/kpi-calc/index", app.M{"title": c.T("KPI calculator"), "year": year, "yearS": php.Str(year), "q": q, "rows": out, "n": len(rows), "done": done, "avg": php.NF(avg, 2),
-		"years": yearOpts(php.Now().Year(), php.Now().Year()-4)})
+	c.View("management/kpi-calc/index", app.M{"title": c.T("KPI calculator"), "year": year, "yearS": conv.Str(year), "q": q, "rows": out, "n": len(rows), "done": done, "avg": conv.NF(avg, 2),
+		"years": yearOpts(conv.Now().Year(), conv.Now().Year()-4)})
 }
 
 func kcLastGroup(id int) string {
-	if g := php.Str(db.Scalar("SELECT emp_group FROM kpi_scores WHERE user_id = ? ORDER BY year DESC LIMIT 1", id)); g != "" {
+	if g := conv.Str(db.Scalar("SELECT emp_group FROM kpi_scores WHERE user_id = ? ORDER BY year DESC LIMIT 1", id)); g != "" {
 		return g
 	}
 	return "bu"
@@ -188,16 +188,16 @@ func kcCalculate(c *app.Ctx) {
 			id, year, month, group, string(inJSON), string(detJSON), r.Score, c.UserID())
 		from := ""
 		if before != nil {
-			from = php.NF(php.Float(before), 2)
+			from = conv.NF(conv.Float(before), 2)
 		}
 		ch := config.NewMap()
 		sc := config.NewMap()
 		sc.Set("from", from)
-		sc.Set("to", php.NF(r.Score, 2))
+		sc.Set("to", conv.NF(r.Score, 2))
 		ch.Set("score", sc)
 		app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "kpi_score", ID: id, Label: p.Str("name"), Text: "Calculated the :year KPI score of :name: :score",
-			Params: []any{"year", year, "name", p["name"], "score", php.NF(r.Score, 2)}, Props: app.M{"changes": ch, "month": month, "group": group}, Owner: id, NoNotify: true})
-		c.Flash("success", c.T("Score saved: :score of 100.", "score", php.NF(r.Score, 2)))
+			Params: []any{"year", year, "name", p["name"], "score", conv.NF(r.Score, 2)}, Props: app.M{"changes": ch, "month": month, "group": group}, Owner: id, NoNotify: true})
+		c.Flash("success", c.T("Score saved: :score of 100.", "score", conv.NF(r.Score, 2)))
 		c.Redirect(fmt.Sprintf("/management/kpi-calculator/%d?year=%d", id, year))
 	}
 	kcPage(c, p, year, month, group, in, kcSaved(id, year), &r, true)
@@ -219,14 +219,14 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 		if v == nil {
 			return "—"
 		}
-		return php.NF(*v, 2) + "%"
+		return conv.NF(*v, 2) + "%"
 	}
-	pctV := func(v float64) string { return php.NF(v, 2) + "%" }
+	pctV := func(v float64) string { return conv.NF(v, 2) + "%" }
 	months := make([]app.Opt, 12)
 	var monthNames [13]string
 	for i := 1; i <= 12; i++ {
 		monthNames[i] = app.FormatDate(c, fmt.Sprintf("%04d-%02d-01", year, i), "F")
-		months[i-1] = app.Opt{Value: php.Str(i), Label: monthNames[i]}
+		months[i-1] = app.Opt{Value: conv.Str(i), Label: monthNames[i]}
 	}
 	grp := []app.Opt{}
 	for _, k := range groupKeys {
@@ -262,24 +262,24 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 	var secRows []app.M
 	for _, k := range sectionKeys {
 		s := res.Sections[k]
-		secRows = append(secRows, app.M{"key": k, "label": c.T(sectionLabels[k]), "has": s.Points > 0, "rate": pctV(s.Rate), "points": s.Points, "earned": php.NF(s.Earned, 2)})
+		secRows = append(secRows, app.M{"key": k, "label": c.T(sectionLabels[k]), "has": s.Points > 0, "rate": pctV(s.Rate), "points": s.Points, "earned": conv.NF(s.Earned, 2)})
 	}
 	// kpi cards
 	var kpis []app.M
 	for _, k := range res.KPIs {
 		crit := "—"
 		if k.Criteria != nil {
-			crit = php.NumberClean(*k.Criteria)
+			crit = conv.NumberClean(*k.Criteria)
 		}
 		head := dirLabel[k.Direction] + " " + crit + " · " + measureLabel[k.Measure] + " · " + c.T(periodNames[k.Period])
 		var rows []app.M
 		for _, pr := range k.Periods {
-			x := app.M{"label": c.T(pr.Label), "fin": php.NumberClean(pr.Finished), "tot": php.NumberClean(pr.Total), "skipped": pr.Skipped}
+			x := app.M{"label": c.T(pr.Label), "fin": conv.NumberClean(pr.Finished), "tot": conv.NumberClean(pr.Total), "skipped": pr.Skipped}
 			if !pr.Skipped {
 				if k.Measure == "percent" {
 					x["actual"] = pctV(pr.Actual)
 				} else {
-					x["actual"] = php.NumberClean(pr.Actual)
+					x["actual"] = conv.NumberClean(pr.Actual)
 				}
 				sign := "≥ "
 				if k.Direction == "max" {
@@ -289,11 +289,11 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 				if k.Measure == "percent" {
 					suffix = "%"
 				}
-				x["target"] = sign + php.NumberClean(pr.Target) + suffix
+				x["target"] = sign + conv.NumberClean(pr.Target) + suffix
 				x["ach"] = pct(pr.Achievement)
 				switch {
 				case pr.Multiplier != nil:
-					x["mult"] = php.NumberClean(*pr.Multiplier) + "%"
+					x["mult"] = conv.NumberClean(*pr.Multiplier) + "%"
 				case k.Direction == "max":
 					x["mult"] = c.T("limit")
 				default:
@@ -305,9 +305,9 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 		}
 		weight := ""
 		if k.HasData {
-			weight = c.T("Weight") + ` <strong class="tabular-nums text-graphite-900">` + app.E(php.NumberClean(k.UsedWeight)) + `%</strong>`
+			weight = c.T("Weight") + ` <strong class="tabular-nums text-graphite-900">` + app.E(conv.NumberClean(k.UsedWeight)) + `%</strong>`
 			if k.Weight != nil && math.Abs(*k.Weight-k.UsedWeight) > 0.01 {
-				weight += ` <span class="text-graphite-400">(` + app.E(php.NumberClean(*k.Weight)) + `%)</span>`
+				weight += ` <span class="text-graphite-400">(` + app.E(conv.NumberClean(*k.Weight)) + `%)</span>`
 			}
 		} else {
 			weight = app.E(c.T("Not counted: no data this year"))
@@ -329,23 +329,23 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 	num := func(name, label, hint, step string) app.M {
 		v := ""
 		if in[name] != nil {
-			v = php.NumberClean(in[name])
+			v = conv.NumberClean(in[name])
 		}
 		if step == "" {
 			step = "any"
 		}
 		return app.M{"name": name, "label": label, "hint": hint, "step": step, "value": v}
 	}
-	ptsHint := func(v float64) string { return c.T("Points :p", "p", php.NumberClean(v)) }
+	ptsHint := func(v float64) string { return c.T("Points :p", "p", conv.NumberClean(v)) }
 	qi := res.QMS.Items
 	qo, sales := "", ""
 	if res.QO != nil {
-		qo = c.T("Achievement :a × tier :m", "a", pct(res.QO.Achievement), "m", php.NumberClean(*res.QO.Multiplier)+"%")
+		qo = c.T("Achievement :a × tier :m", "a", pct(res.QO.Achievement), "m", conv.NumberClean(*res.QO.Multiplier)+"%")
 	} else {
 		qo = c.T("Enter the department QO actual and target.")
 	}
 	if res.Sales != nil {
-		sales = c.T("Achievement :a × tier :m", "a", pct(res.Sales.Achievement), "m", php.NumberClean(*res.Sales.Multiplier)+"%")
+		sales = c.T("Achievement :a × tier :m", "a", pct(res.Sales.Achievement), "m", conv.NumberClean(*res.Sales.Multiplier)+"%")
 	} else {
 		sales = c.T("Enter sales actual and target (same unit).")
 	}
@@ -355,16 +355,16 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 		}
 		return x.Result
 	}
-	view := app.M{"title": c.T("KPI calculator") + " · " + p.Str("name"), "p": p, "year": year, "yearS": php.Str(year), "month": php.Str(month), "group": group, "preview": preview, "canEdit": canEdit,
-		"ro": !canEdit, "years": yearOpts(php.Now().Year(), php.Now().Year()-4), "months": months, "groups": grp,
-		"score": php.NF(res.Score, 2), "scoreTone": tone(res.Score), "bar": bar, "barW": php.Str(math.Min(100, res.Score)),
-		"groupLine": c.T(":g · January – :m :y", "g", c.T(groupLabels[group]), "m", monthNames[month], "y", year), "secRows": secRows, "deduction": res.Deduction, "deductionS": php.NF(res.Deduction, 2), "deductionN": php.NumberClean(res.Deduction),
-		"noRaise": res.Absence.NoRaise, "severe": php.Int(in["severe"]) != 0, "kpis": kpis, "openKPIs": len(kpis) <= 6,
+	view := app.M{"title": c.T("KPI calculator") + " · " + p.Str("name"), "p": p, "year": year, "yearS": conv.Str(year), "month": conv.Str(month), "group": group, "preview": preview, "canEdit": canEdit,
+		"ro": !canEdit, "years": yearOpts(conv.Now().Year(), conv.Now().Year()-4), "months": months, "groups": grp,
+		"score": conv.NF(res.Score, 2), "scoreTone": tone(res.Score), "bar": bar, "barW": conv.Str(math.Min(100, res.Score)),
+		"groupLine": c.T(":g · January – :m :y", "g", c.T(groupLabels[group]), "m", monthNames[month], "y", year), "secRows": secRows, "deduction": res.Deduction, "deductionS": conv.NF(res.Deduction, 2), "deductionN": conv.NumberClean(res.Deduction),
+		"noRaise": res.Absence.NoRaise, "severe": conv.Int(in["severe"]) != 0, "kpis": kpis, "openKPIs": len(kpis) <= 6,
 		"kpiRate": pctV(res.KPI.Rate), "waiting": res.Waiting, "scaled": res.KPI.Scaled, "kpiPoints": pts["kpi"], "ontimePoints": pts["ontime"],
 		"ontimeRate": pctV(res.OnTime.Rate), "ontime": ot, "tiers": true,
 		"qoDim": pts["qo"] == 0, "salesDim": pts["sales"] == 0, "qmsDim": pts["qms"] == 0, "qoPoints": pts["qo"], "salesPoints": pts["sales"], "qmsPoints": pts["qms"], "leaderPoints": pts["leader"], "absencePoints": pts["absence"],
 		"qoRate": pctV(resultOf(res.QO)), "salesRate": pctV(resultOf(res.Sales)), "qoLine": qo, "salesLine": sales,
-		"qmsPts":   php.NumberClean(res.QMS.Points),
+		"qmsPts":   conv.NumberClean(res.QMS.Points),
 		"qoActual": num("qo_actual", c.T("Actual"), "", ""), "qoTarget": num("qo_target", c.T("Target"), "", ""),
 		"salesActual": num("sales_actual", c.T("Actual"), "", ""), "salesTarget": num("sales_target", c.T("Target"), "", ""),
 		"qms": []app.M{num("qms_open_car", c.T("CARs still open"), ptsHint(qi["open_car"]), "1"), num("qms_repeat_car", c.T("Repeated CAR"), ptsHint(qi["repeat_car"]), "1"),
@@ -373,15 +373,15 @@ func kcPage(c *app.Ctx, p db.Row, year, month int, group string, in map[string]a
 		"leaderRate": pctV(f(res.Leader)), "leader": num("leader", c.T("Rate from the direct supervisor (0–100%)"), c.T("Competency, behavior and attitude."), ""),
 		"absRate":     pctV(res.Absence.Rate),
 		"abs":         []app.M{num("abs_unpaid_personal", c.T("Unpaid personal leave (hours)"), "", ""), num("abs_sick_no_cert", c.T("Sick leave without certificate (hours)"), "", ""), num("abs_absent", c.T("Absence (hours)"), "", ""), num("abs_late", c.T("Lateness (hours)"), "", "")},
-		"absLine":     c.T(":h hours = :d days counted. ≤4 days 100%, ≤8 90%, ≤12 80%, then −10% per day.", "h", php.NumberClean(res.Absence.Hours), "d", php.NumberClean(res.Absence.Days)),
-		"warnWritten": num("warn_written", c.T("Written warnings (−2 each)"), "", "1"), "warnFinal": num("warn_final", c.T("Final warnings (−5 each)"), "", "1"), "note": php.Str(in["note"]),
+		"absLine":     c.T(":h hours = :d days counted. ≤4 days 100%, ≤8 90%, ≤12 80%, then −10% per day.", "h", conv.NumberClean(res.Absence.Hours), "d", conv.NumberClean(res.Absence.Days)),
+		"warnWritten": num("warn_written", c.T("Written warnings (−2 each)"), "", "1"), "warnFinal": num("warn_final", c.T("Final warnings (−5 each)"), "", "1"), "note": conv.Str(in["note"]),
 	}
 	if saved != nil {
 		by := "—"
 		if !saved.Nil("calculated_by_name") {
 			by = saved.Str("calculated_by_name")
 		}
-		view["savedLine"] = c.T("Saved score :s on :d by :n", "s", php.NF(saved.Float("score"), 2), "d", app.FormatDate(c, saved["calculated_at"], "j M Y H:i"), "n", by)
+		view["savedLine"] = c.T("Saved score :s on :d by :n", "s", conv.NF(saved.Float("score"), 2), "d", app.FormatDate(c, saved["calculated_at"], "j M Y H:i"), "n", by)
 	}
 	_ = time.Now
 	c.View("management/kpi-calc/show", view)
@@ -402,7 +402,7 @@ func kcExport(c *app.Ctx) {
 		}
 		score := "0.00"
 		if !r.Nil("score") {
-			score = php.NumberFormat(r.Float("score"), 2, ".", "")
+			score = conv.NumberFormat(r.Float("score"), 2, ".", "")
 		}
 		rows = append(rows, []any{r["name"], r["department_name"], r["role_name"], year, r["month"], grp, score, r["calculated_at"], r["calculated_by_name"]})
 	}

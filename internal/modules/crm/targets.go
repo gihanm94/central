@@ -5,15 +5,15 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- Revenue (from Accounting)
 
 // erpID: ERP department id of a CRM/core department, 0 when it has none.
 func erpID(departmentID int) int {
-	return php.Int(db.Scalar("SELECT erp_department_id FROM departments WHERE id = ?", departmentID))
+	return conv.Int(db.Scalar("SELECT erp_department_id FROM departments WHERE id = ?", departmentID))
 }
 
 // anyMapped: at least one department is tied to an ERP department.
@@ -65,10 +65,10 @@ func revenueQuarters(erpDep, year int) [5]float64 {
 
 func baseCurrency() string {
 	v := db.On("crm").Scalar("SELECT code FROM currencies WHERE is_base LIMIT 1")
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return "THB"
 	}
-	return php.Str(v)
+	return conv.Str(v)
 }
 
 // targetSource: "accounting" (revenue of the department's ERP department / the whole company) or "crm" (opportunities won).

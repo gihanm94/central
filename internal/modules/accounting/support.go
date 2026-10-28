@@ -12,8 +12,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- Dashboard (numbers of the Accounting overview)
@@ -50,10 +50,10 @@ func q(sql string, p ...any) []app.M { return rowsM(acc().Select(sql, p...)) }
 
 func dashboardBuild() app.M {
 	line, bkk := lineSQL, bkkSQL
-	now := php.Now()
+	now := conv.Now()
 	year := now.Year()
 	month := int(now.Month())
-	d := app.M{"built": php.Date("c", now), "year": year}
+	d := app.M{"built": conv.Date("c", now), "year": year}
 
 	// ---------- revenue
 	d["by_year"] = q("SELECT extract(year FROM " + bkk + ")::int AS y, round(sum(" + line + ")::numeric, 2) AS v FROM erp_invoices i WHERE i.invoice_date IS NOT NULL AND coalesce(i.order_row_type, 1) = 1 GROUP BY 1 ORDER BY 1")
@@ -86,7 +86,7 @@ func dashboardBuild() app.M {
 		ytdPrev += prev[i]
 	}
 	d["kpi"] = app.M{"month": cur[month], "month_prev_year": prev[month], "month_last": last, "ytd": ytd, "ytd_prev": ytdPrev, "invoices_month": cnt[month]}
-	since := php.Date("Y-m-d", now.AddDate(0, -12, 0))
+	since := conv.Date("Y-m-d", now.AddDate(0, -12, 0))
 	d["customers"] = q(`SELECT coalesce(nullif(c.name, ''), i.customer_code, '—') AS name, round(sum(`+line+`)::numeric, 2) AS v FROM erp_invoices i LEFT JOIN erp_customers c ON c.id = i.customer_id
                                     WHERE i.invoice_date >= ? AND coalesce(i.order_row_type, 1) = 1 GROUP BY 1 ORDER BY v DESC LIMIT 10`, since)
 	d["sellers"] = q("SELECT coalesce(nullif(i.seller, ''), '—') AS name, round(sum("+line+")::numeric, 2) AS v FROM erp_invoices i WHERE i.invoice_date >= ? AND coalesce(i.order_row_type, 1) = 1 GROUP BY 1 ORDER BY v DESC LIMIT 8", since)
@@ -94,13 +94,13 @@ func dashboardBuild() app.M {
 
 	// ---------- orders
 	d["orders_month"] = q("SELECT to_char(date_trunc('month', o.order_date AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM') AS ym, count(*)::int AS n FROM erp_orders o WHERE o.order_date >= date_trunc('month', now()) - interval '11 months' GROUP BY 1 ORDER BY 1")
-	d["orders_this_month"] = php.Int(acc().Scalar("SELECT count(*) FROM erp_orders o WHERE (o.order_date AT TIME ZONE 'Asia/Bangkok') >= date_trunc('month', now() AT TIME ZONE 'Asia/Bangkok')"))
+	d["orders_this_month"] = conv.Int(acc().Scalar("SELECT count(*) FROM erp_orders o WHERE (o.order_date AT TIME ZONE 'Asia/Bangkok') >= date_trunc('month', now() AT TIME ZONE 'Asia/Bangkok')"))
 
 	// ---------- receivables
 	d["aging"] = q(`SELECT b, round(sum(rest)::numeric, 2) AS v FROM (SELECT coalesce(r.rest_amount, 0) * coalesce(nullif(r.exchange_rate, 0), 1) AS rest,
                                   CASE WHEN r.due_date IS NULL OR r.due_date >= now() THEN '0 not due' WHEN r.due_date >= now() - interval '30 days' THEN '1 1–30' WHEN r.due_date >= now() - interval '60 days' THEN '2 31–60'
                                        WHEN r.due_date >= now() - interval '90 days' THEN '3 61–90' ELSE '4 90+' END AS b FROM erp_receivables r WHERE coalesce(r.rest_amount, 0) > 0 AND coalesce(r.is_credit, false) = false) x GROUP BY b ORDER BY b`)
-	d["receivable"] = php.Float(acc().Scalar("SELECT coalesce(sum(coalesce(rest_amount, 0) * coalesce(nullif(exchange_rate, 0), 1)), 0) FROM erp_receivables WHERE coalesce(rest_amount, 0) > 0 AND coalesce(is_credit, false) = false"))
+	d["receivable"] = conv.Float(acc().Scalar("SELECT coalesce(sum(coalesce(rest_amount, 0) * coalesce(nullif(exchange_rate, 0), 1)), 0) FROM erp_receivables WHERE coalesce(rest_amount, 0) > 0 AND coalesce(is_credit, false) = false"))
 
 	// ---------- e-tax (inets)
 	inet := q(`SELECT
@@ -115,13 +115,13 @@ func dashboardBuild() app.M {
 		d["inet"] = []any{}
 	}
 	d["inet_month"] = q("SELECT to_char(date_trunc('month', created_at AT TIME ZONE 'Asia/Bangkok'), 'YYYY-MM') AS ym, count(*)::int AS n FROM inets WHERE created_at >= date_trunc('month', now()) - interval '5 months' GROUP BY 1 ORDER BY 1")
-	d["not_in_inet"] = php.Int(acc().Scalar("SELECT count(*) FROM erp_documents dd WHERE NOT EXISTS (SELECT 1 FROM inets n WHERE n.no_invoice = dd.invoice_number) AND dd.invoice_date >= now() - interval '60 days'"))
+	d["not_in_inet"] = conv.Int(acc().Scalar("SELECT count(*) FROM erp_documents dd WHERE NOT EXISTS (SELECT 1 FROM inets n WHERE n.no_invoice = dd.invoice_number) AND dd.invoice_date >= now() - interval '60 days'"))
 
 	// ---------- billing notes
 	d["billing_status"] = q("SELECT CASE WHEN is_complete THEN 'complete' WHEN is_paid THEN 'paid' WHEN remind_date < CURRENT_DATE THEN 'overdue' ELSE 'pending' END AS s, count(*)::int AS n, round(sum(total_amount)::numeric, 2) AS v FROM billing_notes GROUP BY 1")
 	d["billing_month"] = q("SELECT to_char(date_trunc('month', billing_at), 'YYYY-MM') AS ym, round(sum(total_amount)::numeric, 2) AS v FROM billing_notes WHERE billing_at >= date_trunc('month', now()) - interval '11 months' GROUP BY 1 ORDER BY 1")
-	d["billing_today"] = php.Int(acc().Scalar("SELECT count(*) FROM billing_notes WHERE remind_date = CURRENT_DATE AND NOT is_complete"))
-	d["billing_open"] = php.Float(acc().Scalar("SELECT coalesce(sum(total_amount), 0) FROM billing_notes WHERE NOT is_paid AND NOT is_complete"))
+	d["billing_today"] = conv.Int(acc().Scalar("SELECT count(*) FROM billing_notes WHERE remind_date = CURRENT_DATE AND NOT is_complete"))
+	d["billing_open"] = conv.Float(acc().Scalar("SELECT coalesce(sum(total_amount), 0) FROM billing_notes WHERE NOT is_paid AND NOT is_complete"))
 	return d
 }
 
@@ -155,7 +155,7 @@ func rankingGet(from, to string) app.M {
 	}
 	pTo := tf.AddDate(0, 0, -1)
 	pFrom := pTo.AddDate(0, 0, -(days - 1))
-	prev := php.Float(acc().Scalar("SELECT coalesce(round(sum("+line+")::numeric, 2), 0) "+base, pFrom.Format("2006-01-02"), pTo.Format("2006-01-02")))
+	prev := conv.Float(acc().Scalar("SELECT coalesce(round(sum("+line+")::numeric, 2), 0) "+base, pFrom.Format("2006-01-02"), pTo.Format("2006-01-02")))
 
 	months := config.NewMap()
 	for _, r := range acc().Select("SELECT to_char("+day+", 'YYYY-MM') AS ym, round(sum("+line+")::numeric, 2) AS v "+base+" GROUP BY 1 ORDER BY 1", from, to) {
@@ -170,7 +170,7 @@ func rankingGet(from, to string) app.M {
 		if v == nil {
 			return nil
 		}
-		return php.Int(v)
+		return conv.Int(v)
 	}
 	for _, r := range acc().Select(`SELECT s.id AS seller_id, coalesce(nullif(trim(concat_ws(' ', s.first_name, s.last_name)), ''), nullif(i.seller, ''), '—') AS name,
                 max(s.user_id) AS user_id, max(s.app_department_id) AS department_id, round(sum(`+line+`)::numeric, 2) AS v,
@@ -193,7 +193,7 @@ func rankingGet(from, to string) app.M {
 	}
 	out := app.M{"total": sum.Float("v"), "invoices": sum.Int("n"), "customers_count": sum.Int("c"), "previous": prev,
 		"previous_range": []any{pFrom.Format("2006-01-02"), pTo.Format("2006-01-02")}, "months": months,
-		"customers": customers, "sellers": sellers, "departments": depts, "built": php.Date("c", php.Now())}
+		"customers": customers, "sellers": sellers, "departments": depts, "built": conv.Date("c", conv.Now())}
 	cacheMu.Lock()
 	rankCache[key], rankAt[key] = out, time.Now()
 	cacheMu.Unlock()
@@ -240,7 +240,7 @@ func customerInvoices(taxID string, limit int) app.M {
 	rows := acc().Select(`SELECT d.invoice_number, d.invoice_date, d.customer_name, d.order_number, d.currency_code, d.amount, d.is_credit,
                 coalesce((SELECT i.seller FROM erp_invoices i WHERE i.invoice_number = d.invoice_number AND coalesce(i.seller, '') <> '' LIMIT 1),
                          (SELECT trim(concat_ws(' ', s.first_name, s.last_name)) FROM erp_orders o JOIN erp_sellers s ON s.id = o.seller_id WHERE o.id = d.order_id LIMIT 1)) AS seller
-            FROM erp_documents d WHERE `+where+` ORDER BY d.invoice_date DESC NULLS LAST, d.invoice_number DESC LIMIT `+php.Str(limit), d, d)
+            FROM erp_documents d WHERE `+where+` ORDER BY d.invoice_date DESC NULLS LAST, d.invoice_number DESC LIMIT `+conv.Str(limit), d, d)
 	return app.M{"rows": rowsM(rows), "total": tot.Int("n"), "sum": tot.Float("v")}
 }
 
@@ -251,7 +251,7 @@ func customerQuotes(customerID string, limit int) []app.M {
 	return rowsM(acc().Select(`SELECT q.id::text AS id, q.order_number, q.quote_date, q.valid_through_date, q.quote_description, q.status, q.life_cycle_state,
                 q.edited_order_amount_excluding_vat AS amount, q.our_reference_name,
                 (SELECT trim(concat_ws(' ', s.first_name, s.last_name)) FROM erp_sellers s WHERE s.id = q.seller_id) AS seller
-            FROM erp_quotes q WHERE q.customer_id = ?::bigint ORDER BY q.quote_date DESC NULLS LAST, q.id DESC LIMIT `+php.Str(limit), customerID))
+            FROM erp_quotes q WHERE q.customer_id = ?::bigint ORDER BY q.quote_date DESC NULLS LAST, q.id DESC LIMIT `+conv.Str(limit), customerID))
 }
 
 // ---------------------------------------------------------------- ProductSearch ('product.search')
@@ -268,7 +268,7 @@ func productSearch(qs string, page, per int) app.M {
 	if len(where) > 0 {
 		w = " WHERE " + strings.Join(where, " AND ")
 	}
-	rows := acc().Select("SELECT id, part_number, description, alias, standard_price FROM erp_products"+w+" ORDER BY part_number, id LIMIT "+php.Str(per+1)+" OFFSET "+php.Str((max(1, page)-1)*per), params...)
+	rows := acc().Select("SELECT id, part_number, description, alias, standard_price FROM erp_products"+w+" ORDER BY part_number, id LIMIT "+conv.Str(per+1)+" OFFSET "+conv.Str((max(1, page)-1)*per), params...)
 	items := []app.M{}
 	for i, r := range rows {
 		if i >= per {
@@ -276,9 +276,9 @@ func productSearch(qs string, page, per int) app.M {
 		}
 		var price any
 		if r["standard_price"] != nil {
-			price = phpRound(r.Float("standard_price"), 2)
+			price = roundHalf(r.Float("standard_price"), 2)
 		}
-		name := php.Str(php.Or(r["description"], php.Or(r["alias"], php.Or(r["part_number"], "#"+r.Str("id")))))
+		name := conv.Str(conv.Or(r["description"], conv.Or(r["alias"], conv.Or(r["part_number"], "#"+r.Str("id")))))
 		items = append(items, app.M{"id": r.Int("id"), "part_number": r["part_number"], "name": name, "price": price})
 	}
 	return app.M{"more": len(rows) > per, "items": items}
@@ -318,17 +318,17 @@ func emptyList() app.M {
 }
 
 func filterLike(f app.M) string {
-	q := strings.TrimSpace(php.Str(f["q"]))
+	q := strings.TrimSpace(conv.Str(f["q"]))
 	if q == "" {
 		return ""
 	}
-	return "%" + likeEscape(php.Substr(q, 0, 100)) + "%"
+	return "%" + likeEscape(conv.Substr(q, 0, 100)) + "%"
 }
 
 func deptInvoicesList(u *app.CurrentUser, f app.M) app.M {
 	per := 25
-	page := max(1, php.Int(php.Coalesce(f["page"], 1)))
-	dept, all, ok := deptOf(u, "erp_invoices", php.Int(f["department"]))
+	page := max(1, conv.Int(conv.Coalesce(f["page"], 1)))
+	dept, all, ok := deptOf(u, "erp_invoices", conv.Int(f["department"]))
 	if !ok {
 		return emptyList()
 	}
@@ -343,16 +343,16 @@ func deptInvoicesList(u *app.CurrentUser, f app.M) app.M {
 		p = append(p, like, like, like, like)
 	}
 	for _, x := range [][2]string{{"from", ">="}, {"to", "<="}} {
-		if v := php.Str(f[x[0]]); ymdRe.MatchString(v) {
+		if v := conv.Str(f[x[0]]); ymdRe.MatchString(v) {
 			w = append(w, "t.invoice_date "+x[1]+" ?::date")
 			p = append(p, v)
 		}
 	}
 	where := strings.Join(w, " AND ")
-	total := php.Int(acc().Scalar("SELECT count(*) FROM inets t WHERE "+where, p...))
+	total := conv.Int(acc().Scalar("SELECT count(*) FROM inets t WHERE "+where, p...))
 	rows := acc().Select(`SELECT t.id, t.no_invoice, t.invoice_date, t.is_credit, t.customer_code, t.customer_name, t.customer_order_number, t.seller_name,
                 t.total_amount, t.currency_code, t.app_department_id, t.inet_pdf_388 IS NOT NULL AS s388, t.inet_pdf_t01 IS NOT NULL AS st01, t.inet_pdf_81 IS NOT NULL AS s81
-            FROM inets t WHERE `+where+` ORDER BY t.invoice_date DESC NULLS LAST, t.no_invoice DESC LIMIT `+php.Str(per)+` OFFSET `+php.Str((page-1)*per), p...)
+            FROM inets t WHERE `+where+` ORDER BY t.invoice_date DESC NULLS LAST, t.no_invoice DESC LIMIT `+conv.Str(per)+` OFFSET `+conv.Str((page-1)*per), p...)
 	out := []app.M{}
 	for _, r := range rows {
 		docs := []any{}
@@ -425,8 +425,8 @@ const deptOfSQL = `coalesce(
 
 func deptBillingList(u *app.CurrentUser, f app.M) app.M {
 	per := 25
-	page := max(1, php.Int(php.Coalesce(f["page"], 1)))
-	dept, all, ok := deptOf(u, "erp_billing", php.Int(f["department"]))
+	page := max(1, conv.Int(conv.Coalesce(f["page"], 1)))
+	dept, all, ok := deptOf(u, "erp_billing", conv.Int(f["department"]))
 	if !ok {
 		return emptyList()
 	}
@@ -441,18 +441,18 @@ func deptBillingList(u *app.CurrentUser, f app.M) app.M {
 		p = append(p, like, like, like, like)
 	}
 	for _, x := range [][2]string{{"from", ">="}, {"to", "<="}} {
-		if v := php.Str(f[x[0]]); ymdRe.MatchString(v) {
+		if v := conv.Str(f[x[0]]); ymdRe.MatchString(v) {
 			w = append(w, "n.billing_at "+x[1]+" ?::date")
 			p = append(p, v)
 		}
 	}
 	where := strings.Join(w, " AND ")
-	total := php.Int(acc().Scalar("SELECT count(*) FROM billing_notes n WHERE "+where, p...))
+	total := conv.Int(acc().Scalar("SELECT count(*) FROM billing_notes n WHERE "+where, p...))
 	rows := acc().Select(`SELECT n.id, n.billing_number, n.billing_at, n.remind_date, n.customer_code, n.customer_name, n.total_amount, n.currency_code, n.is_paid, n.is_complete,
                 (SELECT count(*) FROM billing_note_invoices c WHERE c.billing_id = n.id) AS invoice_count,
                 (SELECT string_agg(c.invoice_number::text, ', ' ORDER BY c.invoice_number) FROM billing_note_invoices c WHERE c.billing_id = n.id) AS invoice_numbers,
                 (SELECT `+deptOfSQL+` FROM billing_note_invoices bi WHERE bi.billing_id = n.id ORDER BY bi.id LIMIT 1) AS app_department_id
-            FROM billing_notes n WHERE `+where+` ORDER BY n.billing_at DESC, n.id DESC LIMIT `+php.Str(per)+` OFFSET `+php.Str((page-1)*per), p...)
+            FROM billing_notes n WHERE `+where+` ORDER BY n.billing_at DESC, n.id DESC LIMIT `+conv.Str(per)+` OFFSET `+conv.Str((page-1)*per), p...)
 	return app.M{"rows": rowsM(rows), "total": total, "page": page, "pages": max(1, int(math.Ceil(float64(total)/float64(per)))), "all_departments": all}
 }
 

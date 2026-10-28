@@ -10,8 +10,8 @@ import (
 	"acme/internal/api"
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // CRM for the mobile app (Api/CrmApi.php; paths relative to /api/v1). Every list and record goes through the same visibility
@@ -96,10 +96,10 @@ func apiLike(q string) string { return api.Like(q) }
 
 // apiPaged: one page of sql (no ORDER BY / LIMIT): ?page= (from 1) and ?per_page= (1–100, default 25).
 func apiPaged(c *app.Ctx, sql string, params []any, order string) ([]db.Row, *config.Map) {
-	per := max(1, min(100, php.Int(c.Query("per_page", "25"))))
-	page := max(1, min(10000, php.Int(c.Query("page", "1"))))
-	total := php.Int(db.On("crm").Scalar("SELECT count(*) FROM ("+sql+") x", params...))
-	rows := db.On("crm").Select(sql+" ORDER BY "+order+" LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), params...)
+	per := max(1, min(100, conv.Int(c.Query("per_page", "25"))))
+	page := max(1, min(10000, conv.Int(c.Query("page", "1"))))
+	total := conv.Int(db.On("crm").Scalar("SELECT count(*) FROM ("+sql+") x", params...))
+	rows := db.On("crm").Select(sql+" ORDER BY "+order+" LIMIT "+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), params...)
 	return rows, api.Obj("page", page, "per_page", per, "total", total, "pages", int(math.Ceil(float64(total)/float64(per))))
 }
 
@@ -194,7 +194,7 @@ func apiContacts(c *app.Ctx) {
 		w += " AND (t.name_en ILIKE ? OR t.name_th ILIKE ? OR t.email ILIKE ? OR t.phone ILIKE ? OR t.code ILIKE ?)"
 		p = append(p, repeatArgs(apiLike(q), 5)...)
 	}
-	if lead := php.Int(c.Query("lead_id")); lead != 0 {
+	if lead := conv.Int(c.Query("lead_id")); lead != 0 {
 		w += " AND t.lead_id = ?"
 		p = append(p, lead)
 	}
@@ -238,7 +238,7 @@ func apiOpportunities(c *app.Ctx) {
 	if c.Query("open") == "1" {
 		w += " AND t.opportunity_stage IN ('" + strings.Join(stageOpen, "', '") + "')"
 	}
-	if lead := php.Int(c.Query("lead_id")); lead != 0 {
+	if lead := conv.Int(c.Query("lead_id")); lead != 0 {
 		w += " AND t.lead_id = ?"
 		p = append(p, lead)
 	}
@@ -301,7 +301,7 @@ func apiActivities(c *app.Ctx) {
 		w += " AND t.owner_id = ?"
 		p = append(p, c.MustUser().ID)
 	}
-	if lead := php.Int(c.Query("lead_id")); lead != 0 {
+	if lead := conv.Int(c.Query("lead_id")); lead != 0 {
 		w += " AND t.lead_id = ?"
 		p = append(p, lead)
 	}
@@ -328,7 +328,7 @@ func delegate(c *app.Ctx, input *config.Map, action app.Handler, redirectMeansDo
 	return data
 }
 
-func savedID(d *config.Map) int { v, _ := d.Get("id"); return php.Int(v) }
+func savedID(d *config.Map) int { v, _ := d.Get("id"); return conv.Int(v) }
 
 // Log a call / meeting. Same rules as the website form (lead required, linked records must be visible to you …).
 func apiCreateActivity(c *app.Ctx) {
@@ -402,7 +402,7 @@ func apiTasks(c *app.Ctx) {
 		w += " AND EXISTS (SELECT 1 FROM task_assignees a WHERE a.task_id = t.id AND a.user_id = ?)"
 		p = append(p, c.MustUser().ID)
 	}
-	if pr := php.Int(c.Query("project_id")); pr != 0 {
+	if pr := conv.Int(c.Query("project_id")); pr != 0 {
 		w += " AND t.project_id = ?"
 		p = append(p, pr)
 	}
@@ -480,7 +480,7 @@ func apiOptions(c *app.Ctx) {
 // apiSearch: one box for the app: visible leads, contacts and opportunities matching ?q= (5 each).
 func apiSearch(c *app.Ctx) {
 	q := apiQ(c)
-	if php.Len(q) < 2 {
+	if conv.Len(q) < 2 {
 		c.JSON(api.Obj("data", []any{}))
 	}
 	like := apiLike(q)
@@ -541,7 +541,7 @@ func apiStats(c *app.Ctx) {
 	qt := config.NewMap()
 	if u.Can("crm_leads", "view") {
 		w, p := apiScope(c, "lead", "crm_leads")
-		qt.Set("leads", php.Int(q.Scalar("SELECT count(*) FROM leads t WHERE "+w+" AND t.created_at >= date_trunc('quarter', now())", p...)))
+		qt.Set("leads", conv.Int(q.Scalar("SELECT count(*) FROM leads t WHERE "+w+" AND t.created_at >= date_trunc('quarter', now())", p...)))
 	}
 	if u.Can("crm_opportunities", "view") {
 		w, p := apiScope(c, "opportunity", "crm_opportunities")
@@ -559,7 +559,7 @@ func apiStats(c *app.Ctx) {
 		}
 		days := []any{}
 		for k := 7; k >= 0; k-- {
-			d := php.Date("Y-m-d", php.Now().AddDate(0, 0, -k))
+			d := conv.Date("Y-m-d", conv.Now().AddDate(0, 0, -k))
 			days = append(days, api.Obj("date", d, "count", byDay[d]))
 		}
 		qt.Set("activities", days)
@@ -575,7 +575,7 @@ func apiStats(c *app.Ctx) {
 			dep = 0
 		}
 		if seesAll(u) || dep != 0 {
-			year := php.Now().Year()
+			year := conv.Now().Year()
 			t := targetSummaryOf(dep, year)
 			qs := []any{}
 			for i := 1; i <= 4; i++ {
@@ -594,7 +594,7 @@ func apiStats(c *app.Ctx) {
 
 // jsonFloat is round($n, 2) as json_encode writes a PHP float: 1000000.0, never 1000000.
 func jsonFloat(n float64) json.Number {
-	s := strconv.FormatFloat(phpRound(n, 2), 'f', -1, 64)
+	s := strconv.FormatFloat(roundHalf(n, 2), 'f', -1, 64)
 	if !strings.ContainsAny(s, ".eE") {
 		s += ".0"
 	}

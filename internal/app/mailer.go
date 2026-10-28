@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // SendMail sends HTML e-mail (Mailer::send): driver "log" writes storage/mail/*.html, "smtp" really sends.
@@ -51,9 +51,9 @@ func recordMail(to, subject string, ok bool, errText string) {
 			if errText == "" {
 				errText = "Unknown error"
 			}
-			e = php.Substr(errText, 0, 1000)
+			e = conv.Substr(errText, 0, 1000)
 		}
-		db.Insert("mail_log", db.Cols{{Name: "to_email", Value: php.Substr(to, 0, 190)}, {Name: "subject", Value: php.Substr(subject, 0, 250)},
+		db.Insert("mail_log", db.Cols{{Name: "to_email", Value: conv.Substr(to, 0, 190)}, {Name: "subject", Value: conv.Substr(subject, 0, 250)},
 			{Name: "driver", Value: config.String("mail.driver", "log")}, {Name: "status", Value: status}, {Name: "error", Value: e}}, "")
 		if rand.IntN(50) == 0 {
 			db.Exec("DELETE FROM mail_log WHERE id < (SELECT COALESCE(max(id), 0) - 1000 FROM mail_log)")
@@ -82,7 +82,7 @@ func logMail(to, subject, html string) error {
 	if err := os.MkdirAll(dir, 0o775); err != nil {
 		return err
 	}
-	name := php.Date("Ymd-His", php.Now()) + "-" + randHex(3)[:6] + "-" + nonAlnum.ReplaceAllString(to, "-") + ".html"
+	name := conv.Date("Ymd-His", conv.Now()) + "-" + randHex(3)[:6] + "-" + nonAlnum.ReplaceAllString(to, "-") + ".html"
 	return os.WriteFile(filepath.Join(dir, name), []byte("<!-- To: "+to+"\n     Subject: "+template.HTMLEscapeString(subject)+" -->\n"+html), 0o664)
 }
 
@@ -91,7 +91,7 @@ func smtpSend(to, toName, subject, html string) error {
 	port := config.Int("mail.port", 587)
 	enc := config.String("mail.encryption", "tls")
 	verify := config.Bool("mail.verify_tls", true)
-	addr := net.JoinHostPort(host, php.Str(port))
+	addr := net.JoinHostPort(host, conv.Str(port))
 	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: !verify, MinVersion: tls.VersionTLS12}
 	var conn net.Conn
 	var err error
@@ -123,7 +123,7 @@ func smtpSend(to, toName, subject, html string) error {
 			return err
 		}
 		res := read()
-		code := php.Int(php.Substr(res, 0, 3))
+		code := conv.Int(conv.Substr(res, 0, 3))
 		for _, e := range expect {
 			if e == code {
 				return nil
@@ -146,7 +146,7 @@ func smtpSend(to, toName, subject, html string) error {
 		}
 		tc := tls.Client(conn, tlsCfg)
 		if err := tc.Handshake(); err != nil {
-			return fmt.Errorf("TLS handshake with the mail server failed (certificate not trusted? set mail.verify_tls to false in config.php only if you must)")
+			return fmt.Errorf("TLS handshake with the mail server failed (certificate not trusted? set mail.verify_tls to false in config.json only if you must)")
 		}
 		conn = tc
 		r = bufio.NewReader(conn)
@@ -181,7 +181,7 @@ func smtpSend(to, toName, subject, html string) error {
 		domain = from[i+1:]
 	}
 	headers := []string{
-		"Date: " + php.Now().Format(time.RFC1123Z),
+		"Date: " + conv.Now().Format(time.RFC1123Z),
 		"From: " + b64(config.String("mail.from_name", "")) + " <" + from + ">",
 		"To: " + b64(toName) + " <" + to + ">",
 		"Subject: " + b64(subject),

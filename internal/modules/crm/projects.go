@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // A piece of work with dates, several responsible people, files, comments and a list of tasks (ProjectController).
@@ -43,12 +43,12 @@ func peopleExtra(c *app.Ctx, name string, selected []int) app.M {
 		}
 	} else {
 		for _, i := range selected {
-			picked[php.Str(i)] = true
+			picked[conv.Str(i)] = true
 		}
 	}
 	var rows []peopleRow
 	for _, p := range people() {
-		rows = append(rows, peopleRow{ID: p.ID, Name: p.Name, Department: p.Department, Q: strings.ToLower(p.Name + " " + p.Department), On: picked[php.Str(p.ID)]})
+		rows = append(rows, peopleRow{ID: p.ID, Name: p.Name, Department: p.Department, Q: strings.ToLower(p.Name + " " + p.Department), On: picked[conv.Str(p.ID)]})
 	}
 	return app.M{"people": rows}
 }
@@ -58,7 +58,7 @@ func dateRange(c *app.Ctx, a, b any) string {
 }
 
 func endOfDayPast(v any) bool {
-	return php.Str(v) != "" && php.StrToTime(php.Str(v)+" 23:59:59") < php.Now().Unix()
+	return conv.Str(v) != "" && conv.StrToTime(conv.Str(v)+" 23:59:59") < conv.Now().Unix()
 }
 
 func init() {
@@ -118,7 +118,7 @@ func init() {
 				return h(uiTitle(c, r.Str("name"), r.Str("code"), "/crm/projects/"+r.Str("id")))
 			}},
 			{Key: "status", Label: c.T("Status"), Sort: "t.status", Render: func(c *app.Ctx, r db.Row) template.HTML {
-				return h(uiBadge(trLabel(c, projectStatuses, r.Str("status")), php.OrStr(projectTones[r.Str("status")], "neutral")))
+				return h(uiBadge(trLabel(c, projectStatuses, r.Str("status")), conv.OrStr(projectTones[r.Str("status")], "neutral")))
 			}},
 			{Key: "period", Label: c.T("Period"), Sort: "t.start_date", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r["start_date"] == nil && r["end_date"] == nil {
@@ -132,7 +132,7 @@ func init() {
 			}},
 			{Key: "tasks", Label: c.T("Tasks"), Sort: "task_total", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				if r.Int("task_total") > 0 {
-					return h(meter(c, float64(r.Int("task_done"))/float64(r.Int("task_total"))*100, php.Str(r.Int("task_done"))+"/"+php.Str(r.Int("task_total"))))
+					return h(meter(c, float64(r.Int("task_done"))/float64(r.Int("task_total"))*100, conv.Str(r.Int("task_done"))+"/"+conv.Str(r.Int("task_total"))))
 				}
 				return h(uiDash())
 			}},
@@ -147,7 +147,7 @@ func init() {
 		if end == nil && existing != nil {
 			end = existing["end_date"]
 		}
-		if !php.Empty(start) && !php.Empty(end) && php.StrToTime(end) < php.StrToTime(start) {
+		if !conv.Empty(start) && !conv.Empty(end) && conv.StrToTime(end) < conv.StrToTime(start) {
 			app.Invalid("end_date", c.T("The end cannot be before the start."))
 		}
 		return data
@@ -155,7 +155,7 @@ func init() {
 	s.afterSave = func(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 		var ids []int
 		for _, v := range app.InList(data.Get("members")) {
-			ids = append(ids, php.Int(v))
+			ids = append(ids, conv.Int(v))
 		}
 		if existing == nil {
 			ids = append(ids, c.MustUser().ID) // whoever creates it is responsible for it
@@ -171,7 +171,7 @@ func init() {
 		db.On("crm").Exec("UPDATE tasks SET deleted_at = now() WHERE project_id = ? AND deleted_at IS NULL", row["id"])
 	}
 	s.badges = func(c *app.Ctx, r db.Row) []string {
-		b := []string{uiBadge(trLabel(c, projectStatuses, r.Str("status")), php.OrStr(projectTones[r.Str("status")], "neutral"))}
+		b := []string{uiBadge(trLabel(c, projectStatuses, r.Str("status")), conv.OrStr(projectTones[r.Str("status")], "neutral"))}
 		if r.Str("end_date") != "" && !inStrs(r.Str("status"), []string{"DONE", "CANCELLED"}) && endOfDayPast(r["end_date"]) {
 			b = append(b, uiBadge(c.T("Overdue"), "danger"))
 		}
@@ -201,11 +201,11 @@ func init() {
 		}
 		pct := 0
 		if len(tasks) > 0 {
-			pct = int(phpRound(float64(done)/float64(len(tasks))*100, 0))
+			pct = int(roundHalf(float64(done)/float64(len(tasks))*100, 0))
 		}
 		data := app.M{"row": row, "total": len(tasks), "done": done, "late": late, "pct": pct}
 		if row.Str("end_date") != "" {
-			left := int(math.Floor(float64(php.StrToTime(row.Str("end_date")+" 23:59:59")-php.Now().Unix()) / 86400))
+			left := int(math.Floor(float64(conv.StrToTime(row.Str("end_date")+" 23:59:59")-conv.Now().Unix()) / 86400))
 			if !inStrs(row.Str("status"), []string{"DONE", "CANCELLED"}) {
 				data["showLeft"], data["left"], data["leftAbs"] = true, left, int(math.Abs(float64(left)))
 				if left >= 0 {
@@ -230,7 +230,7 @@ func init() {
 			}
 			n, _ := t["assignee_names"].([]string)
 			t["_avatars"] = h(uiAvatars(n, 4))
-			t["_badge"] = h(uiBadge(trLabel(c, taskStatuses, t.Str("status")), php.OrStr(taskTones[t.Str("status")], "neutral")))
+			t["_badge"] = h(uiBadge(trLabel(c, taskStatuses, t.Str("status")), conv.OrStr(taskTones[t.Str("status")], "neutral")))
 		}
 		return string(c.Partial("crm/panels/project-tasks", app.M{"project": row, "tasks": tasks, "canAdd": canAddTasks(c, c.MustUser(), row),
 			"canEdit": c.Can("crm_tasks", "edit"), "statuses": tr(c, taskStatuses)}))

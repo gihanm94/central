@@ -10,8 +10,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- AccountingController (overview)
@@ -28,7 +28,7 @@ func overviewPage(c *app.Ctx) {
 	if anyShown {
 		data = dashboardGet(c.Query("refresh") == "1" && c.MustUser().IsAdmin())
 	}
-	f := func(v any) string { return php.NF(v, 0) }
+	f := func(v any) string { return conv.NF(v, 0) }
 	delta := func(now, then float64) (string, string) {
 		if then == 0 {
 			return "", "neutral"
@@ -38,12 +38,12 @@ func overviewPage(c *app.Ctx) {
 		if p >= 0 {
 			arrow, tone = "▲ ", "up"
 		}
-		return arrow + php.NF(math.Abs(p), 1) + "%", tone
+		return arrow + conv.NF(math.Abs(p), 1) + "%", tone
 	}
 	type card struct{ Label, Value, Sub, Tone string }
 	var cards []card
 	kpi, _ := data["kpi"].(app.M)
-	kf := func(k string) float64 { return php.Float(kpi[k]) }
+	kf := func(k string) float64 { return conv.Float(kpi[k]) }
 	if show["finance"].(bool) && len(data) > 0 {
 		t1, c1 := delta(kf("month"), kf("month_prev_year"))
 		t2, c2 := delta(kf("ytd"), kf("ytd_prev"))
@@ -58,19 +58,19 @@ func overviewPage(c *app.Ctx) {
 			card{c.T("Receivable outstanding"), "฿" + f(data["receivable"]), c.T("open invoices not paid yet"), "neutral"})
 	}
 	if show["orders"].(bool) && len(data) > 0 {
-		cards = append(cards, card{c.T("Orders this month"), php.Str(data["orders_this_month"]), php.Str(php.Coalesce(kpi["invoices_month"], 0)) + " " + c.T("invoices this month"), "neutral"})
+		cards = append(cards, card{c.T("Orders this month"), conv.Str(data["orders_this_month"]), conv.Str(conv.Coalesce(kpi["invoices_month"], 0)) + " " + c.T("invoices this month"), "neutral"})
 	}
 	if show["inet"].(bool) && len(data) > 0 {
 		in, _ := data["inet"].(app.M)
-		w := php.Int(in["waiting"])
+		w := conv.Int(in["waiting"])
 		t := "neutral"
 		if w > 0 {
 			t = "down"
 		}
-		cards = append(cards, card{c.T("E-tax waiting to send"), php.Str(w), php.Str(php.Int(data["not_in_inet"])) + " " + c.T("invoices (60 days) not generated yet"), t})
+		cards = append(cards, card{c.T("E-tax waiting to send"), conv.Str(w), conv.Str(conv.Int(data["not_in_inet"])) + " " + c.T("invoices (60 days) not generated yet"), t})
 	}
 	if show["billing"].(bool) && len(data) > 0 {
-		cards = append(cards, card{c.T("Billing notes today"), php.Str(data["billing_today"]), "฿" + f(data["billing_open"]) + " " + c.T("billed, not paid"), "neutral"})
+		cards = append(cards, card{c.T("Billing notes today"), conv.Str(data["billing_today"]), "฿" + f(data["billing_open"]) + " " + c.T("billed, not paid"), "neutral"})
 	}
 	var payload string
 	built := ""
@@ -88,7 +88,7 @@ func overviewPage(c *app.Ctx) {
 			"bill": app.M{"pending": c.T("Pending"), "overdue": c.T("Overdue"), "paid": c.T("Paid"), "complete": c.T("Complete")}, "months": months}
 		payload = jsonEnc(d2, false)
 		payload = strings.NewReplacer("<", `<`, ">", `>`, "&", `&`).Replace(payload)
-		built = php.Date("H:i", time.Unix(php.StrToTime(data["built"]), 0).In(php.Loc))
+		built = conv.Date("H:i", time.Unix(conv.StrToTime(data["built"]), 0).In(conv.Loc))
 	}
 	c.View("accounting/index", app.M{"title": c.T("Accounting overview"), "show": show, "has": len(data) > 0, "cards": cards, "payload": payloadJS(payload), "built": built, "isAdmin": c.MustUser().IsAdmin()})
 }
@@ -123,7 +123,7 @@ func companyEdit(c *app.Ctx) {
 func companySaveAction(c *app.Ctx) {
 	adminGate(c, "Only an administrator can open this.")
 	all := c.All()
-	in := func(k string) string { return strings.TrimSpace(php.Str(mget(all, k))) }
+	in := func(k string) string { return strings.TrimSpace(conv.Str(mget(all, k))) }
 	tax := digits(in("tax_id"))
 	if len(tax) != 13 {
 		app.Invalid("tax_id", c.T("The tax ID has 13 digits."))
@@ -131,7 +131,7 @@ func companySaveAction(c *app.Ctx) {
 	if in("name_th") == "" {
 		app.Invalid("name_th", c.T("Enter the company name."))
 	}
-	branch := php.Str(php.Coalesce(mget(all, "branch_id"), "00000"))
+	branch := conv.Str(conv.Coalesce(mget(all, "branch_id"), "00000"))
 	if !regexp.MustCompile(`^\d{5}$`).MatchString(branch) {
 		app.Invalid("branch_id", c.T("The branch ID has 5 digits, e.g. 00000."))
 	}
@@ -148,7 +148,7 @@ func companySaveAction(c *app.Ctx) {
 		}
 	}
 	sput("pdf.chromium", chrome, c.UserID())
-	scheme := php.OrStr(php.Str(mget(all, "scheme")), "Bearer")
+	scheme := conv.OrStr(conv.Str(mget(all, "scheme")), "Bearer")
 	if scheme != "Bearer" && scheme != "Basic" {
 		scheme = "Bearer"
 	}
@@ -171,7 +171,7 @@ func notifyEdit(c *app.Ctx) {
 	}
 	var today []app.M
 	for _, n := range notifyToday() {
-		today = append(today, app.M{"billing_number": n.Str("billing_number"), "total": php.NF(n["total_amount"], 2), "customer_name": n.Str("customer_name")})
+		today = append(today, app.M{"billing_number": n.Str("billing_number"), "total": conv.NF(n["total_amount"], 2), "customer_name": n.Str("customer_name")})
 	}
 	last := sgetNil("notify.last")
 	c.View("accounting/notify", app.M{"title": c.T("Notifications"), "enabled": notifyEnabled(), "time": notifyTime(), "mode": app.LarkMode(), "users": users, "today": today, "last": last})
@@ -193,7 +193,7 @@ func notifySave(c *app.Ctx) {
 	}
 	var ids []string
 	for _, s := range c.Inputs("users") {
-		ids = append(ids, php.Str(php.Int(s)))
+		ids = append(ids, conv.Str(conv.Int(s)))
 	}
 	sput("notify.users", strings.Join(ids, ","), u)
 	c.Flash("success", c.T("Notification settings saved."))
@@ -224,7 +224,7 @@ func notifySendNow(c *app.Ctx) {
 
 func logsIndex(c *app.Ctx) {
 	adminGate(c, "Only an administrator can open the logs.")
-	today := php.Date("Y-m-d", php.Now())
+	today := conv.Date("Y-m-d", conv.Now())
 	days := logDays()
 	seen := false
 	for _, d := range days {
@@ -250,14 +250,14 @@ func logsTail(c *app.Ctx) {
 			app.Abort(403)
 		}
 	}
-	tail := min(1000, max(10, php.Int(c.Input("tail", "300"))))
-	after := int64(php.Int(c.Input("after", "-1")))
-	c.JSON(logRead(c.Input("day", php.Date("Y-m-d", php.Now())), after, tail, map[string]string{"level": c.Input("level", "debug"), "ch": c.Input("ch"), "q": c.Input("q"), "run": run}))
+	tail := min(1000, max(10, conv.Int(c.Input("tail", "300"))))
+	after := int64(conv.Int(c.Input("after", "-1")))
+	c.JSON(logRead(c.Input("day", conv.Date("Y-m-d", conv.Now())), after, tail, map[string]string{"level": c.Input("level", "debug"), "ch": c.Input("ch"), "q": c.Input("q"), "run": run}))
 }
 
 func logsDownload(c *app.Ctx) {
 	adminGate(c, "Only an administrator can open the logs.")
-	file := logFile(c.Input("day", php.Date("Y-m-d", php.Now())))
+	file := logFile(c.Input("day", conv.Date("Y-m-d", conv.Now())))
 	b, err := os.ReadFile(file)
 	if err != nil {
 		app.Abort(404)
@@ -268,7 +268,7 @@ func logsDownload(c *app.Ctx) {
 func logsClear(c *app.Ctx) {
 	adminGate(c, "Only an administrator can open the logs.")
 	day := c.Input("day")
-	today := php.Date("Y-m-d", php.Now())
+	today := conv.Date("Y-m-d", conv.Now())
 	f := logFile(day)
 	if day != "" && day != today {
 		if _, err := os.Stat(f); err == nil {
@@ -294,14 +294,14 @@ func erpIndex(c *app.Ctx) {
 	sum := 0
 	for _, k := range ents.Keys {
 		d, _ := ents.Vals[k].(*config.Map)
-		table := php.Str(mget(mmap(cfgMap("erp_schema"), mstr(d, "entity")), "table"))
-		n := php.Int(acc().Scalar("SELECT count(*) FROM " + table))
+		table := conv.Str(mget(mmap(cfgMap("erp_schema"), mstr(d, "entity")), "table"))
+		n := conv.Int(acc().Scalar("SELECT count(*) FROM " + table))
 		count[k] = n
 		sum += n
 	}
 	token := acc().First("SELECT id, session_id, session_suspended, updated_at FROM erp_tokens WHERE is_primary ORDER BY id DESC LIMIT 1")
 	totals := erpTotals()
-	running := php.Int(acc().Scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'"))
+	running := conv.Int(acc().Scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'"))
 
 	// the API table: one row per endpoint with the entities copied from it
 	byAPI := map[string][]string{}
@@ -317,7 +317,7 @@ func erpIndex(c *app.Ctx) {
 		def, _ := eps.Vals[key].([]any)
 		label := ""
 		if len(def) > 1 {
-			label = php.Str(def[1])
+			label = conv.Str(def[1])
 		}
 		var entsOut []app.M
 		for _, k := range byAPI[key] {
@@ -327,17 +327,17 @@ func erpIndex(c *app.Ctx) {
 			stLine := ""
 			stErr := ""
 			if st != nil {
-				stStatus = php.OrStr(st.Str("status"), "never")
+				stStatus = conv.OrStr(st.Str("status"), "never")
 				if st.Str("last_run_at") != "" {
-					stLine = " " + app.TimeAgo(c, st["last_run_at"]) + " · " + php.NF(st.Int("saved"), 0) + " " + c.T("saved")
+					stLine = " " + app.TimeAgo(c, st["last_run_at"]) + " · " + conv.NF(st.Int("saved"), 0) + " " + c.T("saved")
 					if st.Int("duration_ms") != 0 {
-						stLine += " · " + php.Str(phpRound(st.Float("duration_ms")/1000, 1)) + "s"
+						stLine += " · " + conv.Str(roundHalf(st.Float("duration_ms")/1000, 1)) + "s"
 					}
 				}
 				stErr = st.Str("error")
 			}
 			entsOut = append(entsOut, app.M{"key": k, "group": mstr(d, "group"), "groupTone": groupTone[mstr(d, "group")], "label": mstr(d, "label"), "overwrite": overwriteOn(k),
-				"status": stStatus, "statusTone": stateTone[stStatus], "line": stLine, "error": stErr, "count": php.NF(count[k], 0), "size": php.NF(php.Int(mget(d, "size")), 0)})
+				"status": stStatus, "statusTone": stateTone[stStatus], "line": stLine, "error": stErr, "count": conv.NF(count[k], 0), "size": conv.NF(conv.Int(mget(d, "size")), 0)})
 		}
 		apis = append(apis, app.M{"key": key, "label": label, "value": erpEndpoint(key), "ents": entsOut, "isToken": key == "tokenUrl"})
 	}
@@ -347,12 +347,12 @@ func erpIndex(c *app.Ctx) {
 	tokenState := "none"
 	tokenSession, tokenGot := "", ""
 	if token != nil {
-		tokenAge = int(math.Round(float64(time.Now().Unix()-php.StrToTime(token["updated_at"])) / 60))
+		tokenAge = int(math.Round(float64(time.Now().Unix()-conv.StrToTime(token["updated_at"])) / 60))
 		tokenState = "valid"
 		if tokenAge > 60 || token.Bool("session_suspended") {
 			tokenState = "expired"
 		}
-		tokenSession = php.Substr(token.Str("session_id"), 0, 6)
+		tokenSession = conv.Substr(token.Str("session_id"), 0, 6)
 		tokenGot = app.TimeAgo(c, token["updated_at"])
 	}
 	days := [][2]string{{"1", c.T("Mon")}, {"2", c.T("Tue")}, {"3", c.T("Wed")}, {"4", c.T("Thu")}, {"5", c.T("Fri")}, {"6", c.T("Sat")}, {"7", c.T("Sun")}}
@@ -370,7 +370,7 @@ func erpIndex(c *app.Ctx) {
 	sched := schedSetting("enabled") == "1"
 	beatText := " · " + c.T("has not run yet")
 	if hb != nil {
-		beatText = " · " + c.T("looked :ago ago", "ago", php.Str(max(0, int(time.Now().Unix()-hb.at)))+"s") + " (" + hb.by + ")"
+		beatText = " · " + c.T("looked :ago ago", "ago", conv.Str(max(0, int(time.Now().Unix()-hb.at)))+"s") + " (" + hb.by + ")"
 	}
 	schedText := c.T("Schedule off")
 	if sched {
@@ -382,11 +382,11 @@ func erpIndex(c *app.Ctx) {
 	}
 	failedDay := totals.Int("failed_day")
 	statCards := []app.M{
-		{"key": "today", "label": c.T("Rows saved today"), "value": php.NF(totals.Int("today"), 0), "cls": "text-graphite-900"},
-		{"key": "all", "label": c.T("Rows saved in all runs"), "value": php.NF(totals.Int("all_time"), 0), "cls": "text-graphite-900"},
-		{"key": "rows", "label": c.T("Rows in the tables now"), "value": php.NF(sum, 0), "cls": "text-graphite-900"},
+		{"key": "today", "label": c.T("Rows saved today"), "value": conv.NF(totals.Int("today"), 0), "cls": "text-graphite-900"},
+		{"key": "all", "label": c.T("Rows saved in all runs"), "value": conv.NF(totals.Int("all_time"), 0), "cls": "text-graphite-900"},
+		{"key": "rows", "label": c.T("Rows in the tables now"), "value": conv.NF(sum, 0), "cls": "text-graphite-900"},
 		{"key": "last_ok", "label": c.T("Last good run"), "value": lastOK, "cls": "text-graphite-900"},
-		{"key": "failed", "label": c.T("Failed runs (24 h)"), "value": php.Str(failedDay), "cls": map[bool]string{true: "text-signal-700", false: "text-graphite-900"}[failedDay > 0]},
+		{"key": "failed", "label": c.T("Failed runs (24 h)"), "value": conv.Str(failedDay), "cls": map[bool]string{true: "text-signal-700", false: "text-graphite-900"}[failedDay > 0]},
 	}
 	runLabel := c.T("Idle")
 	if running > 0 {
@@ -419,8 +419,8 @@ func erpSaveConnection(c *app.Ctx) {
 	if c.Input("verify_tls") != "" && c.Input("verify_tls") != "0" {
 		verify = "1"
 	}
-	timeout := php.Int(c.Input("timeout", "120"))
-	for _, kv := range [][2]string{{"ip", ip}, {"port", digits(c.Input("port"))}, {"username", strings.TrimSpace(c.Input("username"))}, {"verify_tls", verify}, {"timeout", php.Str(max(10, min(900, timeout)))}} {
+	timeout := conv.Int(c.Input("timeout", "120"))
+	for _, kv := range [][2]string{{"ip", ip}, {"port", digits(c.Input("port"))}, {"username", strings.TrimSpace(c.Input("username"))}, {"verify_tls", verify}, {"timeout", conv.Str(max(10, min(900, timeout)))}} {
 		sput("conn."+kv[0], kv[1], u)
 	}
 	if pw := c.Input("password"); pw != "" { // empty = keep the saved one
@@ -439,7 +439,7 @@ func erpSaveConnection(c *app.Ctx) {
 	var days []int
 	seen := map[int]bool{}
 	for _, d := range c.Inputs("days") {
-		if n := php.Int(d); n >= 1 && n <= 7 && !seen[n] {
+		if n := conv.Int(d); n >= 1 && n <= 7 && !seen[n] {
 			seen[n] = true
 			days = append(days, n)
 		}
@@ -454,19 +454,19 @@ func erpSaveConnection(c *app.Ctx) {
 	}
 	sput("schedule.enabled", on, u)
 	sput("schedule.tz", tz, u)
-	sput("schedule.hour_start", php.Str(max(0, min(23, php.Int(c.Input("hour_start", "8"))))), u)
-	sput("schedule.hour_end", php.Str(max(1, min(24, php.Int(c.Input("hour_end", "19"))))), u)
+	sput("schedule.hour_start", conv.Str(max(0, min(23, conv.Int(c.Input("hour_start", "8"))))), u)
+	sput("schedule.hour_end", conv.Str(max(1, min(24, conv.Int(c.Input("hour_end", "19"))))), u)
 	ds := []string{}
 	sortInts(days)
 	for _, d := range days {
-		ds = append(ds, php.Str(d))
+		ds = append(ds, conv.Str(d))
 	}
 	if len(ds) == 0 {
 		ds = []string{"1", "2", "3", "4", "5"}
 	}
 	sput("schedule.days", strings.Join(ds, ","), u)
-	sput("schedule.hot_minutes", php.Str(max(1, min(1440, php.Int(c.Input("hot_minutes", "3"))))), u)
-	sput("schedule.cold_minutes", php.Str(max(1, min(1440, php.Int(c.Input("cold_minutes", "30"))))), u)
+	sput("schedule.hot_minutes", conv.Str(max(1, min(1440, conv.Int(c.Input("hot_minutes", "3"))))), u)
+	sput("schedule.cold_minutes", conv.Str(max(1, min(1440, conv.Int(c.Input("cold_minutes", "30"))))), u)
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "erp_connection", Label: "ERP", Text: "Changed the ERP connection settings", NoNotify: true, Module: "accounting"})
 	c.Flash("success", c.T("ERP connection saved."))
 	c.Redirect("/accounting/erp")
@@ -504,7 +504,7 @@ func erpSaveEndpoints(c *app.Ctx) {
 			if _, ok := eps.Get(key); !ok {
 				continue
 			}
-			path := strings.TrimSpace(php.Str(api.Vals[key]))
+			path := strings.TrimSpace(conv.Str(api.Vals[key]))
 			if path == "" || path[0] != '/' || regexp.MustCompile(`\s|\.\.`).MatchString(path) {
 				continue
 			}
@@ -529,7 +529,7 @@ func erpLogin(c *app.Ctx) {
 	if err := app.Catch(func() { t = newErpClient().login() }); err != nil {
 		c.Flash("error", err.Error())
 	} else {
-		c.Flash("success", c.T("Logged in to the ERP. Session :id… saved for one hour.", "id", php.Substr(t.Str("session_id"), 0, 6)))
+		c.Flash("success", c.T("Logged in to the ERP. Session :id… saved for one hour.", "id", conv.Substr(t.Str("session_id"), 0, 6)))
 	}
 	c.Redirect("/accounting/erp")
 }
@@ -547,7 +547,7 @@ func erpTest(c *app.Ctx) {
 	} else if r.err != "" {
 		c.Flash("error", key+": "+r.err)
 	} else {
-		c.Flash("success", key+": HTTP "+php.Str(r.status)+", "+php.Str(len(r.rows))+" row(s) came back.")
+		c.Flash("success", key+": HTTP "+conv.Str(r.status)+", "+conv.Str(len(r.rows))+" row(s) came back.")
 	}
 	c.Redirect("/accounting/erp#apis")
 }
@@ -584,10 +584,10 @@ func erpStatus(c *app.Ctx) {
 	}
 	var token any
 	if t := acc().First("SELECT session_suspended, updated_at FROM erp_tokens WHERE is_primary ORDER BY id DESC LIMIT 1"); t != nil {
-		token = app.M{"ago": app.TimeAgo(c, t["updated_at"]), "minutes": int(math.Round(float64(time.Now().Unix()-php.StrToTime(t["updated_at"])) / 60))}
+		token = app.M{"ago": app.TimeAgo(c, t["updated_at"]), "minutes": int(math.Round(float64(time.Now().Unix()-conv.StrToTime(t["updated_at"])) / 60))}
 	}
 	c.JSON(app.M{"now": time.Now().Unix(), "state": state, "runs": runs,
-		"running": php.Int(acc().Scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'")),
+		"running": conv.Int(acc().Scalar("SELECT count(*) FROM erp_sync_runs WHERE status = 'running' AND started_at > now() - interval '2 hours'")),
 		"totals":  erpTotals(), "scheduler": sch, "token": token})
 }
 
@@ -595,7 +595,7 @@ func erpStatus(c *app.Ctx) {
 func erpRuns(c *app.Ctx) {
 	adminGate(c, "Only an administrator can open the ERP connection.")
 	st := c.Query("status")
-	per := php.Int(c.Query("per", "10"))
+	per := conv.Int(c.Query("per", "10"))
 	if per != 10 && per != 20 && per != 50 {
 		per = 10
 	}
@@ -605,17 +605,17 @@ func erpRuns(c *app.Ctx) {
 		where = "WHERE status = ?"
 		par = []any{st}
 	}
-	total := php.Int(acc().Scalar("SELECT count(*) FROM erp_sync_runs "+where, par...))
+	total := conv.Int(acc().Scalar("SELECT count(*) FROM erp_sync_runs "+where, par...))
 	pages := max(1, int(math.Ceil(float64(total)/float64(per))))
-	page := min(pages, max(1, php.Int(c.Query("page", "1"))))
+	page := min(pages, max(1, conv.Int(c.Query("page", "1"))))
 	rows := acc().Select(`SELECT id, kind, source, status, message, fetched, saved, started_at, finished_at,
                                    CASE WHEN finished_at IS NOT NULL THEN round(extract(epoch FROM finished_at - started_at)::numeric, 1) END AS seconds
-                              FROM erp_sync_runs `+where+` ORDER BY id DESC LIMIT `+php.Str(per)+` OFFSET `+php.Str((page-1)*per), par...)
+                              FROM erp_sync_runs `+where+` ORDER BY id DESC LIMIT `+conv.Str(per)+` OFFSET `+conv.Str((page-1)*per), par...)
 	out := []app.M{}
 	for _, r := range rows {
 		m := app.M(r)
 		m["ago"] = app.TimeAgo(c, r["started_at"])
-		m["at"] = php.DateOf("d M H:i:s", r["started_at"])
+		m["at"] = conv.DateOf("d M H:i:s", r["started_at"])
 		out = append(out, m)
 	}
 	c.JSON(app.M{"rows": out, "total": total, "pages": pages, "page": page})
@@ -647,7 +647,7 @@ func erpRun(c *app.Ctx) {
 		if mode == "all" {
 			m = "all"
 		}
-		args = []string{group, php.Str(c.UserID()), m}
+		args = []string{group, conv.Str(c.UserID()), m}
 		label = group
 	default:
 		app.Abort(404)

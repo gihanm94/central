@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // The shop-floor entry (ScanController): scan a machine's QR code (or type its code) and land on the machine, ready to check.
@@ -36,18 +36,18 @@ func scanLookup(c *app.Ctx) {
 	code := codeFromScan(c.Query("text", ""))
 	if code != "" {
 		if m := machine(code); m != nil {
-			c.JSONRaw(phpJSON(om("ok", true, "code", m["machine_code"], "url", c.URL("/machines/m/"+url.PathEscape(m.Str("machine_code")))), 0))
+			c.JSONRaw(jsonCompat(om("ok", true, "code", m["machine_code"], "url", c.URL("/machines/m/"+url.PathEscape(m.Str("machine_code")))), 0))
 		}
 	}
-	c.JSONRaw(phpJSON(om("ok", false, "message", c.T("No machine with this code.")), 0), http.StatusNotFound)
+	c.JSONRaw(jsonCompat(om("ok", false, "message", c.T("No machine with this code.")), 0), http.StatusNotFound)
 }
 
 // scanFind: type-ahead for the code box: any machine in use.
 func scanFind(c *app.Ctx) {
 	c.MustUser()
 	q := strings.TrimSpace(c.Query("q", ""))
-	if php.Len(q) < 2 {
-		c.JSONRaw(phpJSON(om("rows", []any{}), 0))
+	if conv.Len(q) < 2 {
+		c.JSONRaw(jsonCompat(om("rows", []any{}), 0))
 	}
 	like := "%" + q + "%"
 	rows := mdb().Select("SELECT machine_code, machine_name, brand, model FROM machine WHERE deleted_at IS NULL AND machine_status IN ("+activeIn()+") AND (machine_code ILIKE ? OR machine_name ILIKE ? OR serial_number ILIKE ? OR machine_number ILIKE ?) ORDER BY machine_code LIMIT 12", like, like, like, like)
@@ -55,7 +55,7 @@ func scanFind(c *app.Ctx) {
 	for _, r := range rows {
 		out = append(out, om("code", r["machine_code"], "name", r["machine_name"], "sub", strings.TrimSpace(r.Str("brand")+" "+r.Str("model")), "url", c.URL("/machines/m/"+url.PathEscape(r.Str("machine_code")))))
 	}
-	c.JSONRaw(phpJSON(om("rows", out), 0))
+	c.JSONRaw(jsonCompat(om("rows", out), 0))
 }
 
 // scanMachine is the page a QR label opens.
@@ -68,7 +68,7 @@ func scanMachine(c *app.Ctx) {
 	act := isActive(m["machine_status"])
 	var p *checkPlan
 	if act {
-		pl := plan(m, u, php.Now())
+		pl := plan(m, u, conv.Now())
 		p = &pl
 	}
 	n := names(m["responsible_person_id"], m["supervisor_id"], m["manager_id"])
@@ -76,7 +76,7 @@ func scanMachine(c *app.Ctx) {
 	for _, k := range checks {
 		k["_pill"] = pillH(c, k["checklist_status"], "")
 	}
-	today := php.Today()
+	today := conv.Today()
 	var due []app.M
 	for _, d := range []struct{ k, label, icon, sql string }{
 		{"maintenance", c.T("Next maintenance"), "tools", "SELECT due_date FROM maintenance_record WHERE machine_code = ? AND actual_date IS NULL AND NOT is_canceled ORDER BY due_date LIMIT 1"},
@@ -90,8 +90,8 @@ func scanMachine(c *app.Ctx) {
 	facts := []app.M{
 		{"l": c.T("Type"), "v": strings.Trim(m.Str("machine_group_name")+" / "+m.Str("machine_type_name"), " /")},
 		{"l": c.T("Model"), "v": strings.TrimSpace(m.Str("brand") + " " + m.Str("model"))},
-		{"l": c.T("Responsible"), "v": php.Str(nameOr(n, m["responsible_person_id"], nil))},
-		{"l": c.T("Supervisor"), "v": php.Str(sup)},
+		{"l": c.T("Responsible"), "v": conv.Str(nameOr(n, m["responsible_person_id"], nil))},
+		{"l": c.T("Supervisor"), "v": conv.Str(sup)},
 	}
 	c.View("machines/landing", app.M{"title": m["machine_code"], "m": m, "plan": p, "checks": checks, "due": due, "facts": facts, "active": act,
 		"pills":    []any{pillH(c, m["machine_status"], ""), pillH(c, m["check_status"], "")},
@@ -121,7 +121,7 @@ found:
 	for _, s := range sources {
 		for _, col := range s.cols {
 			j := mdb().Scalar("SELECT "+col+" FROM "+s.table+" WHERE "+col+" LIKE ? LIMIT 1", `%"f":"`+f+`"%`)
-			if !php.Empty(j) {
+			if !conv.Empty(j) {
 				if name = filesLabel(f, j); name != "" {
 					break found
 				}
@@ -137,11 +137,11 @@ found:
 	}
 	mime := fileMime(data, path)
 	disp := "attachment"
-	if php.InList(mime, "application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain") {
+	if conv.InList(mime, "application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain") {
 		disp = "inline"
 	}
 	h := c.W.Header()
-	h.Set("Content-Length", php.Str(len(data)))
+	h.Set("Content-Length", conv.Str(len(data)))
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Disposition", disp+`; filename="`+rawurlencode(name)+`"; filename*=UTF-8''`+rawurlencode(name))
 	h.Set("Content-Type", mime)

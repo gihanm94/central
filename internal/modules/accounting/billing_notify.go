@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // BillingNotify: one Lark message a day to the chosen people, every billing note whose remind date is today.
@@ -18,7 +18,7 @@ func notifyTime() string  { return sget("notify.time", "08:30") }
 func notifyUserIDs() []int {
 	var out []int
 	for _, s := range strings.Split(sget("notify.users", ""), ",") {
-		if n := php.Int(s); n != 0 {
+		if n := conv.Int(s); n != 0 {
 			out = append(out, n)
 		}
 	}
@@ -41,7 +41,7 @@ func notifyMessage(c *app.Ctx, notes []db.Row) (string, []string) {
 		} else if n.Bool("is_paid") {
 			status = c.T("Paid")
 		}
-		lines = append(lines, "• "+n.Str("billing_number")+" · "+n.Str("customer_code")+" "+n.Str("customer_name")+" · "+billingSymbol(n.Str("currency_code"))+nf(n.Float("total_amount"), 2, ".", ",")+" · "+php.Str(n.Int("invoice_count"))+" "+c.T("invoices")+" · "+status)
+		lines = append(lines, "• "+n.Str("billing_number")+" · "+n.Str("customer_code")+" "+n.Str("customer_name")+" · "+billingSymbol(n.Str("currency_code"))+nf(n.Float("total_amount"), 2, ".", ",")+" · "+conv.Str(n.Int("invoice_count"))+" "+c.T("invoices")+" · "+status)
 		if n.Str("currency_code") == "THB" {
 			sum += n.Float("total_amount")
 		}
@@ -52,7 +52,7 @@ func notifyMessage(c *app.Ctx, notes []db.Row) (string, []string) {
 	if len(lines) == 0 {
 		lines = []string{c.T("No billing notes are due today.")}
 	}
-	return c.T("Billing notes to follow up today (:n)", "n", len(notes)) + " · " + php.Date("d/m/Y", php.Now()), lines
+	return c.T("Billing notes to follow up today (:n)", "n", len(notes)) + " · " + conv.Date("d/m/Y", conv.Now()), lines
 }
 
 type notifyResult struct {
@@ -104,7 +104,7 @@ func notifySend(c *app.Ctx, evenIfEmpty bool) notifyResult {
 	for _, f := range out.failed {
 		fl = append(fl, f)
 	}
-	logInfo("billing", "Lark daily list: "+php.Str(out.notes)+" note(s), sent "+php.Str(out.sent), om("failed", fl))
+	logInfo("billing", "Lark daily list: "+conv.Str(out.notes)+" note(s), sent "+conv.Str(out.sent), om("failed", fl))
 	return out
 }
 
@@ -115,7 +115,7 @@ func notifyTick(c *app.Ctx) {
 	}
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	if err != nil {
-		loc = php.Loc
+		loc = conv.Loc
 	}
 	now := time.Now().In(loc)
 	if now.Format("15:04") < notifyTime() || sget("notify.last", "") == now.Format("2006-01-02") {

@@ -1,9 +1,9 @@
-{{- /* .files .name .file .level .q .ref .rows .total .all .page .pages .cards .php .newer .older .filtered */ -}}
+{{- /* .files .name .file .level .q .ref .rows .total .all .page .pages .cards .runtime .newer .older .filtered */ -}}
 {{- $tone := dict "error" "bg-signal-50 text-signal-800 ring-signal-600/20" "warning" "bg-amber-50 text-amber-800 ring-amber-600/20" "notice" "bg-sky-50 text-sky-800 ring-sky-600/20" "info" "bg-graphite-900/6 text-graphite-700 ring-graphite-900/10" -}}
 {{- $dot := dict "error" "bg-signal-600" "warning" "bg-amber-500" "notice" "bg-sky-500" "info" "bg-graphite-400" -}}
 <div class="flex flex-wrap items-end justify-between gap-4">
     <div class="min-w-0"><h1 class="page-title">{{__ "System logs"}}</h1>
-        <p class="mt-1 text-sm text-steel">{{__ "Errors and messages written by PHP and the system, newest first — no need to log in to the server."}}</p></div>
+        <p class="mt-1 text-sm text-steel">{{__ "Errors and messages written by the application and the system, newest first — no need to log in to the server."}}</p></div>
     {{if .file.Path}}
     <div class="flex flex-wrap gap-2">
         <a href="{{url "/system-logs/download" "file" .name}}" class="btn-secondary">{{icon "download" "size-4"}}{{__ "Download"}}</a>
@@ -37,12 +37,12 @@
                         <span class="shrink-0 text-xs text-steel">{{.Size}}</span></a></li>
                 {{end}}
             </ul>
-            <p class="border-t border-graphite-900/8 px-4 py-2.5 text-xs text-steel">{{__ "To show the web server's log too, add its path to config/config.php: 'logs' => ['extra' => ['/var/log/apache2/error.log']] (PHP must be allowed to read it)."}}</p>
+            <p class="border-t border-graphite-900/8 px-4 py-2.5 text-xs text-steel">{{__ "To show the web server's log too, add its path to config/config.json: 'logs' => ['extra' => ['/var/log/apache2/error.log']] (the program must be allowed to read it)."}}</p>
         </section>
         <section class="panel overflow-hidden">
             <div class="panel-head"><h2 class="panel-title">{{__ "This server"}}</h2></div>
             <dl class="divide-y divide-graphite-900/6 text-xs">
-                {{range .php}}<div class="flex gap-3 px-4 py-2"><dt class="w-32 shrink-0 text-steel">{{index . 0}}</dt><dd class="min-w-0 break-all font-medium">{{index . 1}}</dd></div>{{end}}
+                {{range .runtime}}<div class="flex gap-3 px-4 py-2"><dt class="w-32 shrink-0 text-steel">{{index . 0}}</dt><dd class="min-w-0 break-all font-medium">{{index . 1}}</dd></div>{{end}}
             </dl>
         </section>
     </aside>

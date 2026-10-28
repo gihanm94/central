@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Tasks (TaskController).
@@ -67,7 +67,7 @@ var tasks = &app.Resource{
 		statuses := optMap(TaskStatuses(c))
 		return []app.Column{
 			{Key: "title", Label: c.T("Task"), Primary: true, Render: func(c *app.Ctx, r db.Row) template.HTML {
-				overdue := r.Str("status") != "done" && r.Str("due_date") != "" && php.StrToTime(r.Str("due_date")) < php.StrToTime("today")
+				overdue := r.Str("status") != "done" && r.Str("due_date") != "" && conv.StrToTime(r.Str("due_date")) < conv.StrToTime("today")
 				s := `<a href="` + c.URL("/tasks/"+r.Str("id")) + `" class="font-medium hover:text-signal-700">` + app.E(r["title"]) + `</a>`
 				if overdue {
 					s += ` <span class="badge ml-1 bg-signal-50 text-signal-800">` + c.T("Overdue") + `</span>`
@@ -102,7 +102,7 @@ var tasks = &app.Resource{
 		if existing == nil {
 			data.Set("created_by", c.UserID())
 		}
-		if !php.Empty(data.Get("assigned_to")) {
+		if !conv.Empty(data.Get("assigned_to")) {
 			a := db.First("SELECT department_id, team_id FROM users WHERE id = ?", data.Get("assigned_to"))
 			var dep, team any
 			if a != nil {
@@ -118,7 +118,7 @@ var tasks = &app.Resource{
 			}
 			if before != data.Get("status") {
 				if data.Str("status") == "done" {
-					data.Set("completed_at", php.NowString())
+					data.Set("completed_at", conv.NowString())
 				} else {
 					data.Set("completed_at", nil)
 				}
@@ -157,7 +157,7 @@ func taskStatus(c *app.Ctx) {
 	}
 	var done any
 	if status == "done" {
-		done = php.NowString()
+		done = conv.NowString()
 	}
 	db.Exec("UPDATE tasks SET status = ?, completed_at = ?, updated_at = now() WHERE id = ?", status, done, id)
 	ch := &app.Changes{}

@@ -19,7 +19,7 @@
             <dt class="text-steel">{{__ "Sign in again after"}}</dt><dd>{{__ ":n days" "n" .settings.max}}</dd>
             <dt class="text-steel">{{__ "Requests per device"}}</dt><dd>{{__ ":n per minute" "n" .settings.rate}}</dd>
         </dl>
-        <p class="border-t border-graphite-900/8 px-5 py-3 text-xs text-steel">{{__ "Change these in config/config.php under \"api\"."}}</p>
+        <p class="border-t border-graphite-900/8 px-5 py-3 text-xs text-steel">{{__ "Change these in config/config.json under \"api\"."}}</p>
         <div class="border-t border-graphite-900/8 px-5 py-3 text-sm"><span class="text-steel">{{__ "Roles allowed"}}:</span>
             {{if .roles}}{{.roles}}{{else}}<span class="text-amber-700">{{__ "none yet — only administrators"}}</span>{{end}}
             <a href="{{url "/roles"}}" class="ml-1 text-signal-700 hover:underline">{{__ "Roles & access"}}</a></div>

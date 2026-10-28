@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // A person's syncs (table → Google Sheet tab on a schedule) and their connected Google accounts (SyncController).
@@ -38,14 +38,14 @@ func syncIndex(c *app.Ctx) {
 		v := syncView{Row: s, Label: tableLabel(s), SheetURL: "https://docs.google.com/spreadsheets/d/" + google.RawURLEncode(s.Str("spreadsheet_id")),
 			When: describe(c, s), Active: s.Bool("active"), Mine: s.Int("user_id") == u.ID}
 		switch {
-		case v.Active && !php.Empty(s["next_run_at"]):
+		case v.Active && !conv.Empty(s["next_run_at"]):
 			v.Next = c.T("Next: :t", "t", app.FormatDate(c, s["next_run_at"], "D d M, H:i"))
-		case s.Str("mode") == "once" && !php.Empty(s["last_run_at"]):
+		case s.Str("mode") == "once" && !conv.Empty(s["last_run_at"]):
 			v.Next = c.T("Done")
 		default:
 			v.Next = c.T("Paused")
 		}
-		if !php.Empty(s["last_run_at"]) {
+		if !conv.Empty(s["last_run_at"]) {
 			v.LastTitle = app.FormatDate(c, s["last_run_at"], "d M Y, H:i")
 			v.LastAgo = app.TimeAgo(c, s["last_run_at"])
 		}
@@ -84,7 +84,7 @@ func syncConnect(c *app.Ctx) {
 func syncCallback(c *app.Ctx) {
 	u := c.MustUser()
 	state := c.Query("state", "")
-	saved := php.Str(c.Sess.Get("gsheet_state"))
+	saved := conv.Str(c.Sess.Get("gsheet_state"))
 	ok := state != "" && subtle.ConstantTimeCompare([]byte(saved), []byte(state)) == 1
 	c.Sess.Delete("gsheet_state")
 	if !ok {
@@ -97,7 +97,7 @@ func syncCallback(c *app.Ctx) {
 	if err := app.Catch(func() { email = connectAccount(c, u.ID, c.Query("code", "")) }); err != nil {
 		goTo(c, "/sheets", "error", err.Error())
 	}
-	back := php.Str(c.Sess.Get("gsheet_back"))
+	back := conv.Str(c.Sess.Get("gsheet_back"))
 	if back == "" {
 		back = "/sheets"
 	}
@@ -142,7 +142,7 @@ func syncCreate(c *app.Ctx) {
 	tables := allowed(c, u)
 	back := "/sheets/new"
 	if c.Query("table") != "" && c.Query("table") != "0" {
-		back += "?table=" + php.Str(php.Int(c.Query("table")))
+		back += "?table=" + conv.Str(conv.Int(c.Query("table")))
 	}
 	c.Sess.Set("gsheet_back", back)
 	tableID := 0
@@ -150,7 +150,7 @@ func syncCreate(c *app.Ctx) {
 		tableID = tables[0].Int("id")
 	}
 	if c.QueryHas("table") {
-		tableID = php.Int(c.Query("table"))
+		tableID = conv.Int(c.Query("table"))
 	}
 	syncForm(c, c.T("New sync"), nil, tables, accountsOf(u.ID), tableID)
 }
@@ -160,7 +160,7 @@ func syncStore(c *app.Ctx) {
 	data, next := checked(c, nil)
 	data = append(data, db.Col{Name: "user_id", Value: u.ID})
 	id := db.Core.InsertID("gsheet_syncs", data)
-	goTo(c, "/sheets", "success", c.T("Sync saved. Next run: :t.", "t", app.FormatDate(c, next, "D d M, H:i"))+" #"+php.Str(id))
+	goTo(c, "/sheets", "success", c.T("Sync saved. Next run: :t.", "t", app.FormatDate(c, next, "D d M, H:i"))+" #"+conv.Str(id))
 }
 
 func syncEdit(c *app.Ctx) {
@@ -173,7 +173,7 @@ func syncUpdate(c *app.Ctx) {
 	id := c.ParamInt("id")
 	s := mine(c, id, false)
 	data, next := checked(c, s)
-	data = append(data, db.Col{Name: "active", Value: true}, db.Col{Name: "updated_at", Value: php.NowString()})
+	data = append(data, db.Col{Name: "active", Value: true}, db.Col{Name: "updated_at", Value: conv.NowString()})
 	db.Update("gsheet_syncs", data, db.Cols{{Name: "id", Value: id}})
 	goTo(c, "/sheets", "success", c.T("Sync saved. Next run: :t.", "t", app.FormatDate(c, next, "D d M, H:i")))
 }
@@ -212,10 +212,10 @@ func syncToggle(c *app.Ctx) {
 	}
 	next, ok := nextRun(s, time.Now())
 	if !ok {
-		goTo(c, "/sheets/"+php.Str(id)+"/edit", "error", c.T("That date has passed. Choose a new one."))
+		goTo(c, "/sheets/"+conv.Str(id)+"/edit", "error", c.T("That date has passed. Choose a new one."))
 	}
-	db.Exec("UPDATE gsheet_syncs SET active = TRUE, next_run_at = ?, updated_at = now() WHERE id = ?", php.Date("c", next), id)
-	c.Back("success", c.T("Sync resumed. Next run: :t.", "t", php.Date("D d M, H:i", next)))
+	db.Exec("UPDATE gsheet_syncs SET active = TRUE, next_run_at = ?, updated_at = now() WHERE id = ?", conv.Date("c", next), id)
+	c.Back("success", c.T("Sync resumed. Next run: :t.", "t", conv.Date("D d M, H:i", next)))
 }
 
 /* -------------------------------------------------------------------------- helpers */
@@ -261,7 +261,7 @@ func fileID(v string) string {
 func checked(c *app.Ctx, old db.Row) (db.Cols, string) {
 	u := c.MustUser()
 	errs := app.NewErrors()
-	tableID := php.Int(c.Input("table_id"))
+	tableID := conv.Int(c.Input("table_id"))
 	var table db.Row
 	for _, t := range allowed(c, u) {
 		if t.Int("id") == tableID {
@@ -271,18 +271,18 @@ func checked(c *app.Ctx, old db.Row) (db.Cols, string) {
 	if table == nil {
 		errs.Add("table_id", c.T("Choose a table you may sync."))
 	}
-	accountID := php.Int(c.Input("account_id"))
+	accountID := conv.Int(c.Input("account_id"))
 	if findAccount(accountID, u.ID) == nil {
 		errs.Add("account_id", c.T("Choose one of your connected Google accounts."))
 	}
-	tab := strings.TrimSpace(tabBadRe.ReplaceAllString(php.Str(c.InputAny("sheet_tab")), " "))
-	if tab == "" || php.Len(tab) > 100 {
+	tab := strings.TrimSpace(tabBadRe.ReplaceAllString(conv.Str(c.InputAny("sheet_tab")), " "))
+	if tab == "" || conv.Len(tab) > 100 {
 		errs.Add("sheet_tab", c.T("Give the tab a name (up to 100 characters)."))
 	}
 	isNew := c.Input("target") == "new"
 	src := c.Input("spreadsheet_link")
 	if src == "" {
-		src = php.Str(c.InputAny("spreadsheet_id"))
+		src = conv.Str(c.InputAny("spreadsheet_id"))
 	}
 	fid := fileID(src)
 	newName := c.Input("new_name")
@@ -292,7 +292,7 @@ func checked(c *app.Ctx, old db.Row) (db.Cols, string) {
 	if !isNew && fid == "" {
 		errs.Add("spreadsheet_id", c.T("Choose a spreadsheet or paste its link."))
 	}
-	w := validateSchedule(c, php.Str(c.InputAny("mode")), php.Str(c.InputAny("run_time")), c.Inputs("days"), php.Str(c.InputAny("run_date")), time.Now(), errs)
+	w := validateSchedule(c, conv.Str(c.InputAny("mode")), conv.Str(c.InputAny("run_time")), c.Inputs("days"), conv.Str(c.InputAny("run_date")), time.Now(), errs)
 	if errs.Len() > 0 {
 		app.InvalidErrors(errs)
 	}
@@ -300,7 +300,7 @@ func checked(c *app.Ctx, old db.Row) (db.Cols, string) {
 	var id, name string
 	if err := app.Catch(func() {
 		if isNew {
-			id, name = create(c, accountID, php.Substr(newName, 0, 200), tab)
+			id, name = create(c, accountID, conv.Substr(newName, 0, 200), tab)
 		} else {
 			id, name = fid, spreadsheet(c, accountID, fid).Name
 		}
@@ -313,12 +313,12 @@ func checked(c *app.Ctx, old db.Row) (db.Cols, string) {
 	}
 	var next any
 	nextStr := ""
-	if at, ok := nextRun(db.Row{"mode": w.Mode, "days": w.Days, "run_time": w.RunTime, "run_date": php.Str(w.RunDate)}, time.Now()); ok {
-		nextStr = php.Date("c", at)
+	if at, ok := nextRun(db.Row{"mode": w.Mode, "days": w.Days, "run_time": w.RunTime, "run_date": conv.Str(w.RunDate)}, time.Now()); ok {
+		nextStr = conv.Date("c", at)
 		next = nextStr
 	}
 	return db.Cols{{Name: "table_id", Value: tableID}, {Name: "account_id", Value: accountID}, {Name: "spreadsheet_id", Value: id},
-		{Name: "spreadsheet_name", Value: php.Substr(name, 0, 255)}, {Name: "sheet_tab", Value: tab}, {Name: "next_run_at", Value: next},
+		{Name: "spreadsheet_name", Value: conv.Substr(name, 0, 255)}, {Name: "sheet_tab", Value: tab}, {Name: "next_run_at", Value: next},
 		{Name: "mode", Value: w.Mode}, {Name: "days", Value: w.Days}, {Name: "run_time", Value: w.RunTime}, {Name: "run_date", Value: w.RunDate}}, nextStr
 }
 
@@ -336,7 +336,7 @@ func syncForm(c *app.Ctx, title string, s db.Row, tables, accounts []db.Row, tab
 		return def
 	}
 	if o, ok := c.Sess.Old("table_id"); ok {
-		tableID = php.Int(o)
+		tableID = conv.Int(o)
 	}
 	label := ""
 	type tableOpt struct {
@@ -352,15 +352,15 @@ func syncForm(c *app.Ctx, title string, s db.Row, tables, accounts []db.Row, tab
 		}
 		topts = append(topts, tableOpt{t.Int("id"), l, l + " (" + t.Str("db") + "." + t.Str("table_name") + ")", t.Int("id") == tableID})
 	}
-	mode := php.Str(v("mode", "daily"))
+	mode := conv.Str(v("mode", "daily"))
 	var days []int
 	if o, ok := c.Sess.Old("days"); ok {
 		for _, d := range app.InStrings(o) {
-			days = append(days, php.Int(d))
+			days = append(days, conv.Int(d))
 		}
 	} else if s != nil {
 		for _, d := range strings.Split(s.Str("days"), ",") {
-			days = append(days, php.Int(d))
+			days = append(days, conv.Int(d))
 		}
 	} else {
 		days = []int{1, 2, 3, 4, 5}
@@ -370,13 +370,13 @@ func syncForm(c *app.Ctx, title string, s db.Row, tables, accounts []db.Row, tab
 		target = "existing"
 	}
 	if o, ok := c.Sess.Old("target"); ok {
-		target = php.Str(o)
+		target = conv.Str(o)
 	}
 	firstAcc := 0
 	if len(accounts) > 0 {
 		firstAcc = accounts[0].Int("id")
 	}
-	accountID := php.Int(v("account_id", firstAcc))
+	accountID := conv.Int(v("account_id", firstAcc))
 	type dayOpt struct {
 		N       int
 		Label   string
@@ -393,16 +393,16 @@ func syncForm(c *app.Ctx, title string, s db.Row, tables, accounts []db.Row, tab
 	}
 	newName := label
 	if x, ok := c.Sess.Old("new_name"); ok {
-		newName = php.Str(x)
+		newName = conv.Str(x)
 	}
 	link := ""
 	if x, ok := c.Sess.Old("spreadsheet_link"); ok {
-		link = php.Str(x)
+		link = conv.Str(x)
 	}
 	c.View("sheets/form", app.M{"title": title, "sync": s, "tables": topts, "accounts": accounts, "accountId": accountID,
 		"mode": mode, "days": dopts, "target": target, "action": action, "newName": newName, "link": link,
-		"tab": php.Str(v("sheet_tab", label)), "runDate": php.Str(v("run_date", php.Today())), "today": php.Today(),
-		"runTime": php.Substr(php.Str(v("run_time", o.End)), 0, 5), "officeLabel": officeLabel(c)})
+		"tab": conv.Str(v("sheet_tab", label)), "runDate": conv.Str(v("run_date", conv.Today())), "today": conv.Today(),
+		"runTime": conv.Substr(conv.Str(v("run_time", o.End)), 0, 5), "officeLabel": officeLabel(c)})
 }
 
 var _ = fmt.Sprint

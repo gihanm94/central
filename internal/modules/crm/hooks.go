@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- Reminders
@@ -53,7 +53,7 @@ func remindersTick(c *app.Ctx, force bool) int {
 		}
 		app.Deliver(c, "crm", "reminder", to,
 			app.Text("Reminder: :topic", "topic", a["topic"]),
-			app.Text(":type at :when:lead", "type", typ, "when", php.DateOf("d M Y H:i", a["start_at"]), "lead", lead),
+			app.Text(":type at :when:lead", "type", typ, "when", conv.DateOf("d M Y H:i", a["start_at"]), "lead", lead),
 			c.URL("/crm/activities/"+a.Str("id")), 0)
 	}
 	return len(due)
@@ -78,15 +78,15 @@ func calendarEvents(c *app.Ctx, u *app.CurrentUser, from, to string, mine bool) 
 	}
 	rows := db.On("crm").Select("SELECT t.id, t.topic, t.activity_type, t.status, t.start_at, t.call_duration, t.meeting_duration, t.google_event_id, t.google_user_id, t.owner_id FROM activities t WHERE "+where+" ORDER BY t.start_at LIMIT 1000", params...)
 	for _, a := range rows {
-		start := php.StrToTime(a["start_at"])
+		start := conv.StrToTime(a["start_at"])
 		var mins int
 		if a.Str("activity_type") == "MEETING" {
-			mins = php.Int(php.Or(a["meeting_duration"], 60))
+			mins = conv.Int(conv.Or(a["meeting_duration"], 60))
 		} else {
-			mins = php.Int(php.Or(a["call_duration"], 30))
+			mins = conv.Int(conv.Or(a["call_duration"], 30))
 		}
-		events = append(events, app.M{"id": "a" + a.Str("id"), "title": a.Str("topic"), "start": php.Date("Y-m-d\\TH:i:s", php.Unix(start)),
-			"end": php.Date("Y-m-d\\TH:i:s", php.Unix(start+int64(mins)*60)), "all_day": false, "source": "crm", "type": a["activity_type"], "status": a["status"],
+		events = append(events, app.M{"id": "a" + a.Str("id"), "title": a.Str("topic"), "start": conv.Date("Y-m-d\\TH:i:s", conv.Unix(start)),
+			"end": conv.Date("Y-m-d\\TH:i:s", conv.Unix(start+int64(mins)*60)), "all_day": false, "source": "crm", "type": a["activity_type"], "status": a["status"],
 			"url": "/crm/activities/" + a.Str("id") + "/edit", "show": "/crm/activities/" + a.Str("id")})
 		if a.Str("google_event_id") != "" && a.Int("google_user_id") == u.ID {
 			linked[a.Str("google_event_id")] = true
@@ -129,7 +129,7 @@ func managementData(c *app.Ctx, from, to string) app.M {
 	}
 	closed := row.Float("won_n") + row.Float("lost_n")
 	if closed > 0 {
-		tot["win_rate"] = phpRound(row.Float("won_n")/closed*100, 1)
+		tot["win_rate"] = roundHalf(row.Float("won_n")/closed*100, 1)
 	} else {
 		tot["win_rate"] = nil
 	}
@@ -172,7 +172,7 @@ func managementData(c *app.Ctx, from, to string) app.M {
 				id = r.Int("id")
 			}
 			if cl > 0 {
-				wr = phpRound(float64(r.Int("won_n"))/float64(cl)*100, 0)
+				wr = roundHalf(float64(r.Int("won_n"))/float64(cl)*100, 0)
 			}
 			out = append(out, app.M{"id": id, "open_n": r.Int("open_n"), "open_v": r.Float("open_v"), "won_n": r.Int("won_n"),
 				"won_v": r.Float("won_v"), "lost_n": r.Int("lost_n"), "win_rate": wr})
@@ -197,7 +197,7 @@ func managementData(c *app.Ctx, from, to string) app.M {
 		top = append(top, app.M(r))
 	}
 
-	year := php.Int(to[:4])
+	year := conv.Int(to[:4])
 	target := targetSummaryOf(0, year)
 	return app.M{
 		"cur": baseCurrency(), "totals": tot, "stages": stages,

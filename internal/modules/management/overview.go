@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -27,7 +27,7 @@ var periodLabels = map[string]string{"month": "This month", "last_month": "Last 
 var ymdRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 func dayOf(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, php.Loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, conv.Loc)
 }
 
 // rangeOf: from, to, period key.
@@ -36,16 +36,16 @@ func rangeOf(c *app.Ctx) (string, string, string) {
 	if _, ok := periodLabels[period]; !ok {
 		period = "ytd"
 	}
-	now := php.Now()
-	year := php.Int(c.Query("year", php.Str(now.Year())))
+	now := conv.Now()
+	year := conv.Int(c.Query("year", conv.Str(now.Year())))
 	if year < 2000 || year > 2100 {
 		year = now.Year()
 	}
 	today := dayOf(now)
-	first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, php.Loc)
+	first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, conv.Loc)
 	date := func(v string, fb time.Time) time.Time {
 		if ymdRe.MatchString(v) {
-			if t, ok := php.ParseTime(v); ok {
+			if t, ok := conv.ParseTime(v); ok {
 				return dayOf(t)
 			}
 		}
@@ -58,13 +58,13 @@ func rangeOf(c *app.Ctx) (string, string, string) {
 	case "last_month":
 		from, to = first.AddDate(0, -1, 0), first.AddDate(0, 0, -1)
 	case "quarter":
-		from, to = time.Date(today.Year(), time.Month((int(today.Month())-1)/3*3+1), 1, 0, 0, 0, 0, php.Loc), today
+		from, to = time.Date(today.Year(), time.Month((int(today.Month())-1)/3*3+1), 1, 0, 0, 0, 0, conv.Loc), today
 	case "year":
-		from, to = time.Date(year, 1, 1, 0, 0, 0, 0, php.Loc), time.Date(year, 12, 31, 0, 0, 0, 0, php.Loc)
+		from, to = time.Date(year, 1, 1, 0, 0, 0, 0, conv.Loc), time.Date(year, 12, 31, 0, 0, 0, 0, conv.Loc)
 	case "custom":
 		from, to = date(c.Query("from"), first), date(c.Query("to"), today)
 	default:
-		from, to = time.Date(today.Year(), 1, 1, 0, 0, 0, 0, php.Loc), today
+		from, to = time.Date(today.Year(), 1, 1, 0, 0, 0, 0, conv.Loc), today
 	}
 	if from.After(to) {
 		from, to = to, from
@@ -98,7 +98,7 @@ func periodTabs(c *app.Ctx, base, period string, year int) []periodTab {
 func yearOpts(from, to int) []app.Opt {
 	var out []app.Opt
 	for y := from; y >= to; y-- {
-		out = append(out, app.Opt{Value: php.Str(y), Label: php.Str(y)})
+		out = append(out, app.Opt{Value: conv.Str(y), Label: conv.Str(y)})
 	}
 	return out
 }
@@ -108,13 +108,13 @@ func shortMoney(sym string, v float64) string {
 	a := math.Abs(v)
 	switch {
 	case a >= 1e9:
-		return sym + php.NF(v/1e9, 2) + "B"
+		return sym + conv.NF(v/1e9, 2) + "B"
 	case a >= 1e6:
-		return sym + php.NF(v/1e6, 2) + "M"
+		return sym + conv.NF(v/1e6, 2) + "M"
 	case a >= 1e3:
-		return sym + php.NF(v/1e3, 1) + "K"
+		return sym + conv.NF(v/1e3, 1) + "K"
 	}
-	return sym + php.NF(v, 0)
+	return sym + conv.NF(v, 0)
 }
 
 func medal(i int) string {
@@ -131,14 +131,14 @@ func medal(i int) string {
 
 func pctOf(v, total float64) string {
 	if total > 0 {
-		return php.NF(v/total*100, 1) + "%"
+		return conv.NF(v/total*100, 1) + "%"
 	}
 	return "—"
 }
 
 func width(v, total float64) string {
 	if total > 0 {
-		return php.Str(math.Round(math.Max(0, v)/total*1000) / 10)
+		return conv.Str(math.Round(math.Max(0, v)/total*1000) / 10)
 	}
 	return "0"
 }
@@ -158,7 +158,7 @@ func peopleByID(ids []int) map[int]db.Row {
 	for _, id := range ids {
 		if id != 0 && !seen[id] {
 			seen[id] = true
-			s = append(s, php.Str(id))
+			s = append(s, conv.Str(id))
 		}
 	}
 	if len(s) > 0 {
@@ -181,12 +181,12 @@ func overviewIndex(c *app.Ctx) {
 			return nil
 		}))
 	}
-	year := php.Int(c.Query("year", php.Str(php.Now().Year())))
-	kpi := db.First("SELECT count(*) AS n, round(avg(score), 2) AS avg FROM kpi_scores WHERE year = ?", php.Int(from[:4]))
+	year := conv.Int(c.Query("year", conv.Str(conv.Now().Year())))
+	kpi := db.First("SELECT count(*) AS n, round(avg(score), 2) AS avg FROM kpi_scores WHERE year = ?", conv.Int(from[:4]))
 	view := app.M{"title": c.T("Management overview"), "from": from, "to": to, "period": period, "year": year, "fromYear": from[:4],
-		"tabs": periodTabs(c, "/management", period, year), "years": yearOpts(php.Now().Year(), php.Now().Year()-5), "data": data != nil}
+		"tabs": periodTabs(c, "/management", period, year), "years": yearOpts(conv.Now().Year(), conv.Now().Year()-5), "data": data != nil}
 	if data != nil {
-		baht := func(v float64) string { return "฿" + php.NF(v, 0) }
+		baht := func(v float64) string { return "฿" + conv.NF(v, 0) }
 		short := func(v float64) string { return shortMoney("฿", v) }
 		total := f(data["total"])
 		prev := f(data["previous"])
@@ -202,16 +202,16 @@ func overviewIndex(c *app.Ctx) {
 			if len(pr) == 2 {
 				p0, p1 = pr[0], pr[1]
 			}
-			view["change"] = arrow + php.NF(math.Abs(ch), 1) + "% " + c.T("vs :from – :to", "from", app.FormatDate(c, p0, "j M"), "to", app.FormatDate(c, p1, "j M Y"))
+			view["change"] = arrow + conv.NF(math.Abs(ch), 1) + "% " + c.T("vs :from – :to", "from", app.FormatDate(c, p0, "j M"), "to", app.FormatDate(c, p1, "j M Y"))
 			view["changeUp"] = ch >= 0
 		}
 		invoices := n(data["invoices"])
-		view["invoices"] = php.NF(invoices, 0)
+		view["invoices"] = conv.NF(invoices, 0)
 		view["perInvoice"] = "—"
 		if invoices > 0 {
 			view["perInvoice"] = short(total / float64(invoices))
 		}
-		view["customersCount"] = php.NF(n(data["customers_count"]), 0)
+		view["customersCount"] = conv.NF(n(data["customers_count"]), 0)
 		customers := list(data["customers"])
 		top := 0.0
 		for _, x := range customers {
@@ -219,7 +219,7 @@ func overviewIndex(c *app.Ctx) {
 		}
 		view["topShare"] = "0"
 		if total > 0 {
-			view["topShare"] = php.NF(top/total*100, 1)
+			view["topShare"] = conv.NF(top/total*100, 1)
 		}
 		// months
 		ms := entries(data["months"])
@@ -235,7 +235,7 @@ func overviewIndex(c *app.Ctx) {
 				h = math.Max(2, math.Abs(v)/maxM*100)
 			}
 			bars = append(bars, app.M{"title": app.FormatDate(c, e.K+"-01", "F Y") + ": " + baht(v), "short": short(v), "neg": v < 0,
-				"h": php.Str(math.Round(h*10) / 10), "label": app.FormatDate(c, e.K+"-01", "M")})
+				"h": conv.Str(math.Round(h*10) / 10), "label": app.FormatDate(c, e.K+"-01", "M")})
 		}
 		view["months"] = bars
 		deps := departmentsByID()
@@ -278,7 +278,7 @@ func overviewIndex(c *app.Ctx) {
 					x["color"] = dep.Str("color")
 				}
 			} else {
-				x["line"] = php.Str(x["line"]) + " · " + c.T("set it in Accounting → Sellers")
+				x["line"] = conv.Str(x["line"]) + " · " + c.T("set it in Accounting → Sellers")
 			}
 			dl = append(dl, x)
 		}
@@ -286,7 +286,7 @@ func overviewIndex(c *app.Ctx) {
 		var cl []app.M
 		for i, x := range customers {
 			v := f(x["v"])
-			code := php.Str(x["code"])
+			code := conv.Str(x["code"])
 			if code == "" {
 				code = "—"
 			}
@@ -298,7 +298,7 @@ func overviewIndex(c *app.Ctx) {
 	view["kpiN"] = kpi.Int("n")
 	view["kpiAvg"] = "—"
 	if kpi.Int("n") > 0 {
-		view["kpiAvg"] = php.NF(kpi.Float("avg"), 2)
+		view["kpiAvg"] = conv.NF(kpi.Float("avg"), 2)
 	}
 	c.View("management/overview", view)
 }
@@ -318,19 +318,19 @@ func overviewCRM(c *app.Ctx) {
 			return nil
 		}))
 	}
-	year := php.Int(c.Query("year", php.Str(php.Now().Year())))
+	year := conv.Int(c.Query("year", conv.Str(conv.Now().Year())))
 	cur := "THB"
-	if data != nil && php.Str(data["cur"]) != "" {
-		cur = php.Str(data["cur"])
+	if data != nil && conv.Str(data["cur"]) != "" {
+		cur = conv.Str(data["cur"])
 	}
 	sym := cur + " "
 	if cur == "THB" {
 		sym = "฿"
 	}
-	money := func(v float64) string { return sym + php.NF(v, 0) }
+	money := func(v float64) string { return sym + conv.NF(v, 0) }
 	short := func(v float64) string { return shortMoney(sym, v) }
 	view := app.M{"title": c.T("CRM overview"), "from": from, "to": to, "period": period, "year": year, "cur": cur,
-		"tabs": periodTabs(c, "/management/crm", period, year), "years": yearOpts(php.Now().Year(), php.Now().Year()-5), "data": data != nil}
+		"tabs": periodTabs(c, "/management/crm", period, year), "years": yearOpts(conv.Now().Year(), conv.Now().Year()-5), "data": data != nil}
 	if data == nil {
 		c.View("management/crm", view)
 	}
@@ -347,13 +347,13 @@ func overviewCRM(c *app.Ctx) {
 	}
 	cards["wonLine"] = c.T(":n deals · average :a", "n", n(t["won_n"]), "a", avg)
 	if t["win_rate"] != nil {
-		cards["winRate"] = php.NF(f(t["win_rate"]), 1) + "%"
+		cards["winRate"] = conv.NF(f(t["win_rate"]), 1) + "%"
 	}
 	view["cards"] = cards
 	if tg := asMap(data["target"]); tg != nil && f(tg["total"]) > 0 {
 		p := f(tg["actual"]) / f(tg["total"]) * 100
-		view["target"] = app.M{"year": tg["year"], "actual": short(f(tg["actual"])), "total": short(f(tg["total"])), "pct": php.NF(p, 1), "done": p >= 100,
-			"w": php.Str(math.Round(math.Min(100, p)*10) / 10)}
+		view["target"] = app.M{"year": tg["year"], "actual": short(f(tg["actual"])), "total": short(f(tg["total"])), "pct": conv.NF(p, 1), "done": p >= 100,
+			"w": conv.Str(math.Round(math.Min(100, p)*10) / 10)}
 	}
 	months := list(data["months"])
 	maxM := 0.0
@@ -367,13 +367,13 @@ func overviewCRM(c *app.Ctx) {
 		if maxM > 0 {
 			h = math.Max(2, v/maxM*100)
 		}
-		ym := php.Str(m["ym"])
+		ym := conv.Str(m["ym"])
 		s := ""
 		if v > 0 {
 			s = short(v)
 		}
 		bars = append(bars, app.M{"title": app.FormatDate(c, ym+"-01", "F Y") + ": " + money(v) + " · " + c.T(":n new", "n", m["new_n"]),
-			"short": s, "won": v > 0, "h": php.Str(math.Round(h*10) / 10), "label": app.FormatDate(c, ym+"-01", "M"), "newN": n(m["new_n"])})
+			"short": s, "won": v > 0, "h": conv.Str(math.Round(h*10) / 10), "label": app.FormatDate(c, ym+"-01", "M"), "newN": n(m["new_n"])})
 	}
 	view["months"] = bars
 	// stages in CRM's order
@@ -414,7 +414,7 @@ func overviewCRM(c *app.Ctx) {
 		stageLabel[k] = s["label"]
 		w := "0"
 		if maxS > 0 {
-			w = php.Str(math.Round(f(s["v"])/maxS*1000) / 10)
+			w = conv.Str(math.Round(f(s["v"])/maxS*1000) / 10)
 		}
 		tone := stageTone[k]
 		if tone == "" {
@@ -452,7 +452,7 @@ func overviewCRM(c *app.Ctx) {
 				dep = d.Str("name")
 			}
 		} else if n(s["id"]) != 0 {
-			who = c.T("Deleted user") + " #" + php.Str(n(s["id"]))
+			who = c.T("Deleted user") + " #" + conv.Str(n(s["id"]))
 		}
 		v := f(s["won_v"])
 		sel = append(sel, app.M{"i": i + 1, "medal": medal(i), "who": who, "avatar": avatar, "known": ok,
@@ -479,27 +479,27 @@ func overviewCRM(c *app.Ctx) {
 		v := f(d["won_v"])
 		dl = append(dl, app.M{"i": i + 1, "medal": medal(i), "name": name, "color": color,
 			"line": c.T(":w won · open :o (:n)", "w", d["won_n"], "o", short(f(d["open_v"])), "n", d["open_n"]) + winPart(d),
-			"w":    php.Str(math.Round(v/wonAll*1000) / 10), "won": v > 0, "short": short(v), "full": money(v)})
+			"w":    conv.Str(math.Round(v/wonAll*1000) / 10), "won": v > 0, "short": short(v), "full": money(v)})
 	}
 	view["departments"] = dl
 	var tl []app.M
 	for _, o := range top {
-		days := int(math.Floor(float64(time.Now().Unix()-php.StrToTime(o["since"])) / 86400))
+		days := int(math.Floor(float64(time.Now().Unix()-conv.StrToTime(o["since"])) / 86400))
 		owner := "—"
 		if u, ok := people[n(o["owner_id"])]; ok {
 			owner = u.Str("name")
 		} else if n(o["owner_id"]) != 0 {
-			owner = c.T("Deleted user") + " #" + php.Str(n(o["owner_id"]))
+			owner = c.T("Deleted user") + " #" + conv.Str(n(o["owner_id"]))
 		}
 		dep := "—"
 		if d, ok := deps[n(o["department_id"])]; ok {
 			dep = d.Str("name")
 		}
-		sub := php.Str(o["code"])
-		if php.Str(o["customer"]) != "" {
-			sub += " · " + php.Str(o["customer"])
+		sub := conv.Str(o["code"])
+		if conv.Str(o["customer"]) != "" {
+			sub += " · " + conv.Str(o["customer"])
 		}
-		stage := php.Str(o["stage"])
+		stage := conv.Str(o["stage"])
 		label := stageLabel[stage]
 		if label == nil {
 			label = stage
@@ -527,7 +527,7 @@ func accountReport(c *app.Ctx) {
 	var data app.M
 	if app.ModuleUsable("accounting") {
 		var y, d any
-		if yy := php.Int(c.Query("year", "0")); yy != 0 {
+		if yy := conv.Int(c.Query("year", "0")); yy != 0 {
 			y = yy
 		}
 		if dd := c.Query("department"); dd != "" {

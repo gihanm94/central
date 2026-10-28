@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 /*
@@ -60,7 +60,7 @@ func filesSaveOne(c *app.Ctx, fh *multipart.FileHeader, field string) fileEntry 
 		app.Invalid(field, c.T(`":f" is larger than :mb MB.`, "f", fh.Filename, "mb", filesMaxBytes/1048576))
 	}
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(fh.Filename), "."))
-	if !php.InList(ext, fileExt...) {
+	if !conv.InList(ext, fileExt...) {
 		app.Invalid(field, c.T(`":f": this file type is not allowed (:types).`, "f", fh.Filename, "types", strings.Join(fileExt, ", ")))
 	}
 	b := make([]byte, 12)
@@ -72,17 +72,17 @@ func filesSaveOne(c *app.Ctx, fh *multipart.FileHeader, field string) fileEntry 
 	}
 	_, _ = io.Copy(out, f)
 	_ = out.Close()
-	return fileEntry{F: stored, N: php.Substr(badNameChars.ReplaceAllString(fh.Filename, "_"), 0, 160), S: int(fh.Size)}
+	return fileEntry{F: stored, N: conv.Substr(badNameChars.ReplaceAllString(fh.Filename, "_"), 0, 160), S: int(fh.Size)}
 }
 
 // filesDecode: JSON column → list.
 func filesDecode(v any) []fileEntry {
 	var out []fileEntry
 	for _, x := range jsonList(v) {
-		if php.Empty(x["f"]) {
+		if conv.Empty(x["f"]) {
 			continue
 		}
-		out = append(out, fileEntry{F: php.Str(x["f"]), N: php.Str(x["n"]), S: php.Int(php.Str(x["s"]))})
+		out = append(out, fileEntry{F: conv.Str(x["f"]), N: conv.Str(x["n"]), S: conv.Int(conv.Str(x["s"]))})
 	}
 	return out
 }
@@ -91,7 +91,7 @@ func filesEncode(list []fileEntry) any {
 	if len(list) == 0 {
 		return nil
 	}
-	return phpJSON(list, flagUnicode)
+	return jsonCompat(list, flagUnicode)
 }
 
 func filesNames(list []fileEntry) []string {
@@ -106,7 +106,7 @@ func filesNames(list []fileEntry) []string {
 func filesMerge(current any, keep []string, added []fileEntry) any {
 	var kept []fileEntry
 	for _, x := range filesDecode(current) {
-		if php.InList(x.F, keep...) {
+		if conv.InList(x.F, keep...) {
 			kept = append(kept, x)
 		} else {
 			_ = os.Remove(filepath.Join(filesDir(), filepath.Base(x.F)))
@@ -155,7 +155,7 @@ type fileView struct {
 func filesView(list []fileEntry) []fileView {
 	out := make([]fileView, 0, len(list))
 	for _, x := range list {
-		out = append(out, fileView{F: x.F, N: x.N, KB: php.NF(float64(x.S)/1024, 0), On: true})
+		out = append(out, fileView{F: x.F, N: x.N, KB: conv.NF(float64(x.S)/1024, 0), On: true})
 	}
 	return out
 }

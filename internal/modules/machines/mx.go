@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Shared facts of the Machine Checklist module (Support\Mx): statuses, who sees which machine, people and department look-ups, codes.
@@ -62,10 +62,10 @@ func trOpts(c *app.Ctx, list []pair) []app.Opt {
 
 // label of a constant (translated), or the stored value itself
 func trLabel(c *app.Ctx, list []pair, k any) string {
-	if l, ok := lookup(list, php.Str(k)); ok {
+	if l, ok := lookup(list, conv.Str(k)); ok {
 		return c.T(l)
 	}
-	return php.Str(k)
+	return conv.Str(k)
 }
 
 func statusTone(s string) string {
@@ -88,7 +88,7 @@ var pillClasses = map[string]string{"ok": "bg-emerald-50 text-emerald-800 ring-e
 
 // pill is a small coloured pill (Mx::pill); tone "" picks it from the status.
 func pill(c *app.Ctx, text any, tone string) string {
-	s := php.Str(text)
+	s := conv.Str(text)
 	if text == nil || s == "" {
 		return `<span class="text-steel">—</span>`
 	}
@@ -106,7 +106,7 @@ func pillH(c *app.Ctx, text any, tone string) template.HTML {
 	return template.HTML(pill(c, text, tone))
 }
 
-func isActive(status any) bool { return php.InList(php.Str(status), active...) && status != nil }
+func isActive(status any) bool { return conv.InList(conv.Str(status), active...) && status != nil }
 
 func activeIn() string { return "'" + strings.Join(active, "','") + "'" }
 
@@ -130,7 +130,7 @@ func scope(u *app.CurrentUser, m string) (string, []any) {
 // canSee: may this person see the machine with this code in the lists?
 func canSee(u *app.CurrentUser, code string) bool {
 	s, p := scope(u, "m")
-	return php.Bool(mdb().Scalar("SELECT 1 FROM machine m WHERE m.machine_code = ? AND m.deleted_at IS NULL AND "+s, append([]any{code}, p...)...))
+	return conv.Bool(mdb().Scalar("SELECT 1 FROM machine m WHERE m.machine_code = ? AND m.deleted_at IS NULL AND "+s, append([]any{code}, p...)...))
 }
 
 // manages: admin, whole-company roles and department heads can change any record they see; others only where they are responsible.
@@ -156,7 +156,7 @@ func names(ids ...any) map[int]string {
 	seen := map[int]bool{}
 	var list []any
 	for _, v := range ids {
-		if n := php.Int(v); n != 0 && !seen[n] {
+		if n := conv.Int(v); n != 0 && !seen[n] {
 			seen[n] = true
 			list = append(list, n)
 		}
@@ -174,7 +174,7 @@ func names(ids ...any) map[int]string {
 
 // nameOr is $names[$id] ?? $fallback.
 func nameOr(n map[int]string, id any, fallback any) any {
-	if s, ok := n[php.Int(id)]; ok {
+	if s, ok := n[conv.Int(id)]; ok {
 		return s
 	}
 	return fallback
@@ -243,7 +243,7 @@ func machine(code string) db.Row {
 }
 
 // qr is the QR content. Same JSON the old system printed, so existing labels keep working.
-func qr(code string) string { return phpJSON(om("status", true, "code", code), flagSlashes) }
+func qr(code string) string { return jsonCompat(om("status", true, "code", code), flagSlashes) }
 
 var codeLink = regexp.MustCompile(`/machines/m/([^/?#]+)`)
 var bareCode = regexp.MustCompile(`^[A-Za-z0-9._\-]{3,40}$`)
@@ -256,10 +256,10 @@ func codeFromScan(text string) string {
 	}
 	if text[0] == '{' {
 		j := jsonObject(text)
-		if j == nil || php.Empty(j["code"]) {
+		if j == nil || conv.Empty(j["code"]) {
 			return ""
 		}
-		return php.Str(j["code"])
+		return conv.Str(j["code"])
 	}
 	if m := codeLink.FindStringSubmatch(text); m != nil {
 		if s, err := url.PathUnescape(m[1]); err == nil {
@@ -286,8 +286,8 @@ func nextCode(departmentID int, group, typ string) string {
 		p = "MC"
 	}
 	prefix := strings.ToUpper(p) + "-" + group + typ
-	max := php.Int(mdb().Scalar(`SELECT COALESCE(MAX(NULLIF(regexp_replace(substring(machine_code from '[0-9]+$'), '^0+', ''), '')::int), 0) FROM machine WHERE machine_code LIKE ?`, prefix+"-%"))
-	n := php.Str(max + 1)
+	max := conv.Int(mdb().Scalar(`SELECT COALESCE(MAX(NULLIF(regexp_replace(substring(machine_code from '[0-9]+$'), '^0+', ''), '')::int), 0) FROM machine WHERE machine_code LIKE ?`, prefix+"-%"))
+	n := conv.Str(max + 1)
 	for len(n) < 4 {
 		n = "0" + n
 	}
@@ -307,16 +307,16 @@ func resetsOn(rule string, day time.Time) bool {
 	if dowNow == 0 {
 		dowNow = 7
 	}
-	domOk := dom == "*" || php.Int(dom) == day.Day()
-	dowOk := dow == "*" || php.Int(dow) == dowNow || (dow == "0" && dowNow == 7)
+	domOk := dom == "*" || conv.Int(dom) == day.Day()
+	dowOk := dow == "*" || conv.Int(dow) == dowNow || (dow == "0" && dowNow == 7)
 	return domOk && dowOk
 }
 
 func resetLabel(c *app.Ctx, rule any) string {
-	if l, ok := lookup(resets, php.Str(rule)); ok {
+	if l, ok := lookup(resets, conv.Str(rule)); ok {
 		return c.T(l)
 	}
-	return c.T(php.Str(rule))
+	return c.T(conv.Str(rule))
 }
 
 // sortedKeys are the keys of a posted list in their numeric order (old input comes back as a map).
@@ -327,8 +327,8 @@ func sortedKeys(m map[string]any) []string {
 	}
 	sort.SliceStable(keys, func(i, j int) bool {
 		a, b := keys[i], keys[j]
-		if php.Int(a) != php.Int(b) {
-			return php.Int(a) < php.Int(b)
+		if conv.Int(a) != conv.Int(b) {
+			return conv.Int(a) < conv.Int(b)
 		}
 		return a < b
 	})

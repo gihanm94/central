@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Machines module manifest (module.php). 'Enabled' here is the default; config/modules.json may override it.
@@ -79,7 +79,7 @@ func routes(r app.Router) {
 // cron is bin/machines-cron.php: run it every few minutes from cron; a job that is not due simply does nothing.
 // Without cron the website runs the same jobs about once a minute while somebody is signed in.
 func cron(args []string) int {
-	stamp := func() string { return php.Date("c", php.Now()) }
+	stamp := func() string { return conv.Date("c", conv.Now()) }
 	if !app.ModuleUsable("machines") {
 		fmt.Println(stamp() + " the machines module is off or unavailable")
 		return 0

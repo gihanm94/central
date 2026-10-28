@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -121,7 +121,7 @@ func shareLevel(u *app.CurrentUser, typ string, id int) string {
 	}
 	levels := db.On("crm").Column(sql+")", params...)
 	for _, l := range levels {
-		if php.Str(l) == "edit" {
+		if conv.Str(l) == "edit" {
 			return "edit"
 		}
 	}
@@ -173,7 +173,7 @@ func names(table string, ids []any) map[int]string {
 	seen := map[int]bool{}
 	var list []any
 	for _, v := range ids {
-		n := php.Int(v)
+		n := conv.Int(v)
 		if n != 0 && !seen[n] {
 			seen[n] = true
 			list = append(list, n)
@@ -203,7 +203,7 @@ func col(rows []db.Row, k string) []any {
 func crmMembers(u *app.CurrentUser, departmentID int) []app.Opt {
 	own := false
 	if !seesAll(u) {
-		if !php.InList(u.RoleSlug, "bu_manager", "manager") && u.Scope() != "department" {
+		if !conv.InList(u.RoleSlug, "bu_manager", "manager") && u.Scope() != "department" {
 			return nil
 		}
 		if u.DepartmentID == 0 {
@@ -282,7 +282,7 @@ func assignable(u *app.CurrentUser) []app.Opt {
 			if p.Department != "" && all {
 				l += " · " + p.Department
 			}
-			out = append(out, app.Opt{Value: php.Str(p.ID), Label: l})
+			out = append(out, app.Opt{Value: conv.Str(p.ID), Label: l})
 		}
 	}
 	return out

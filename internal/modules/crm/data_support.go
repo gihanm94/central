@@ -14,8 +14,8 @@ import (
 	"unicode"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // ---------------------------------------------------------------- Schema: what the data tools may touch, and what each column looks like
@@ -175,7 +175,7 @@ func dataSuggest(table string, header []string) map[string]int {
 
 // dataAudit: is it an audit / generated column (ordered last on the mapping screen)?
 func dataAudit(column string) bool {
-	return php.InList(column, "id", "created_by", "updated_by", "created_at", "updated_at", "owner_id", "department_id")
+	return conv.InList(column, "id", "created_by", "updated_by", "created_at", "updated_at", "owner_id", "department_id")
 }
 
 // ---------------------------------------------------------------- Source: an uploaded file as named sheets of rows
@@ -878,13 +878,13 @@ func exportTable(table string, opt exportOpt) ([]string, [][]any, []colInfo) {
 			v := r[c.Name]
 			if v != nil {
 				if m, ok := maps[c.Name]; ok {
-					if x, ok := m[php.Int(v)]; ok {
+					if x, ok := m[conv.Int(v)]; ok {
 						v = x
 					}
 				}
 			}
 			if v != nil && c.Type == "boolean" {
-				if php.Bool(v) {
+				if conv.Bool(v) {
 					v = "true"
 				} else {
 					v = "false"
@@ -909,12 +909,12 @@ func exportForExcel(rows [][]any, cols []colInfo) [][]any {
 	}
 	for _, r := range rows {
 		for i := range numeric {
-			if r[i] != nil && php.Str(r[i]) != "" && app.IsNumeric(php.Str(r[i])) {
-				s := php.Str(r[i])
+			if r[i] != nil && conv.Str(r[i]) != "" && app.IsNumeric(conv.Str(r[i])) {
+				s := conv.Str(r[i])
 				if strings.Contains(s, ".") {
-					r[i] = php.Float(s)
+					r[i] = conv.Float(s)
 				} else {
-					r[i] = php.Int(s)
+					r[i] = conv.Int(s)
 				}
 			}
 		}
@@ -936,7 +936,7 @@ func exportSQL(table string, header []string, rows [][]any, cols []colInfo) stri
 			if c, ok := colByName(cols, header[i]); ok {
 				t = c.Type
 			}
-			s := php.Str(v)
+			s := conv.Str(v)
 			switch {
 			case t == "boolean":
 				if s == "true" {
@@ -1035,7 +1035,7 @@ func (im *importer) run(table string, rows [][]string, mp map[string]mapSpec, mo
 		if has("department_id") && data["department_id"] == nil {
 			o := im.adminID
 			if v, ok := data["owner_id"]; ok {
-				o = php.Int(v)
+				o = conv.Int(v)
 			}
 			if d := im.departmentOf(o); d != 0 {
 				set("department_id", d)
@@ -1069,9 +1069,9 @@ func (im *importer) run(table string, rows [][]string, mp map[string]mapSpec, mo
 				}
 			}
 			if code, ok := data["code"]; ok && mode == "insert" {
-				lc := strings.ToLower(php.Str(code))
+				lc := strings.ToLower(conv.Str(code))
 				if seen[lc] || im.find(table, "code", code) != 0 {
-					errs = append(errs, im.c.T("The code :code already exists.", "code", php.Str(code)))
+					errs = append(errs, im.c.T("The code :code already exists.", "code", conv.Str(code)))
 				}
 				seen[lc] = true
 			}
@@ -1100,7 +1100,7 @@ func (im *importer) run(table string, rows [][]string, mp map[string]mapSpec, mo
 					}
 				}
 				if has("updated_at") {
-					set = append(set, db.Col{Name: "updated_at", Value: php.NowString()})
+					set = append(set, db.Col{Name: "updated_at", Value: conv.NowString()})
 				}
 				db.On("crm").Update(table, set, db.Cols{{Name: "id", Value: existing}})
 				res.Updated++
@@ -1111,7 +1111,7 @@ func (im *importer) run(table string, rows [][]string, mp map[string]mapSpec, mo
 				}
 				if hasID {
 					id := db.On("crm").InsertID(table, ins)
-					if prefix != "" && php.Empty(data["code"]) {
+					if prefix != "" && conv.Empty(data["code"]) {
 						db.On("crm").Exec("UPDATE "+table+" SET code = ? WHERE id = ? AND code IS NULL", prefix+"-"+padInt(id, 5), id)
 					}
 					_, given := data["id"]
@@ -1168,7 +1168,7 @@ func (im *importer) friendly(e error) string {
 	case has("22001"):
 		return c.T("A value is too long for its column.")
 	}
-	return php.Limit(sqlState.ReplaceAllString(msg, ""), 160)
+	return conv.Limit(sqlState.ReplaceAllString(msg, ""), 160)
 }
 
 func (im *importer) departmentOf(userID int) int {
@@ -1186,11 +1186,11 @@ func (im *importer) departmentOf(userID int) int {
 
 func (im *importer) find(table, key string, value any) int {
 	if key == "id" {
-		s := php.Str(value)
+		s := conv.Str(value)
 		if !ctypeDigit(s) {
 			return 0
 		}
-		return php.Int(db.On("crm").Scalar("SELECT id FROM "+table+" WHERE id = ?", php.Int(s)))
+		return conv.Int(db.On("crm").Scalar("SELECT id FROM "+table+" WHERE id = ?", conv.Int(s)))
 	}
 	if im.codes[table] == nil {
 		im.codes[table] = map[string]int{}
@@ -1200,7 +1200,7 @@ func (im *importer) find(table, key string, value any) int {
 			}
 		}
 	}
-	return im.codes[table][strings.ToLower(php.Str(value))]
+	return im.codes[table][strings.ToLower(conv.Str(value))]
 }
 
 var (
@@ -1222,14 +1222,14 @@ func (im *importer) convert(table string, col colInfo, raw string, errs *[]strin
 	case t == "bigint" || t == "integer" || t == "smallint":
 		v := strings.NewReplacer(",", "", " ", "").Replace(raw)
 		if !wholeRe.MatchString(v) {
-			*errs = append(*errs, c.T(`:col must be a whole number (got ":v").`, "col", name, "v", php.Limit(raw, 30)))
+			*errs = append(*errs, c.T(`:col must be a whole number (got ":v").`, "col", name, "v", conv.Limit(raw, 30)))
 			return nil, false
 		}
-		return php.Int(v), true
+		return conv.Int(v), true
 	case t == "numeric" || t == "double precision" || t == "real":
 		v := strings.NewReplacer(",", "", " ", "", "฿", "", "$", "").Replace(raw)
 		if !app.IsNumeric(v) {
-			*errs = append(*errs, c.T(`:col must be a number (got ":v").`, "col", name, "v", php.Limit(raw, 30)))
+			*errs = append(*errs, c.T(`:col must be a number (got ":v").`, "col", name, "v", conv.Limit(raw, 30)))
 			return nil, false
 		}
 		return v, true
@@ -1241,12 +1241,12 @@ func (im *importer) convert(table string, col colInfo, raw string, errs *[]strin
 		if inStrs(l, boolNo) {
 			return false, true
 		}
-		*errs = append(*errs, c.T(`:col must be yes or no (got ":v").`, "col", name, "v", php.Limit(raw, 30)))
+		*errs = append(*errs, c.T(`:col must be yes or no (got ":v").`, "col", name, "v", conv.Limit(raw, 30)))
 		return nil, false
 	case t == "date" || strings.HasPrefix(t, "timestamp"):
 		v, ok := importDate(raw, t != "date")
 		if !ok {
-			*errs = append(*errs, c.T(`:col must be a date (got ":v").`, "col", name, "v", php.Limit(raw, 30)))
+			*errs = append(*errs, c.T(`:col must be a date (got ":v").`, "col", name, "v", conv.Limit(raw, 30)))
 			return nil, false
 		}
 		return v, true
@@ -1270,11 +1270,11 @@ func (im *importer) convert(table string, col colInfo, raw string, errs *[]strin
 		for _, o := range choices {
 			labels = append(labels, o.Label)
 		}
-		*errs = append(*errs, c.T(`:col ":v" is not one of: :list.`, "col", name, "v", php.Limit(raw, 30), "list", strings.Join(labels, ", ")))
+		*errs = append(*errs, c.T(`:col ":v" is not one of: :list.`, "col", name, "v", conv.Limit(raw, 30), "list", strings.Join(labels, ", ")))
 		return nil, false
 	}
-	if col.Length != nil && php.Len(raw) > *col.Length {
-		*errs = append(*errs, c.T(":col is too long (:n characters, at most :max).", "col", name, "n", php.Len(raw), "max", *col.Length))
+	if col.Length != nil && conv.Len(raw) > *col.Length {
+		*errs = append(*errs, c.T(":col is too long (:n characters, at most :max).", "col", name, "n", conv.Len(raw), "max", *col.Length))
 		return nil, false
 	}
 	return raw, true
@@ -1310,8 +1310,8 @@ func (im *importer) resolve(col, raw string, errs *[]string) (int, bool) {
 		}
 		im.lookup[ck], im.ids[ck] = m, ids
 	}
-	if ctypeDigit(raw) && im.ids[ck][php.Int(raw)] {
-		return php.Int(raw), true
+	if ctypeDigit(raw) && im.ids[ck][conv.Int(raw)] {
+		return conv.Int(raw), true
 	}
 	if hit, ok := im.lookup[ck][strings.ToLower(raw)]; ok {
 		return hit, true
@@ -1319,7 +1319,7 @@ func (im *importer) resolve(col, raw string, errs *[]string) (int, bool) {
 	if ctypeDigit(raw) {
 		*errs = append(*errs, im.c.T(":col: no record with id :v.", "col", col, "v", raw))
 	} else {
-		*errs = append(*errs, im.c.T(`:col: ":v" was not found.`, "col", col, "v", php.Limit(raw, 40)))
+		*errs = append(*errs, im.c.T(`:col: ":v" was not found.`, "col", col, "v", conv.Limit(raw, 40)))
 	}
 	return 0, false
 }
@@ -1347,11 +1347,11 @@ func importDate(raw string, withTime bool) (string, bool) {
 		}
 		return t.Format("2006-01-02"), true
 	} else {
-		ts := php.StrToTime(raw)
+		ts := conv.StrToTime(raw)
 		if ts == 0 {
 			return "", false
 		}
-		t := php.Unix(ts)
+		t := conv.Unix(ts)
 		if withTime {
 			return t.Format("2006-01-02 15:04:05"), true
 		}

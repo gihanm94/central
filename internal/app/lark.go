@@ -16,14 +16,14 @@ import (
 	"time"
 
 	"acme/internal/config"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Lark (Feishu) messages without any SDK (App\Core\Support\Lark).
 //   webhook mode: one message per event into a group chat (custom bot webhook, optional signature secret)
 //   app mode:     a direct message to each person, found by their work e-mail
 
-func LarkMode() string { return php.OrStr(Setting("lark_mode", ""), "off") }
+func LarkMode() string { return conv.OrStr(Setting("lark_mode", ""), "off") }
 
 // LarkWebhook posts into the group chat.
 func LarkWebhook(c *Ctx, title string, lines []string, url string) bool {
@@ -43,7 +43,7 @@ func LarkWebhook(c *Ctx, title string, lines []string, url string) bool {
 	if !ok {
 		code, ok = res["StatusCode"]
 	}
-	return ok && php.Int(code) == 0
+	return ok && conv.Int(code) == 0
 }
 
 // LarkDirect sends a direct message to a person by work e-mail.
@@ -55,7 +55,7 @@ func LarkDirect(c *Ctx, email, title string, lines []string, url string) bool {
 	content, _ := json.Marshal(M{"en_us": larkPost(c, title, lines, url)})
 	res := larkHTTP(larkDomain()+"/open-apis/im/v1/messages?receive_id_type=email", M{"receive_id": email, "msg_type": "post", "content": string(content)}, token)
 	code, ok := res["code"]
-	return ok && php.Int(code) == 0
+	return ok && conv.Int(code) == 0
 }
 
 // LarkTest sends a test message: ok and what to say.
@@ -78,7 +78,7 @@ func LarkTest(c *Ctx, email string) (bool, string) {
 }
 
 func larkDomain() string {
-	return strings.TrimRight(php.OrStr(Setting("lark_domain", ""), "https://open.larksuite.com"), "/")
+	return strings.TrimRight(conv.OrStr(Setting("lark_domain", ""), "https://open.larksuite.com"), "/")
 }
 
 func larkToken() string {
@@ -95,13 +95,13 @@ func larkToken() string {
 		}
 	}
 	res := larkHTTP(larkDomain()+"/open-apis/auth/v3/tenant_access_token/internal", M{"app_id": Setting("lark_app_id", ""), "app_secret": Setting("lark_app_secret", "")}, "")
-	tok := php.Str(res["tenant_access_token"])
-	if php.Int(php.Coalesce(res["code"], -1)) != 0 || tok == "" {
+	tok := conv.Str(res["tenant_access_token"])
+	if conv.Int(conv.Coalesce(res["code"], -1)) != 0 || tok == "" {
 		b, _ := json.Marshal(res)
 		WriteErrorLog("[lark] token failed: " + string(b))
 		return ""
 	}
-	exp := php.Int(php.Coalesce(res["expire"], 3600))
+	exp := conv.Int(conv.Coalesce(res["expire"], 3600))
 	b, _ := json.Marshal(M{"token": tok, "expires": time.Now().Unix() + int64(exp), "app": Setting("lark_app_id", "")})
 	_ = os.WriteFile(cache, b, 0o664)
 	return tok
@@ -142,7 +142,7 @@ func larkHTTP(url string, body M, bearer string) M {
 	if !ok {
 		code = out["StatusCode"]
 	}
-	if php.Int(code) != 0 {
+	if conv.Int(code) != 0 {
 		WriteErrorLog("[lark] " + url + " → " + string(raw))
 	}
 	return out

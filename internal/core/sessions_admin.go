@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Administrators: every active session of every person, the sign-in log, and ending sessions (SessionAdminController).
@@ -68,7 +68,7 @@ func sessionsAdminIndex(c *app.Ctx) {
 		tab = "log"
 	}
 	q := c.Query("q")
-	page := max(1, php.Int(c.Query("page", "1")))
+	page := max(1, conv.Int(c.Query("page", "1")))
 	per := 20
 	like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(strings.ToLower(q)) + "%"
 	var par []any
@@ -82,15 +82,15 @@ func sessionsAdminIndex(c *app.Ctx) {
 		if q != "" {
 			where += " AND (lower(u.name) LIKE ? OR lower(u.email) LIKE ? OR s.ip LIKE ? OR lower(s.device) LIKE ?)"
 		}
-		total = php.Int(db.Scalar("SELECT count(*) FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE "+where, par...))
-		rows = db.Select("SELECT s.*, u.name, u.email FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE "+where+" ORDER BY s.last_seen_at DESC LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), par...)
+		total = conv.Int(db.Scalar("SELECT count(*) FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE "+where, par...))
+		rows = db.Select("SELECT s.*, u.name, u.email FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE "+where+" ORDER BY s.last_seen_at DESC LIMIT "+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), par...)
 	} else {
 		where := ""
 		if q != "" {
 			where = "WHERE (lower(coalesce(u.name, '')) LIKE ? OR lower(coalesce(e.email, u.email, '')) LIKE ? OR e.ip LIKE ? OR lower(coalesce(e.device, '')) LIKE ?)"
 		}
-		total = php.Int(db.Scalar("SELECT count(*) FROM login_events e LEFT JOIN users u ON u.id = e.user_id "+where, par...))
-		rows = db.Select("SELECT e.*, u.name, coalesce(u.email, e.email) AS mail FROM login_events e LEFT JOIN users u ON u.id = e.user_id "+where+" ORDER BY e.id DESC LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), par...)
+		total = conv.Int(db.Scalar("SELECT count(*) FROM login_events e LEFT JOIN users u ON u.id = e.user_id "+where, par...))
+		rows = db.Select("SELECT e.*, u.name, coalesce(u.email, e.email) AS mail FROM login_events e LEFT JOIN users u ON u.id = e.user_id "+where+" ORDER BY e.id DESC LIMIT "+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), par...)
 	}
 	pages := max(1, int(math.Ceil(float64(total)/float64(per))))
 	link := func(p int) string {
@@ -106,7 +106,7 @@ func sessionsAdminIndex(c *app.Ctx) {
 	}
 	c.View("admin/sessions", app.M{
 		"title": c.T("Sessions"), "tab": tab, "q": q, "rows": rows, "active": active, "events": wsEvents(c, rows), "page": page, "pages": pages, "total": total,
-		"activeCount": php.Int(db.Scalar("SELECT count(*) FROM user_sessions WHERE revoked_at IS NULL AND expires_at > now()")),
+		"activeCount": conv.Int(db.Scalar("SELECT count(*) FROM user_sessions WHERE revoked_at IS NULL AND expires_at > now()")),
 		"intro":       c.T("Who is signed in, from which device. The browser id changes every :m minutes and every sign-in ends after :h hours.", "m", app.SessionRotateMinutes(), "h", app.SessionMaxHours()),
 		"prevURL":     link(page - 1), "nextURL": link(page + 1),
 	})
@@ -158,7 +158,7 @@ func sessionsAdminRevokeUser(c *app.Ctx) {
 // wsRevokeAPIDevices is Api\Tokens::revokeAll: signs every mobile device of a person out.
 func wsRevokeAPIDevices(userID int, reason string) int {
 	return db.Exec(`UPDATE api_devices SET revoked_at = now(), revoked_reason = ?, access_hash = NULL, refresh_hash = NULL, prev_refresh_hash = NULL
-                         WHERE user_id = ? AND revoked_at IS NULL`, php.Substr(reason, 0, 40), userID)
+                         WHERE user_id = ? AND revoked_at IS NULL`, conv.Substr(reason, 0, 40), userID)
 }
 
 // ---------------------------------------------------------------- modules
@@ -179,7 +179,7 @@ func ModuleUnavailable(c *app.Ctx) {
 func modulesIndex(c *app.Ctx) {
 	wsAdminGate(c)
 	status := app.ModuleStatus()
-	where := map[string]string{"manifest": c.T("module.php"), "routes": c.T("routes.php"), "api": c.T("api.php (mobile API)"), "migrations": c.T("Database migrations")}
+	where := map[string]string{"manifest": c.T("Module settings"), "routes": c.T("Module pages"), "api": c.T("Module API (mobile)"), "migrations": c.T("Database migrations")}
 	var list []app.M
 	for _, m := range app.Modules() {
 		if m.Key == "core" {
@@ -203,7 +203,7 @@ func modulesIndex(c *app.Ctx) {
 					label = w
 				}
 			}
-			probs = append(probs, app.M{"label": label, "at": i.At, "message": i.Message, "where": i.File + ":" + php.Str(i.Line)})
+			probs = append(probs, app.M{"label": label, "at": i.At, "message": i.Message, "where": i.File + ":" + conv.Str(i.Line)})
 		}
 		dir := ""
 		if m.Routes != nil || len(m.Menu) > 0 || m.Hooks != nil {

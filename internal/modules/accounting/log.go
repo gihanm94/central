@@ -15,7 +15,7 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 /*
@@ -55,7 +55,7 @@ func logDir() string { return filepath.Join(app.BasePath, "storage", "logs", "ac
 
 func logFile(day string) string {
 	if !ymdRe.MatchString(day) {
-		day = php.Date("Y-m-d", php.Now())
+		day = conv.Date("Y-m-d", conv.Now())
 	}
 	return filepath.Join(logDir(), day+".log")
 }
@@ -84,7 +84,7 @@ func logException(ch string, err error, what string, ctx ...*config.Map) {
 	if i := strings.Index(file, "/internal/"); i >= 0 {
 		file = file[i+1:]
 	}
-	m.Set("at", file+":"+php.Str(line))
+	m.Set("at", file+":"+conv.Str(line))
 	logWrite("error", ch, msg, m)
 }
 
@@ -92,7 +92,7 @@ func logWrite(level, ch, msg string, ctx *config.Map) {
 	defer func() { _ = recover() }() // logging must never break the work
 	dir := logDir()
 	_ = os.MkdirAll(dir, 0o775)
-	now := php.Now()
+	now := conv.Now()
 	line := config.NewMap()
 	line.Set("t", now.Format("2006-01-02 15:04:05")+fmt.Sprintf(".%03d", now.Nanosecond()/1e6))
 	line.Set("level", level)
@@ -103,7 +103,7 @@ func logWrite(level, ch, msg string, ctx *config.Map) {
 	if run != "" {
 		line.Set("run", run)
 	}
-	line.Set("msg", php.Substr(msg, 0, 2000))
+	line.Set("msg", conv.Substr(msg, 0, 2000))
 	if ctx != nil && ctx.Len() > 0 {
 		line.Set("ctx", logClean(ctx))
 	}
@@ -136,8 +136,8 @@ func logClean(m *config.Map) *config.Map {
 		}
 		if logSecret.MatchString(k) {
 			out.Set(k, "••••")
-		} else if s, ok := v.(string); ok && php.Len(s) > 1500 {
-			out.Set(k, php.Substr(s, 0, 1500)+"… ("+php.Str(php.Len(s))+" chars)")
+		} else if s, ok := v.(string); ok && conv.Len(s) > 1500 {
+			out.Set(k, conv.Substr(s, 0, 1500)+"… ("+conv.Str(conv.Len(s))+" chars)")
 		} else {
 			out.Set(k, v)
 		}
@@ -232,7 +232,7 @@ func logRead(day string, after int64, tail int, f map[string]string) app.M {
 		return app.M{"entries": []any{}, "offset": off, "size": size}
 	}
 	offset := start + int64(end) + 1
-	minLevel, ok := logLevels[php.OrStr(f["level"], "debug")]
+	minLevel, ok := logLevels[conv.OrStr(f["level"], "debug")]
 	if !ok {
 		minLevel = 0
 	}
@@ -244,7 +244,7 @@ func logRead(day string, after int64, tail int, f map[string]string) app.M {
 		if err != nil || !ok {
 			continue
 		}
-		lv, ok := logLevels[php.OrStr(mstr(e, "level"), "info")]
+		lv, ok := logLevels[conv.OrStr(mstr(e, "level"), "info")]
 		if !ok {
 			lv = 1
 		}

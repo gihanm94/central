@@ -8,8 +8,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // A sales opportunity: products (registered or typed by hand), a stage tracker,
@@ -92,7 +92,7 @@ func init() {
 				}},
 			{Name: "currency", Label: c.T("Currency"), Type: "select", Options: cur, Rules: "required", Default: "THB", HideForm: true, Extra: app.M{"hide_show": true}},
 			{Name: "department_id", Label: c.T("Department"), Type: "select", Options: oppDepartments(), Rules: m, Placeholder: c.T("Seller department"),
-				Default: php.Str(c.MustUser().DeptID()), Help: c.T("The seller's department; its people see the opportunity.")},
+				Default: conv.Str(c.MustUser().DeptID()), Help: c.T("The seller's department; its people see the opportunity.")},
 			{Name: "close_at", Label: c.T("Expected close date"), Type: "date", Rules: m + "|date"},
 			{Name: "follow_at", Label: c.T("Follow-up date"), Type: "date", Rules: m + "|date", Help: c.T("Next check-in date")},
 			s.remoteField(c, "lead_id", row, app.Field{Label: c.T("Lead"), Rules: "required", Span: 2, Placeholder: c.T("Reference lead"),
@@ -131,7 +131,7 @@ func init() {
 				}
 				return h(uiPerson(c, r.Str("lead_name"), r.Str("lead_name_th"), r.Str("lead_image"), "/crm/leads/"+r.Str("lead_id"), ""))
 			}},
-			{Key: "contact", Label: c.T("Contact"), Sort: "c.name_en", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(php.OrStr(r.Str("contact_name"), "—"))) }},
+			{Key: "contact", Label: c.T("Contact"), Sort: "c.name_en", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(app.E(conv.OrStr(r.Str("contact_name"), "—"))) }},
 			{Key: "stage", Label: c.T("Stage"), Sort: "t.opportunity_stage", Render: func(c *app.Ctx, r db.Row) template.HTML { return h(uiStageBadge(c, r.Str("opportunity_stage"))) }},
 			{Key: "amount", Label: c.T("Amount"), Sort: "t.amount", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return h(`<span class="tabular-nums">` + uiMoney(r["amount"], r.Str("currency")) + `</span>`)
@@ -151,7 +151,7 @@ func init() {
 			for _, p := range all {
 				if p.Int("opportunity_id") == r.Int("id") {
 					list = append(list, p)
-					parts = append(parts, p.Str("name")+" × "+php.NumberClean(p["quantity"]))
+					parts = append(parts, p.Str("name")+" × "+conv.NumberClean(p["quantity"]))
 				}
 			}
 			r["product_list"] = list
@@ -196,7 +196,7 @@ func init() {
 	s.subtitle = func(c *app.Ctx, r db.Row) string {
 		amt := ""
 		if r["amount"] != nil {
-			amt = php.NF(r.Float("amount"), 2)
+			amt = conv.NF(r.Float("amount"), 2)
 			if r.Str("currency") != "" {
 				amt += " " + r.Str("currency")
 			}
@@ -233,7 +233,7 @@ func init() {
 		open := "t.opportunity_stage IN ('QUALIFICATION','SURVEY_PROPOSAL','EVALUATION_TESTING','NEGOTIATION','ON_HOLD')"
 		from := "opportunities t LEFT JOIN currencies cu ON cu.code = t.currency"
 		val := "sum(COALESCE(t.amount, 0) * COALESCE(cu.rate_to_base, 1))"
-		base := php.Str(db.On("crm").Scalar("SELECT code FROM currencies WHERE is_base LIMIT 1"))
+		base := conv.Str(db.On("crm").Scalar("SELECT code FROM currencies WHERE is_base LIMIT 1"))
 		money := func(where string) string {
 			out := uiCompact(s.figure(c, val, where, nil, from))
 			if base != "" {
@@ -290,7 +290,7 @@ func moneyExtra(c *app.Ctx, row db.Row, cur []app.Opt) app.M {
 		cc = row.Str("currency")
 	}
 	if o, ok := oldVal(c, "currency"); ok {
-		cc = php.Str(o)
+		cc = conv.Str(o)
 	}
 	var amt any
 	if row != nil {
@@ -300,8 +300,8 @@ func moneyExtra(c *app.Ctx, row db.Row, cur []app.Opt) app.M {
 		amt = o
 	}
 	a := ""
-	if amt != nil && php.Str(amt) != "" {
-		a = strings.ReplaceAll(php.NumberClean(amt), ",", "")
+	if amt != nil && conv.Str(amt) != "" {
+		a = strings.ReplaceAll(conv.NumberClean(amt), ",", "")
 	}
 	return app.M{"codes": codes, "cur": cc, "amount": a, "search": len(cur) > 8}
 }
@@ -330,17 +330,17 @@ func productLinesExtra(c *app.Ctx, row db.Row) app.M {
 	line := func(i string, p prow) productLine {
 		qty := 1.0
 		if p.qty != "" {
-			qty = php.Float(p.qty)
+			qty = conv.Float(p.qty)
 		}
 		var priceS, total string
 		if p.price != "" {
-			price := php.Float(p.price)
-			priceS = php.NF(price, 2)
-			total = php.NF(qty*price, 2)
+			price := conv.Float(p.price)
+			priceS = conv.NF(price, 2)
+			total = conv.NF(qty*price, 2)
 		}
 		return productLine{I: i, Kind: p.kind, Name: p.name, Total: total,
 			Hidden: []pair{{"kind", p.kind}, {"erp_product_id", p.erp}, {"product_id", p.pid}, {"name", p.name}, {"part_number", p.part}, {"quantity", p.qty}, {"unit", p.unit}, {"unit_price", p.price}},
-			Sub:    joinNonEmpty(" · ", p.part, php.NumberClean(qty)+" "+p.unit, priceS)}
+			Sub:    joinNonEmpty(" · ", p.part, conv.NumberClean(qty)+" "+p.unit, priceS)}
 	}
 	sections := []lineSection{
 		{Kind: "catalog", Title: c.T("Products"), Icon: "box", Add: c.T("Add product"), Empty: c.T("No products added yet"), Hint: c.T("Pick products of Accounting (from the ERP).")},
@@ -353,7 +353,7 @@ func productLinesExtra(c *app.Ctx, row db.Row) app.M {
 		}
 		for j := range sections {
 			if sections[j].Kind == k {
-				sections[j].Lines = append(sections[j].Lines, line(php.Str(i), p))
+				sections[j].Lines = append(sections[j].Lines, line(conv.Str(i), p))
 			}
 		}
 	}
@@ -388,7 +388,7 @@ func nextStepsExtra(c *app.Ctx, row db.Row) app.M {
 			if g("due_at") != "" {
 				due = app.FormatDate(c, g("due_at"), "d M Y")
 			}
-			fresh = append(fresh, stepRow{I: php.Str(len(fresh)), Title: g("title"), Due: g("due_at"), Note: g("note"), Sub: joinNonEmpty(" · ", due, g("note"))})
+			fresh = append(fresh, stepRow{I: conv.Str(len(fresh)), Title: g("title"), Due: g("due_at"), Note: g("note"), Sub: joinNonEmpty(" · ", due, g("note"))})
 		}
 	}
 	return app.M{"hide_show": true, "existing": existing, "new": fresh, "blank": stepRow{I: "__i__"}}
@@ -412,13 +412,13 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 	if reason == nil && existing != nil {
 		reason = existing["cancel_reason"]
 	}
-	if inStrs(stage, stageNeedsReason) && strings.TrimSpace(php.Str(reason)) == "" {
+	if inStrs(stage, stageNeedsReason) && strings.TrimSpace(conv.Str(reason)) == "" {
 		app.Invalid("cancel_reason", c.T("Write the reason for this stage."))
 	}
 	if !inStrs(stage, stageNeedsReason) {
 		data.Set("cancel_reason", nil)
 	}
-	if p := data.Get("probability"); p != nil && (php.Float(p) < 0 || php.Float(p) > 100) {
+	if p := data.Get("probability"); p != nil && (conv.Float(p) < 0 || conv.Float(p) > 100) {
 		app.Invalid("probability", c.T("Probability must be between 0 and 100."))
 	}
 	changed := existing == nil || existing.Str("opportunity_stage") != stage
@@ -434,8 +434,8 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		prob = *def.Prob
 	}
 	data.Set("probability", prob)
-	if (stage == "CLOSED_WON" || stage == "CLOSED_LOST") && php.Empty(data.Get("close_at")) && (existing == nil || php.Empty(existing["close_at"])) {
-		data.Set("close_at", php.NowString())
+	if (stage == "CLOSED_WON" || stage == "CLOSED_LOST") && conv.Empty(data.Get("close_at")) && (existing == nil || conv.Empty(existing["close_at"])) {
+		data.Set("close_at", conv.NowString())
 	}
 
 	// products: a product of Accounting (erp_product_id), an older CRM catalogue product (product_id) or a new one typed by hand
@@ -455,8 +455,8 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 			}
 		}
 		g := func(k string) any { x, _ := m.Get(k); return x }
-		name := strings.TrimSpace(php.Str(g("name")))
-		pid := php.Int(g("product_id"))
+		name := strings.TrimSpace(conv.Str(g("name")))
+		pid := conv.Int(g("product_id"))
 		if _, ok := catalog[pid]; name == "" && pid != 0 && ok {
 			name = catalog[pid]
 		}
@@ -464,17 +464,17 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 			continue
 		}
 		var erp any
-		if php.Str(g("kind")) == "catalog" && ctypeDigit(php.Str(g("erp_product_id"))) {
-			erp = php.Int(g("erp_product_id"))
+		if conv.Str(g("kind")) == "catalog" && ctypeDigit(conv.Str(g("erp_product_id"))) {
+			erp = conv.Int(g("erp_product_id"))
 		}
 		qty := 1.0
-		if q := g("quantity"); app.IsNumeric(php.Str(q)) && php.Float(q) > 0 {
-			qty = php.Float(q)
+		if q := g("quantity"); app.IsNumeric(conv.Str(q)) && conv.Float(q) > 0 {
+			qty = conv.Float(q)
 		}
 		var price any
-		if p := g("unit_price"); p != nil && php.Str(p) != "" && app.IsNumeric(php.Str(p)) {
-			price = php.Float(p)
-			total += qty * php.Float(p)
+		if p := g("unit_price"); p != nil && conv.Str(p) != "" && app.IsNumeric(conv.Str(p)) {
+			price = conv.Float(p)
+			total += qty * conv.Float(p)
 		} else {
 			allPriced = false
 		}
@@ -482,9 +482,9 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		if _, ok := catalog[pid]; pid != 0 && ok {
 			pidv = pid
 		}
-		lines = append(lines, db.Cols{{Name: "product_id", Value: pidv}, {Name: "erp_product_id", Value: erp}, {Name: "name", Value: php.Substr(name, 0, 200)},
-			{Name: "part_number", Value: nilStr(php.Substr(strings.TrimSpace(php.Str(g("part_number"))), 0, 80))}, {Name: "unit", Value: nilStr(php.Substr(strings.TrimSpace(php.Str(g("unit"))), 0, 30))},
-			{Name: "quantity", Value: qty}, {Name: "unit_price", Value: price}, {Name: "note", Value: nilStr(php.Substr(strings.TrimSpace(php.Str(g("note"))), 0, 250))}})
+		lines = append(lines, db.Cols{{Name: "product_id", Value: pidv}, {Name: "erp_product_id", Value: erp}, {Name: "name", Value: conv.Substr(name, 0, 200)},
+			{Name: "part_number", Value: nilStr(conv.Substr(strings.TrimSpace(conv.Str(g("part_number"))), 0, 80))}, {Name: "unit", Value: nilStr(conv.Substr(strings.TrimSpace(conv.Str(g("unit"))), 0, 30))},
+			{Name: "quantity", Value: qty}, {Name: "unit_price", Value: price}, {Name: "note", Value: nilStr(conv.Substr(strings.TrimSpace(conv.Str(g("note"))), 0, 250))}})
 	}
 	data.Set("products", lines)
 	if data.Get("amount") == nil && len(lines) > 0 && allPriced {
@@ -495,8 +495,8 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 	var steps []stepRow
 	for _, v := range app.InList(data.Get("next_steps")) {
 		m := app.InMap(v)
-		g := func(k string) string { x, _ := m.Get(k); return php.Str(x) }
-		title := php.Substr(strings.TrimSpace(g("title")), 0, 200)
+		g := func(k string) string { x, _ := m.Get(k); return conv.Str(x) }
+		title := conv.Substr(strings.TrimSpace(g("title")), 0, 200)
 		if title == "" {
 			continue
 		}
@@ -510,14 +510,14 @@ func oppPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 
 	// the seller's department (the base form never changes department_id; here it is a choice)
 	if dep := c.Input("department_id"); dep != "" && optHas(oppDepartments(), dep) {
-		data.Set("department_id", php.Int(dep))
+		data.Set("department_id", conv.Int(dep))
 	}
 	return data
 }
 
 func recordStage(c *app.Ctx, id int, stage, from, note string) {
 	db.On("crm").Insert("opportunity_steps", db.Cols{{Name: "opportunity_id", Value: id}, {Name: "kind", Value: "stage"}, {Name: "stage", Value: stage}, {Name: "from_stage", Value: nilStr(from)},
-		{Name: "is_done", Value: true}, {Name: "done_at", Value: php.NowString()}, {Name: "done_by", Value: c.MustUser().ID}, {Name: "note", Value: nilStr(note)}, {Name: "created_by", Value: c.MustUser().ID}}, "")
+		{Name: "is_done", Value: true}, {Name: "done_at", Value: conv.NowString()}, {Name: "done_by", Value: c.MustUser().ID}, {Name: "note", Value: nilStr(note)}, {Name: "created_by", Value: c.MustUser().ID}}, "")
 }
 
 // ---------------------------------------------------------------- stage moves
@@ -536,7 +536,7 @@ func oppMoveStage(c *app.Ctx) {
 	checkMove(c, stage, note)
 	changeStage(c, row, stage, note, true)
 	c.Flash("success", c.T("Moved to :stage.", "stage", stageLabel(c, stage)))
-	c.Redirect("/crm/opportunities/" + php.Str(id) + "#progress")
+	c.Redirect("/crm/opportunities/" + conv.Str(id) + "#progress")
 }
 
 // checkMove: is this a stage the person can move to, and is the reason there when one is needed?
@@ -559,19 +559,19 @@ func changeStage(c *app.Ctx, row db.Row, stage, note string, notify bool) {
 	if inStrs(stage, stageNeedsReason) {
 		reason = note
 	}
-	set := db.Cols{{Name: "opportunity_stage", Value: stage}, {Name: "updated_by", Value: c.MustUser().ID}, {Name: "updated_at", Value: php.NowString()}, {Name: "cancel_reason", Value: reason}}
+	set := db.Cols{{Name: "opportunity_stage", Value: stage}, {Name: "updated_by", Value: c.MustUser().ID}, {Name: "updated_at", Value: conv.NowString()}, {Name: "cancel_reason", Value: reason}}
 	def, _ := stageDefOf(stage)
 	if def.Prob != nil {
 		set = append(set, db.Col{Name: "probability", Value: *def.Prob})
 	}
 	if stage == "CLOSED_WON" || stage == "CLOSED_LOST" {
-		set = append(set, db.Col{Name: "close_at", Value: php.NowString()})
+		set = append(set, db.Col{Name: "close_at", Value: conv.NowString()})
 	}
 	db.On("crm").Update("opportunities", set, db.Cols{{Name: "id", Value: id}})
 	recordStage(c, id, stage, row.Str("opportunity_stage"), note)
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "opportunity", ID: id, Label: row.Str("name"), Text: `Moved opportunity ":label" to :stage`,
 		Params: []any{"label", row.Str("name"), "stage", def.Label},
-		Props:  app.M{"changes": app.M{"opportunity_stage": app.M{"from": stageLabel(c, row.Str("opportunity_stage")), "to": stageLabel(c, stage)}}, "_url": c.URL("/crm/opportunities/" + php.Str(id))},
+		Props:  app.M{"changes": app.M{"opportunity_stage": app.M{"from": stageLabel(c, row.Str("opportunity_stage")), "to": stageLabel(c, stage)}}, "_url": c.URL("/crm/opportunities/" + conv.Str(id))},
 		Owner:  row.Int("owner_id"), NoNotify: !notify, Module: "crm"})
 }
 
@@ -590,7 +590,7 @@ func oppAddStep(c *app.Ctx) {
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "opportunity", ID: id, Label: row.Str("name"), Text: `Added next step ":step" to opportunity ":label"`,
 		Params: []any{"step", data.Get("title"), "label", row.Str("name")}, Owner: row.Int("owner_id"), Module: "crm"})
 	c.Flash("success", c.T("Next step added."))
-	c.Redirect("/crm/opportunities/" + php.Str(id) + "#progress")
+	c.Redirect("/crm/opportunities/" + conv.Str(id) + "#progress")
 }
 
 func oppStep(c *app.Ctx, id int) db.Row {
@@ -609,7 +609,7 @@ func oppDoneStep(c *app.Ctx) {
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "opportunity", ID: id, Label: row.Str("name"), Text: `Completed step ":step" on opportunity ":label"`,
 		Params: []any{"step", st.Str("title"), "label", row.Str("name")}, Owner: row.Int("owner_id"), Module: "crm"})
 	c.Flash("success", c.T("Step marked as done."))
-	c.Redirect("/crm/opportunities/" + php.Str(id) + "#progress")
+	c.Redirect("/crm/opportunities/" + conv.Str(id) + "#progress")
 }
 
 func oppDeleteStep(c *app.Ctx) {
@@ -618,7 +618,7 @@ func oppDeleteStep(c *app.Ctx) {
 	st := oppStep(c, id)
 	db.On("crm").Exec("DELETE FROM opportunity_steps WHERE id = ?", st["id"])
 	c.Flash("success", c.T("Step removed."))
-	c.Redirect("/crm/opportunities/" + php.Str(id) + "#progress")
+	c.Redirect("/crm/opportunities/" + conv.Str(id) + "#progress")
 }
 
 // oppDuplicate: copy an opportunity as a new one at the first stage: same lead, contact, priority, amount, currency, products and
@@ -639,7 +639,7 @@ func oppDuplicate(c *app.Ctx) {
 	for _, kv := range []struct {
 		k string
 		v any
-	}{{"name", php.Substr(src.Str("name")+" ("+c.T("copy")+")", 0, 200)}, {"lead_id", src["lead_id"]}, {"contact_id", src["contact_id"]},
+	}{{"name", conv.Substr(src.Str("name")+" ("+c.T("copy")+")", 0, 200)}, {"lead_id", src["lead_id"]}, {"contact_id", src["contact_id"]},
 		{"opportunity_stage", "QUALIFICATION"}, {"priority", src["priority"]}, {"cancel_reason", nil}, {"code", nil},
 		{"amount", src["amount"]}, {"currency", src["currency"]}, {"probability", nil}, {"follow_at", nil}, {"close_at", nil},
 		{"description", src["description"]}, {"products", products}} {
@@ -651,10 +651,10 @@ func oppDuplicate(c *app.Ctx) {
 	row := r.Find(c, newID)
 	app.LogActivity(c, app.ActivityEntry{Action: "created", Type: r.Type, ID: newID, Label: r.LabelOf(c, row), Text: `Duplicated opportunity ":label" from ":from"`,
 		Params: []any{"label", r.LabelOf(c, row), "from", r.LabelOf(c, src)},
-		Props:  app.M{"attributes": r.DisplayValues(c, fields, row), "copied_from": id, "_url": c.URL(r.Base + "/" + php.Str(newID))},
+		Props:  app.M{"attributes": r.DisplayValues(c, fields, row), "copied_from": id, "_url": c.URL(r.Base + "/" + conv.Str(newID))},
 		Owner:  row.Int("owner_id"), Module: "crm"})
 	c.Flash("success", c.T("Copy made at Qualification. Check the details and save."))
-	c.Redirect(r.Base + "/" + php.Str(newID) + "/edit")
+	c.Redirect(r.Base + "/" + conv.Str(newID) + "/edit")
 }
 
 // ---------------------------------------------------------------- detail page parts
@@ -711,7 +711,7 @@ func stageTracker(c *app.Ctx, row db.Row, canEdit bool, steps []db.Row) string {
 	if len(moves) > 0 {
 		since = moves[0]["created_at"]
 	}
-	days := int(math.Max(0, math.Floor(float64(php.Now().Unix()-php.StrToTime(since))/86400)))
+	days := int(math.Max(0, math.Floor(float64(conv.Now().Unix()-conv.StrToTime(since))/86400)))
 	var nodes []trackerNode
 	for i, key := range append(append([]string{}, stagePipeline...), "CLOSED_WON") {
 		state := "todo"
@@ -778,9 +778,9 @@ func stepsPanel(c *app.Ctx, row db.Row, steps []db.Row, canEdit bool) string {
 			}
 		}
 	}
-	today := php.StrToTime(php.Today())
+	today := conv.StrToTime(conv.Today())
 	for _, s := range open {
-		s["_late"] = s.Str("due_at") != "" && php.StrToTime(s["due_at"]) < today
+		s["_late"] = s.Str("due_at") != "" && conv.StrToTime(s["due_at"]) < today
 		s["_stage"] = stageLabel(c, s.Str("stage"))
 	}
 	for _, s := range past {
@@ -795,7 +795,7 @@ func stepsPanel(c *app.Ctx, row db.Row, steps []db.Row, canEdit bool) string {
 				who = s["doer"]
 			}
 		}
-		s["_stagekind"], s["_at"], s["_who"], s["_iso"] = isStage, at, who, php.DateOf("c", at)
+		s["_stagekind"], s["_at"], s["_who"], s["_iso"] = isStage, at, who, conv.DateOf("c", at)
 		if isStage {
 			if s.Str("from_stage") != "" {
 				s["_text"] = c.T("Moved from :from to :to", "from", stageLabel(c, s.Str("from_stage")), "to", stageLabel(c, s.Str("stage")))
@@ -819,9 +819,9 @@ func productsPanel(c *app.Ctx, row db.Row) string {
 		} else {
 			t := it.Float("quantity") * it.Float("unit_price")
 			total += t
-			it["_price"], it["_total"] = php.NF(it.Float("unit_price"), 2), php.NF(t, 2)
+			it["_price"], it["_total"] = conv.NF(it.Float("unit_price"), 2), conv.NF(t, 2)
 		}
-		it["_qty"] = php.NumberClean(it["quantity"])
+		it["_qty"] = conv.NumberClean(it["quantity"])
 	}
-	return string(c.Partial("crm/panels/products", app.M{"row": row, "items": items, "complete": complete, "total": php.NF(total, 2)}))
+	return string(c.Partial("crm/panels/products", app.M{"row": row, "items": items, "complete": complete, "total": conv.NF(total, 2)}))
 }

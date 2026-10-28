@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -29,7 +29,7 @@ func gate(c *app.Ctx) {
 }
 
 func nz(v any) any {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return nil
 	}
 	return v
@@ -48,7 +48,7 @@ func RowsData(c *app.Ctx, r Result, base string, showPerson bool, link func(page
 // LogIndex is PdfSignLogController::index.
 func LogIndex(c *app.Ctx) {
 	gate(c)
-	f := Filter{Q: strings.TrimSpace(c.Query("q")), User: php.Int(c.Query("user")), From: c.Query("from"), To: c.Query("to"), Page: php.Int(c.Query("page", "1"))}
+	f := Filter{Q: strings.TrimSpace(c.Query("q")), User: conv.Int(c.Query("user")), From: c.Query("from"), To: c.Query("to"), Page: conv.Int(c.Query("page", "1"))}
 	var people []app.Opt
 	for _, r := range db.Select("SELECT DISTINCT u.id, u.name FROM pdf_signatures s JOIN users u ON u.id = s.user_id ORDER BY u.name") {
 		people = append(people, app.Opt{Value: r.Str("id"), Label: r.Str("name")})
@@ -60,7 +60,7 @@ func LogIndex(c *app.Ctx) {
 	}
 	user := ""
 	if f.User != 0 {
-		user = php.Str(f.User)
+		user = conv.Str(f.User)
 	}
 	c.View("pdf-sign/log", app.M{"title": c.T("PDF signing log"), "f": f, "user": user, "total": res.Total, "people": people, "base": base,
 		"rows": RowsData(c, res, base, true, link)})
@@ -72,7 +72,7 @@ func ShowData(c *app.Ctx, row db.Row, back [2]string, audit bool) app.M {
 	_ = json.Unmarshal([]byte(row.Str("placements")), &places)
 	byPage := map[int]int{}
 	for _, p := range places {
-		byPage[php.Int(p["page"])]++
+		byPage[conv.Int(p["page"])]++
 	}
 	pages := make([]int, 0, len(byPage))
 	for p := range byPage {
@@ -83,7 +83,7 @@ func ShowData(c *app.Ctx, row db.Row, back [2]string, audit bool) app.M {
 	for _, p := range pages {
 		s := c.T("page :p", "p", p)
 		if byPage[p] > 1 {
-			s += " ×" + php.Str(byPage[p])
+			s += " ×" + conv.Str(byPage[p])
 		}
 		parts = append(parts, s)
 	}

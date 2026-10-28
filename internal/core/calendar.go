@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/google"
-	"acme/internal/php"
 )
 
 // One calendar (CalendarController): events from the modules' 'calendar.events' hooks (CRM activities you may see) +
@@ -56,7 +56,7 @@ func calendarIndex(c *app.Ctx) {
 		toggleURL = c.URL(toggle, "mine", 1)
 	}
 	c.View("calendar/index", app.M{"title": c.T("Calendar"), "crm": crm, "canCreate": canCreate, "google": connected, "configured": google.Configured(),
-		"lost": lost, "inCrm": inCrm, "mine": mine, "cfg": phpJSON(cfg), "legend": legends, "toggleURL": toggleURL})
+		"lost": lost, "inCrm": inCrm, "mine": mine, "cfg": jsonCompat(cfg), "legend": legends, "toggleURL": toggleURL})
 }
 
 var isoDay = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
@@ -102,7 +102,7 @@ func calendarEvents(c *app.Ctx) {
 			}
 		case []any:
 			for _, k := range l {
-				linked[php.Str(k)] = true
+				linked[conv.Str(k)] = true
 			}
 		case []string:
 			for _, k := range l {
@@ -114,22 +114,22 @@ func calendarEvents(c *app.Ctx) {
 		if err := app.Catch(func() {
 			loc, err := time.LoadLocation(config.String("app.timezone", "Asia/Bangkok"))
 			if err != nil {
-				loc = php.Loc
+				loc = conv.Loc
 			}
 			iso := func(d string) string {
 				t, _ := time.ParseInLocation("2006-01-02 15:04:05", d, loc)
 				return t.Format("2006-01-02T15:04:05-07:00")
 			}
 			for _, g := range google.CalendarEvents(c, u.ID, iso(from+" 00:00:00"), iso(to+" 00:00:00")) {
-				if linked[php.Str(g["id"])] {
+				if linked[conv.Str(g["id"])] {
 					continue // already shown as the CRM activity it came from
 				}
-				g["id"] = "g" + php.Str(g["id"])
+				g["id"] = "g" + conv.Str(g["id"])
 				g["type"] = "GOOGLE"
-				if !php.Bool(g["all_day"]) {
-					g["start"] = php.DateOf("Y-m-d\\TH:i:s", g["start"])
-					if php.Str(g["end"]) != "" {
-						g["end"] = php.DateOf("Y-m-d\\TH:i:s", g["end"])
+				if !conv.Bool(g["all_day"]) {
+					g["start"] = conv.DateOf("Y-m-d\\TH:i:s", g["start"])
+					if conv.Str(g["end"]) != "" {
+						g["end"] = conv.DateOf("Y-m-d\\TH:i:s", g["end"])
 					} else {
 						g["end"] = ""
 					}

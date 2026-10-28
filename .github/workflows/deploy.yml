@@ -6,13 +6,13 @@
 #   SERVER_SSH       that user's private SSH key (the whole key, including the BEGIN/END lines)
 #   SERVER_PORT      optional, default 22
 #
-# The app is copied to DEPLOY_PATH, so its public/ folder becomes /var/www/apache8000/public —
-# point Apache's DocumentRoot there. The rest (app/, config/, storage/ …) stays outside the
-# web root, where browsers cannot read it.
+# The Go program is built here (one static file, `acme`) and copied to DEPLOY_PATH together with web/, config/,
+# lang/, database/, public/ and resources/. The service (systemd unit "acme", see README → Deploying) is restarted.
+# The program serves HTTP on localhost; nginx in front adds HTTPS.
 #
 # Old code is removed and new code copied (rsync --delete), but these are never touched,
 # because they hold the server's own data:
-#   config/config.php   database password, mail settings (written by the installer; never in git)
+#   config/config.json  database password, mail settings (written by the installer; never in git)
 #   storage/            logs, cache, attachments, generated PDFs, installed.lock
 #   public/uploads/     uploaded logos, avatars, CRM files, editor images
 # New database migrations run by themselves on the next page load.
@@ -32,7 +32,8 @@ permissions:
   contents: read
 
 env:
-  DEPLOY_PATH: /var/www/apache8000
+  DEPLOY_PATH: /srv/acme
+  SERVICE: acme
 
 jobs:
   deploy:
@@ -56,11 +57,17 @@ jobs:
       - uses: actions/checkout@v4
         if: steps.secrets.outputs.ready == 'true'
 
-      - name: PHP syntax check (a broken file never goes live)
+      - uses: actions/setup-go@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          go-version-file: go.mod
+
+      - name: Check and build (a broken build never goes live)
         if: steps.secrets.outputs.ready == 'true'
         run: |
-          php -v | head -1
-          find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+          go vet -composites=false ./...
+          go test ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o acme ./cmd/acme
 
       - name: Set up SSH
         if: steps.secrets.outputs.ready == 'true'
@@ -86,13 +93,13 @@ jobs:
           $SSH "$USER@$HOST" "mkdir -p '$DEPLOY_PATH'"
           rsync -rlptz --delete --delay-updates --itemize-changes -e "$SSH" \
             --exclude='/.git/' --exclude='/.github/' --exclude='/node_modules/' --exclude='.DS_Store' \
-            --exclude='/config/config.php' \
+            --exclude='/config/config.json' --exclude='/*.go' --exclude='/go.mod' --exclude='/go.sum' --exclude='/cmd/' --exclude='/internal/' --exclude='/docs/' \
             --filter='P /storage/***' \
             --filter='P /public/uploads/***' \
             ./ "$USER@$HOST:$DEPLOY_PATH/" | sed -n '1,200p'
-          # config/config.php is not in git; on a new server the installer creates it from config/config.php.example.
+          # config/config.json is not in git; on a new server the installer creates it from config/config.json.example.
 
-      - name: Make storage and uploads writable for the web server
+      - name: Make storage and uploads writable for the service user
         if: steps.secrets.outputs.ready == 'true'
         env:
           HOST: ${{ secrets.SERVER_HOST }}
@@ -100,9 +107,19 @@ jobs:
           PORT: ${{ secrets.SERVER_PORT || '22' }}
         run: |
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes "$USER@$HOST" "cd '$DEPLOY_PATH' && \
-            if sudo -n true 2>/dev/null; then sudo -n chown -R www-data:www-data storage public/uploads && echo 'storage and uploads owned by www-data'; \
-            else chmod -R ug+rwX storage public/uploads 2>/dev/null; echo 'no passwordless sudo: made storage and uploads group-writable (add $USER and www-data to one group)'; fi; \
+            if sudo -n true 2>/dev/null; then sudo -n chown -R acme:acme storage public/uploads config && echo 'storage, uploads and config owned by acme'; \
+            else chmod -R ug+rwX storage public/uploads 2>/dev/null; echo 'no passwordless sudo: made storage and uploads group-writable (add $USER and the service user to one group)'; fi; \
             echo \"Deployed $GITHUB_SHA to $DEPLOY_PATH\""
+
+      - name: Restart the service
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USERNAME }}
+          PORT: ${{ secrets.SERVER_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes "$USER@$HOST" \
+            "sudo -n systemctl restart $SERVICE && sleep 1 && systemctl is-active $SERVICE"
 
       - name: Remove the key
         if: always()

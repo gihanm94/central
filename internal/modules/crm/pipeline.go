@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Kanban board of opportunities. One column per stage the person's department uses, cards load 10 at a time
@@ -36,7 +36,7 @@ func pipeFilter(c *app.Ctx) (string, []any) {
 		where = append(where, "t.owner_id = ?")
 		params = append(params, u.ID)
 	}
-	if dep := php.Int(c.Input("department", "0")); dep != 0 && seesAll(u) {
+	if dep := conv.Int(c.Input("department", "0")); dep != 0 && seesAll(u) {
 		where = append(where, "t.department_id = ?")
 		params = append(params, dep)
 	}
@@ -73,7 +73,7 @@ func pipeRows(c *app.Ctx, stage string, page int, onlyID int) []db.Row {
 	}
 	rows := db.On("crm").Select(`SELECT t.id, t.code, t.name, t.amount, t.currency, t.probability, t.close_at, t.priority, t.owner_id, t.created_by, t.opportunity_stage, t.updated_at,
                                    l.name_en AS lead_name, l.name_th AS lead_name_th, l.image AS lead_image, ct.name_en AS contact_name
-                              FROM `+pipeFrom+` WHERE `+where+` ORDER BY t.updated_at DESC, t.id DESC LIMIT `+php.Str(pipePerColumn+1)+` OFFSET `+php.Str((page-1)*pipePerColumn), params...)
+                              FROM `+pipeFrom+` WHERE `+where+` ORDER BY t.updated_at DESC, t.id DESC LIMIT `+conv.Str(pipePerColumn+1)+` OFFSET `+conv.Str((page-1)*pipePerColumn), params...)
 	ns := names("users", append(col(rows, "owner_id"), col(rows, "created_by")...))
 	for _, r := range rows {
 		if n, ok := ns[r.Int("owner_id")]; ok {
@@ -97,7 +97,7 @@ func pipeHTML(c *app.Ctx, rows []db.Row, stages []string) string {
 	for _, o := range rows {
 		mine := o.Int("created_by") == u.ID || o.Int("owner_id") == u.ID
 		movable := canEdit && o.Int("created_by") == u.ID && !inStrs(o.Str("opportunity_stage"), stageFinal)
-		late := o.Str("close_at") != "" && php.StrToTime(o["close_at"]) < php.StrToTime(php.Today()) && inStrs(o.Str("opportunity_stage"), stageOpen)
+		late := o.Str("close_at") != "" && conv.StrToTime(o["close_at"]) < conv.StrToTime(conv.Today()) && inStrs(o.Str("opportunity_stage"), stageOpen)
 		creator := "—"
 		if o["creator_name"] != nil {
 			creator = o.Str("creator_name")
@@ -109,7 +109,7 @@ func pipeHTML(c *app.Ctx, rows []db.Row, stages []string) string {
 		}
 		var lead template.HTML
 		if o.Str("lead_name") != "" {
-			lead = h(uiPerson(c, o.Str("lead_name"), php.OrStr(o.Str("lead_name_th"), o.Str("contact_name")), o.Str("lead_image"), "", ""))
+			lead = h(uiPerson(c, o.Str("lead_name"), conv.OrStr(o.Str("lead_name_th"), o.Str("contact_name")), o.Str("lead_image"), "", ""))
 		}
 		var opts []app.M
 		for _, code := range stages {
@@ -118,7 +118,7 @@ func pipeHTML(c *app.Ctx, rows []db.Row, stages []string) string {
 			}
 		}
 		b.WriteString(string(c.Partial("crm/pipeline-card", app.M{"o": o, "mine": mine, "movable": movable, "late": late, "creator": creator, "ownerName": owner, "lead": lead,
-			"stages": opts, "prob": o["probability"] != nil, "probText": php.NumberClean(o["probability"]), "money": h(uiMoney(o["amount"], o.Str("currency"))),
+			"stages": opts, "prob": o["probability"] != nil, "probText": conv.NumberClean(o["probability"]), "money": h(uiMoney(o["amount"], o.Str("currency"))),
 			"closeShort": app.FormatDate(c, o["close_at"], "d M"), "ownerAvatar": avatarName,
 		})))
 	}
@@ -144,11 +144,11 @@ func pipelineIndex(c *app.Ctx) {
 			rows = rows[:pipePerColumn]
 		}
 		html := pipeHTML(c, rows, stages)
-		cols = append(cols, col{Code: code, Color: stageColor(c, code), Label: stageLabel(c, code), Count: php.Str(stats[code].N),
+		cols = append(cols, col{Code: code, Color: stageColor(c, code), Label: stageLabel(c, code), Count: conv.Str(stats[code].N),
 			Sum: cur + " " + uiCompact(stats[code].V), HTML: h(html), More: more, HasHTML: html != ""})
 	}
 	canEdit := c.Can("crm_opportunities", "edit")
-	dep := php.Int(c.Input("department", "0"))
+	dep := conv.Int(c.Input("department", "0"))
 	mine := c.Input("mine") == "1"
 	link := func(m string) string {
 		q := app.M{"q": strings.TrimSpace(c.Input("q")), "department": nilZero(dep), "mine": nil}
@@ -162,7 +162,7 @@ func pipelineIndex(c *app.Ctx) {
 		desc = c.T("Drag your own cards to another stage. Cards with a red edge are yours; the rest belong to colleagues and are locked.")
 	}
 	c.View("crm/pipeline", app.M{"title": c.T("Pipeline"), "cols": cols, "desc": desc, "all": seesAll(u), "deps": departments(), "q": strings.TrimSpace(c.Input("q")), "mine": mine,
-		"dep": ternaryStr(dep != 0, php.Str(dep), ""), "canEdit": canEdit, "needsReason": strings.Join(stageNeedsReason, ","), "linkAll": link(""), "linkMine": link("1")})
+		"dep": ternaryStr(dep != 0, conv.Str(dep), ""), "canEdit": canEdit, "needsReason": strings.Join(stageNeedsReason, ","), "linkAll": link(""), "linkMine": link("1")})
 }
 
 func ternaryStr(c bool, a, b string) string {
@@ -180,7 +180,7 @@ func pipelineCards(c *app.Ctx) {
 	if !inStrs(stage, stages) {
 		c.JSON(app.M{"html": "", "more": false})
 	}
-	rows := pipeRows(c, stage, max(1, php.Int(c.Input("page", "1"))), 0)
+	rows := pipeRows(c, stage, max(1, conv.Int(c.Input("page", "1"))), 0)
 	more := len(rows) > pipePerColumn
 	if more {
 		rows = rows[:pipePerColumn]
@@ -192,7 +192,7 @@ func pipelineCards(c *app.Ctx) {
 func pipelineMove(c *app.Ctx) {
 	c.Authorize("crm_opportunities", "edit")
 	u := c.MustUser()
-	id := php.Int(c.Input("id"))
+	id := conv.Int(c.Input("id"))
 	stage := c.Input("stage")
 	note := strings.TrimSpace(c.Input("note"))
 	row := opportunities.openRecord(c, id)

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Minimal Excel (.xlsx) reader and writer (App\Core\Support\Xlsx): a bold, frozen header row with filter buttons;
@@ -78,7 +78,7 @@ func XlsxBuild(sheets []Sheet) []byte {
 		var b strings.Builder
 		cols := ""
 		for ci, h := range s.Header {
-			w := max(10, min(60, php.Len(h)+6))
+			w := max(10, min(60, conv.Len(h)+6))
 			cols += fmt.Sprintf(`<col min="%d" max="%d" width="%d" customWidth="1"/>`, ci+1, ci+1, w)
 		}
 		b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`)
@@ -114,7 +114,7 @@ func sheetName(n string, i int) string {
 	if n == "" {
 		n = "Sheet" + strconv.Itoa(i+1)
 	}
-	return php.Substr(n, 0, 31)
+	return conv.Substr(n, 0, 31)
 }
 
 var plainNumber = regexp.MustCompile(`^-?(0|[1-9]\d{0,14})(\.\d{1,10})?$`)
@@ -154,9 +154,9 @@ func rowXML(r int, cells []any, style int) string {
 		case int:
 			x.WriteString(`<c r="` + ref + `"` + st + `><v>` + strconv.Itoa(n) + `</v></c>`)
 		case float64:
-			x.WriteString(`<c r="` + ref + `"` + st + `><v>` + php.Str(n) + `</v></c>`)
+			x.WriteString(`<c r="` + ref + `"` + st + `><v>` + conv.Str(n) + `</v></c>`)
 		default:
-			x.WriteString(`<c r="` + ref + `" t="inlineStr"` + st + `><is><t xml:space="preserve">` + xmlEsc(php.Str(v)) + `</t></is></c>`)
+			x.WriteString(`<c r="` + ref + `" t="inlineStr"` + st + `><is><t xml:space="preserve">` + xmlEsc(conv.Str(v)) + `</t></is></c>`)
 		}
 	}
 	x.WriteString("</row>")
@@ -316,7 +316,7 @@ func sheetRows(raw []byte, shared []string, dates map[int]bool, maxRows int) ([]
 			v := c.V
 			switch c.T {
 			case "s":
-				i := php.Int(v)
+				i := conv.Int(v)
 				if i >= 0 && i < len(shared) {
 					v = shared[i]
 				} else {
@@ -336,10 +336,10 @@ func sheetRows(raw []byte, shared []string, dates map[int]bool, maxRows int) ([]
 					v = "FALSE"
 				}
 			case "", "n":
-				if v != "" && dates[php.Int(c.S)] && IsNumeric(v) {
-					v = excelDate(php.Float(v))
+				if v != "" && dates[conv.Int(c.S)] && IsNumeric(v) {
+					v = excelDate(conv.Float(v))
 				} else if v != "" && IsNumeric(v) && strings.Contains(v, "E") {
-					v = strings.TrimRight(strings.TrimRight(strconv.FormatFloat(php.Float(v), 'f', 10, 64), "0"), ".")
+					v = strings.TrimRight(strings.TrimRight(strconv.FormatFloat(conv.Float(v), 'f', 10, 64), "0"), ".")
 				}
 			}
 			vals[col] = v

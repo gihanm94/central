@@ -9,15 +9,15 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // om is an ordered JSON object (a PHP array with string keys): om("a", 1, "b", 2).
 func om(kv ...any) *config.Map {
 	m := config.NewMap()
 	for i := 0; i+1 < len(kv); i += 2 {
-		m.Set(php.Str(kv[i]), kv[i+1])
+		m.Set(conv.Str(kv[i]), kv[i+1])
 	}
 	return m
 }
@@ -28,8 +28,8 @@ const (
 	flagSlashes             // JSON_UNESCAPED_SLASHES
 )
 
-// phpJSON is json_encode($v, flags): "/" becomes "\/" and non-ASCII "\uXXXX" unless the flags say otherwise.
-func phpJSON(v any, flags int) string {
+// jsonCompat is json_encode($v, flags): "/" becomes "\/" and non-ASCII "\uXXXX" unless the flags say otherwise.
+func jsonCompat(v any, flags int) string {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
@@ -69,7 +69,7 @@ func jsonObject(s string) map[string]any {
 
 // jsonList is json_decode($s, true) ?: [] for a list of objects (a JSON object's values count as the list, like array_values).
 func jsonList(s any) []map[string]any {
-	str := php.Str(s)
+	str := conv.Str(s)
 	if str == "" {
 		return nil
 	}
@@ -153,10 +153,10 @@ func fmtDate(c *app.Ctx, v any, f ...string) string {
 
 // orDash is $v ?: '—' for display.
 func orDash(v any) string {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return "—"
 	}
-	return php.Str(v)
+	return conv.Str(v)
 }
 
 func esc(v any) string { return app.E(v) }

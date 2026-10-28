@@ -8,8 +8,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Roles and the permission matrix (view / create / edit / delete / import / export / download) (RoleController).
@@ -63,7 +63,7 @@ func roleIndex(c *app.Ctx) {
 			if acts := s[res.Key]; len(acts) > 0 {
 				names := make([]string, len(acts))
 				for i, a := range acts {
-					names[i] = strings.ToLower(c.T(php.Ucfirst(a)))
+					names[i] = strings.ToLower(c.T(conv.Ucfirst(a)))
 				}
 				parts = append(parts, `<span class="text-graphite-900">`+app.E(c.T(res.Label))+`</span> `+app.E(strings.Join(names, ", ")))
 			}
@@ -92,7 +92,7 @@ func roleStore(c *app.Ctx) {
 	app.LogActivity(c, app.ActivityEntry{Action: "created", Type: "role", ID: id, Label: data.Str("name"), Text: `Created :type ":label"`,
 		Params: []any{"type", "role", "label", data.Str("name")}, Props: app.M{"attributes": cleanMap(data)}})
 	c.Flash("success", c.T("Role created. Now choose what it can do."))
-	c.Redirect("/roles/" + php.Str(id) + "/permissions")
+	c.Redirect("/roles/" + conv.Str(id) + "/permissions")
 }
 
 func roleEdit(c *app.Ctx) {
@@ -110,7 +110,7 @@ func roleGuardRank(c *app.Ctx, role db.Row, newLevel any) {
 	if role != nil && (role.Int("id") == u.RoleID || role.Int("level") >= u.RoleLevel) {
 		app.Abort(http.StatusForbidden, c.T("You can only change roles ranked below your own."))
 	}
-	if newLevel != nil && php.Int(newLevel) >= u.RoleLevel {
+	if newLevel != nil && conv.Int(newLevel) >= u.RoleLevel {
 		app.Invalid("level", c.T("Choose a level below your own (:n).", "n", u.RoleLevel))
 	}
 }
@@ -127,7 +127,7 @@ func roleUpdate(c *app.Ctx) {
 		data.Set("level", 100)
 	}
 	cols := cleanCols(data)
-	cols = append(cols, db.Col{Name: "updated_at", Value: php.NowString()})
+	cols = append(cols, db.Col{Name: "updated_at", Value: conv.NowString()})
 	db.Core.Update("roles", cols, db.Cols{{Name: "id", Value: id}})
 	c.MustUser().ForgetPermissions()
 	changes := app.Diff(map[string]any(role), data.Map(), data.Keys)
@@ -147,7 +147,7 @@ func roleDestroy(c *app.Ctx) {
 	if role.Bool("is_system") {
 		app.Invalid("role", c.T("Built-in roles cannot be deleted."))
 	}
-	if php.Int(db.Scalar("SELECT COUNT(*) FROM users WHERE role_id = ? AND deleted_at IS NULL", id)) > 0 {
+	if conv.Int(db.Scalar("SELECT COUNT(*) FROM users WHERE role_id = ? AND deleted_at IS NULL", id)) > 0 {
 		app.Invalid("role", c.T("Move everyone out of this role before deleting it."))
 	}
 	db.Exec("DELETE FROM roles WHERE id = ?", id)
@@ -193,7 +193,7 @@ func rolePermissions(c *app.Ctx) {
 	}
 	var actionLabels []string
 	for _, a := range actions {
-		actionLabels = append(actionLabels, c.T(php.Ucfirst(a)))
+		actionLabels = append(actionLabels, c.T(conv.Ucfirst(a)))
 	}
 	c.View("roles/permissions", app.M{
 		"title": c.T(":role permissions", "role", c.T(role.Str("name"))), "role": role, "isAdmin": isAdmin,
@@ -228,7 +228,7 @@ func roleSavePermissions(c *app.Ctx) {
 			var cols []string
 			params := []any{id, p["id"]}
 			for _, a := range app.Actions() {
-				v := !php.Empty(mapGet(app.InMap(mapGet(input, key)), a))
+				v := !conv.Empty(mapGet(app.InMap(mapGet(input, key)), a))
 				before := old[key] != nil && old[key].Bool("can_"+a)
 				if before != v {
 					changes.Set(key+"."+a, app.Change{From: yn(before), To: yn(v)})
@@ -253,7 +253,7 @@ func roleSavePermissions(c *app.Ctx) {
 	} else {
 		c.Flash("success", c.T("Nothing changed."))
 	}
-	c.Redirect("/roles/" + php.Str(id) + "/permissions")
+	c.Redirect("/roles/" + conv.Str(id) + "/permissions")
 }
 
 func roleFind(c *app.Ctx, id int) db.Row {

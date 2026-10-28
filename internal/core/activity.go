@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -71,7 +71,7 @@ func activityWhere(c *app.Ctx, mine bool) (string, []any) {
 			p = append(p, a)
 		}
 	}
-	if uid := php.Int(c.Query("user")); !mine && uid != 0 {
+	if uid := conv.Int(c.Query("user")); !mine && uid != 0 {
 		where = append(where, "l.user_id = ?")
 		p = append(p, uid)
 	}
@@ -79,11 +79,11 @@ func activityWhere(c *app.Ctx, mine bool) (string, []any) {
 		where = append(where, "l.module = ?")
 		p = append(p, m)
 	}
-	if from := c.Query("from"); from != "" && php.StrToTime(from) != 0 {
+	if from := c.Query("from"); from != "" && conv.StrToTime(from) != 0 {
 		where = append(where, "l.created_at >= ?")
 		p = append(p, from+" 00:00:00")
 	}
-	if to := c.Query("to"); to != "" && php.StrToTime(to) != 0 {
+	if to := c.Query("to"); to != "" && conv.StrToTime(to) != 0 {
 		where = append(where, "l.created_at <= ?")
 		p = append(p, to+" 23:59:59")
 	}
@@ -104,10 +104,10 @@ func activityMine(c *app.Ctx) { activityList(c, true) }
 
 func activityList(c *app.Ctx, mine bool) {
 	w, p := activityWhere(c, mine)
-	page := max(1, php.Int(c.Query("page", "1")))
-	total := php.Int(db.Scalar("SELECT COUNT(*) FROM activity_logs l WHERE "+w, p...))
+	page := max(1, conv.Int(c.Query("page", "1")))
+	total := conv.Int(db.Scalar("SELECT COUNT(*) FROM activity_logs l WHERE "+w, p...))
 	logs := db.Select(`SELECT l.*, u.name AS user_name, u.avatar FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id
-                              WHERE `+w+" ORDER BY l.created_at DESC, l.id DESC LIMIT 30 OFFSET "+php.Str((page-1)*30), p...)
+                              WHERE `+w+" ORDER BY l.created_at DESC, l.id DESC LIMIT 30 OFFSET "+conv.Str((page-1)*30), p...)
 	title, base, sub := c.T("Activity log"), "/activity", c.T(":count entries. Every sign-in, change, import, export and download is recorded here.", "count", total)
 	var users []app.Opt
 	if mine {
@@ -117,7 +117,7 @@ func activityList(c *app.Ctx, mine bool) {
 	}
 	filtered := false
 	for _, v := range c.QueryMap() {
-		if !php.Empty(v) {
+		if !conv.Empty(v) {
 			filtered = true
 		}
 	}
@@ -155,7 +155,7 @@ func activityEntry(c *app.Ctx, id int, mine bool) {
 	}
 	props.Delete("_t")
 
-	person := php.Str(php.Coalesce(log["user_name"], c.T("System")))
+	person := conv.Str(conv.Coalesce(log["user_name"], c.T("System")))
 	if log.Str("user_email") != "" {
 		person += " (" + log.Str("user_email") + ")"
 	}
@@ -194,7 +194,7 @@ func activityEntry(c *app.Ctx, id int, mine bool) {
 					from, _ = ch.Get("from")
 					to, _ = ch.Get("to")
 				}
-				changes = append(changes, change{Field: c.T(php.Ucfirst(strings.ReplaceAll(f, "_", " "))), From: wsScalar(from), To: wsScalar(to)})
+				changes = append(changes, change{Field: c.T(conv.Ucfirst(strings.ReplaceAll(f, "_", " "))), From: wsScalar(from), To: wsScalar(to)})
 			}
 		}
 	}
@@ -218,7 +218,7 @@ func activityEntry(c *app.Ctx, id int, mine bool) {
 func wsScalar(v any) string {
 	switch x := v.(type) {
 	case string, int, int64, float64, bool:
-		return php.Str(x)
+		return conv.Str(x)
 	}
 	b, _ := json.Marshal(v)
 	return wsUnescapeHTML(string(b))
@@ -252,7 +252,7 @@ func activityDownload(c *app.Ctx, mine bool) {
                               FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id WHERE `+w+" ORDER BY l.created_at DESC LIMIT 50000", p...)
 	filters := app.M{}
 	for k, v := range c.QueryMap() {
-		if !php.Empty(v) {
+		if !conv.Empty(v) {
 			filters[k] = v
 		}
 	}
@@ -270,5 +270,5 @@ func activityDownload(c *app.Ctx, mine bool) {
 	if mine {
 		name = "my-activity-"
 	}
-	c.XlsxDownload(name+php.Date("Ymd-His", php.Now())+".xlsx", []string{c.T("Time"), c.T("Person"), c.T("Module"), c.T("Action"), c.T("Description"), "IP", c.T("Device")}, out)
+	c.XlsxDownload(name+conv.Date("Ymd-His", conv.Now())+".xlsx", []string{c.T("Time"), c.T("Person"), c.T("Module"), c.T("Action"), c.T("Description"), "IP", c.T("Device")}, out)
 }

@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
 	"acme/internal/i18n"
-	"acme/internal/php"
 )
 
 /*
@@ -183,7 +183,7 @@ func Render(c *Ctx, name string, data M) string {
 	}
 	layout := "layouts/app"
 	if l, ok := d["layout"]; ok {
-		layout = php.Str(l)
+		layout = conv.Str(l)
 	}
 	if layout == "" {
 		return content
@@ -259,8 +259,8 @@ func Icon(name, class string) template.HTML {
 	return template.HTML(`<svg class="` + template.HTMLEscapeString(class) + `" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="` + d + `"/></svg>`)
 }
 
-func toInt(v any) int       { return php.Int(v) }
-func toFloat(v any) float64 { return php.Float(v) }
+func toInt(v any) int       { return conv.Int(v) }
+func toFloat(v any) float64 { return conv.Float(v) }
 
 func funcMap(st *renderState) template.FuncMap {
 	c := func() *Ctx { return st.c }
@@ -283,7 +283,7 @@ func funcMap(st *renderState) template.FuncMap {
 				m[k] = v
 			}
 			for i := 0; i+1 < len(set); i += 2 {
-				m[php.Str(set[i])] = set[i+1]
+				m[conv.Str(set[i])] = set[i+1]
 			}
 			return buildQuery(m)
 		},
@@ -319,9 +319,9 @@ func funcMap(st *renderState) template.FuncMap {
 			}
 			return ""
 		},
-		"flash": func(k string) string { return php.Str(c().Sess.FlashGet(k)) },
+		"flash": func(k string) string { return conv.Str(c().Sess.FlashGet(k)) },
 		"select": func(name string, options []Opt, value any, o ...any) template.HTML {
-			return SelectField(c(), name, options, php.Str(value), dictOf(o))
+			return SelectField(c(), name, options, conv.Str(value), dictOf(o))
 		},
 		"partial": func(name string, data ...any) template.HTML {
 			return template.HTML(RenderPartial(c(), name, dictOf(data)))
@@ -345,42 +345,42 @@ func funcMap(st *renderState) template.FuncMap {
 		"timeAgo": func(v any) string { return TimeAgo(c(), v) },
 		"date": func(f string, v ...any) string {
 			if len(v) == 0 {
-				return php.Date(f, php.Now())
+				return conv.Date(f, conv.Now())
 			}
-			return php.DateOf(f, v[0])
+			return conv.DateOf(f, v[0])
 		},
-		"initials": func(s any) string { return php.Initials(php.Str(s)) },
+		"initials": func(s any) string { return conv.Initials(conv.Str(s)) },
 		"strLimit": func(s any, n ...int) string {
 			l := 60
 			if len(n) > 0 {
 				l = n[0]
 			}
-			return php.Limit(php.Str(s), l)
+			return conv.Limit(conv.Str(s), l)
 		},
-		"numberClean": func(n any) string { return php.NumberClean(n) },
+		"numberClean": func(n any) string { return conv.NumberClean(n) },
 		"nf": func(n any, dec ...int) string {
 			d := 0
 			if len(dec) > 0 {
 				d = dec[0]
 			}
-			return php.NF(n, d)
+			return conv.NF(n, d)
 		},
-		"ucfirst":   func(s any) string { return php.Ucfirst(php.Str(s)) },
-		"lower":     func(s any) string { return strings.ToLower(php.Str(s)) },
-		"upper":     func(s any) string { return strings.ToUpper(php.Str(s)) },
-		"trim":      func(s any) string { return strings.TrimSpace(php.Str(s)) },
-		"replace":   func(s any, old, new string) string { return strings.ReplaceAll(php.Str(s), old, new) },
-		"contains":  func(s any, sub string) bool { return strings.Contains(php.Str(s), sub) },
-		"hasPrefix": func(s any, p string) bool { return strings.HasPrefix(php.Str(s), p) },
-		"hasSuffix": func(s any, p string) bool { return strings.HasSuffix(php.Str(s), p) },
+		"ucfirst":   func(s any) string { return conv.Ucfirst(conv.Str(s)) },
+		"lower":     func(s any) string { return strings.ToLower(conv.Str(s)) },
+		"upper":     func(s any) string { return strings.ToUpper(conv.Str(s)) },
+		"trim":      func(s any) string { return strings.TrimSpace(conv.Str(s)) },
+		"replace":   func(s any, old, new string) string { return strings.ReplaceAll(conv.Str(s), old, new) },
+		"contains":  func(s any, sub string) bool { return strings.Contains(conv.Str(s), sub) },
+		"hasPrefix": func(s any, p string) bool { return strings.HasPrefix(conv.Str(s), p) },
+		"hasSuffix": func(s any, p string) bool { return strings.HasSuffix(conv.Str(s), p) },
 		"join":      func(list any, sep string) string { return strings.Join(toStrings(list), sep) },
-		"split":     func(s any, sep string) []string { return strings.Split(php.Str(s), sep) },
+		"split":     func(s any, sep string) []string { return strings.Split(conv.Str(s), sep) },
 		"substr": func(s any, start int, length ...int) string {
 			l := -1
 			if len(length) > 0 {
 				l = length[0]
 			}
-			return php.Substr(php.Str(s), start, l)
+			return conv.Substr(conv.Str(s), start, l)
 		},
 		"len": func(v any) int { return lenOf(v) },
 		"setting": func(k string, def ...string) string {
@@ -391,7 +391,7 @@ func funcMap(st *renderState) template.FuncMap {
 			return Setting(k, d)
 		},
 		"config":       func(k string) any { return config.Get(k) },
-		"enumLabel":    func(group string, v any) string { return EnumLabel(c(), group, php.Str(v)) },
+		"enumLabel":    func(group string, v any) string { return EnumLabel(c(), group, conv.Str(v)) },
 		"activityText": func(r db.Row) string { return ActivityText(c(), r) },
 		"enumOptions":  func(group string) []Opt { return EnumOptions(c(), group) },
 		// data
@@ -407,34 +407,34 @@ func funcMap(st *renderState) template.FuncMap {
 			b, _ := json.Marshal(v)
 			return string(b)
 		},
-		"raw":     func(s any) template.HTML { return template.HTML(php.Str(s)) },
-		"attr":    func(s any) template.HTMLAttr { return template.HTMLAttr(php.Str(s)) },
-		"safeURL": func(s any) template.URL { return template.URL(php.Str(s)) },
-		"css":     func(s any) template.CSS { return template.CSS(php.Str(s)) },
-		"str":     func(v any) string { return php.Str(v) },
+		"raw":     func(s any) template.HTML { return template.HTML(conv.Str(s)) },
+		"attr":    func(s any) template.HTMLAttr { return template.HTMLAttr(conv.Str(s)) },
+		"safeURL": func(s any) template.URL { return template.URL(conv.Str(s)) },
+		"css":     func(s any) template.CSS { return template.CSS(conv.Str(s)) },
+		"str":     func(v any) string { return conv.Str(v) },
 		"int":     toInt,
 		"float":   toFloat,
-		"bool":    func(v any) bool { return php.Bool(v) },
-		"empty":   func(v any) bool { return php.Empty(v) },
-		"blank":   func(v any) bool { return php.Blank(v) },
-		"filled":  func(v any) bool { return !php.Blank(v) },
+		"bool":    func(v any) bool { return conv.Bool(v) },
+		"empty":   func(v any) bool { return conv.Empty(v) },
+		"blank":   func(v any) bool { return conv.Blank(v) },
+		"filled":  func(v any) bool { return !conv.Blank(v) },
 		"default": func(def, v any) any {
-			if php.Empty(v) {
+			if conv.Empty(v) {
 				return def
 			}
 			return v
 		},
-		"coalesce": func(v ...any) any { return php.Coalesce(v...) },
-		"or":       func(v ...any) any { return php.Or(v...) },
+		"coalesce": func(v ...any) any { return conv.Coalesce(v...) },
+		"or":       func(v ...any) any { return conv.Or(v...) },
 		"ternary": func(cond bool, a, b any) any {
 			if cond {
 				return a
 			}
 			return b
 		},
-		"eqs": func(a, b any) bool { return php.Str(a) == php.Str(b) },
+		"eqs": func(a, b any) bool { return conv.Str(a) == conv.Str(b) },
 		"in": func(v any, list ...any) bool {
-			s := php.Str(v)
+			s := conv.Str(v)
 			for _, x := range list {
 				for _, y := range toStrings(x) {
 					if y == s {
@@ -505,21 +505,21 @@ func funcMap(st *renderState) template.FuncMap {
 				m[k] = v
 			}
 			for i := 0; i+1 < len(set); i += 2 {
-				m[php.Str(set[i])] = set[i+1]
+				m[conv.Str(set[i])] = set[i+1]
 			}
 			return m
 		},
 		"pager": func(total, perPage, page any) Pager {
-			return pagerFor(c(), php.Int(total), php.Int(perPage), php.Int(page))
+			return pagerFor(c(), conv.Int(total), conv.Int(perPage), conv.Int(page))
 		},
 		"pickerData":     func(f Field, picked []string) pickerView { return pickerData(f, picked) },
 		"accessRequests": func() bool { return AccessRequestsEnabled() },
 		"debugBanner": func() bool {
-			return config.String("app.env", "") == "local" && c().User().IsAdmin() && !php.InList(c().Host(), "localhost", "127.0.0.1", "::1")
+			return config.String("app.env", "") == "local" && c().User().IsAdmin() && !conv.InList(c().Host(), "localhost", "127.0.0.1", "::1")
 		},
 		"cookie": func(k string) string { return c().Cookie(k) },
-		"now":    func() time.Time { return php.Now() },
-		"year":   func() int { return php.Now().Year() },
+		"now":    func() time.Time { return conv.Now() },
+		"year":   func() int { return conv.Now().Year() },
 	}
 }
 
@@ -531,7 +531,7 @@ func dictOf(kv []any) M {
 	}
 	m := M{}
 	for i := 0; i+1 < len(kv); i += 2 {
-		m[php.Str(kv[i])] = kv[i+1]
+		m[conv.Str(kv[i])] = kv[i+1]
 	}
 	return m
 }
@@ -543,7 +543,7 @@ func toStrings(v any) []string {
 	case []any:
 		out := make([]string, len(x))
 		for i, e := range x {
-			out[i] = php.Str(e)
+			out[i] = conv.Str(e)
 		}
 		return out
 	case nil:
@@ -553,11 +553,11 @@ func toStrings(v any) []string {
 	if rv.Kind() == reflect.Slice {
 		out := make([]string, rv.Len())
 		for i := range out {
-			out[i] = php.Str(rv.Index(i).Interface())
+			out[i] = conv.Str(rv.Index(i).Interface())
 		}
 		return out
 	}
-	return []string{php.Str(v)}
+	return []string{conv.Str(v)}
 }
 
 func lenOf(v any) int {
@@ -565,7 +565,7 @@ func lenOf(v any) int {
 	case nil:
 		return 0
 	case string:
-		return php.Len(x)
+		return conv.Len(x)
 	case *Errors:
 		return x.Len()
 	case *config.Map:
@@ -584,20 +584,20 @@ func getKey(m any, k any) any {
 	case nil:
 		return nil
 	case M:
-		return x[php.Str(k)]
+		return x[conv.Str(k)]
 	case db.Row:
-		return x[php.Str(k)]
+		return x[conv.Str(k)]
 	case map[string]string:
-		return x[php.Str(k)]
+		return x[conv.Str(k)]
 	case map[string]bool:
-		return x[php.Str(k)]
+		return x[conv.Str(k)]
 	case map[int]any:
-		return x[php.Int(k)]
+		return x[conv.Int(k)]
 	case *config.Map:
-		v, _ := x.Get(php.Str(k))
+		v, _ := x.Get(conv.Str(k))
 		return v
 	case []any:
-		i := php.Int(k)
+		i := conv.Int(k)
 		if i >= 0 && i < len(x) {
 			return x[i]
 		}
@@ -613,18 +613,18 @@ func getKey(m any, k any) any {
 				return v.Interface()
 			}
 		} else if rv.Type().Key().Kind() == reflect.String {
-			v := rv.MapIndex(reflect.ValueOf(php.Str(k)).Convert(rv.Type().Key()))
+			v := rv.MapIndex(reflect.ValueOf(conv.Str(k)).Convert(rv.Type().Key()))
 			if v.IsValid() {
 				return v.Interface()
 			}
 		} else if rv.Type().Key().Kind() == reflect.Int {
-			v := rv.MapIndex(reflect.ValueOf(php.Int(k)))
+			v := rv.MapIndex(reflect.ValueOf(conv.Int(k)))
 			if v.IsValid() {
 				return v.Interface()
 			}
 		}
 	case reflect.Slice:
-		i := php.Int(k)
+		i := conv.Int(k)
 		if i >= 0 && i < rv.Len() {
 			return rv.Index(i).Interface()
 		}
@@ -635,13 +635,13 @@ func getKey(m any, k any) any {
 func hasKey(m any, k any) bool {
 	switch x := m.(type) {
 	case M:
-		_, ok := x[php.Str(k)]
+		_, ok := x[conv.Str(k)]
 		return ok
 	case db.Row:
-		_, ok := x[php.Str(k)]
+		_, ok := x[conv.Str(k)]
 		return ok
 	case *config.Map:
-		_, ok := x.Get(php.Str(k))
+		_, ok := x.Get(conv.Str(k))
 		return ok
 	}
 	return getKey(m, k) != nil
@@ -651,12 +651,12 @@ func hasKey(m any, k any) bool {
 
 // FormatDate is format_date(): month and day names in the current language; "—" when empty.
 func FormatDate(c *Ctx, v any, format string) string {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return "—"
 	}
-	out := php.DateOf(format, v)
+	out := conv.DateOf(format, v)
 	if out == "" {
-		out = php.Date(format, php.Unix(0))
+		out = conv.Date(format, conv.Unix(0))
 	}
 	if c.Locale() == "en" {
 		return out
@@ -666,10 +666,10 @@ func FormatDate(c *Ctx, v any, format string) string {
 
 // TimeAgo is time_ago().
 func TimeAgo(c *Ctx, v any) string {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return c.T("never")
 	}
-	diff := time.Now().Unix() - php.StrToTime(v)
+	diff := time.Now().Unix() - conv.StrToTime(v)
 	if diff < 0 {
 		return c.T("in :time", "time", TimeSpan(c, int(-diff)))
 	}
@@ -711,7 +711,7 @@ func EnumLabel(c *Ctx, group, v string) string {
 	}
 	if m, ok := val.(*config.Map); ok {
 		if l, ok := m.Get(v); ok {
-			return c.T(php.Str(l))
+			return c.T(conv.Str(l))
 		}
 	}
 	return c.T(v)
@@ -723,7 +723,7 @@ func EnumOptions(c *Ctx, group string) []Opt {
 	var out []Opt
 	if list, ok := val.([]any); ok {
 		for _, x := range list {
-			s := php.Str(x)
+			s := conv.Str(x)
 			l := s
 			if s == "OTHER" {
 				l = c.T("Other")
@@ -745,7 +745,7 @@ var monthDayRe = regexp.MustCompile(`\b(January|February|March|April|May|June|Ju
 // SelectField is select_field(): the Tailwind dropdown that posts like a <select>.
 // o: placeholder, id, submit, disabled, class, search, tones (map[string]string), size ("sm"), wrap, aria, required.
 func SelectField(c *Ctx, name string, options []Opt, value string, o M) template.HTML {
-	id := php.Str(o["id"])
+	id := conv.Str(o["id"])
 	if id == "" {
 		id = "sel-" + nonWord.ReplaceAllString(name, "-") + "-" + randHex(3)[:5]
 	}
@@ -757,7 +757,7 @@ func SelectField(c *Ctx, name string, options []Opt, value string, o M) template
 		}
 	}
 	if r, ok := o["rich"]; ok {
-		rich = php.Bool(r)
+		rich = conv.Bool(r)
 	}
 	label, has := OptLabel(options, value)
 	hasValue := value != "" && has
@@ -769,7 +769,7 @@ func SelectField(c *Ctx, name string, options []Opt, value string, o M) template
 	}
 	if !hasValue {
 		if p, ok := o["placeholder"]; ok {
-			label = php.Str(p)
+			label = conv.Str(p)
 		} else {
 			label = c.T("Choose…")
 		}
@@ -777,10 +777,10 @@ func SelectField(c *Ctx, name string, options []Opt, value string, o M) template
 	tones, _ := o["tones"].(map[string]string)
 	search := rich || len(options) > 8
 	if s, ok := o["search"]; ok {
-		search = php.Bool(s)
+		search = conv.Bool(s)
 	}
-	sm := php.Str(o["size"]) == "sm"
-	base := php.Str(o["class"])
+	sm := conv.Str(o["size"]) == "sm"
+	base := conv.Str(o["class"])
 	if base == "" {
 		switch {
 		case sm:
@@ -795,7 +795,7 @@ func SelectField(c *Ctx, name string, options []Opt, value string, o M) template
 	return template.HTML(RenderPartial(c, "partials/select", M{
 		"name": name, "options": options, "value": value, "o": o, "id": id, "rich": rich, "hasValue": hasValue, "label": label,
 		"selected": selected, "tones": tones, "search": search, "sm": sm, "base": base, "hasPlaceholder": hasPlaceholder,
-		"placeholder": php.Str(o["placeholder"]), "required": php.Truthy(o["required"]), "tone": tones[value],
+		"placeholder": conv.Str(o["placeholder"]), "required": conv.Truthy(o["required"]), "tone": tones[value],
 	}))
 }
 

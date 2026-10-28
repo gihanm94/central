@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // PeriodPresets are the dashboard period buttons (Period::PRESETS), in order.
@@ -13,9 +13,9 @@ var PeriodPresets = []Opt{{Value: "today", Label: "Today"}, {Value: "7d", Label:
 // PeriodFromRequest is Period::fromRequest(): ?range=month|today|7d|30d|90d|last_month|year|custom&from=&to= (default: this month).
 // Returns from, to (inclusive, midnight in the company zone) and the preset key.
 func (c *Ctx) PeriodFromRequest() (time.Time, time.Time, string) {
-	n := php.Now()
-	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, php.Loc)
-	first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, php.Loc)
+	n := conv.Now()
+	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, conv.Loc)
+	first := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, conv.Loc)
 	key := c.Query("range", "month")
 	from, to := first, first.AddDate(0, 1, -1)
 	switch key {
@@ -30,10 +30,10 @@ func (c *Ctx) PeriodFromRequest() (time.Time, time.Time, string) {
 	case "last_month":
 		from, to = first.AddDate(0, -1, 0), first.AddDate(0, 0, -1)
 	case "year":
-		from, to = time.Date(today.Year(), 1, 1, 0, 0, 0, 0, php.Loc), time.Date(today.Year(), 12, 31, 0, 0, 0, 0, php.Loc)
+		from, to = time.Date(today.Year(), 1, 1, 0, 0, 0, 0, conv.Loc), time.Date(today.Year(), 12, 31, 0, 0, 0, 0, conv.Loc)
 	case "custom":
-		f, e1 := time.ParseInLocation("2006-01-02", c.Query("from"), php.Loc)
-		t, e2 := time.ParseInLocation("2006-01-02", c.Query("to"), php.Loc)
+		f, e1 := time.ParseInLocation("2006-01-02", c.Query("from"), conv.Loc)
+		t, e2 := time.ParseInLocation("2006-01-02", c.Query("to"), conv.Loc)
 		if e1 == nil && e2 == nil {
 			if f.After(t) {
 				f, t = t, f
@@ -65,7 +65,7 @@ type rangePreset struct{ Key, Label, URL string }
 func rangeKeep(c *Ctx, action string, keep map[string]any, selects []RangeSelect) M {
 	clean := map[string]any{}
 	for k, v := range keep {
-		s := php.Str(v)
+		s := conv.Str(v)
 		if v == nil || s == "" || s == "0" {
 			continue
 		}
@@ -78,7 +78,7 @@ func rangeKeep(c *Ctx, action string, keep map[string]any, selects []RangeSelect
 	hidden := map[string]string{}
 	for k, v := range clean {
 		if !own[k] {
-			hidden[k] = php.Str(v)
+			hidden[k] = conv.Str(v)
 		}
 	}
 	var presets []rangePreset

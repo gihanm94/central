@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // MaxPDF is the per-file limit.
@@ -50,13 +50,13 @@ func SizeLabel(b int) string {
 	for i, u := range []string{"B", "KB", "MB", "GB"} {
 		if f < 1024 || i == 3 {
 			if i == 0 {
-				return php.Str(b) + " " + u
+				return conv.Str(b) + " " + u
 			}
 			dec := 0
 			if f < 10 {
 				dec = 1
 			}
-			return php.NF(f, dec) + " " + u
+			return conv.NF(f, dec) + " " + u
 		}
 		f /= 1024
 	}
@@ -111,7 +111,7 @@ func Save(c *app.Ctx, userID int, data []byte, source string, by int) {
 		app.Invalid("signature", c.T("Use an image of 5 MB or smaller."))
 	}
 	mime := app.DetectMime(data[:min(len(data), 512)])
-	if !php.InList(mime, "image/png", "image/jpeg", "image/webp") {
+	if !conv.InList(mime, "image/png", "image/jpeg", "image/webp") {
 		app.Invalid("signature", c.T("Use a PNG, JPG or WebP image."))
 	}
 	w, h, ok := imageSize(data)
@@ -197,14 +197,14 @@ func Record(c *app.Ctx, u *app.CurrentUser, original, signed *multipart.FileHead
 	if len(placements) == 0 {
 		app.Invalid("file", c.T("Place your signature on the document first."))
 	}
-	year := php.Date("Y", php.Now())
+	year := conv.Date("Y", conv.Now())
 	d := dir(pdfDir + "/" + year)
 	key := randHex(12)
 	orig := year + "/" + key + "-original.pdf"
 	sign := year + "/" + key + "-signed.pdf"
 	_ = os.WriteFile(filepath.Join(d, key+"-original.pdf"), bodies[0], 0o640)
 	_ = os.WriteFile(filepath.Join(d, key+"-signed.pdf"), bodies[1], 0o640)
-	title := php.Substr(strings.TrimSpace(ctrl.ReplaceAllString(original.Filename, " ")), 0, 200)
+	title := conv.Substr(strings.TrimSpace(ctrl.ReplaceAllString(original.Filename, " ")), 0, 200)
 	if title == "" {
 		title = "document.pdf"
 	}
@@ -277,7 +277,7 @@ func List(f Filter, onlyUser int, per int) Result {
 		p = append(p, f.User)
 	}
 	if q := strings.TrimSpace(f.Q); q != "" {
-		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(php.Substr(q, 0, 100)) + "%"
+		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(conv.Substr(q, 0, 100)) + "%"
 		w = append(w, "(s.title ILIKE ? OR s.user_name ILIKE ?)")
 		p = append(p, like, like)
 	}
@@ -291,11 +291,11 @@ func List(f Filter, onlyUser int, per int) Result {
 	}
 	where := strings.Join(w, " AND ")
 	page := max(1, f.Page)
-	total := php.Int(db.Scalar("SELECT count(*) FROM pdf_signatures s WHERE "+where, p...))
+	total := conv.Int(db.Scalar("SELECT count(*) FROM pdf_signatures s WHERE "+where, p...))
 	rows := db.Select(`SELECT s.id, s.user_id, s.user_name, s.title, s.pages, jsonb_array_length(s.placements) AS signs, s.signed_size, s.created_at,
                 u.avatar, d.name AS department_name
             FROM pdf_signatures s LEFT JOIN users u ON u.id = s.user_id LEFT JOIN departments d ON d.id = s.department_id
-            WHERE `+where+` ORDER BY s.created_at DESC, s.id DESC LIMIT `+php.Str(per)+` OFFSET `+php.Str((page-1)*per), p...)
+            WHERE `+where+` ORDER BY s.created_at DESC, s.id DESC LIMIT `+conv.Str(per)+` OFFSET `+conv.Str((page-1)*per), p...)
 	return Result{Rows: rows, Total: total, Page: page, Pages: max(1, int(math.Ceil(float64(total)/float64(per))))}
 }
 
@@ -307,6 +307,6 @@ func PNG(c *app.Ctx, path string) {
 	if err != nil {
 		app.Abort(404)
 	}
-	c.W.Header().Set("Content-Length", php.Str(len(data)))
+	c.W.Header().Set("Content-Length", conv.Str(len(data)))
 	c.Inline("signature.png", "image/png", data)
 }

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // The rules of a checklist (Support\Checklists): which questions a person gets, how answers are checked, who approves, who is told.
@@ -63,9 +63,9 @@ func answers(c *app.Ctx, items []db.Row, posted any) []answer {
 	for _, i := range items {
 		p, _ := rowOf(pm[i.Str("id")])
 		a := strings.TrimSpace(app.InStr(p["answer"]))
-		remark := php.Substr(strings.TrimSpace(app.InStr(p["remark"])), 0, 500)
+		remark := conv.Substr(strings.TrimSpace(app.InStr(p["remark"])), 0, 500)
 		if i.Bool("is_choice") {
-			if !php.InList(a, "OK", "NG", "NA") {
+			if !conv.InList(a, "OK", "NG", "NA") {
 				missing++
 				continue
 			}
@@ -76,7 +76,7 @@ func answers(c *app.Ctx, items []db.Row, posted any) []answer {
 			missing++
 			continue
 		} else {
-			a = php.Substr(a, 0, 200)
+			a = conv.Substr(a, 0, 200)
 		}
 		out = append(out, answer{ID: i.Int("id"), QuestionID: i.Int("question_id"), Detail: i["detail"], IsChoice: i.Bool("is_choice"), ResetTime: i["reset_time"], Answer: a, Remark: remark})
 	}
@@ -100,7 +100,7 @@ type chainStep struct {
 
 func chain(c *app.Ctx, r db.Row) []chainStep {
 	n := names(r["created_by"], r["supervisor"], r["manager"])
-	steps := []chainStep{{c.T("Checked"), php.Str(nameOr(n, r["created_by"], r["user_name"])), r["created_at"], "done"}}
+	steps := []chainStep{{c.T("Checked"), conv.Str(nameOr(n, r["created_by"], r["user_name"])), r["created_at"], "done"}}
 	if !r.Bool("recheck") {
 		return steps
 	}
@@ -108,7 +108,7 @@ func chain(c *app.Ctx, r db.Row) []chainStep {
 	late := strings.HasSuffix(st, "-OVERDUE")
 	base := strings.ReplaceAll(st, "-OVERDUE", "")
 	state := func(at any, want string) string {
-		if !php.Empty(at) {
+		if !conv.Empty(at) {
 			return "done"
 		}
 		if base == want {
@@ -119,18 +119,18 @@ func chain(c *app.Ctx, r db.Row) []chainStep {
 		}
 		return "waiting"
 	}
-	if !php.Empty(r["supervisor"]) {
-		steps = append(steps, chainStep{c.T("Supervisor"), php.Str(nameOr(n, r["supervisor"], "—")), r["date_supervisor_checked"], state(r["date_supervisor_checked"], "PENDING SUPERVISOR")})
+	if !conv.Empty(r["supervisor"]) {
+		steps = append(steps, chainStep{c.T("Supervisor"), conv.Str(nameOr(n, r["supervisor"], "—")), r["date_supervisor_checked"], state(r["date_supervisor_checked"], "PENDING SUPERVISOR")})
 	}
-	if !php.Empty(r["manager"]) {
-		steps = append(steps, chainStep{c.T("Manager"), php.Str(nameOr(n, r["manager"], "—")), r["date_manager_checked"], state(r["date_manager_checked"], "PENDING MANAGER")})
+	if !conv.Empty(r["manager"]) {
+		steps = append(steps, chainStep{c.T("Manager"), conv.Str(nameOr(n, r["manager"], "—")), r["date_manager_checked"], state(r["date_manager_checked"], "PENDING MANAGER")})
 	}
 	return steps
 }
 
 // notifyAfterCheck tells the right people: the approver of a re-check, and the team when something is wrong.
 func notifyAfterCheck(c *app.Ctx, m db.Row, recheck bool, status, machineStatus string, id, ng int, actor *app.CurrentUser) {
-	url := c.URL("/machines/checklists/" + php.Str(id))
+	url := c.URL("/machines/checklists/" + conv.Str(id))
 	if err := app.Catch(func() {
 		if recheck {
 			to := m.Int("manager_id")

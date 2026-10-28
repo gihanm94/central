@@ -30,8 +30,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 const (
@@ -266,7 +266,7 @@ func logSync(trigger string, day time.Time, userID int, userName, status string,
 	}
 	var m any
 	if msg != "" {
-		m = php.Substr(msg, 0, 500)
+		m = conv.Substr(msg, 0, 500)
 	}
 	_ = db.Try(func() {
 		db.Insert("oil_price_syncs", db.Cols{{Name: "source", Value: trigger}, {Name: "for_date", Value: day.Format("2006-01-02")}, {Name: "user_id", Value: uid},
@@ -285,7 +285,7 @@ func Times() []string {
 	out := []string{}
 	for _, t := range strings.Split(app.Setting("oil_sync_times", DefaultTimes), ",") {
 		if m := timeRe.FindStringSubmatch(strings.TrimSpace(t)); m != nil {
-			s := fmt.Sprintf("%02d:%02d", php.Int(m[1]), php.Int(m[2]))
+			s := fmt.Sprintf("%02d:%02d", conv.Int(m[1]), conv.Int(m[2]))
 			if !seen[s] {
 				seen[s] = true
 				out = append(out, s)
@@ -312,7 +312,7 @@ func Due() string {
 	since := now.Format("2006-01-02") + " " + slot + ":00"
 	last := db.First(`SELECT status, run_at FROM oil_price_syncs WHERE source IN ('schedule', 'manual') AND run_at >= (?::timestamp AT TIME ZONE '`+TZ+`')
                        ORDER BY run_at DESC LIMIT 1`, since)
-	if last != nil && (last.Str("status") == "ok" || php.StrToTime(last["run_at"]) > time.Now().Unix()-600) {
+	if last != nil && (last.Str("status") == "ok" || conv.StrToTime(last["run_at"]) > time.Now().Unix()-600) {
 		return ""
 	}
 	return slot
@@ -370,7 +370,7 @@ func Current() []app.M {
 		if r.Nil("cur") || json.Unmarshal([]byte(r.Str("cur")), &cur) != nil {
 			continue
 		}
-		price := php.Float(cur.Price.String())
+		price := conv.Float(cur.Price.String())
 		var prev, change any
 		if !r.Nil("previous") {
 			p := r.Float("previous")
@@ -401,7 +401,7 @@ func LastSync() app.M {
 
 /* ------------------------------------------------------------- command */
 
-// bin/oil-prices.php: run it every 5 minutes from cron; it syncs only at the times set in Management → Oil prices
+// acme oil-prices: run it every 5 minutes from cron; it syncs only at the times set in Management → Oil prices
 // (default 05:10, 06:10 and 07:00 Bangkok time) and does nothing in between:
 //
 //	0-59/5 * * * * /path/to/acme -base /path/to/app oil-prices
@@ -424,7 +424,7 @@ func command(args []string) int {
 		}
 		opt[k] = v
 	}
-	stamp := func() string { return php.Date("c", php.Now()) }
+	stamp := func() string { return conv.Date("c", conv.Now()) }
 	fail := func(err error) int {
 		fmt.Fprintln(os.Stderr, stamp()+" "+err.Error())
 		return 1

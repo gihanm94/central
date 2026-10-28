@@ -17,7 +17,7 @@
     {{template "layouts/navbar" (dict "nav" $nav "title" .title "crumbs" .crumbs)}}
     <main id="main" class="flex-1 px-4 pb-10 pt-5 sm:px-6 sm:pb-8 lg:px-8 lg:pt-6">
         {{if debugBanner}}
-            <p class="mb-4 rounded-md border-l-4 border-signal-600 bg-signal-50 px-4 py-3 text-sm text-signal-800">{{__ "This server runs in debug mode: visitors can see error details and the mobile API accepts plain HTTP. Set 'env' => 'production' in config/config.php."}}</p>
+            <p class="mb-4 rounded-md border-l-4 border-signal-600 bg-signal-50 px-4 py-3 text-sm text-signal-800">{{__ "This server runs in debug mode: visitors can see error details and the mobile API accepts plain HTTP. Set 'env' => 'production' in config/config.json."}}</p>
         {{end}}
         {{template "partials/flash" .}}
         {{.content}}

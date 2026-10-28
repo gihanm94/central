@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Marketing campaigns with budget tracking and attachments (CampaignController).
@@ -23,7 +23,7 @@ var campaigns = (&screen{
 
 var campaignTones = map[string]string{"ACTIVE": "success", "PLANNED": "info", "DRAFT": "neutral", "COMPLETED": "violet", "CANCELLED": "danger"}
 
-func campaignTone(s string) string { return php.OrStr(campaignTones[s], "neutral") }
+func campaignTone(s string) string { return conv.OrStr(campaignTones[s], "neutral") }
 
 func init() {
 	s := campaigns
@@ -78,7 +78,7 @@ func init() {
 					return h(uiDash())
 				}
 				if r.Float("budget") > 0 {
-					return h(meter(c, minF(100, r.Float("actual_cost")/r.Float("budget")*100), php.NumberClean(r["actual_cost"])))
+					return h(meter(c, minF(100, r.Float("actual_cost")/r.Float("budget")*100), conv.NumberClean(r["actual_cost"])))
 				}
 				return h(`<span class="tabular-nums">` + uiMoney(r["actual_cost"], "") + `</span>`)
 			}},
@@ -136,29 +136,29 @@ func campaignStats(c *app.Ctx, row db.Row) string {
 		if !has(k) {
 			return "—"
 		}
-		return php.NF(row.Float(k), 2)
+		return conv.NF(row.Float(k), 2)
 	}
 	over := c.T("Over budget")
 	var costNote, remNote, revNote, rateNote string
 	if used != nil {
-		costNote = c.T(":n% of budget", "n", fmtFloat(phpRound(*used, 0)))
+		costNote = c.T(":n% of budget", "n", fmtFloat(roundHalf(*used, 0)))
 	}
 	remaining := "—"
 	if has("budget") && has("actual_cost") {
-		remaining = php.NF(budget-cost, 2)
+		remaining = conv.NF(budget-cost, 2)
 		if cost > budget {
 			remNote = over
 		}
 	}
 	if roi != nil {
-		revNote = c.T("Expected return :n%", "n", fmtFloat(phpRound(*roi, 0)))
+		revNote = c.T("Expected return :n%", "n", fmtFloat(roundHalf(*roi, 0)))
 	}
 	rate := "—"
 	if has("actual_response_rate") {
-		rate = php.NumberClean(row["actual_response_rate"]) + "%"
+		rate = conv.NumberClean(row["actual_response_rate"]) + "%"
 	}
 	if has("expected_response_rate") {
-		rateNote = c.T("Expected :n%", "n", php.NumberClean(row["expected_response_rate"]))
+		rateNote = c.T("Expected :n%", "n", conv.NumberClean(row["expected_response_rate"]))
 	}
 	tiles := [][]any{
 		{c.T("Budget"), num("budget"), "", false},
@@ -169,7 +169,7 @@ func campaignStats(c *app.Ctx, row db.Row) string {
 	}
 	data := app.M{"tiles": tiles, "meter": template.HTML("")}
 	if used != nil {
-		data["meter"] = meterHTML(c, *used, fmtFloat(phpRound(*used, 0))+"%")
+		data["meter"] = meterHTML(c, *used, fmtFloat(roundHalf(*used, 0))+"%")
 	}
 	return string(c.Partial("crm/panels/campaign-stats", data))
 }

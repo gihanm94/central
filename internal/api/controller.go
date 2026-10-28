@@ -14,8 +14,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Error is ApiException: an answer other than 2xx, {"error": {"code": "...", "message": "..."}}.
@@ -45,7 +45,7 @@ func Fail(status int, code, message string, headers ...string) {
 func Obj(kv ...any) *config.Map {
 	m := config.NewMap()
 	for i := 0; i+1 < len(kv); i += 2 {
-		m.Set(php.Str(kv[i]), kv[i+1])
+		m.Set(conv.Str(kv[i]), kv[i+1])
 	}
 	return m
 }
@@ -92,7 +92,7 @@ func Need(c *app.Ctx, resource string, action ...string) {
 func NotFound(c *app.Ctx) { Fail(http.StatusNotFound, "not_found", c.T("Not found.")) }
 
 // Q is the search text from ?q= (trimmed, at most 100 characters).
-func Q(c *app.Ctx) string { return php.Substr(c.Query("q"), 0, 100) }
+func Q(c *app.Ctx) string { return conv.Substr(c.Query("q"), 0, 100) }
 
 // Like is an ILIKE pattern with %, _ and \ taken literally.
 func Like(q string) string {
@@ -105,10 +105,10 @@ func Paged(c *app.Ctx, sql string, params []any, order, conn string, mapFn func(
 	if conn == "" {
 		conn = "core"
 	}
-	per := max(1, min(100, php.Int(c.Query("per_page", "25"))))
-	page := max(1, min(10000, php.Int(c.Query("page", "1"))))
+	per := max(1, min(100, conv.Int(c.Query("per_page", "25"))))
+	page := max(1, min(10000, conv.Int(c.Query("page", "1"))))
 	q := db.On(conn)
-	total := php.Int(q.Scalar("SELECT count(*) FROM ("+sql+") x", params...))
+	total := conv.Int(q.Scalar("SELECT count(*) FROM ("+sql+") x", params...))
 	rows := q.SelectOrdered(fmt.Sprintf("%s ORDER BY %s LIMIT %d OFFSET %d", sql, order, per, (page-1)*per), params...)
 	data := make([]any, 0, len(rows))
 	for _, r := range rows {
@@ -126,7 +126,7 @@ func Input(c *app.Ctx, allowed ...string) *config.Map {
 	all := c.All()
 	out := config.NewMap()
 	for _, k := range all.Keys {
-		if php.InList(k, allowed...) {
+		if conv.InList(k, allowed...) {
 			out.Set(k, all.Vals[k])
 		}
 	}
@@ -149,7 +149,7 @@ func Pick(row db.Row, keys ...string) *config.Map {
 func Reply(c *app.Ctx, body *config.Map) {
 	status := http.StatusOK
 	if v, ok := body.Get("_status"); ok {
-		status = php.Int(v)
+		status = conv.Int(v)
 		body.Delete("_status")
 	}
 	c.JSON(body, status)

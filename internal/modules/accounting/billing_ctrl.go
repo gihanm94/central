@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Billing notes (BillingController): list, the 4-step generate page, PDF view / download, paid / complete.
@@ -51,7 +51,7 @@ var billingList = newErpList(&erpList{res: &app.Resource{
 				if !ok {
 					t = "neutral"
 				}
-				return cell(badge(c.T(php.Ucfirst(r.Str("status"))), t))
+				return cell(badge(c.T(conv.Ucfirst(r.Str("status"))), t))
 			}},
 			{Key: "bdate", Label: c.T("Billing date"), Sort: "t.billing_at", Render: func(c *app.Ctx, r db.Row) template.HTML { return cell(dateCell(c, r["billing_at"])) }},
 			{Key: "remind", Label: c.T("Remind date"), Sort: "t.remind_date", Render: func(c *app.Ctx, r db.Row) template.HTML { return cell(dateCell(c, r["remind_date"])) }},
@@ -164,7 +164,7 @@ func billingShow(c *app.Ctx) {
 		by[u.Int("id")] = u.Str("name")
 	}
 	name := func(id any) string {
-		if n, ok := by[php.Int(id)]; ok {
+		if n, ok := by[conv.Int(id)]; ok {
 			return n
 		}
 		return "—"
@@ -179,11 +179,11 @@ func billingShow(c *app.Ctx) {
 	if note.Int("updated_by") != 0 && note.Str("updated_at") != note.Str("created_at") {
 		changed = c.T("Last changed by :n", "n", name(note["updated_by"])) + " · " + app.FormatDate(c, note["updated_at"], "d M Y H:i")
 	}
-	c.View("accounting/billing-show", app.M{"title": row.Str("billing_number"), "n": note, "rows": rows, "statusBadge": template.HTML(badge(c.T(php.Ucfirst(row.Str("status"))), t)),
+	c.View("accounting/billing-show", app.M{"title": row.Str("billing_number"), "n": note, "rows": rows, "statusBadge": template.HTML(badge(c.T(conv.Ucfirst(row.Str("status"))), t)),
 		"sym": billingSymbol(note.Str("currency_code")), "thai": note.Bool("is_thai"), "b": "/accounting/billing/" + note.Str("id"),
 		"canEdit": c.Can("accounting_billing", "edit") && r.CanModify(c, row, "edit"), "canDelete": c.Can("accounting_billing", "delete"),
 		"createdBy": c.T("Created by :n", "n", name(note["created_by"])) + " · " + app.FormatDate(c, note["created_at"], "d M Y H:i"), "changedBy": changed,
-		"total": php.NF(note["total_amount"], 2)})
+		"total": conv.NF(note["total_amount"], 2)})
 }
 
 func billingEdit(c *app.Ctx) {
@@ -217,22 +217,22 @@ func billingEdit(c *app.Ctx) {
 		}
 		checked := x.OnNote
 		if oldInv != nil {
-			checked = inStrs(php.Str(x.InvoiceNumber), oldInv)
+			checked = inStrs(conv.Str(x.InvoiceNumber), oldInv)
 		}
 		d := func(v any) string {
-			if php.Truthy(v) {
+			if conv.Truthy(v) {
 				return app.FormatDate(c, v, "d M Y")
 			}
 			return "—"
 		}
-		out = append(out, ch{No: x.InvoiceNumber, OrderNo: x.OrderNo, Date: d(x.InvoiceDate), Due: d(x.DueDate), Amount: php.NF(x.Amount, 2), Raw: sign * x.Amount, IsCredit: x.IsCredit, OnNote: x.OnNote, Checked: checked})
+		out = append(out, ch{No: x.InvoiceNumber, OrderNo: x.OrderNo, Date: d(x.InvoiceDate), Due: d(x.DueDate), Amount: conv.NF(x.Amount, 2), Raw: sign * x.Amount, IsCredit: x.IsCredit, OnNote: x.OnNote, Checked: checked})
 	}
 	thai := note.Bool("is_thai")
 	if v, ok := c.Sess.Old("lang"); ok {
-		thai = php.Str(v) == "th"
+		thai = conv.Str(v) == "th"
 	}
 	c.View("accounting/billing-edit", app.M{"title": c.T("Edit :n", "n", row.Str("billing_number")), "n": note, "choices": out, "isAdmin": c.MustUser().IsAdmin(),
-		"sym": billingSymbol(note.Str("currency_code")), "thai": thai, "billingAt": php.Substr(note.Str("billing_at"), 0, 10), "remindAt": php.Substr(note.Str("remind_date"), 0, 10),
+		"sym": billingSymbol(note.Str("currency_code")), "thai": thai, "billingAt": conv.Substr(note.Str("billing_at"), 0, 10), "remindAt": conv.Substr(note.Str("remind_date"), 0, 10),
 		"invoicesError": c.Sess.Errors().Get("invoices")})
 }
 
@@ -245,9 +245,9 @@ func billingUpdateAction(c *app.Ctx) {
 		c.Back("", "")
 	}
 	app.LogActivity(c, app.ActivityEntry{Action: "updated", Type: "billing_note", ID: id, Label: row.Str("billing_number"), Text: `Updated :type ":label"`,
-		Params: []any{"type", "billing note", "label", row["billing_number"]}, Props: app.M{"_url": c.URL("/accounting/billing/" + php.Str(id))}, NoNotify: true, Module: "accounting"})
+		Params: []any{"type", "billing note", "label", row["billing_number"]}, Props: app.M{"_url": c.URL("/accounting/billing/" + conv.Str(id))}, NoNotify: true, Module: "accounting"})
 	c.Flash("success", c.T("Billing note :n saved. The PDF was built again.", "n", row["billing_number"]))
-	c.Redirect("/accounting/billing/" + php.Str(id))
+	c.Redirect("/accounting/billing/" + conv.Str(id))
 }
 
 var fileSafe = regexp.MustCompile(`[^A-Za-z0-9._-]`)

@@ -24,8 +24,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -138,7 +138,7 @@ func writeConfig(m *config.Map) error {
 func reloadConfig() {
 	_ = config.Load(filepath.Join(app.BasePath, "config"))
 	if loc, err := time.LoadLocation(config.String("app.timezone", "UTC")); err == nil {
-		php.Loc = loc
+		conv.Loc = loc
 	}
 	db.Close()
 }
@@ -224,9 +224,9 @@ func ensureConfig(r *http.Request) bool {
 	if host == "" {
 		host = cfgStr(cfg, "db.host")
 	}
-	port := php.Int(os.Getenv("DB_PORT"))
+	port := conv.Int(os.Getenv("DB_PORT"))
 	if port == 0 {
-		port = php.Int(cfgGet(cfg, "db.port"))
+		port = conv.Int(cfgGet(cfg, "db.port"))
 	}
 	var list [][2]string
 	if u, ok := os.LookupEnv("DB_USERNAME"); ok {
@@ -457,7 +457,7 @@ func serveInstall(w http.ResponseWriter, r *http.Request) {
 			errs = append(errs, "Database names may only use lower-case letters, numbers and _.")
 		default:
 			cfgSet(cfg, "db.databases.core", v["db_core"])
-			port := php.Int(v["port"])
+			port := conv.Int(v["port"])
 			if port == 0 {
 				port = 5432
 			}
@@ -579,7 +579,7 @@ func runInstall(cfg *config.Map, v map[string]string, demo bool, password string
 	add := func(s string) { *logLines = append(*logLines, template.HTML(s)) }
 	h := template.HTMLEscapeString
 	ctx := context.Background()
-	port := php.Int(v["port"])
+	port := conv.Int(v["port"])
 	dsn := func(name string) string { return db.DSNFor(v["host"], port, name, v["user"], v["pass"]) }
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -738,7 +738,7 @@ func runInstall(cfg *config.Map, v map[string]string, demo bool, password string
 			urlHost = "[" + urlHost + "]" // like PHP's parse_url
 		}
 	}
-	if php.InList(urlHost, "localhost", "127.0.0.1", "::1") {
+	if conv.InList(urlHost, "localhost", "127.0.0.1", "::1") {
 		cfgSet(cfg, "app.env", "local")
 	} else {
 		cfgSet(cfg, "app.env", "production")
@@ -755,12 +755,12 @@ func runInstall(cfg *config.Map, v map[string]string, demo bool, password string
 		driver = "smtp"
 	}
 	enc := v["smtp_enc"]
-	if !php.InList(enc, "tls", "ssl", "none") {
+	if !conv.InList(enc, "tls", "ssl", "none") {
 		enc = "tls"
 	}
 	cfgSet(cfg, "mail.driver", driver)
 	cfgSet(cfg, "mail.host", v["smtp_host"])
-	cfgSet(cfg, "mail.port", php.Int(v["smtp_port"]))
+	cfgSet(cfg, "mail.port", conv.Int(v["smtp_port"]))
 	cfgSet(cfg, "mail.encryption", enc)
 	cfgSet(cfg, "mail.username", v["smtp_user"])
 	cfgSet(cfg, "mail.password", v["smtp_pass"])
@@ -771,7 +771,7 @@ func runInstall(cfg *config.Map, v map[string]string, demo bool, password string
 	}
 	add("Saved config/config.json")
 
-	if e := os.WriteFile(lockPath(), []byte(php.Date("c", php.Now())), 0o664); e != nil {
+	if e := os.WriteFile(lockPath(), []byte(conv.Date("c", conv.Now())), 0o664); e != nil {
 		return e
 	}
 	log.Printf("installed: config/config.json and storage/installed.lock written")

@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Notifier decides who hears about what, and how (App\Core\Support\Notifier).
@@ -30,7 +30,7 @@ func NotifyMatrix() map[string]map[string]map[string]bool {
 			out[m.Key][a] = map[string]bool{}
 			for _, ch := range NotifyChannels() {
 				v, ok := saved[m.Key][a][ch]
-				out[m.Key][a][ch] = !ok || php.Truthy(v)
+				out[m.Key][a][ch] = !ok || conv.Truthy(v)
 			}
 		}
 	}
@@ -47,7 +47,7 @@ func NotifySecurity() map[string]map[string]bool {
 		for _, ch := range NotifyChannels() {
 			v, ok := saved[e][ch]
 			if ok {
-				out[e][ch] = php.Truthy(v)
+				out[e][ch] = conv.Truthy(v)
 			} else {
 				out[e][ch] = ch == "email"
 			}
@@ -64,14 +64,14 @@ func NotifyPrefs(raw any) map[string]map[string]map[string]any {
 		b, _ := json.Marshal(x)
 		_ = json.Unmarshal(b, &out)
 	default:
-		_ = json.Unmarshal([]byte(php.Str(raw)), &out)
+		_ = json.Unmarshal([]byte(conv.Str(raw)), &out)
 	}
 	return out
 }
 
 func prefOn(p map[string]any, ch string) bool {
 	v, ok := p[ch]
-	return !ok || php.Truthy(v)
+	return !ok || conv.Truthy(v)
 }
 
 func rule(m map[string]map[string]map[string]bool, module, action string) map[string]bool {
@@ -83,7 +83,7 @@ func rule(m map[string]map[string]map[string]bool, module, action string) map[st
 
 // notifyEvent is a record event (create / edit / delete / import / export / download) to the actor and the owner.
 func notifyEvent(c *Ctx, module, action string, text M, changes any, actorID, ownerID int, url string) {
-	if !php.InList(action, NotifyActions()...) {
+	if !conv.InList(action, NotifyActions()...) {
 		return
 	}
 	r := rule(NotifyMatrix(), module, action)
@@ -92,7 +92,7 @@ func notifyEvent(c *Ctx, module, action string, text M, changes any, actorID, ow
 	}
 	actorName := ""
 	if actorID > 0 {
-		actorName = php.Str(db.Scalar("SELECT name FROM users WHERE id = ?", actorID))
+		actorName = conv.Str(db.Scalar("SELECT name FROM users WHERE id = ?", actorID))
 	}
 	var chg *Changes
 	switch x := changes.(type) {
@@ -115,7 +115,7 @@ func notifyEvent(c *Ctx, module, action string, text M, changes any, actorID, ow
 		lines := []template.HTML{
 			template.HTML(E(intro)),
 			template.HTML("<strong>" + E(who) + "</strong>: " + E(desc)),
-			template.HTML(E(c.T("Time")+": "+FormatDate(c, php.NowString(), "d M Y, H:i")+"  |  IP: ") + E(c.IP())),
+			template.HTML(E(c.T("Time")+": "+FormatDate(c, conv.NowString(), "d M Y, H:i")+"  |  IP: ") + E(c.IP())),
 		}
 		if chg != nil {
 			for i, f := range chg.Keys {
@@ -123,12 +123,12 @@ func notifyEvent(c *Ctx, module, action string, text M, changes any, actorID, ow
 					break
 				}
 				ch := chg.Vals[f]
-				from, to := php.Str(php.Coalesce(ch.From, "—")), php.Str(php.Coalesce(ch.To, "—"))
-				lines = append(lines, template.HTML("&bull; "+E(c.T(php.Ucfirst(strings.ReplaceAll(f, "_", " "))))+": "+E(php.Limit(from, 40))+" &rarr; "+E(php.Limit(to, 40))))
+				from, to := conv.Str(conv.Coalesce(ch.From, "—")), conv.Str(conv.Coalesce(ch.To, "—"))
+				lines = append(lines, template.HTML("&bull; "+E(c.T(conv.Ucfirst(strings.ReplaceAll(f, "_", " "))))+": "+E(conv.Limit(from, 40))+" &rarr; "+E(conv.Limit(to, 40))))
 			}
 		}
 		label := config.String("core.notify_actions."+action, action)
-		return c.T(php.Ucfirst(label)) + ": " + php.Limit(desc, 70), lines
+		return c.T(conv.Ucfirst(label)) + ": " + conv.Limit(desc, 70), lines
 	}
 	for _, u := range notifyRecipients(actorID, ownerID) {
 		isActor := u.Int("id") == actorID
@@ -209,7 +209,7 @@ func Deliver(c *Ctx, module, action string, userID int, title, body M, url strin
 func Text(key string, params ...any) M {
 	pm := config.NewMap()
 	for i := 0; i+1 < len(params); i += 2 {
-		pm.Set(php.Str(params[i]), params[i+1])
+		pm.Set(conv.Str(params[i]), params[i+1])
 	}
 	return M{"key": key, "params": pm}
 }
@@ -218,20 +218,20 @@ func Text(key string, params ...any) M {
 func Bell(c *Ctx, userID int, module, typ, title, body, url string, actorID int) {
 	var b, u, a any
 	if body != "" {
-		b = php.Substr(body, 0, 500)
+		b = conv.Substr(body, 0, 500)
 	}
 	if url != "" {
 		base := c.BaseURL()
 		if strings.HasPrefix(url, base) {
 			url = url[len(base):]
 		}
-		u = php.Substr(url, 0, 255)
+		u = conv.Substr(url, 0, 255)
 	}
 	if actorID > 0 {
 		a = actorID
 	}
 	db.Insert("notifications", db.Cols{{Name: "user_id", Value: userID}, {Name: "module", Value: module}, {Name: "type", Value: typ},
-		{Name: "title", Value: php.Substr(title, 0, 200)}, {Name: "body", Value: b}, {Name: "url", Value: u}, {Name: "actor_id", Value: a}}, "")
+		{Name: "title", Value: conv.Substr(title, 0, 200)}, {Name: "body", Value: b}, {Name: "url", Value: u}, {Name: "actor_id", Value: a}}, "")
 }
 
 // SecurityAlert: sign-in and password alerts, always about the person themselves; build runs in their language.
@@ -274,7 +274,7 @@ func notifyRecipients(actorID, ownerID int) []db.Row {
 	for _, id := range []int{actorID, ownerID} {
 		if id > 0 && !seen[id] {
 			seen[id] = true
-			ids = append(ids, php.Str(id))
+			ids = append(ids, conv.Str(id))
 		}
 	}
 	if len(ids) == 0 {
@@ -290,9 +290,9 @@ func init() {
 		SecurityAlert(c, "login", u.ID, func() (string, []template.HTML, string) {
 			return c.T("New sign-in to your account"), []template.HTML{
 					template.HTML(E(c.T("Your account was signed in with :method.", "method", c.T(method)))),
-					template.HTML(E(c.T("Time") + ": " + FormatDate(c, php.NowString(), "d M Y, H:i"))),
+					template.HTML(E(c.T("Time") + ": " + FormatDate(c, conv.NowString(), "d M Y, H:i"))),
 					template.HTML(E(c.T("IP address")) + ": " + E(ip)),
-					template.HTML(E(c.T("Device")) + ": " + E(php.Limit(ua, 120))),
+					template.HTML(E(c.T("Device")) + ": " + E(conv.Limit(ua, 120))),
 				},
 				c.T("Not you? Reset your password now and tell your administrator.")
 		}, &MailButton{Label: c.T("Review security settings"), URL: c.URL("/profile/security")})

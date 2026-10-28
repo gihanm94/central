@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // CRM → Manager → Sales control, for a BU manager (own department) or an admin (everybody). Two views:
@@ -54,7 +54,7 @@ func teamIndex(c *app.Ctx) {
 	members := teamMembers(c)
 	mm := peopleMap(members)
 	types := reassignTypes(c)
-	from := php.Int(c.Query("user", "0"))
+	from := conv.Int(c.Query("user", "0"))
 	typ := c.Query("type", "opportunity")
 	if _, ok := reassignType1(c, typ); !ok {
 		typ = "opportunity"
@@ -73,14 +73,14 @@ func teamIndex(c *app.Ctx) {
 		if !p.Active {
 			l += " (" + c.T("inactive") + ")"
 		}
-		options = append(options, app.Opt{Value: php.Str(p.ID), Label: l})
+		options = append(options, app.Opt{Value: conv.Str(p.ID), Label: l})
 	}
-	targets := withoutOpt(assignable(u), php.Str(from))
+	targets := withoutOpt(assignable(u), conv.Str(from))
 
 	// By stage
-	f := stageFilter{Owner: php.Int(c.Query("owner", "0")), From: c.Query("from"), To: c.Query("to"), Date: c.Query("date", "since")}
+	f := stageFilter{Owner: conv.Int(c.Query("owner", "0")), From: c.Query("from"), To: c.Query("to"), Date: c.Query("date", "since")}
 	if seesAll(u) {
-		f.Department = php.Int(c.Query("department", "0"))
+		f.Department = conv.Int(c.Query("department", "0"))
 	}
 	if _, ok := mm[f.Owner]; !ok {
 		f.Owner = 0
@@ -95,13 +95,13 @@ func teamIndex(c *app.Ctx) {
 	all := everyone()
 	pnames := map[string]string{}
 	for _, p := range all {
-		pnames[php.Str(p.ID)] = p.Name
+		pnames[conv.Str(p.ID)] = p.Name
 	}
 	openSQL := "SELECT count(*) FROM opportunities t WHERE t.deleted_at IS NULL AND t.opportunity_stage IN ('" + strings.Join(stageOpen, "','") + "')"
 	if !seesAll(u) {
-		openSQL += " AND t.department_id = " + php.Str(u.DepartmentID)
+		openSQL += " AND t.department_id = " + conv.Str(u.DepartmentID)
 	}
-	openCount := php.Int(db.On("crm").Scalar(openSQL))
+	openCount := conv.Int(db.On("crm").Scalar(openSQL))
 
 	data := app.M{"title": c.T("Sales control"), "view": view, "stage": stage, "openCount": openCount, "wholeCompany": seesAll(u), "canEdit": c.Can("crm_reassign", "edit"),
 		"from": from, "members": options, "type": typ, "tname": t.Name, "hasStatus": t.Status != "", "openOnly": openOnly, "targets": targets, "types": types}
@@ -122,7 +122,7 @@ func teamIndex(c *app.Ctx) {
 		return c.URL("/crm/control", map[string]any(q))
 	}
 	data["qsOpen"], data["qsAll"] = qs(app.M{"all": nil}), qs(app.M{"all": 1})
-	data["personLink"] = c.URL("/crm/control", "user", ternaryStr(from != 0, php.Str(from), ""))
+	data["personLink"] = c.URL("/crm/control", "user", ternaryStr(from != 0, conv.Str(from), ""))
 	data["stageLink"] = c.URL("/crm/control", "view", "stage")
 	data["personMeta"] = c.T("Choose a person")
 	if from != 0 {
@@ -178,7 +178,7 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 	for _, d := range deps {
 		depNames[d.Value] = d.Label
 	}
-	ago := func(d int) string { return php.Date("Y-m-d", php.Now().AddDate(0, 0, -d)) }
+	ago := func(d int) string { return conv.Date("Y-m-d", conv.Now().AddDate(0, 0, -d)) }
 	sq := func(x app.M) string {
 		q := app.M{"view": "stage", "stage": stage, "department": nilZero(f.Department), "owner": nilZero(f.Owner), "from": f.From, "to": f.To, "date": f.Date}
 		for k, v := range x {
@@ -197,7 +197,7 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 	var tiles []tile
 	for _, s := range stagesDef {
 		cn := counts[s.Code]
-		tiles = append(tiles, tile{s.Code, c.T(s.Label), sq(app.M{"stage": s.Code}), php.NF(cn[1], 0), int(cn[0]), s.Code == stage, inStrs(s.Code, stageOpen)})
+		tiles = append(tiles, tile{s.Code, c.T(s.Label), sq(app.M{"stage": s.Code}), conv.NF(cn[1], 0), int(cn[0]), s.Code == stage, inStrs(s.Code, stageOpen)})
 	}
 	type chip struct {
 		Days int
@@ -216,10 +216,10 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 			}
 			return ""
 		}(), " ·")
-		r["_owner"] = php.OrStr(pnames[r.Str("owner_id")], "—")
-		r["_dept"] = php.OrStr(depNames[r.Str("department_id")], "—")
+		r["_owner"] = conv.OrStr(pnames[r.Str("owner_id")], "—")
+		r["_dept"] = conv.OrStr(depNames[r.Str("department_id")], "—")
 		if r["amount"] != nil {
-			r["_amount"] = php.NF(r.Float("amount"), 2) + " " + r.Str("currency")
+			r["_amount"] = conv.NF(r.Float("amount"), 2) + " " + r.Str("currency")
 		} else {
 			r["_amount"] = "—"
 		}
@@ -227,7 +227,7 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 		r["_created"] = app.FormatDate(c, r["created_at"], "d M Y")
 		r["_ago"] = app.TimeAgo(c, r["updated_at"])
 		if r.Str("since") != "" {
-			d := int(max(0, (php.Now().Unix()-php.StrToTime(r["since"]))/86400))
+			d := int(max(0, (conv.Now().Unix()-conv.StrToTime(r["since"]))/86400))
 			cl := "bg-mist text-steel"
 			if d >= 90 {
 				cl = "bg-signal-50 text-signal-800"
@@ -248,7 +248,7 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 			otherStages = append(otherStages, o)
 		}
 	}
-	data["f"] = app.M{"department": ternaryStr(f.Department != 0, php.Str(f.Department), ""), "owner": ternaryStr(f.Owner != 0, php.Str(f.Owner), ""), "from": f.From, "to": f.To, "date": f.Date}
+	data["f"] = app.M{"department": ternaryStr(f.Department != 0, conv.Str(f.Department), ""), "owner": ternaryStr(f.Owner != 0, conv.Str(f.Owner), ""), "from": f.From, "to": f.To, "date": f.Date}
 	data["deps"], data["dateOpts"], data["stageTiles"], data["chips"], data["stageRows"] = deps, dateOpts, tiles, chips, rows
 	data["hasFilters"] = f.From != "" || f.To != "" || f.Owner != 0 || f.Department != 0 || f.Date != "since"
 	data["clearURL"] = c.URL("/crm/control", "view", "stage", "stage", stage)
@@ -256,8 +256,8 @@ func stageViewData(c *app.Ctx, data app.M, f stageFilter, stage string, pnames m
 	data["stageLabel"] = stageLabel(c, stage)
 	data["otherStages"] = otherStages
 	data["stageLimit"] = len(rows) >= 300
-	data["statusOld"] = php.Str(oldOr(c, "status"))
-	data["noteOld"] = php.Str(oldOr(c, "status_note"))
+	data["statusOld"] = conv.Str(oldOr(c, "status"))
+	data["noteOld"] = conv.Str(oldOr(c, "status_note"))
 }
 
 func oldOr(c *app.Ctx, k string) any {
@@ -272,7 +272,7 @@ func teamBack(c *app.Ctx, from int, typ string) {
 	if strings.HasPrefix(ret, "/crm/control?") {
 		c.Redirect(ret)
 	}
-	c.Redirect("/crm/control?user=" + php.Str(from) + "&type=" + typ)
+	c.Redirect("/crm/control?user=" + conv.Str(from) + "&type=" + typ)
 }
 
 // teamReason: a reason is required whenever records change hands.
@@ -281,13 +281,13 @@ func teamReason(c *app.Ctx, field string) string {
 	if note == "" {
 		app.Invalid(field, c.T("Write the reason for moving them."))
 	}
-	return php.Substr(note, 0, 250)
+	return conv.Substr(note, 0, 250)
 }
 
 func ints(vals []string) []int {
 	var out []int
 	for _, v := range vals {
-		out = append(out, php.Int(v))
+		out = append(out, conv.Int(v))
 	}
 	return out
 }
@@ -297,8 +297,8 @@ func teamReassign(c *app.Ctx) {
 	teamGate(c, "edit")
 	typ := c.Input("type")
 	ids := ints(c.Inputs("ids"))
-	to := php.Int(c.Input("to"))
-	from := php.Int(c.Input("from"))
+	to := conv.Int(c.Input("to"))
+	from := conv.Int(c.Input("from"))
 	if _, ok := reassignType1(c, typ); !ok || to == 0 {
 		app.Invalid("to", c.T("Choose who should get them."))
 	}
@@ -318,8 +318,8 @@ func teamReassign(c *app.Ctx) {
 // teamHandover: somebody left: everything they have (all types) goes to one person.
 func teamHandover(c *app.Ctx) {
 	teamGate(c, "edit")
-	from := php.Int(c.Input("from"))
-	to := php.Int(c.Input("to"))
+	from := conv.Int(c.Input("from"))
+	to := conv.Int(c.Input("to"))
 	if from == 0 || to == 0 || from == to {
 		app.Invalid("to", c.T("Choose who should get them."))
 	}
@@ -360,7 +360,7 @@ func teamStatus(c *app.Ctx) {
 	}
 	status := c.Input("status")
 	note := strings.TrimSpace(c.Input("status_note"))
-	from := php.Int(c.Input("from"))
+	from := conv.Int(c.Input("from"))
 	t, ok := reassignType1(c, typ)
 	if !ok || t.Status == "" {
 		app.Abort(http.StatusNotFound)
@@ -432,7 +432,7 @@ func teamOwner(c *app.Ctx) {
 		app.Abort(http.StatusNotFound)
 	}
 	id := c.ParamInt("id")
-	to := php.Int(c.Input("to"))
+	to := conv.Int(c.Input("to"))
 	if db.On("crm").First("SELECT * FROM "+entities[typ].Table+" WHERE id = ? AND deleted_at IS NULL", id) == nil {
 		app.Abort(http.StatusNotFound)
 	}
@@ -442,5 +442,5 @@ func teamOwner(c *app.Ctx) {
 	} else {
 		c.Flash("error", c.T("Nothing changed."))
 	}
-	c.Redirect("/crm/" + entities[typ].Path + "/" + php.Str(id))
+	c.Redirect("/crm/" + entities[typ].Path + "/" + conv.Str(id))
 }

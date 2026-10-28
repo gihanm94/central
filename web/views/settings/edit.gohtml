@@ -65,7 +65,7 @@
             <div class="panel-head"><h2 class="panel-title">{{__ "E-mail delivery"}}</h2></div>
             <div class="space-y-1 p-5 text-sm">
                 <p>{{__ "Driver"}}: <strong>{{.mail.driver}}</strong>{{if eq .mail.driver "smtp"}} via {{.mail.host}}:{{.mail.port}}{{end}}</p>
-                <p class="text-steel">{{if eq .mail.driver "log"}}{{__ "E-mails are saved as files in storage/mail instead of being sent. Switch to SMTP in config/config.php when ready."}}{{else}}{{__ "Sent from :address." "address" .mail.from}}{{end}}</p>
+                <p class="text-steel">{{if eq .mail.driver "log"}}{{__ "E-mails are saved as files in storage/mail instead of being sent. Switch to SMTP in config/config.json when ready."}}{{else}}{{__ "Sent from :address." "address" .mail.from}}{{end}}</p>
             </div>
         </section>
     </div>

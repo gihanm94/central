@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Runs the syncs that are due (Support\Runner). Called by cron (acme sheets-sync, every 5 minutes) and, as a fallback,
@@ -69,9 +69,9 @@ func runSync(c *app.Ctx, s db.Row, manual bool) string {
 		write(c, s.Int("account_id"), s.Str("spreadsheet_id"), s.Str("sheet_tab"), header, data)
 		rows = len(data)
 		if truncated {
-			msg = c.T("Only the first :n rows were sent (limit set by the administrator).", "n", php.NF(len(data), 0))
+			msg = c.T("Only the first :n rows were sent (limit set by the administrator).", "n", conv.NF(len(data), 0))
 		} else {
-			msg = c.T(":n rows sent.", "n", php.NF(len(data), 0))
+			msg = c.T(":n rows sent.", "n", conv.NF(len(data), 0))
 		}
 		ok = true
 	}); err != nil {
@@ -82,13 +82,13 @@ func runSync(c *app.Ctx, s db.Row, manual bool) string {
 	var next any
 	active := false
 	if manual {
-		if !php.Empty(s["next_run_at"]) {
+		if !conv.Empty(s["next_run_at"]) {
 			next = s["next_run_at"]
 		}
 		active = keep && s.Bool("active") && next != nil
 	} else {
 		if at, has := nextRun(s, time.Now()); has {
-			next = php.Date("c", at)
+			next = conv.Date("c", at)
 		}
 		active = keep && s.Str("mode") == "daily" && next != nil
 	}
@@ -101,7 +101,7 @@ func runSync(c *app.Ctx, s db.Row, manual bool) string {
 	}
 	db.Exec(`UPDATE gsheet_syncs SET running_since = NULL, last_run_at = now(), last_status = ?, last_message = ?, last_rows = coalesce(?, last_rows),
                   next_run_at = ?, active = ?, updated_at = now() WHERE id = ?`,
-		status, php.Substr(msg, 0, 500), rows, next, active, s["id"])
+		status, conv.Substr(msg, 0, 500), rows, next, active, s["id"])
 
 	if !ok && !manual {
 		_ = app.Catch(func() { // the bell is a courtesy

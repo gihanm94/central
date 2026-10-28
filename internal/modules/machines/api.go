@@ -7,8 +7,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -117,7 +117,7 @@ var machineKeys = []string{"id", "machine_code", "machine_name", "machine_group_
 
 func machineOut(c *app.Ctx, m db.Row) *config.Map {
 	m = m.Copy()
-	if php.Empty(m["image"]) {
+	if conv.Empty(m["image"]) {
 		m["image_url"] = nil
 	} else {
 		m["image_url"] = c.UploadURL(m["image"])
@@ -140,14 +140,14 @@ func orderedRows(rows []db.OrderedRow) []any {
 
 // POST {text: what the camera read} → the machine (JSON QR, a /machines/m/{code} link or a bare code).
 func apiScan(c *app.Ctx) (any, int) {
-	code := codeFromScan(php.Substr(app.InStr(c.InputAny("text")), 0, 500))
+	code := codeFromScan(conv.Substr(app.InStr(c.InputAny("text")), 0, 500))
 	if code == "" || machine(code) == nil {
 		apiFail(404, "machine_not_found", c.T("No machine with this code."))
 	}
 	return apiMachine(c, code), 200
 }
 
-func apiQ(c *app.Ctx) string { return php.Substr(c.Query("q", ""), 0, 100) }
+func apiQ(c *app.Ctx) string { return conv.Substr(c.Query("q", ""), 0, 100) }
 
 func apiLike(q string) string {
 	r := []byte{}
@@ -163,7 +163,7 @@ func apiLike(q string) string {
 // ?q= (2+ characters) → machines in use whose code, name, serial or number match.
 func apiFind(c *app.Ctx) (any, int) {
 	q := apiQ(c)
-	if php.Len(q) < 2 {
+	if conv.Len(q) < 2 {
 		return om("data", []any{}), 200
 	}
 	like := apiLike(q)
@@ -187,14 +187,14 @@ func apiMachine(c *app.Ctx, code string) *config.Map {
 	}
 	n := names(m["responsible_person_id"], m["supervisor_id"], m["manager_id"])
 	person := func(id any) any {
-		if php.Empty(id) {
+		if conv.Empty(id) {
 			return nil
 		}
-		return om("id", php.Int(id), "name", nameOr(n, id, nil))
+		return om("id", conv.Int(id), "name", nameOr(n, id, nil))
 	}
 	var checklist any
 	if isActive(m["machine_status"]) {
-		p := plan(m, u, php.Now())
+		p := plan(m, u, conv.Now())
 		items := []any{}
 		for _, i := range p.Items {
 			choice := i.Bool("is_choice")
@@ -222,7 +222,7 @@ func apiInput(c *app.Ctx, allowed ...string) *config.Map {
 	all := c.All()
 	out := config.NewMap()
 	for _, k := range all.Keys {
-		if php.InList(k, allowed...) {
+		if conv.InList(k, allowed...) {
 			out.Set(k, all.Vals[k])
 		}
 	}
@@ -251,10 +251,10 @@ func apiChecklists(c *app.Ctx) (any, int) {
 		sql = "SELECT * FROM checklist_record WHERE (checklist_status = 'PENDING SUPERVISOR' AND supervisor = ?) OR (checklist_status = 'PENDING MANAGER' AND manager = ?)"
 		params = []any{u.ID, u.ID}
 	}
-	per := max(1, min(100, php.Int(c.Query("per_page", "25"))))
-	page := max(1, min(10000, php.Int(c.Query("page", "1"))))
-	total := php.Int(mdb().Scalar("SELECT count(*) FROM ("+sql+") x", params...))
-	rows := mdb().Select(sql+" ORDER BY created_at DESC, id DESC LIMIT "+php.Str(per)+" OFFSET "+php.Str((page-1)*per), params...)
+	per := max(1, min(100, conv.Int(c.Query("per_page", "25"))))
+	page := max(1, min(10000, conv.Int(c.Query("page", "1"))))
+	total := conv.Int(mdb().Scalar("SELECT count(*) FROM ("+sql+") x", params...))
+	rows := mdb().Select(sql+" ORDER BY created_at DESC, id DESC LIMIT "+conv.Str(per)+" OFFSET "+conv.Str((page-1)*per), params...)
 	data := []any{}
 	for _, r := range rows {
 		data = append(data, recordOut(c, r, false))
@@ -285,7 +285,7 @@ func recordOut(c *app.Ctx, r db.Row, full bool) *config.Map {
 			ans = append(ans, om("question", a["detail"], "answer", a["answer"], "remark", a["remark"]))
 		}
 		out.Set("answers", ans)
-		if php.Empty(r["image"]) {
+		if conv.Empty(r["image"]) {
 			out.Set("image_url", nil)
 		} else {
 			out.Set("image_url", c.UploadURL(r["image"]))
@@ -305,7 +305,7 @@ func apiApprove(c *app.Ctx) (any, int) {
 	if !canApprove(r, c.MustUser()) {
 		apiFail(403, "not_waiting_for_you", c.T("This checklist is not waiting for you."))
 	}
-	note := php.Substr(app.InStr(apiInput(c, "note").Vals["note"]), 0, 500)
+	note := conv.Substr(app.InStr(apiInput(c, "note").Vals["note"]), 0, 500)
 	c.Replace(om("note", note))
 	// the website's approve: same checks (view permission, visible record) and the same save
 	c.Authorize("machines_checklists", "view")
@@ -318,7 +318,7 @@ func apiApprove(c *app.Ctx) (any, int) {
 // Maintenance and calibration of my machines that are overdue or due within ?days= (default 30, max 90).
 func apiDue(c *app.Ctx) (any, int) {
 	u := c.MustUser()
-	days := max(1, min(90, php.Int(c.Query("days", "30"))))
+	days := max(1, min(90, conv.Int(c.Query("days", "30"))))
 	s, p := scope(u, "m")
 	out := config.NewMap()
 	if u.Can("machines_maintenance", "view") {

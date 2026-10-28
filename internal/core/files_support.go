@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 // Sandboxed file operations for the admin file manager (App\Core\Support\Files). Everything happens inside one of a
@@ -119,10 +119,10 @@ func FilesAbs(c *app.Ctx, rootKey, rel string, mayCreate bool) string {
 // FilesName checks a plain file / folder name.
 func FilesName(c *app.Ctx, n string) string {
 	n = strings.TrimSpace(strings.NewReplacer("\x00", "", "/", "", "\\", "").Replace(n))
-	if n == "" || n == "." || n == ".." || strings.HasPrefix(n, ".") || php.Len(n) > 180 {
+	if n == "" || n == "." || n == ".." || strings.HasPrefix(n, ".") || conv.Len(n) > 180 {
 		filesFail(c.T("Use a plain name (no slashes, not starting with a dot)."))
 	}
-	if php.InList(strings.ToLower(extOf(n)), filesBlocked...) {
+	if conv.InList(strings.ToLower(extOf(n)), filesBlocked...) {
 		filesFail(c.T("Files of this type are not allowed."))
 	}
 	return n
@@ -197,7 +197,7 @@ func FilesList(c *app.Ctx, rootKey, rel, q, sortKey, dir string, page, per int) 
 		}
 	}
 	key := sortKey
-	if !php.InList(key, "name", "size", "mtime", "ext") {
+	if !conv.InList(key, "name", "size", "mtime", "ext") {
 		key = "name"
 	}
 	mul := 1
@@ -328,13 +328,13 @@ func FilesSize(b int64) string {
 	for i, u := range []string{"B", "KB", "MB", "GB"} {
 		if f < 1024 || i == 3 {
 			if i == 0 {
-				return php.Str(b) + " " + u
+				return conv.Str(b) + " " + u
 			}
 			dec := 0
 			if f < 10 {
 				dec = 1
 			}
-			return php.NF(f, dec) + " " + u
+			return conv.NF(f, dec) + " " + u
 		}
 		f /= 1024
 	}

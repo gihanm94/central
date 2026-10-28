@@ -12,8 +12,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // C is the database connection of the module (ErpSettings::CONN).
@@ -43,7 +43,7 @@ func badge(text, tone string) string {
 
 // person is Ui::person (no picture: the initials).
 func person(c *app.Ctx, name, sub, href string) string {
-	pic := `<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(php.Initials(name)) + `</span>`
+	pic := `<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(conv.Initials(name)) + `</span>`
 	title := `<span class="block truncate font-medium">` + app.E(name) + `</span>`
 	if href != "" {
 		title = `<a href="` + app.E(c.URL(href)) + `" class="block truncate font-medium hover:text-signal-700">` + app.E(name) + `</a>`
@@ -57,10 +57,10 @@ func person(c *app.Ctx, name, sub, href string) string {
 
 // money is ErpListController::money.
 func money(v any, cur string) string {
-	if v == nil || php.Str(v) == "" {
+	if v == nil || conv.Str(v) == "" {
 		return `<span class="text-graphite-400">—</span>`
 	}
-	s := php.NF(v, 2)
+	s := conv.NF(v, 2)
 	if cur != "" {
 		s += " " + cur
 	}
@@ -69,7 +69,7 @@ func money(v any, cur string) string {
 
 // dateCell is ErpListController::date.
 func dateCell(c *app.Ctx, v any) string {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return `<span class="text-graphite-400">—</span>`
 	}
 	return `<span class="tabular-nums text-steel">` + app.E(app.FormatDate(c, v, "d M Y")) + `</span>`
@@ -81,7 +81,7 @@ func dash() string { return `<span class="text-graphite-400">—</span>` }
 
 // orDash is e($v ?: '—').
 func orDash(v any) string {
-	if php.Empty(v) {
+	if conv.Empty(v) {
 		return "—"
 	}
 	return app.E(v)
@@ -89,8 +89,8 @@ func orDash(v any) string {
 
 // ---------------------------------------------------------------- PHP behaviours
 
-// phpRound is round($v, $places) (half away from zero, with PHP's pre-rounding to 15 significant digits).
-func phpRound(v float64, places int) float64 {
+// roundHalf is round($v, $places) (half away from zero, with PHP's pre-rounding to 15 significant digits).
+func roundHalf(v float64, places int) float64 {
 	if v == 0 || math.IsInf(v, 0) || math.IsNaN(v) {
 		return v
 	}
@@ -146,7 +146,7 @@ func phpRound(v float64, places int) float64 {
 
 // nf is number_format($v, $dec, $point, $sep) with PHP's rounding.
 func nf(v float64, dec int, point, sep string) string {
-	return php.NumberFormat(phpRound(v, dec), dec, point, sep)
+	return conv.NumberFormat(roundHalf(v, dec), dec, point, sep)
 }
 
 // likeEscape is str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q).
@@ -282,7 +282,7 @@ func plainJSON(v any) any {
 func om(pairs ...any) *config.Map {
 	m := config.NewMap()
 	for i := 0; i+1 < len(pairs); i += 2 {
-		m.Set(php.Str(pairs[i]), pairs[i+1])
+		m.Set(conv.Str(pairs[i]), pairs[i+1])
 	}
 	return m
 }
@@ -331,7 +331,7 @@ func mget(m *config.Map, k string) any {
 	return v
 }
 
-func mstr(m *config.Map, k string) string { return php.Str(mget(m, k)) }
+func mstr(m *config.Map, k string) string { return conv.Str(mget(m, k)) }
 
 func mmap(m *config.Map, k string) *config.Map {
 	x, _ := mget(m, k).(*config.Map)

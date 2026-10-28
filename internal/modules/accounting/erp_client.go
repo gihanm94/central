@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 /*
@@ -41,7 +41,7 @@ func (cl *erpClient) session(force bool) db.Row {
 		if t != nil && !erpTokenExpired(t) {
 			cl.token = t
 			cl.cookies = config.NewMap()
-			if v, err := config.Decode([]byte(php.OrStr(t.Str("cookies"), "[]"))); err == nil {
+			if v, err := config.Decode([]byte(conv.OrStr(t.Str("cookies"), "[]"))); err == nil {
 				if m, ok := v.(*config.Map); ok {
 					cl.cookies = m
 				}
@@ -53,7 +53,7 @@ func (cl *erpClient) session(force bool) db.Row {
 }
 
 func erpTokenExpired(t db.Row) bool {
-	return t.Str("session_id") == "" || t.Bool("session_suspended") || time.Now().Unix()-php.StrToTime(t["updated_at"]) > erpTTL
+	return t.Str("session_id") == "" || t.Bool("session_suspended") || time.Now().Unix()-conv.StrToTime(t["updated_at"]) > erpTTL
 }
 
 // login posts the user name and password; the ERP answers with a session id and cookies.
@@ -70,11 +70,11 @@ func (cl *erpClient) login() db.Row {
 	if r.status >= 400 || r.status == 0 {
 		st := "no answer"
 		if r.status != 0 {
-			st = php.Str(r.status)
+			st = conv.Str(r.status)
 		}
 		msg := r.err
 		if msg == "" {
-			msg = php.Substr(strings.TrimSpace(r.body), 0, 200)
+			msg = conv.Substr(strings.TrimSpace(r.body), 0, 200)
 		}
 		panic(errors.New("Login failed (" + st + "): " + msg))
 	}
@@ -84,17 +84,17 @@ func (cl *erpClient) login() db.Row {
 	for k, v := range j {
 		lower[strings.ToLower(k)] = v
 	}
-	if php.Empty(lower["sessionid"]) {
+	if conv.Empty(lower["sessionid"]) {
 		panic(errors.New("Login answer has no session id."))
 	}
 	cookies := jsonEnc(cl.cookies, false)
 	if cl.cookies.Len() == 0 {
 		cookies = "[]"
 	}
-	cols := db.Cols{{Name: "session_id", Value: php.Str(lower["sessionid"])}, {Name: "session_suspended", Value: !php.Empty(lower["sessionsuspended"])}, {Name: "cookies", Value: cookies}}
+	cols := db.Cols{{Name: "session_id", Value: conv.Str(lower["sessionid"])}, {Name: "session_suspended", Value: !conv.Empty(lower["sessionsuspended"])}, {Name: "cookies", Value: cookies}}
 	id := acc().Scalar("SELECT id FROM erp_tokens WHERE is_primary ORDER BY id DESC LIMIT 1")
 	if id != nil {
-		acc().Update("erp_tokens", append(cols, db.Col{Name: "updated_at", Value: php.NowString()}), db.Cols{{Name: "id", Value: id}})
+		acc().Update("erp_tokens", append(cols, db.Col{Name: "updated_at", Value: conv.NowString()}), db.Cols{{Name: "id", Value: id}})
 	} else {
 		acc().Insert("erp_tokens", append(cols, db.Col{Name: "is_primary", Value: true}), "")
 	}
@@ -143,7 +143,7 @@ func (cl *erpClient) page(endpointKey string, q erpQuery) erpPage {
 	if top == 0 {
 		top = 1000
 	}
-	params = append(params, kv{"$top", php.Str(top)}, kv{"$skip", php.Str(q.Skip)})
+	params = append(params, kv{"$top", conv.Str(top)}, kv{"$skip", conv.Str(q.Skip)})
 	parts := make([]string, len(params))
 	for i, p := range params { // http_build_query(…, PHP_QUERY_RFC3986)
 		parts[i] = rfc3986(p.k) + "=" + rfc3986(p.v)
@@ -162,7 +162,7 @@ func (cl *erpClient) page(endpointKey string, q erpQuery) erpPage {
 	if r.status < 200 || r.status >= 300 {
 		e := r.err
 		if e == "" {
-			e = "HTTP " + php.Str(r.status) + ": " + php.Substr(strings.TrimSpace(stripTags(r.body)), 0, 200)
+			e = "HTTP " + conv.Str(r.status) + ": " + conv.Substr(strings.TrimSpace(stripTags(r.body)), 0, 200)
 		}
 		return erpPage{status: r.status, err: e}
 	}
@@ -202,7 +202,7 @@ type erpResp struct {
 
 func (cl *erpClient) send(method, path string, body *string, withSession bool, sessionID string) erpResp {
 	verify := connSetting("verify_tls") == "1"
-	timeout := php.Int(connSetting("timeout"))
+	timeout := conv.Int(connSetting("timeout"))
 	if timeout == 0 {
 		timeout = 120
 	}
@@ -230,7 +230,7 @@ func (cl *erpClient) send(method, path string, body *string, withSession bool, s
 		if cl.cookies.Len() > 0 {
 			var cs []string
 			for _, k := range cl.cookies.Keys {
-				cs = append(cs, k+"="+php.Str(cl.cookies.Vals[k]))
+				cs = append(cs, k+"="+conv.Str(cl.cookies.Vals[k]))
 			}
 			req.Header.Set("Cookie", strings.Join(cs, "; "))
 		}
@@ -265,10 +265,10 @@ func (cl *erpClient) send(method, path string, body *string, withSession bool, s
 	case out.err != "":
 		logError("erp", method+" "+shown+" failed: "+out.err, ctx)
 	case out.status >= 400:
-		ctx.Set("body", php.Substr(strings.TrimSpace(stripTags(out.body)), 0, 400))
-		logError("erp", method+" "+shown+" → HTTP "+php.Str(out.status), ctx)
+		ctx.Set("body", conv.Substr(strings.TrimSpace(stripTags(out.body)), 0, 400))
+		logError("erp", method+" "+shown+" → HTTP "+conv.Str(out.status), ctx)
 	default:
-		logInfo("erp", method+" "+shown+" → HTTP "+php.Str(out.status), ctx)
+		logInfo("erp", method+" "+shown+" → HTTP "+conv.Str(out.status), ctx)
 	}
 	if len(setCookies) > 0 { // a new answer replaces the old cookies, like the old client did
 		cl.cookies = config.NewMap()

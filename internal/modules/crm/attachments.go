@@ -15,8 +15,8 @@ import (
 	"unicode/utf8"
 
 	"acme/internal/app"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Attachments: files on CRM records. They are kept in storage/attachments (not reachable from the web)
@@ -100,7 +100,7 @@ func cleanName(name string) string {
 	if name == "" {
 		name = "file"
 	}
-	return php.Substr(name, 0, 200)
+	return conv.Substr(name, 0, 200)
 }
 
 var nonASCIIName = regexp.MustCompile(`[^A-Za-z0-9._ -]+`)
@@ -203,7 +203,7 @@ func attRemove(row db.Row) {
 
 func humanSize(bytes int) string {
 	if bytes >= 1048576 {
-		return php.NF(float64(bytes)/1048576, 1) + " MB"
+		return conv.NF(float64(bytes)/1048576, 1) + " MB"
 	}
-	return php.Str(max(1, int(phpRound(float64(bytes)/1024, 0)))) + " KB"
+	return conv.Str(max(1, int(roundHalf(float64(bytes)/1024, 0)))) + " KB"
 }

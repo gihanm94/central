@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"acme/internal/app"
-	"acme/internal/php"
+	"acme/internal/conv"
 )
 
 func init() {
@@ -40,12 +40,12 @@ func init() {
 		MigrationsDir: "database/sql/modules/sheets",
 	})
 
-	// bin/sheets-sync.php: run it every 5 minutes from cron so syncs scheduled in the evening or at night run even
+	// acme sheets-sync: run it every 5 minutes from cron so syncs scheduled in the evening or at night run even
 	// when nobody is signed in:   */5 * * * * /path/to/acme -base /path/to/app sheets-sync
 	// Nothing runs during office hours (Google Sheets → Settings); due syncs wait until they end.
 	app.Commands["sheets-sync"] = func(args []string) int {
 		if !app.ModuleUsable("sheets") {
-			fmt.Println(php.Date("c", php.Now()) + " the Google Sheets module is off or unavailable")
+			fmt.Println(conv.Date("c", conv.Now()) + " the Google Sheets module is off or unavailable")
 			return 0
 		}
 		c := &app.Ctx{Shared: app.M{}}
@@ -54,7 +54,7 @@ func init() {
 		if len(ran) > 0 {
 			out = strings.Join(ran, "\n")
 		}
-		fmt.Println(php.Date("c", php.Now()) + " " + out)
+		fmt.Println(conv.Date("c", conv.Now()) + " " + out)
 		return 0
 	}
 }

@@ -9,8 +9,8 @@ import (
 
 	"acme/internal/app"
 	"acme/internal/config"
+	"acme/internal/conv"
 	"acme/internal/db"
-	"acme/internal/php"
 )
 
 // Members = employees (users + employee_profiles) (MemberController).
@@ -83,14 +83,14 @@ var members = &app.Resource{
 				return app.HTML(s)
 			}},
 			{Key: "where", Label: c.T("Department / team"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				s := app.E(php.Coalesce(r["department_name"], "—"))
+				s := app.E(conv.Coalesce(r["department_name"], "—"))
 				if r.Str("team_name") != "" {
 					s += `<span class="block text-xs text-steel">` + app.E(r["team_name"]) + `</span>`
 				}
 				return app.HTML(s)
 			}},
 			{Key: "job", Label: c.T("Job title"), Render: func(c *app.Ctx, r db.Row) template.HTML {
-				s := app.E(php.Coalesce(r["job_title"], "—"))
+				s := app.E(conv.Coalesce(r["job_title"], "—"))
 				if r.Str("employee_level") != "" {
 					s += ` <span class="badge ml-1 bg-graphite-900/6 text-graphite-800">` + app.E(app.EnumLabel(c, "levels", r.Str("employee_level"))) + `</span>`
 				}
@@ -221,7 +221,7 @@ func memberFields(c *app.Ctx, row db.Row) []app.Field {
 		{Name: "employee_level", Label: c.T("Employee level"), Type: "select", NoTable: true, Options: app.EnumOptions(c, "levels"), Rules: "nullable", Example: "C3"},
 		{Name: "employment_status", Label: c.T("Employment status"), Type: "select", NoTable: true, Options: app.EnumOptions(c, "statuses"), Rules: "required", Default: "ACTIVE"},
 		{Name: "employment_type", Label: c.T("Employment type"), Type: "select", NoTable: true, Options: app.EnumOptions(c, "types"), Rules: "required", Default: "FULL_TIME"},
-		{Name: "joined_at", Label: c.T("Joined on"), Type: "date", NoTable: true, Rules: "nullable|date", Example: php.Date("Y-m-d", php.Now())},
+		{Name: "joined_at", Label: c.T("Joined on"), Type: "date", NoTable: true, Rules: "nullable|date", Example: conv.Date("Y-m-d", conv.Now())},
 
 		{Section: c.T("Personal")},
 		{Name: "gender", Label: c.T("Gender"), Type: "select", NoTable: true, Options: app.EnumOptions(c, "genders"), Rules: "nullable"},
@@ -263,7 +263,7 @@ func memberPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		}
 	}
 	memberInvites.Delete(c)
-	if !php.Empty(data.Get("password")) {
+	if !conv.Empty(data.Get("password")) {
 		data.Set("password", app.PasswordHash(data.Str("password")))
 	} else if existing != nil {
 		data.Delete("password")
@@ -272,9 +272,9 @@ func memberPrepare(c *app.Ctx, data *app.Clean, existing db.Row) *app.Clean {
 		memberInvites.Store(c, true)
 	}
 
-	if !php.Empty(data.Get("team_id")) {
+	if !conv.Empty(data.Get("team_id")) {
 		teamDept := db.Scalar("SELECT department_id FROM teams WHERE id = ?", data.Get("team_id"))
-		if !php.Empty(data.Get("department_id")) && php.Int(teamDept) != data.Int("department_id") {
+		if !conv.Empty(data.Get("department_id")) && conv.Int(teamDept) != data.Int("department_id") {
 			app.Invalid("team_id", c.T("This team belongs to another department."))
 		}
 		if data.Get("department_id") == nil {
@@ -288,7 +288,7 @@ func memberSaved(c *app.Ctx, id int, data *app.Clean, existing db.Row) {
 	var cols []string
 	params := []any{id}
 	for _, k := range data.Keys {
-		if php.InList(k, memberProfileCols...) {
+		if conv.InList(k, memberProfileCols...) {
 			cols = append(cols, k)
 			v := data.Get(k)
 			if s, ok := v.(string); ok && s == "" {
@@ -364,9 +364,9 @@ func memberAccess(c *app.Ctx) {
 	for _, p := range config.AsPairs(config.Get("core.scopes")) {
 		scopes = append(scopes, app.Opt{Value: p.Key, Label: c.T(p.Label)})
 	}
-	roleScopeLabel, ok := app.OptLabel(scopes, php.Str(roleScope))
+	roleScopeLabel, ok := app.OptLabel(scopes, conv.Str(roleScope))
 	if !ok {
-		roleScopeLabel = php.Str(roleScope)
+		roleScopeLabel = conv.Str(roleScope)
 	}
 	on := "bg-graphite-800 text-white ring-graphite-800"
 	off := "bg-white text-steel ring-graphite-900/15"
@@ -401,7 +401,7 @@ func memberAccess(c *app.Ctx) {
 	}
 	var actionLabels []string
 	for _, a := range actions {
-		actionLabels = append(actionLabels, c.T(php.Ucfirst(a)))
+		actionLabels = append(actionLabels, c.T(conv.Ucfirst(a)))
 	}
 	scopeSelect := app.SelectField(c, "data_scope", scopes, row.Str("data_scope"), app.M{
 		"placeholder": c.T("Role default (:scope)", "scope", roleScopeLabel), "wrap": "sm:w-72", "disabled": !canChange, "aria": c.T("Which records they can see"),
@@ -501,7 +501,7 @@ func memberSaveAccess(c *app.Ctx) {
 	} else {
 		c.Flash("success", c.T("Nothing changed."))
 	}
-	c.Redirect("/members/" + php.Str(id) + "/access")
+	c.Redirect("/members/" + conv.Str(id) + "/access")
 }
 
 func mapGet(m *config.Map, k string) any {
