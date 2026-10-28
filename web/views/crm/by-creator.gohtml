@@ -5,7 +5,7 @@
         <span class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-graphite-700 text-sm font-semibold text-white">{{.initials}}</span>
         <div class="min-w-0">
             <p class="truncate text-base font-semibold">{{.name}}</p>
-            <p class="text-xs text-steel">{{__ ":n created" "n" .count}} · {{.plural}}{{if .more}} · {{__ "the newest :n are shown" "n" .limit}}{{end}}</p>
+            <p class="text-xs text-steel">{{.countLabel}} · {{.plural}}{{if .more}} · {{__ "the newest :n are shown" "n" .limit}}{{end}}</p>
         </div>
     </div>
     {{if .items}}
@@ -19,6 +19,6 @@
         {{end}}
     </ul>
     {{else}}
-    <p class="mt-3 rounded-xl bg-white px-4 py-10 text-center text-sm text-steel ring-1 ring-graphite-900/8">{{__ "Nothing created that you can see."}}</p>
+    <p class="mt-3 rounded-xl bg-white px-4 py-10 text-center text-sm text-steel ring-1 ring-graphite-900/8">{{.empty}}</p>
     {{end}}
 </div>

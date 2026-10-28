@@ -122,7 +122,8 @@ func (s *screen) setup() *screen {
 // mount registers the standard routes plus the CRM detail page and import.
 func (s *screen) mount(rt app.Router) {
 	s.res.Mount(rt, "show", "import")
-	rt.Get(s.res.Base+"/by/{uid}", s.byCreator) // the right-hand sheet of a list's "Created by" column
+	rt.Get(s.res.Base+"/owned/{uid}", func(c *app.Ctx) { s.sheet(c, "owned") }) // the sheet of an "Owner" name: what is assigned to that person now
+	rt.Get(s.res.Base+"/by/{uid}", func(c *app.Ctx) { s.sheet(c, "created") })  // the right-hand sheet of a list's "Created by" column
 	rt.Get(s.res.Base+"/{id}", s.show)
 	rt.Post(s.res.Base+"/import", func(c *app.Ctx) {
 		c.Shared["_crm_importing"] = true
@@ -165,6 +166,16 @@ func (s *screen) hydrate(c *app.Ctx, rows []db.Row) []db.Row {
 		r["owner_name"] = strOrNil(users, r.Int("owner_id"))
 		r["creator_name"] = strOrNil(users, r.Int("created_by"))
 		r["department_name"] = strOrNil(deps, r.Int("department_id"))
+	}
+	// when the current owner took the record over (the last hand-over); never handed over → the creation time is used
+	since := map[int]any{}
+	ids := col(rows, "id")
+	for _, h := range db.On("crm").Select(`SELECT DISTINCT ON (entity_id) entity_id, created_at FROM ownership_history WHERE entity_type = ? AND role = 'owner'
+	                                          AND entity_id IN (`+inPlaceholders(len(ids))+`) ORDER BY entity_id, created_at DESC, id DESC`, append([]any{s.entity}, ids...)...) {
+		since[h.Int("entity_id")] = h["created_at"]
+	}
+	for _, r := range rows {
+		r["owned_since"] = since[r.Int("id")]
 	}
 	if s.hydrateMore != nil {
 		rows = s.hydrateMore(c, rows)
@@ -360,24 +371,40 @@ func createdColumn(c *app.Ctx) app.Column {
 }
 
 // ownerColumn: who the record belongs to now. It starts as the creator and only changes when the record is handed over
-// (for example when its owner leaves); "Created by" keeps the original creator. A handed-over record says who had it first.
+// (for example when its owner leaves); "Created by" keeps the original creator. A handed-over record gets an amber avatar with
+// a small up/down arrow; under the name is when the person became its owner. The name opens a sheet with what is assigned to them.
 func ownerColumn(c *app.Ctx) app.Column {
 	return app.Column{Key: "owner", Label: c.T("Owner"), Render: func(c *app.Ctx, r db.Row) template.HTML {
 		n := r.Str("owner_name")
 		if r["owner_name"] == nil {
 			return h(`<span class="text-steel">—</span>`)
 		}
-		tone, sub := "bg-graphite-900/6 text-graphite-700", ""
-		if r.Int("created_by") != r.Int("owner_id") {
-			tone = "bg-amber-50 text-amber-800 ring-1 ring-amber-600/25"
-			if r["creator_name"] != nil {
-				sub = `<span class="mt-0.5 block truncate text-[11px] font-medium text-amber-800" title="` + app.E(c.T("Handed over from :name", "name", r.Str("creator_name"))) + `">→ ` +
-					app.E(c.T("Handed over from :name", "name", r.Str("creator_name"))) + `</span>`
-			}
+		handed := r.Int("created_by") != r.Int("owner_id")
+		tone, badge, tip := "bg-graphite-900/6 text-graphite-700", "", ""
+		if handed {
+			tone = "bg-amber-50 text-amber-800"
+			tip = c.T("Handed over from :name", "name", conv.OrStr(r.Str("creator_name"), "—"))
+			badge = `<span class="absolute inline-flex items-center justify-center rounded-full bg-amber-500 text-white ring-2 ring-white" style="bottom:-3px;right:-3px;width:16px;height:16px" title="` + app.E(tip) + `">` + string(app.Icon("updown", "size-3")) + `</span>`
 		}
-		pic := `<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ` + tone + `">` + app.E(conv.Initials(n)) + `</span>`
-		return h(`<div class="flex min-w-0 max-w-[15rem] items-center gap-3">` + pic + `<div class="min-w-0"><span class="block truncate font-medium">` + app.E(n) + `</span>` + sub + `</div></div>`)
+		pic := `<span class="relative inline-flex shrink-0"><span class="inline-flex size-9 items-center justify-center rounded-full text-xs font-semibold ` + tone + `"` + ifs(handed, ` style="box-shadow:inset 0 0 0 1px rgba(217,119,6,.4)"`) + `>` + app.E(conv.Initials(n)) + `</span>` + badge + `</span>`
+		title := `<span class="block truncate font-medium">` + app.E(n) + `</span>`
+		if seg := strings.Split(strings.Trim(c.Path(), "/"), "/"); r.Int("owner_id") > 0 && len(seg) >= 2 {
+			title = `<a href="` + app.E(c.URL("/crm/"+seg[1]+"/owned/"+r.Str("owner_id"))) + `" data-sheet data-sheet-title="` + app.E(c.T("Assigned to :name", "name", n)) +
+				`" class="block truncate font-medium hover:text-signal-700" title="` + app.E(c.T("Show the records assigned to :name", "name", n)) + `">` + app.E(n) + `</a>`
+		}
+		since := app.FormatDate(c, conv.Or(r["owned_since"], r["created_at"]), "M j, Y H:i")
+		return h(`<div class="flex min-w-0 max-w-[15rem] items-center gap-3">` + pic + `<div class="min-w-0">` + title + `<span class="block truncate text-xs text-steel"` +
+			ifs(tip != "", ` title="`+app.E(tip)+`"`) + `>` + app.E(since) + `</span></div></div>`)
 	}}
+}
+
+// handedChip: in the "Owner" sheet, the amber note that a record came from somebody else.
+func handedChip(c *app.Ctx, r db.Row) template.HTML {
+	if r.Int("created_by") == r.Int("owner_id") || r["creator_name"] == nil {
+		return ""
+	}
+	return template.HTML(`<span class="mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/25">→ ` +
+		app.E(c.T("Handed over from :name", "name", r.Str("creator_name"))) + `</span>`)
 }
 
 // assignedChip: an amber tag when the record's owner is not the person who created it (used in the "Created by" sheet).
@@ -389,8 +416,8 @@ func assignedChip(c *app.Ctx, r db.Row) template.HTML {
 		app.E(c.T("Now assigned to :name", "name", r.Str("owner_name"))) + `">→ ` + app.E(c.T("Assigned to :name", "name", r.Str("owner_name"))) + `</span>`)
 }
 
-// byCreator: the sheet (embedded page) with the records one person created, as far as the viewer may see them.
-func (s *screen) byCreator(c *app.Ctx) {
+// sheet: the embedded page with the records one person created ("created") or has now ("owned"), as far as the viewer may see them.
+func (s *screen) sheet(c *app.Ctx, kind string) {
 	c.Authorize(s.res.Resource, "view")
 	uid := c.ParamInt("uid")
 	who := names("users", []any{uid})
@@ -399,7 +426,11 @@ func (s *screen) byCreator(c *app.Ctx) {
 		app.Abort(404)
 	}
 	const limit = 200
-	rows := s.res.QueryWhere(c, "t.created_by = ?", []any{uid}, "t.created_at DESC, t.id DESC", limit+1)
+	col, empty, count := "t.created_by", "Nothing created that you can see.", ":n created"
+	if kind == "owned" {
+		col, empty, count = "t.owner_id", "Nothing is assigned that you can see.", ":n assigned"
+	}
+	rows := s.res.QueryWhere(c, col+" = ?", []any{uid}, "t.created_at DESC, t.id DESC", limit+1)
 	more := len(rows) > limit
 	if more {
 		rows = rows[:limit]
@@ -414,9 +445,13 @@ func (s *screen) byCreator(c *app.Ctx) {
 		if code := r.Str("code"); code != "" {
 			sub = code + " · " + sub
 		}
-		items = append(items, item{Title: s.res.LabelOf(c, r), Href: c.URL(s.res.Base + "/" + r.Str("id")), Sub: sub, Chip: assignedChip(c, r)})
+		chip := assignedChip(c, r)
+		if kind == "owned" {
+			chip = handedChip(c, r)
+		}
+		items = append(items, item{Title: s.res.LabelOf(c, r), Href: c.URL(s.res.Base + "/" + r.Str("id")), Sub: sub, Chip: chip})
 	}
-	c.View("crm/by-creator", app.M{"layout": "", "name": name, "initials": conv.Initials(name), "items": items, "count": len(items), "more": more, "limit": limit,
+	c.View("crm/by-creator", app.M{"layout": "", "name": name, "initials": conv.Initials(name), "items": items, "count": len(items), "more": more, "limit": limit, "empty": c.T(empty), "countLabel": c.T(count, "n", len(items)),
 		"plural": c.T(conv.Ucfirst(s.res.Plural))})
 }
 
@@ -856,3 +891,10 @@ func commentsData(c *app.Ctx, meta app.M, row db.Row, items []db.Row) app.M {
 
 // cleanMap reads a nested input value as an ordered map (nil-safe).
 func cleanMap(v any) *config.Map { return app.InMap(v) }
+
+func ifs(ok bool, s string) string {
+	if ok {
+		return s
+	}
+	return ""
+}

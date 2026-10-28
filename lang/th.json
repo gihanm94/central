@@ -2850,5 +2850,8 @@
     ":n created": "สร้าง :n รายการ",
     "the newest :n are shown": "แสดง :n รายการล่าสุด",
     "Nothing created that you can see.": "ไม่มีรายการที่คุณมองเห็นซึ่งผู้นี้สร้าง",
-    "Handed over from :name": "ส่งต่อจาก :name"
+    "Handed over from :name": "ส่งต่อจาก :name",
+    "Nothing is assigned that you can see.": "ไม่มีรายการที่มอบหมายและคุณมองเห็นได้",
+    ":n assigned": "มอบหมาย :n รายการ",
+    "Show the records assigned to :name": "แสดงรายการที่มอบหมายให้ :name"
 }
