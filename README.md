@@ -21,7 +21,7 @@ table, role, permission, your admin account and (optionally) demo data.
 4. Open **http://localhost:8000** — you are sent to the installer. Click **Install now**,
    then sign in with the admin username and password you chose.
 
-Day to day, from this folder: `./start.sh` (git pull, build, start in the background), `./restart.sh`, `./stop.sh`, `./status.sh`, `./logs.sh`.
+Day to day, from this folder (each script works on its own): `./start.sh` (git pull, build, start in the background), `./restart.sh`, `./stop.sh`, `./status.sh`, `./logs.sh`.
 Add `--no-pull` to `start.sh` / `restart.sh` to build without pulling. Settings `ACME_ADDR` and `ACME_BRANCH` can go in a file named `acme.env`.
 
 `./acme migrate` applies new SQL upgrades (`database/sql/migrations/…`) and exits. The upgrades also run by themselves on the
