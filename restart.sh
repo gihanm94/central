@@ -49,7 +49,7 @@ do_start() {
   local port="${ADDR##*:}" other=""
   if command -v lsof >/dev/null 2>&1; then other=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}') || true; fi
   [ -z "$other" ] || die "port $port is already used by $other. Stop that program, or set another port: ACME_ADDR=127.0.0.1:8001 ./start.sh"
-  local before; before=$(wc -c < "$LOG" 2>/dev/null || echo 0)
+  local before=0; [ -f "$LOG" ] && before=$(wc -c < "$LOG")
   nohup "$BIN" -addr "$ADDR" -base "$DIR" >> "$LOG" 2>&1 &
   echo $! > "$PIDFILE"
   sleep 1
