@@ -15,6 +15,21 @@
             <div><label for="support_email" class="label">{{__ "Support e-mail"}}</label><input id="support_email" name="support_email" type="email" value="{{old "support_email" $brand.support}}" placeholder="it-help@company.com" class="input"><p class="hint">{{__ "Shown on the sign-in page for people who need an account."}}</p>{{fieldError "support_email"}}</div>
             <div><label for="default_locale" class="label">{{__ "Default language"}}</label>{{select "default_locale" .locales (old "default_locale" .defaultLocale) (dict "id" "default_locale" "required" true)}}<p class="hint">{{__ "For the sign-in page and anyone who has not picked a language."}}</p></div>
 
+            <div class="space-y-4 rounded-lg bg-mist/50 p-4 ring-1 ring-graphite-900/8">
+                <div><h3 class="flex items-center gap-2 text-sm font-semibold">{{icon "phone" "size-4"}} {{__ "Mobile app"}}</h3>
+                    <p class="mt-0.5 text-xs text-steel">{{__ "Let people open the mobile app from the sign-in page. Leave a link empty to hide that store."}}</p></div>
+                <div><label for="app_ios_url" class="label">{{__ "iPhone app link"}}</label><input id="app_ios_url" name="app_ios_url" type="url" inputmode="url" value="{{old "app_ios_url" $brand.app_ios}}" maxlength="500" placeholder="https://apps.apple.com/app/…" class="input">{{fieldError "app_ios_url"}}</div>
+                <div><label for="app_android_url" class="label">{{__ "Android app link"}}</label><input id="app_android_url" name="app_android_url" type="url" inputmode="url" value="{{old "app_android_url" $brand.app_android}}" maxlength="500" placeholder="https://play.google.com/store/apps/details?id=…" class="input">{{fieldError "app_android_url"}}</div>
+                <div><span class="label">{{__ "Show the app links"}}</span>
+                    {{$pos := old "app_link_position" .appLinkPosition}}
+                    <div class="mt-1 inline-flex rounded-md bg-white p-0.5 text-sm ring-1 ring-graphite-900/15" role="radiogroup">
+                        <label class="cursor-pointer"><input type="radio" name="app_link_position" value="off" class="peer sr-only" {{if eq $pos "off"}}checked{{end}}><span class="block rounded px-3 py-1.5 text-steel peer-checked:bg-graphite-900 peer-checked:font-medium peer-checked:text-white">{{__ "Hidden"}}</span></label>
+                        <label class="cursor-pointer"><input type="radio" name="app_link_position" value="top" class="peer sr-only" {{if eq $pos "top"}}checked{{end}}><span class="block rounded px-3 py-1.5 text-steel peer-checked:bg-graphite-900 peer-checked:font-medium peer-checked:text-white">{{__ "Top of the form"}}</span></label>
+                        <label class="cursor-pointer"><input type="radio" name="app_link_position" value="bottom" class="peer sr-only" {{if eq $pos "bottom"}}checked{{end}}><span class="block rounded px-3 py-1.5 text-steel peer-checked:bg-graphite-900 peer-checked:font-medium peer-checked:text-white">{{__ "Bottom of the form"}}</span></label>
+                    </div>
+                    {{fieldError "app_link_position"}}</div>
+            </div>
+
             <div class="grid gap-5 sm:grid-cols-2">
                 <div>
                     <span class="label">{{__ "Logo"}}</span>

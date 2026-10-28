@@ -2862,5 +2862,16 @@
     "Won": "ชนะ",
     "Lost": "แพ้",
     "No deals closed in these months.": "ไม่มีดีลที่ปิดในช่วงนี้",
-    ":n new leads": "ลีดใหม่ :n รายการ"
+    ":n new leads": "ลีดใหม่ :n รายการ",
+    "Mobile app": "แอปมือถือ",
+    "Let people open the mobile app from the sign-in page. Leave a link empty to hide that store.": "ให้ผู้ใช้เปิดแอปมือถือจากหน้าเข้าสู่ระบบ เว้นลิงก์ว่างไว้เพื่อซ่อนสโตร์นั้น",
+    "iPhone app link": "ลิงก์แอป iPhone",
+    "Android app link": "ลิงก์แอป Android",
+    "Show the app links": "แสดงลิงก์แอป",
+    "Hidden": "ซ่อน",
+    "Top of the form": "ด้านบนของฟอร์ม",
+    "Bottom of the form": "ด้านล่างของฟอร์ม",
+    "Prefer the mobile app?": "ต้องการใช้แอปมือถือ?",
+    "iPhone app": "แอป iPhone",
+    "Android app": "แอป Android"
 }

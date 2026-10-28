@@ -91,6 +91,9 @@ func Branding(c *Ctx) M {
 		"support":     Setting("support_email", ""),
 		"banner":      banner,
 		"auth_logo":   Setting("auth_logo", "1") != "0",
+		"app_ios":     Setting("app_ios_url", ""),
+		"app_android": Setting("app_android_url", ""),
+		"app_pos":     Setting("app_link_position", "off"),
 	}
 }
 

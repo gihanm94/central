@@ -1,0 +1,10 @@
+{{- /* "Get the mobile app" buttons of the sign-in page; the administrator picks the stores and top or bottom in Settings. */ -}}
+{{define "auth/app-links"}}
+<div style="{{css .style}}" data-app-links>
+    <p class="mb-2 text-xs text-graphite-400">{{__ "Prefer the mobile app?"}}</p>
+    <div class="flex flex-wrap gap-2">
+        {{with .b.app_ios}}<a href="{{.}}" target="_blank" rel="noopener noreferrer" class="btn flex-1 justify-center bg-white/5 py-2 text-sm text-white ring-1 ring-white/15 hover:bg-white/10" data-app-ios>{{icon "phone" "size-4"}} {{__ "iPhone app"}}</a>{{end}}
+        {{with .b.app_android}}<a href="{{.}}" target="_blank" rel="noopener noreferrer" class="btn flex-1 justify-center bg-white/5 py-2 text-sm text-white ring-1 ring-white/15 hover:bg-white/10" data-app-android>{{icon "phone" "size-4"}} {{__ "Android app"}}</a>{{end}}
+    </div>
+</div>
+{{end}}

@@ -69,7 +69,7 @@ func wsMail(c *app.Ctx) app.M {
 func settingsEdit(c *app.Ctx) {
 	c.Authorize("settings", "view")
 	c.View("settings/edit", app.M{"title": c.T("Company settings"), "brand": app.Branding(c), "locales": wsLocaleOpts(),
-		"accessRequests": app.Setting("access_requests", "1") != "0", "mail": wsMail(c), "defaultLocale": app.Setting("default_locale", "en")})
+		"accessRequests": app.Setting("access_requests", "1") != "0", "appLinkPosition": app.Setting("app_link_position", "off"), "mail": wsMail(c), "defaultLocale": app.Setting("default_locale", "en")})
 }
 
 func settingsUpdate(c *app.Ctx) {
@@ -80,7 +80,18 @@ func settingsUpdate(c *app.Ctx) {
 		app.Rule{Field: "login_banner", Rules: "nullable|max:60", Label: c.T("Sign-in banner")},
 		app.Rule{Field: "support_email", Rules: "nullable|email|max:160", Label: c.T("Support e-mail")},
 		app.Rule{Field: "default_locale", Rules: "required|in:" + wsLocaleKeys(), Label: c.T("Default language")},
+		app.Rule{Field: "app_ios_url", Rules: "nullable|max:500", Label: c.T("iPhone app link")},
+		app.Rule{Field: "app_android_url", Rules: "nullable|max:500", Label: c.T("Android app link")},
+		app.Rule{Field: "app_link_position", Rules: "required|in:off,top,bottom", Label: c.T("Show the app links")},
 	)
+	for _, f := range []string{"app_ios_url", "app_android_url"} {
+		if v := strings.TrimSpace(conv.Str(data.Get(f))); v != "" {
+			if u, err := url.Parse(v); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+				app.Invalid(f, c.T("Enter a full link starting with https://"))
+			}
+			data.Set(f, v)
+		}
+	}
 
 	changed := &app.Changes{}
 	for _, key := range data.Keys {
