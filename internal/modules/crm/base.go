@@ -455,10 +455,12 @@ func (s *screen) sheet(c *app.Ctx, kind string) {
 		"plural": c.T(conv.Ucfirst(s.res.Plural))})
 }
 
-// commonFilters: "My records" for everyone, plus a department filter for whole-company roles.
+// commonFilters: "My records" and a member filter for everyone, plus a department filter for whole-company roles.
 func commonFilters(c *app.Ctx) []app.Filter {
 	uid := c.MustUser().ID
 	f := []app.Filter{{Name: "scope", Label: c.T("All records"), Options: []app.Opt{{Value: "mine", Label: c.T("My records")}}, SQL: "t.owner_id = ?", Bind: func(string) any { return uid }}}
+	// Member = the current owner: everybody for admin / management, the own department's people for everyone else.
+	f = append(f, app.Filter{Name: "member", Label: c.T("All members"), Options: assignable(c.MustUser()), Column: "t.owner_id"})
 	if seesAll(c.MustUser()) {
 		f = append(f, app.Filter{Name: "department", Label: c.T("All departments"), Options: departments(), Column: "t.department_id"})
 	}
