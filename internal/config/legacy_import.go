@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// ImportPHP reads the settings file the PHP version wrote (config/config.json: `return array ( … );`, var_export style)
+// ImportLegacy reads the settings file the PHP version wrote (config/config.json: `return array ( … );`, var_export style)
 // and returns it as config values (ordered maps, lists, strings, numbers, booleans, nil), ready for JSON.
 // It exists only to move an existing server over: `acme import-config config/config.json`.
-func ImportPHP(src string) (any, error) {
+func ImportLegacy(src string) (any, error) {
 	i := strings.Index(src, "return")
 	if i < 0 {
 		return nil, fmt.Errorf("no \"return\" found: this is not a PHP settings file")

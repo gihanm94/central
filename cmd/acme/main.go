@@ -104,7 +104,7 @@ func importConfig(args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	v, err := config.ImportPHP(string(raw))
+	v, err := config.ImportLegacy(string(raw))
 	if err != nil {
 		log.Fatalf("%s: %v", from, err)
 	}

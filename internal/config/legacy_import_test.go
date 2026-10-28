@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestImportPHP(t *testing.T) {
+func TestImportLegacy(t *testing.T) {
 	src := `<?php
 // Written by the installer
 return array (
@@ -29,7 +29,7 @@ return array (
     'none' => NULL,
   ),
 );`
-	v, err := ImportPHP(src)
+	v, err := ImportLegacy(src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ return array (
 	if string(b) != want {
 		t.Errorf("got  %s\nwant %s", b, want)
 	}
-	if _, err := ImportPHP("<?php echo 1;"); err == nil {
+	if _, err := ImportLegacy("<?php echo 1;"); err == nil {
 		t.Error("expected an error for a file without return")
 	}
 }
