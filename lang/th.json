@@ -2841,5 +2841,6 @@
     "This document has no PDF yet. Generate it with Auto PDF, or upload a PDF.": "เอกสารนี้ยังไม่มี PDF สร้างด้วย Auto PDF หรืออัปโหลดไฟล์ PDF",
     "Module settings": "การตั้งค่าโมดูล",
     "Module pages": "หน้าของโมดูล",
-    "Module API (mobile)": "API ของโมดูล (มือถือ)"
+    "Module API (mobile)": "API ของโมดูล (มือถือ)",
+    "Your choice is kept: this list opens with these filters every time you sign in.": "ระบบจะจำตัวกรองของคุณ: รายการนี้จะเปิดพร้อมตัวกรองเหล่านี้ทุกครั้งที่เข้าสู่ระบบ"
 }

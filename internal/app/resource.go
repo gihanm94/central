@@ -425,6 +425,7 @@ type RowActions struct {
 // Index is the list page.
 func (r *Resource) Index(c *Ctx) {
 	c.Authorize(r.Resource, "view")
+	r.savedFilters(c)
 	rows, total := r.Query(c, true)
 	for _, row := range rows {
 		row["_label"] = r.LabelOf(c, row)
@@ -452,7 +453,8 @@ func (r *Resource) Index(c *Ctx) {
 		"hidden": TablePrefs(c.MustUser().ID, r.Resource)["hidden"],
 		"sort":   key, "dir": strings.ToLower(dir),
 		"canDelete": c.Can(r.Resource, "delete"), "canSearch": len(r.Searchable) > 0,
-		"intro": "", "stats": []Stat(nil), "headerActions": template.HTML(""), "topExtra": template.HTML(""),
+		"hasSaved": len(SavedFilters(c.MustUser().ID, r.Resource)) > 0,
+		"intro":    "", "stats": []Stat(nil), "headerActions": template.HTML(""), "topExtra": template.HTML(""),
 	}
 	if r.Intro != nil {
 		data["intro"] = r.Intro(c)
@@ -467,6 +469,79 @@ func (r *Resource) Index(c *Ctx) {
 		data["topExtra"] = r.TopExtra(c)
 	}
 	c.View("resource/index", data)
+}
+
+// savedFilters is the "keep my filters" behaviour of the Filter sheet:
+//   - ?save=1   (Apply): keep the chosen filters for this person and show the list with them;
+//   - ?clear=1  (Clear): forget them and show the list unfiltered;
+//   - a list opened with no filter in its address gets the person's kept filters.
+func (r *Resource) savedFilters(c *Ctx) {
+	filters := r.filters(c)
+	if len(filters) == 0 {
+		return
+	}
+	uid := c.MustUser().ID
+	valid := func(name, v string) bool {
+		for _, f := range filters {
+			if f.Name == name {
+				_, ok := OptLabel(f.Options, v)
+				return ok && v != ""
+			}
+		}
+		return false
+	}
+	keep := map[string]string{} // the rest of the address (search, sort, rows per page)
+	for k, v := range c.QueryMap() {
+		if k == "save" || k == "clear" || k == "page" {
+			continue
+		}
+		keep[k] = v
+	}
+	go_ := func(q map[string]string) {
+		m := map[string]any{}
+		for k, v := range q {
+			m[k] = v
+		}
+		c.Redirect(c.URL(c.Path(), m))
+	}
+	switch {
+	case c.Query("clear") == "1":
+		SaveFilters(uid, r.Resource, map[string]string{})
+		for _, f := range filters {
+			delete(keep, f.Name)
+		}
+		go_(keep)
+	case c.Query("save") == "1":
+		chosen := map[string]string{}
+		for _, f := range filters {
+			if v := c.Query(f.Name); valid(f.Name, v) {
+				chosen[f.Name] = v
+			}
+			delete(keep, f.Name)
+		}
+		SaveFilters(uid, r.Resource, chosen)
+		for k, v := range chosen {
+			keep[k] = v
+		}
+		go_(keep)
+	default:
+		for _, f := range filters {
+			if c.QueryHas(f.Name) {
+				return // the address already says which filters to use
+			}
+		}
+		saved := SavedFilters(uid, r.Resource)
+		applied := false
+		for _, f := range filters {
+			if v, ok := saved[f.Name]; ok && valid(f.Name, v) {
+				keep[f.Name] = v
+				applied = true
+			}
+		}
+		if applied {
+			go_(keep)
+		}
+	}
 }
 
 // Create is the new-record form.
@@ -1022,6 +1097,22 @@ func TablePrefs(userID int, resource string) M {
 		return M{"hidden": hidden, "per_page": row["per_page"]}
 	}
 	return M{"hidden": hidden, "per_page": nil}
+}
+
+// SavedFilters are the filters a person kept on a list (filter name → value).
+func SavedFilters(userID int, resource string) map[string]string {
+	out := map[string]string{}
+	if raw := db.Scalar("SELECT filters::text FROM user_table_prefs WHERE user_id = ? AND resource = ?", userID, resource); raw != nil {
+		_ = json.Unmarshal([]byte(conv.Str(raw)), &out)
+	}
+	return out
+}
+
+// SaveFilters keeps (or, when empty, forgets) a person's filters of a list.
+func SaveFilters(userID int, resource string, f map[string]string) {
+	b, _ := json.Marshal(f)
+	db.Exec(`INSERT INTO user_table_prefs (user_id, resource, filters) VALUES (?, ?, ?)
+                  ON CONFLICT (user_id, resource) DO UPDATE SET filters = EXCLUDED.filters, updated_at = now()`, userID, resource, string(b))
 }
 
 // RememberPageSize keeps the rows-per-page choice.

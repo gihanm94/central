@@ -35,23 +35,9 @@
             </label>
             {{end}}
             {{if .filters}}
-            <div class="relative">
-                <button type="button" class="btn-secondary" data-toggle="#filter-panel" aria-expanded="false">{{icon "funnel" "size-4"}} {{__ "Filter"}}{{if $active}}<span class="ml-0.5 inline-flex size-5 items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-white">{{$active}}</span>{{end}}</button>
-                <div id="filter-panel" hidden class="absolute left-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-lg bg-white p-4 shadow-xl ring-1 ring-graphite-900/10">
-                    <div class="space-y-3">
-                        {{range .filters}}
-                            <div><label class="label !mb-1 text-xs text-steel">{{.Label}}</label>
-                                {{select .Name .Options (query .Name) (dict "placeholder" .Label "aria" .Label)}}</div>
-                        {{end}}
-                    </div>
-                    <div class="mt-4 flex justify-between gap-2">
-                        <a href="{{url $c.base}}" class="btn-ghost">{{__ "Clear all"}}</a>
-                        <button class="btn-dark">{{__ "Apply"}}</button>
-                    </div>
-                </div>
-            </div>
+            <button type="button" class="btn-secondary" data-filter-open aria-haspopup="dialog">{{icon "funnel" "size-4"}} {{__ "Filter"}}{{if $active}}<span class="ml-0.5 inline-flex size-5 items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-white" data-filter-count>{{$active}}</span>{{end}}</button>
             {{end}}
-            {{if $searching}}<a href="{{url $c.base}}" class="btn-ghost">{{__ "Clear"}}</a>{{end}}
+            {{if $searching}}<a href="{{url $c.base "clear" "1"}}" class="btn-ghost">{{__ "Clear"}}</a>{{end}}
         </form>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -74,6 +60,39 @@
             </div>
         </div>
     </div>
+
+    {{if .filters}}
+    <!-- Filter sheet: slides in from the right; Apply keeps the filters for this person, Clear forgets them -->
+    <div id="filter-sheet" class="fixed inset-0 z-[60]" hidden data-filter-sheet>
+        <div class="absolute inset-0 bg-graphite-950/50" data-filter-close></div>
+        <aside role="dialog" aria-modal="true" aria-labelledby="filter-title" class="absolute inset-y-0 right-0 flex w-[min(24rem,calc(100vw-1rem))] flex-col bg-white shadow-2xl">
+            <header class="flex items-center justify-between gap-3 border-b border-graphite-900/10 px-5 py-3">
+                <h2 id="filter-title" class="truncate text-base font-semibold">{{__ "Filter"}} · {{$plural}}</h2>
+                <button type="button" class="btn-ghost !px-2" data-filter-close aria-label="{{__ "Close"}}">&times;</button>
+            </header>
+            <form method="GET" action="{{url path}}" id="filter-form" class="flex min-h-0 flex-1 flex-col">
+                {{range $k := list "q" "sort" "dir" "per_page"}}{{with query $k}}<input type="hidden" name="{{$k}}" value="{{.}}">{{end}}{{end}}
+                <input type="hidden" name="save" value="1">
+                <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                    {{range .filters}}
+                        <div><label class="label !mb-1 text-xs text-steel">{{.Label}}</label>
+                            {{select .Name .Options (query .Name) (dict "placeholder" .Label "aria" .Label)}}</div>
+                    {{end}}
+                    <p class="text-xs text-steel">{{__ "Your choice is kept: this list opens with these filters every time you sign in."}}</p>
+                </div>
+                <footer class="flex items-center justify-between gap-2 border-t border-graphite-900/10 bg-white px-5 py-3">
+                    <a href="{{url $c.base "clear" "1"}}" class="btn-ghost" data-filter-clear>{{__ "Clear filters"}}</a>
+                    <button class="btn-primary" data-filter-apply>{{icon "check" "size-4"}} {{__ "Apply"}}</button>
+                </footer>
+            </form>
+        </aside>
+    </div>
+    <script>(function(){var s=document.getElementById('filter-sheet');if(!s)return;var last=null;
+    function open(){last=document.activeElement;s.hidden=false;document.body.classList.add('overflow-hidden');var b=s.querySelector('[data-select-button]');if(b)b.focus({preventScroll:true});}
+    function close(){s.hidden=true;document.body.classList.remove('overflow-hidden');if(last&&last.focus)last.focus();}
+    document.addEventListener('click',function(e){if(e.target.closest('[data-filter-open]')){e.preventDefault();open();}else if(e.target.closest('[data-filter-close]')){close();}});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!s.hidden&&!document.querySelector('[data-select-panel]:not([hidden])'))close();});})();</script>
+    {{end}}
 
     {{if and (not $ro) $c.import}}
     <form id="import-panel" hidden method="POST" action="{{url (printf "%s/import" $c.base)}}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-4 border-b border-graphite-900/8 bg-mist/40 p-4">

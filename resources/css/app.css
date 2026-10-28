@@ -1,11 +1,10 @@
 @import 'tailwindcss';
 
-/* Classes are read from the PHP views and controllers. Rebuild with:
+/* Classes are read from the templates and the Go code. Rebuild with:
    npx @tailwindcss/cli -i resources/css/app.css -o public/assets/app.css --minify
    (only needed if you add new Tailwind classes; the built file ships with the app) */
-@source '../views';
-@source '../../app';
-@source '../../public/install.php';
+@source '../../web/views';
+@source '../../internal';
 @source '../../config';
 @source '../../public/assets/ui.js';
 @source '../../public/assets/crm.js';
