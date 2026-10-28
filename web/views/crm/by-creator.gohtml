@@ -1,0 +1,24 @@
+{{- /* The sheet opened by the "Created by" name of a CRM list: the records one person created (as far as you may see them). */ -}}
+{{set "layout" ""}}
+<div class="flex min-h-0 flex-col">
+    <div class="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-graphite-900/8">
+        <span class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-graphite-700 text-sm font-semibold text-white">{{.initials}}</span>
+        <div class="min-w-0">
+            <p class="truncate text-base font-semibold">{{.name}}</p>
+            <p class="text-xs text-steel">{{__ ":n created" "n" .count}} · {{.plural}}{{if .more}} · {{__ "the newest :n are shown" "n" .limit}}{{end}}</p>
+        </div>
+    </div>
+    {{if .items}}
+    <ul class="mt-3 divide-y divide-graphite-900/6 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-graphite-900/8" data-created-list>
+        {{range .items}}
+        <li class="px-4 py-3 {{if .Chip}}bg-amber-50/40{{end}}">
+            <a href="{{.Href}}" class="block truncate text-sm font-medium hover:text-signal-700">{{.Title}}</a>
+            <p class="mt-0.5 truncate text-xs text-steel">{{.Sub}}</p>
+            {{.Chip}}
+        </li>
+        {{end}}
+    </ul>
+    {{else}}
+    <p class="mt-3 rounded-xl bg-white px-4 py-10 text-center text-sm text-steel ring-1 ring-graphite-900/8">{{__ "Nothing created that you can see."}}</p>
+    {{end}}
+</div>

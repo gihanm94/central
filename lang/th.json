@@ -2842,5 +2842,12 @@
     "Module settings": "การตั้งค่าโมดูล",
     "Module pages": "หน้าของโมดูล",
     "Module API (mobile)": "API ของโมดูล (มือถือ)",
-    "Your choice is kept: this list opens with these filters every time you sign in.": "ระบบจะจำตัวกรองของคุณ: รายการนี้จะเปิดพร้อมตัวกรองเหล่านี้ทุกครั้งที่เข้าสู่ระบบ"
+    "Your choice is kept: this list opens with these filters every time you sign in.": "ระบบจะจำตัวกรองของคุณ: รายการนี้จะเปิดพร้อมตัวกรองเหล่านี้ทุกครั้งที่เข้าสู่ระบบ",
+    "Created by :name": "สร้างโดย :name",
+    "Show the records created by :name": "ดูรายการที่ :name สร้าง",
+    "Now assigned to :name": "ตอนนี้มอบหมายให้ :name",
+    "Assigned to :name": "มอบหมายให้ :name",
+    ":n created": "สร้าง :n รายการ",
+    "the newest :n are shown": "แสดง :n รายการล่าสุด",
+    "Nothing created that you can see.": "ไม่มีรายการที่คุณมองเห็นซึ่งผู้นี้สร้าง"
 }

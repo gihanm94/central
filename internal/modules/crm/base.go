@@ -122,6 +122,7 @@ func (s *screen) setup() *screen {
 // mount registers the standard routes plus the CRM detail page and import.
 func (s *screen) mount(rt app.Router) {
 	s.res.Mount(rt, "show", "import")
+	rt.Get(s.res.Base+"/by/{uid}", s.byCreator) // the right-hand sheet of a list's "Created by" column
 	rt.Get(s.res.Base+"/{id}", s.show)
 	rt.Post(s.res.Base+"/import", func(c *app.Ctx) {
 		c.Shared["_crm_importing"] = true
@@ -336,15 +337,66 @@ func currencyOptions() []app.Opt {
 	return optsFrom(db.On("crm").Select("SELECT code, code || ' · ' || name AS label FROM currencies ORDER BY is_base DESC, code"), "code", "label")
 }
 
-// createdColumn: last column of every list: who created the record and when.
+// createdColumn: last column of every list: who created the record and when. The name opens a sheet on the right with
+// the records that person created; a record that now belongs to somebody else says so in amber.
 func createdColumn(c *app.Ctx) app.Column {
 	return app.Column{Key: "created", Label: c.T("Created by"), Sort: "t.created_at", Render: func(c *app.Ctx, r db.Row) template.HTML {
 		n := r.Str("creator_name")
 		if r["creator_name"] == nil {
 			n = "—"
 		}
-		return h(uiPerson(c, n, app.FormatDate(c, r["created_at"], "M j, Y"), "", "", "rounded-full"))
+		sub := app.FormatDate(c, r["created_at"], "M j, Y")
+		title := `<span class="block truncate font-medium">` + app.E(n) + `</span>`
+		if seg := strings.Split(strings.Trim(c.Path(), "/"), "/"); r.Int("created_by") > 0 && r["creator_name"] != nil && len(seg) >= 2 {
+			sheet := c.URL("/crm/" + seg[1] + "/by/" + r.Str("created_by"))
+			title = `<a href="` + app.E(sheet) + `" data-sheet data-sheet-title="` + app.E(c.T("Created by :name", "name", n)) + `" class="block truncate font-medium hover:text-signal-700" title="` +
+				app.E(c.T("Show the records created by :name", "name", n)) + `">` + app.E(n) + `</a>`
+		}
+		pic := `<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(conv.Initials(n)) + `</span>`
+		out := `<div class="flex min-w-0 max-w-[15rem] items-center gap-3">` + pic + `<div class="min-w-0">` + title + `<span class="block truncate text-xs text-steel">` + app.E(sub) + `</span>`
+		out += string(assignedChip(c, r)) + `</div></div>`
+		return h(out)
 	}}
+}
+
+// assignedChip: an amber tag when the record's owner is not the person who created it.
+func assignedChip(c *app.Ctx, r db.Row) template.HTML {
+	if r.Int("owner_id") == 0 || r.Int("owner_id") == r.Int("created_by") || r["owner_name"] == nil {
+		return ""
+	}
+	return template.HTML(`<span class="mt-0.5 inline-flex max-w-full items-center gap-1 truncate rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-600/25" title="` +
+		app.E(c.T("Now assigned to :name", "name", r.Str("owner_name"))) + `">→ ` + app.E(c.T("Assigned to :name", "name", r.Str("owner_name"))) + `</span>`)
+}
+
+// byCreator: the sheet (embedded page) with the records one person created, as far as the viewer may see them.
+func (s *screen) byCreator(c *app.Ctx) {
+	c.Authorize(s.res.Resource, "view")
+	uid := c.ParamInt("uid")
+	who := names("users", []any{uid})
+	name, ok := who[uid]
+	if !ok {
+		app.Abort(404)
+	}
+	const limit = 200
+	rows := s.res.QueryWhere(c, "t.created_by = ?", []any{uid}, "t.created_at DESC, t.id DESC", limit+1)
+	more := len(rows) > limit
+	if more {
+		rows = rows[:limit]
+	}
+	type item struct {
+		Title, Href, Sub string
+		Chip             template.HTML
+	}
+	items := make([]item, 0, len(rows))
+	for _, r := range rows {
+		sub := app.FormatDate(c, r["created_at"], "M j, Y")
+		if code := r.Str("code"); code != "" {
+			sub = code + " · " + sub
+		}
+		items = append(items, item{Title: s.res.LabelOf(c, r), Href: c.URL(s.res.Base + "/" + r.Str("id")), Sub: sub, Chip: assignedChip(c, r)})
+	}
+	c.View("crm/by-creator", app.M{"layout": "", "name": name, "initials": conv.Initials(name), "items": items, "count": len(items), "more": more, "limit": limit,
+		"plural": c.T(conv.Ucfirst(s.res.Plural))})
 }
 
 // commonFilters: "My records" for everyone, plus a department filter for whole-company roles.

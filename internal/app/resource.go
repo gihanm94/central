@@ -1146,3 +1146,24 @@ func SaveTablePrefs(c *Ctx) {
 		c.MustUser().ID, resource, string(hj), per)
 	c.JSON(M{"ok": true})
 }
+
+// QueryWhere lists the rows the person may see that also match where (an SQL fragment on t with ? placeholders),
+// newest first by default; used for side lists such as "records created by this person".
+func (r *Resource) QueryWhere(c *Ctx, where string, params []any, order string, limit int) []db.Row {
+	ssql, sp := r.scope(c)
+	conds := []string{ssql}
+	if r.softDelete() {
+		conds = append(conds, "t.deleted_at IS NULL")
+	}
+	if where != "" {
+		conds = append(conds, "("+where+")")
+	}
+	if order == "" {
+		order = "t.id DESC"
+	}
+	sql := r.selectSQL(c) + " WHERE " + strings.Join(conds, " AND ") + " ORDER BY " + order
+	if limit > 0 {
+		sql += " LIMIT " + conv.Str(limit)
+	}
+	return r.hydrate(c, r.conn().Select(sql, append(append([]any{}, sp...), params...)...))
+}
