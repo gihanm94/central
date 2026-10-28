@@ -443,14 +443,53 @@ func dashboardIndex(c *app.Ctx) {
 		}
 		cps = append(cps, cr)
 	}
-	type cmpOut struct {
-		ID                                             int
-		Name, URL, Leads, Open, Pipeline, Won, Overdue string
-		HasOverdue                                     bool
+	// Department overview: ranked by what was won this year (then open pipeline); every figure carries its share of the column's top value
+	type cmpCell struct {
+		Text string
+		Pct  int
+		Lead bool
 	}
+	type cmpOut struct {
+		ID, Rank                            int
+		Name, URL                           string
+		Leads, Open, Pipeline, Won, Overdue cmpCell
+	}
+	sort.SliceStable(compare, func(i, j int) bool {
+		if compare[i].WonYear != compare[j].WonYear {
+			return compare[i].WonYear > compare[j].WonYear
+		}
+		if compare[i].Pipeline != compare[j].Pipeline {
+			return compare[i].Pipeline > compare[j].Pipeline
+		}
+		return compare[i].Name < compare[j].Name
+	})
+	maxOf := func(f func(compareRow) float64) float64 {
+		m := 0.0
+		for _, d := range compare {
+			m = math.Max(m, f(d))
+		}
+		return m
+	}
+	cell := func(v, mx float64, text string) cmpCell {
+		pc := 0
+		if mx > 0 {
+			pc = int(roundHalf(v/mx*100, 0))
+		}
+		return cmpCell{Text: text, Pct: pc, Lead: mx > 0 && v == mx}
+	}
+	mxLeads := maxOf(func(d compareRow) float64 { return float64(d.Leads) })
+	mxOpen := maxOf(func(d compareRow) float64 { return float64(d.Open) })
+	mxPipe := maxOf(func(d compareRow) float64 { return d.Pipeline })
+	mxWon := maxOf(func(d compareRow) float64 { return d.WonYear })
+	mxOver := maxOf(func(d compareRow) float64 { return float64(d.Overdue) })
 	var cmps []cmpOut
-	for _, d := range compare {
-		x := cmpOut{ID: d.ID, Name: d.Name, Leads: conv.Str(d.Leads), Open: conv.Str(d.Open), Pipeline: money(d.Pipeline), Won: money(d.WonYear), Overdue: conv.Str(d.Overdue), HasOverdue: d.Overdue > 0}
+	for i, d := range compare {
+		x := cmpOut{ID: d.ID, Rank: i + 1, Name: d.Name,
+			Leads: cell(float64(d.Leads), mxLeads, conv.Str(d.Leads)), Open: cell(float64(d.Open), mxOpen, conv.Str(d.Open)),
+			Pipeline: cell(d.Pipeline, mxPipe, money(d.Pipeline)), Won: cell(d.WonYear, mxWon, money(d.WonYear)), Overdue: cell(float64(d.Overdue), mxOver, conv.Str(d.Overdue))}
+		if i > 0 && d.WonYear == compare[i-1].WonYear && d.Pipeline == compare[i-1].Pipeline {
+			x.Rank = cmps[i-1].Rank // a tie shares the place
+		}
 		if d.ID != 0 {
 			x.URL = link(app.M{"department": d.ID})
 		}

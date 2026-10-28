@@ -2882,5 +2882,7 @@
     "View all :n": "ดูทั้งหมด :n",
     "leads tagged": "ลีดที่ติดแท็ก",
     "Other (:n)": "อื่น ๆ (:n)",
-    ":n leads tagged": "ลีดที่ติดแท็ก :n รายการ"
+    ":n leads tagged": "ลีดที่ติดแท็ก :n รายการ",
+    "Department Overview": "ภาพรวมแผนก",
+    "Ranked by won this year, then open pipeline": "จัดอันดับตามยอดปิดการขายปีนี้ แล้วตามไปป์ไลน์ที่เปิดอยู่"
 }

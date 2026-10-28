@@ -161,19 +161,22 @@
 
 {{if .compare}}
 <section class="panel mt-6 overflow-hidden">
-    <div class="panel-head"><h2 class="panel-title">{{__ "Departments"}}</h2><span class="text-xs text-steel">{{__ "Value in :cur" "cur" .cur}}</span></div>
+    <div class="panel-head"><div><h2 class="panel-title">{{__ "Department Overview"}}</h2><p class="text-xs text-steel">{{__ "Ranked by won this year, then open pipeline"}}</p></div><span class="text-xs text-steel">{{__ "Value in :cur" "cur" .cur}}</span></div>
     <div class="overflow-x-auto">
-        <table class="table">
-            <thead class="bg-mist/60"><tr><th>{{__ "Department"}}</th><th class="text-right">{{__ "Leads"}}</th><th class="text-right">{{__ "Open opportunities"}}</th><th class="text-right">{{__ "Open pipeline"}}</th><th class="text-right">{{__ "Won this year"}}</th><th class="text-right">{{__ "Overdue activities"}}</th></tr></thead>
+        <table class="table" data-dept-overview>
+            <thead class="bg-mist/60"><tr>
+                <th class="w-14 text-center">{{__ "Rank"}}</th><th>{{__ "Department"}}</th><th class="text-right">{{__ "Leads"}}</th><th class="text-right">{{__ "Open opportunities"}}</th><th class="text-right">{{__ "Open pipeline"}}</th>
+                <th class="text-right" style="background:rgba(22,163,74,.08)">{{__ "Won this year"}} ↓</th><th class="text-right">{{__ "Overdue activities"}}</th></tr></thead>
             <tbody>
             {{range .compare}}
                 <tr class="hover:bg-mist/40">
+                    <td class="text-center"><span class="inline-flex size-7 items-center justify-center rounded-full text-xs font-bold tabular-nums" style="{{if eq .Rank 1}}background:#fef3c7;color:#92400e;box-shadow:inset 0 0 0 1.5px #f59e0b{{else if eq .Rank 2}}background:#f1f5f9;color:#334155;box-shadow:inset 0 0 0 1.5px #94a3b8{{else if eq .Rank 3}}background:#ffedd5;color:#9a3412;box-shadow:inset 0 0 0 1.5px #fb923c{{else}}background:rgba(0,0,0,.04);color:#5b616b{{end}}" data-rank>{{.Rank}}</span></td>
                     <td class="font-medium">{{if .ID}}<a href="{{.URL}}" class="hover:text-signal-700">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td>
-                    <td class="text-right tabular-nums">{{.Leads}}</td>
-                    <td class="text-right tabular-nums">{{.Open}}</td>
-                    <td class="text-right tabular-nums">{{.Pipeline}}</td>
-                    <td class="text-right tabular-nums">{{.Won}}</td>
-                    <td class="text-right tabular-nums {{if .HasOverdue}}font-medium text-signal-700{{end}}">{{.Overdue}}</td>
+                    {{template "crm/dash-cell" (dict "c" .Leads "rgb" "42,120,214" "good" true)}}
+                    {{template "crm/dash-cell" (dict "c" .Open "rgb" "42,120,214" "good" true)}}
+                    {{template "crm/dash-cell" (dict "c" .Pipeline "rgb" "42,120,214" "good" true)}}
+                    {{template "crm/dash-cell" (dict "c" .Won "rgb" "22,163,74" "good" true)}}
+                    {{template "crm/dash-cell" (dict "c" .Overdue "rgb" "229,72,77" "good" false)}}
                 </tr>
             {{end}}
             </tbody>
@@ -352,4 +355,10 @@
         </ul>
     </aside>
 </div>
+{{end -}}
+
+{{- define "crm/dash-cell"}}
+<td class="text-right tabular-nums" style="{{css (printf "background: linear-gradient(to left, rgba(%s,%s) %d%%, transparent %d%%)" .rgb (ternary (ne .c.Text "0") ".16" "0") .c.Pct .c.Pct)}}">
+    <span {{if and .c.Lead (ne .c.Text "0")}}class="font-semibold" style="color:{{if .good}}#15803d{{else}}#b91c1c{{end}}" data-lead{{end}}>{{.c.Text}}</span>{{if and .c.Lead (ne .c.Text "0")}}<span aria-hidden="true" style="color:{{if .good}}#15803d{{else}}#b91c1c{{end}}"> ▲</span>{{end}}
+</td>
 {{end -}}
