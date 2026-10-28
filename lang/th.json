@@ -2853,5 +2853,14 @@
     "Handed over from :name": "ส่งต่อจาก :name",
     "Nothing is assigned that you can see.": "ไม่มีรายการที่มอบหมายและคุณมองเห็นได้",
     ":n assigned": "มอบหมาย :n รายการ",
-    "Show the records assigned to :name": "แสดงรายการที่มอบหมายให้ :name"
+    "Show the records assigned to :name": "แสดงรายการที่มอบหมายให้ :name",
+    "New leads by month": "ลีดใหม่รายเดือน",
+    "Leads created": "ลีดที่สร้าง",
+    "No new leads in these months.": "ไม่มีลีดใหม่ในช่วงนี้",
+    "Deals won and lost": "ดีลที่ชนะและแพ้",
+    "Deals won and lost by month": "ดีลที่ชนะและแพ้รายเดือน",
+    "Won": "ชนะ",
+    "Lost": "แพ้",
+    "No deals closed in these months.": "ไม่มีดีลที่ปิดในช่วงนี้",
+    ":n new leads": "ลีดใหม่ :n รายการ"
 }

@@ -124,6 +124,14 @@ func dashboardIndex(c *app.Ctx) {
             LEFT JOIN opportunities t ON t.deleted_at IS NULL AND t.opportunity_stage = 'CLOSED_WON' AND date_trunc('month', `+when+`) = m AND `+sql+`
             LEFT JOIN currencies c ON c.code = t.currency GROUP BY m ORDER BY m`, params...)
 
+	// the same months again: new leads, and deals closed won / lost
+	series := `generate_series(LEAST(date_trunc('month', '`+lo+`'::date), date_trunc('month', '`+hi+`'::date) - interval '5 months'), date_trunc('month', '`+hi+`'::date), interval '1 month') m`
+	leadMonths := q.Select(`SELECT to_char(m, 'Mon') AS label, count(t.id) AS n FROM `+series+`
+            LEFT JOIN leads t ON t.deleted_at IS NULL AND date_trunc('month', t.created_at) = m AND `+sql+` GROUP BY m ORDER BY m`, params...)
+	closedMonths := q.Select(`SELECT to_char(m, 'Mon') AS label, count(t.id) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON') AS won, count(t.id) FILTER (WHERE t.opportunity_stage = 'CLOSED_LOST') AS lost
+            FROM `+series+` LEFT JOIN opportunities t ON t.deleted_at IS NULL AND t.opportunity_stage IN ('CLOSED_WON', 'CLOSED_LOST') AND date_trunc('month', `+when+`) = m AND `+sql+`
+            GROUP BY m ORDER BY m`, params...)
+
 	// ----- leads, contacts
 	counts := q.First(`SELECT
               (SELECT count(*) FROM leads t WHERE t.deleted_at IS NULL AND `+sql+`) AS leads,
@@ -310,24 +318,54 @@ func dashboardIndex(c *app.Ctx) {
 		bars = append(bars, stageBar{s.Label, s.Color, c.URL("/crm/opportunities", map[string]any(qm)),
 			pl(s.N, ":n deal", ":n deals") + " · ", s.Label + ": " + conv.NF(s.V, 0) + " " + cur, money(s.V), fmtFloat(roundHalf(s.Width, 1))})
 	}
-	// bars: months
-	maxMonth := 1.0
-	sumMonths := 0.0
+	// charts: won value by month, new leads by month, closed won / lost by month
+	last := len(months) - 1
+	wonCols := make([]chartCol, 0, len(months))
+	wonMax := 0.0
 	for _, m := range months {
-		maxMonth = math.Max(maxMonth, m.Float("v"))
-		sumMonths += m.Float("v")
+		wonMax = math.Max(wonMax, m.Float("v"))
 	}
-	type monthBar struct {
-		Label, Compact, Title, Height string
-		HasV                          bool
+	wonTicks, wonTop := chartTicks(wonMax, false, uiCompact)
+	for i, m := range months {
+		v := m.Float("v")
+		wonCols = append(wonCols, chartCol{Label: c.T(m.Str("label")), Cur: i == last, Title: m.Str("label") + ": " + conv.NF(v, 0) + " " + cur + " (" + m.Str("n") + ")",
+			Bars: []chartBar{{H: chartPct(v, wonTop), Val: ternaryStr(v > 0, uiCompact(v), ""), Color: "#2a78d6"}}})
 	}
-	var mbars []monthBar
-	for _, m := range months {
-		hh := 0.0
-		if m.Float("v") > 0 {
-			hh = math.Max(3, m.Float("v")/maxMonth*100)
-		}
-		mbars = append(mbars, monthBar{c.T(m.Str("label")), uiCompact(m.Float("v")), m.Str("label") + ": " + conv.NF(m.Float("v"), 0) + " " + cur + " (" + m.Str("n") + ")", fmtFloat(roundHalf(hh, 1)), m.Float("v") > 0})
+
+	leadMax, leadSum := 0.0, 0.0
+	for _, m := range leadMonths {
+		leadMax = math.Max(leadMax, m.Float("n"))
+		leadSum += m.Float("n")
+	}
+	leadTicks, leadTop := chartTicks(leadMax, true, nil)
+	var leadCols []chartCol
+	var pts []string
+	for i, m := range leadMonths {
+		v := m.Float("n")
+		x := (float64(i) + 0.5) / float64(len(leadMonths)) * 100
+		y := 100 - v/leadTop*100
+		pts = append(pts, fmtFloat(roundHalf(x, 2))+","+fmtFloat(roundHalf(y, 2)))
+		leadCols = append(leadCols, chartCol{Label: c.T(m.Str("label")), Cur: i == len(leadMonths)-1, Title: m.Str("label") + ": " + c.T(":n new leads", "n", m.Int("n")),
+			X: fmtFloat(roundHalf(x, 2)), Y: fmtFloat(roundHalf(100-y, 2)), Bars: []chartBar{{Val: conv.Str(m.Int("n"))}}})
+	}
+	leadLine, leadArea := "", ""
+	if len(pts) > 0 {
+		leadLine = strings.Join(pts, " ")
+		leadArea = pts[0][:strings.Index(pts[0], ",")] + ",100 " + leadLine + " " + pts[len(pts)-1][:strings.Index(pts[len(pts)-1], ",")] + ",100"
+	}
+
+	closedMax, closedSum := 0.0, 0
+	for _, m := range closedMonths {
+		closedMax = math.Max(closedMax, math.Max(m.Float("won"), m.Float("lost")))
+		closedSum += m.Int("won") + m.Int("lost")
+	}
+	closedTicks, closedTop := chartTicks(closedMax, true, nil)
+	var closedCols []chartCol
+	for i, m := range closedMonths {
+		w, l := m.Float("won"), m.Float("lost")
+		closedCols = append(closedCols, chartCol{Label: c.T(m.Str("label")), Cur: i == len(closedMonths)-1, Title: m.Str("label") + ": " + c.T(":w won · :l lost", "w", m.Int("won"), "l", m.Int("lost")),
+			Bars: []chartBar{{H: chartPct(w, closedTop), Val: ternaryStr(w > 0, conv.Str(m.Int("won")), ""), Color: "#16a34a"},
+				{H: chartPct(l, closedTop), Val: ternaryStr(l > 0, conv.Str(m.Int("lost")), ""), Color: "#e5484d"}}})
 	}
 	// lists
 	type upRow struct {
@@ -417,7 +455,9 @@ func dashboardIndex(c *app.Ctx) {
 		"linkAll": link(app.M{"mine": nil}), "linkMine": link(app.M{"mine": 1}),
 		"rangeAction": c.URL("/crm/dashboard"), "range": rng, "from": from, "to": to, "keep": keep, "selects": selects,
 		"reminders": rems, "tiles": tiles, "target": tgt, "bars": bars, "holdN": hold.Int("n"), "holdText": c.T("On hold: :n, worth :v", "n", hold.Int("n"), "v", money(hold.Float("v"))),
-		"cur": cur, "months": mbars, "monthsEmpty": sumMonths == 0, "ups": ups, "tops": tops,
+		"cur": cur, "wonCols": wonCols, "wonTicks": wonTicks, "monthsEmpty": wonMax == 0,
+		"leadCols": leadCols, "leadTicks": leadTicks, "leadLine": leadLine, "leadArea": leadArea, "leadsEmpty": leadSum == 0,
+		"closedCols": closedCols, "closedTicks": closedTicks, "closedEmpty": closedSum == 0, "ups": ups, "tops": tops,
 		"industries": dist(industries), "sources": dist(sources), "camps": cps, "compare": cmps,
 		"footnote": c.T("Totals are converted to :cur with the rates in CRM settings → Currencies.", "cur", cur)}
 	c.View("crm/dashboard", data)
@@ -484,4 +524,48 @@ func dashCompare(c *app.Ctx, deps []app.Opt, val string, mineID int) []compareRo
 		return out[i].Name < out[j].Name
 	})
 	return out
+}
+
+// chartBar / chartCol feed the month charts of the dashboard: one column per month, one or two bars (or a line point) in it.
+type chartBar struct {
+	H, Val, Color string
+}
+
+type chartCol struct {
+	Label, Title, X, Y string
+	Cur                bool
+	Bars               []chartBar
+}
+
+// chartTicks: the axis labels from top to bottom and the value of the top line, rounded up to a tidy number
+// (whole counts in steps of four; money in 1, 2, 4, 6, 8, 10 × a power of ten).
+func chartTicks(max float64, count bool, fmtTick func(float64) string) ([]string, float64) {
+	top := 4.0
+	if count {
+		top = math.Max(4, math.Ceil(max/4)*4)
+	} else if max > 0 {
+		e := math.Pow(10, math.Floor(math.Log10(max)))
+		for _, f := range []float64{1, 2, 4, 6, 8, 10} {
+			if top = f * e; top >= max {
+				break
+			}
+		}
+	}
+	var out []string
+	for i := 4; i >= 0; i-- {
+		v := top / 4 * float64(i)
+		if fmtTick != nil {
+			out = append(out, fmtTick(v))
+		} else {
+			out = append(out, fmtFloat(v))
+		}
+	}
+	return out, top
+}
+
+func chartPct(v, top float64) string {
+	if v <= 0 || top <= 0 {
+		return "0"
+	}
+	return fmtFloat(roundHalf(math.Max(1.5, v/top*100), 1))
 }

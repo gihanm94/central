@@ -79,20 +79,32 @@
         {{if .holdN}}<p class="border-t border-graphite-900/6 px-5 py-3 text-xs text-steel">{{.holdText}}</p>{{end}}
     </section>
 
-    <section class="panel lg:col-span-2">
+    <section class="panel flex flex-col lg:col-span-2">
         <div class="panel-head"><h2 class="panel-title">{{__ "Won by month"}}</h2><span class="text-xs text-steel">{{__ "Value in :cur" "cur" .cur}}</span></div>
         {{if .monthsEmpty}}
             <p class="px-5 py-12 text-center text-sm text-steel">{{__ "No opportunities won in the last 6 months."}}</p>
         {{else}}
-        <div class="flex h-52 items-end gap-3 px-5 pb-4 pt-6" role="img" aria-label="{{__ "Won value by month"}}">
-            {{range .months}}
-            <div class="flex h-full min-w-0 flex-1 flex-col justify-end text-center" title="{{.Title}}">
-                <span class="mb-1 truncate text-[11px] tabular-nums text-steel">{{if .HasV}}{{.Compact}}{{end}}</span>
-                <div class="rounded-t" style="{{css (printf "height: %s%%; background: #2a78d6" .Height)}}"></div>
-                <span class="mt-2 text-xs text-steel">{{.Label}}</span>
-            </div>
-            {{end}}
-        </div>
+            {{template "crm/dash-bars" (dict "label" (__ "Won value by month") "ticks" .wonTicks "cols" .wonCols)}}
+        {{end}}
+    </section>
+</div>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <section class="panel flex flex-col">
+        <div class="panel-head"><h2 class="panel-title">{{__ "New leads by month"}}</h2><span class="text-xs text-steel">{{__ "Leads created"}}</span></div>
+        {{if .leadsEmpty}}
+            <p class="px-5 py-12 text-center text-sm text-steel">{{__ "No new leads in these months."}}</p>
+        {{else}}
+            {{template "crm/dash-line" (dict "label" (__ "New leads by month") "ticks" .leadTicks "cols" .leadCols "line" .leadLine "area" .leadArea)}}
+        {{end}}
+    </section>
+    <section class="panel flex flex-col">
+        <div class="panel-head"><h2 class="panel-title">{{__ "Deals won and lost"}}</h2>
+            <span class="flex items-center gap-3 text-xs text-steel"><span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm" style="background:#16a34a"></span>{{__ "Won"}}</span><span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm" style="background:#e5484d"></span>{{__ "Lost"}}</span></span></div>
+        {{if .closedEmpty}}
+            <p class="px-5 py-12 text-center text-sm text-steel">{{__ "No deals closed in these months."}}</p>
+        {{else}}
+            {{template "crm/dash-bars" (dict "label" (__ "Deals won and lost by month") "ticks" .closedTicks "cols" .closedCols)}}
         {{end}}
     </section>
 </div>
@@ -182,4 +194,54 @@
         </ul>
         {{end}}
     </section>
+{{end -}}
+
+{{- define "crm/dash-bars"}}
+<div class="flex flex-1 flex-col px-5 pb-4 pt-5" role="img" aria-label="{{.label}}">
+    <div class="relative flex-1" style="min-height:14rem">
+        {{range $i, $t := .ticks}}
+        <div class="absolute left-0 right-0 border-t border-graphite-900/8" style="top:{{printf "%.0f" (mul $i 25)}}%"><span class="absolute left-0 text-[11px] tabular-nums text-steel" style="top:-9px;background:#fff;padding-right:4px">{{$t}}</span></div>
+        {{end}}
+        <div class="absolute flex items-stretch gap-2" style="left:3rem;right:0;top:0;bottom:0">
+            {{range .cols}}
+            <div class="flex min-w-0 flex-1 items-end justify-center gap-1" title="{{.Title}}">
+                {{range .Bars}}
+                <div class="flex h-full min-w-0 flex-1 flex-col items-center justify-end" style="max-width:2.75rem">
+                    <span class="mb-1 truncate text-[11px] font-medium tabular-nums text-graphite-700">{{.Val}}</span>
+                    <div class="w-full" style="height:{{.H}}%;background:{{.Color}};border-radius:6px 6px 0 0;min-height:{{if eq .H "0"}}2px{{else}}0{{end}};{{if eq .H "0"}}opacity:.25{{end}}"></div>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+    </div>
+    <div class="flex gap-2" style="padding-left:3rem">
+        {{range .cols}}<span class="min-w-0 flex-1 truncate pt-2 text-center text-xs {{if .Cur}}font-semibold text-graphite-900{{else}}text-steel{{end}}">{{.Label}}</span>{{end}}
+    </div>
+</div>
+{{end -}}
+
+{{- define "crm/dash-line"}}
+<div class="flex flex-1 flex-col px-5 pb-4 pt-5" role="img" aria-label="{{.label}}">
+    <div class="relative flex-1" style="min-height:14rem">
+        {{range $i, $t := .ticks}}
+        <div class="absolute left-0 right-0 border-t border-graphite-900/8" style="top:{{printf "%.0f" (mul $i 25)}}%"><span class="absolute left-0 text-[11px] tabular-nums text-steel" style="top:-9px;background:#fff;padding-right:4px">{{$t}}</span></div>
+        {{end}}
+        <div class="absolute" style="left:3rem;right:0;top:0;bottom:0">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute" style="inset:0;width:100%;height:100%;overflow:visible" aria-hidden="true">
+                <polygon points="{{.area}}" fill="#2a78d6" fill-opacity=".12"/>
+                <polyline points="{{.line}}" fill="none" stroke="#2a78d6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            </svg>
+            {{range .cols}}
+            <div class="absolute" style="left:{{.X}}%;bottom:{{.Y}}%;width:0;height:0" title="{{.Title}}">
+                <span class="absolute rounded-full bg-white" style="width:10px;height:10px;left:-5px;bottom:-5px;border:2.5px solid #2a78d6"></span>
+                {{range .Bars}}<span class="absolute text-[11px] font-medium tabular-nums text-graphite-700" style="bottom:9px;left:-20px;width:40px;text-align:center">{{.Val}}</span>{{end}}
+            </div>
+            {{end}}
+        </div>
+    </div>
+    <div class="flex" style="padding-left:3rem">
+        {{range .cols}}<span class="min-w-0 flex-1 truncate pt-2 text-center text-xs {{if .Cur}}font-semibold text-graphite-900{{else}}text-steel{{end}}">{{.Label}}</span>{{end}}
+    </div>
+</div>
 {{end -}}
