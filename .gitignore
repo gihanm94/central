@@ -17,5 +17,7 @@
 /config/config.json
 /config/config.php
 /acme
+/acme.new
+/acme.env
 /storage/signatures/*
 /storage/pdf-signs/*
