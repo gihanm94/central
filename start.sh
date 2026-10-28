@@ -12,11 +12,19 @@ LOG=$DIR/storage/logs/acme.log
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
+# the process id of the running app: from the pid file, else whatever listens on our port (works on Linux and macOS)
 pid() {
-  [ -f "$PIDFILE" ] || return 1
-  local p; p=$(cat "$PIDFILE" 2>/dev/null) || return 1
-  [ -n "$p" ] && kill -0 "$p" 2>/dev/null || return 1
-  tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q "$BIN" || return 1
+  local p="" port="${ADDR##*:}" q
+  if [ -f "$PIDFILE" ]; then p=$(cat "$PIDFILE" 2>/dev/null || true); fi
+  if [ -z "$p" ] || ! kill -0 "$p" 2>/dev/null || ! ps -p "$p" -o command= 2>/dev/null | grep -q "$BIN"; then
+    p=""
+    if command -v lsof >/dev/null 2>&1; then
+      for q in $(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null || true); do
+        if ps -p "$q" -o command= 2>/dev/null | grep -q "$BIN"; then p=$q; break; fi
+      done
+    fi
+  fi
+  [ -n "$p" ] || return 1
   printf '%s' "$p"
 }
 
@@ -38,11 +46,15 @@ do_start() {
   update "${1:-}"
   mkdir -p "$DIR/storage/logs"
   [ -f config/config.json ] || say "Note: config/config.json is missing; open http://$ADDR/install to set the app up."
+  local port="${ADDR##*:}" other=""
+  if command -v lsof >/dev/null 2>&1; then other=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}') || true; fi
+  [ -z "$other" ] || die "port $port is already used by $other. Stop that program, or set another port: ACME_ADDR=127.0.0.1:8001 ./start.sh"
+  local before; before=$(wc -c < "$LOG" 2>/dev/null || echo 0)
   nohup "$BIN" -addr "$ADDR" -base "$DIR" >> "$LOG" 2>&1 &
   echo $! > "$PIDFILE"
   sleep 1
   if p=$(pid); then say "Started (pid $p) on http://$ADDR  — log: storage/logs/acme.log"
-  else rm -f "$PIDFILE"; tail -n 15 "$LOG" >&2; die "it did not start (see the log above)"; fi
+  else rm -f "$PIDFILE"; tail -c +$((before + 1)) "$LOG" | tail -n 15 >&2; die "it did not start (see the log above)"; fi
 }
 
 do_start "${1:-}"

@@ -12,11 +12,19 @@ LOG=$DIR/storage/logs/acme.log
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
+# the process id of the running app: from the pid file, else whatever listens on our port (works on Linux and macOS)
 pid() {
-  [ -f "$PIDFILE" ] || return 1
-  local p; p=$(cat "$PIDFILE" 2>/dev/null) || return 1
-  [ -n "$p" ] && kill -0 "$p" 2>/dev/null || return 1
-  tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q "$BIN" || return 1
+  local p="" port="${ADDR##*:}" q
+  if [ -f "$PIDFILE" ]; then p=$(cat "$PIDFILE" 2>/dev/null || true); fi
+  if [ -z "$p" ] || ! kill -0 "$p" 2>/dev/null || ! ps -p "$p" -o command= 2>/dev/null | grep -q "$BIN"; then
+    p=""
+    if command -v lsof >/dev/null 2>&1; then
+      for q in $(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null || true); do
+        if ps -p "$q" -o command= 2>/dev/null | grep -q "$BIN"; then p=$q; break; fi
+      done
+    fi
+  fi
+  [ -n "$p" ] || return 1
   printf '%s' "$p"
 }
 
