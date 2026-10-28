@@ -1,20 +1,11 @@
-#!/usr/bin/env bash
-# Manage the Go app from its project folder:
-#
-#   ./acme.sh start      git pull, build, start in the background (does nothing if it already runs)
-#   ./acme.sh restart    stop, git pull, build, start
-#   ./acme.sh stop       stop (waits for it to finish, then forces it after 10 s)
-#   ./acme.sh status     running or not, and where it listens
-#   ./acme.sh logs       follow the program's output (Ctrl+C to leave)
-#
-# Add --no-pull to start / restart to build what is on disk without pulling.
-# Settings (optional, environment or a file named acme.env next to this script):
+# Shared by start.sh, restart.sh, stop.sh and status.sh (sourced, not run on its own).
+# Settings (optional, environment or a file named acme.env in the project folder):
 #   ACME_ADDR=127.0.0.1:8000   address to listen on
 #   ACME_BRANCH=acme-go        branch to pull
 set -euo pipefail
 
-cd "$(dirname "$(readlink -f "$0")")"
-DIR=$PWD
+DIR=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+cd "$DIR"
 [ -f acme.env ] && set -a && . ./acme.env && set +a
 ADDR=${ACME_ADDR:-127.0.0.1:8000}
 BRANCH=${ACME_BRANCH:-acme-go}
@@ -34,6 +25,7 @@ pid() {
   printf '%s' "$p"
 }
 
+# git pull (skipped with --no-pull or when this folder is not a git checkout), then build
 update() {
   if [ "${1:-}" != "--no-pull" ] && [ -d .git ]; then
     say "Pulling $BRANCH ..."
@@ -46,9 +38,9 @@ update() {
   mv -f "$BIN.new" "$BIN"          # replaced in one step, so a running copy is never half-written
 }
 
-start() {
+do_start() {
   local p
-  if p=$(pid); then say "Already running (pid $p) on $ADDR. Use: ./acme.sh restart"; return 0; fi
+  if p=$(pid); then say "Already running (pid $p) on $ADDR. Use ./restart.sh to restart it."; return 0; fi
   update "${1:-}"
   mkdir -p "$DIR/storage/logs"
   [ -f config/config.json ] || say "Note: config/config.json is missing; open http://$ADDR/install to set the app up."
@@ -59,7 +51,7 @@ start() {
   else rm -f "$PIDFILE"; tail -n 15 "$LOG" >&2; die "it did not start (see the log above)"; fi
 }
 
-stop() {
+do_stop() {
   local p
   if ! p=$(pid); then rm -f "$PIDFILE"; say "Not running."; return 0; fi
   kill "$p"
@@ -67,12 +59,3 @@ stop() {
   if kill -0 "$p" 2>/dev/null; then say "Still running after 10 s: forcing it."; kill -9 "$p" || true; fi
   rm -f "$PIDFILE"; say "Stopped."
 }
-
-case "${1:-}" in
-  start)   start "${2:-}" ;;
-  restart) stop; start "${2:-}" ;;
-  stop)    stop ;;
-  status)  if p=$(pid); then say "Running (pid $p) on http://$ADDR"; else say "Not running."; exit 3; fi ;;
-  logs)    mkdir -p "$(dirname "$LOG")"; touch "$LOG"; exec tail -n 50 -f "$LOG" ;;
-  *)       sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
-esac
