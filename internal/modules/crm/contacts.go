@@ -134,6 +134,7 @@ func init() {
 				}
 				return h(out)
 			}},
+			ownerColumn(c),
 			createdColumn(c),
 		}
 	}

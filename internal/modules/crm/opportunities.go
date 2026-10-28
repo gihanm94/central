@@ -139,6 +139,7 @@ func init() {
 			{Key: "close", Label: c.T("Close"), Sort: "t.close_at", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return h(`<span class="tabular-nums text-steel">` + app.E(app.FormatDate(c, r["close_at"], "d M Y")) + `</span>`)
 			}},
+			ownerColumn(c),
 			createdColumn(c),
 		}
 	}

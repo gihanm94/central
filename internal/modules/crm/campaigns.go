@@ -82,6 +82,7 @@ func init() {
 				}
 				return h(`<span class="tabular-nums">` + uiMoney(r["actual_cost"], "") + `</span>`)
 			}},
+			ownerColumn(c),
 			createdColumn(c),
 		}
 	}

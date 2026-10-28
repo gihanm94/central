@@ -114,6 +114,7 @@ func init() {
 			{Key: "place", Label: c.T("Location"), Sort: "t.city", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return h(app.E(conv.OrStr(joinNonEmpty(", ", r.Str("city"), r.Str("country")), "—")))
 			}},
+			ownerColumn(c),
 			createdColumn(c),
 		}
 	}

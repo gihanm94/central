@@ -129,6 +129,7 @@ func init() {
 			{Key: "status", Label: c.T("Status"), Sort: "t.status", Render: func(c *app.Ctx, r db.Row) template.HTML {
 				return h(uiBadge(trLabel(c, taskStatuses, r.Str("status")), conv.OrStr(taskTones[r.Str("status")], "neutral")))
 			}},
+			ownerColumn(c),
 			createdColumn(c),
 		}
 	}

@@ -340,7 +340,7 @@ func currencyOptions() []app.Opt {
 // createdColumn: last column of every list: who created the record and when. The name opens a sheet on the right with
 // the records that person created; a record that now belongs to somebody else says so in amber.
 func createdColumn(c *app.Ctx) app.Column {
-	return app.Column{Key: "created", Label: c.T("Created by"), Sort: "t.created_at", Render: func(c *app.Ctx, r db.Row) template.HTML {
+	return app.Column{Key: "created", Label: c.T("Created by"), Sort: "t.created_at", Off: true, Render: func(c *app.Ctx, r db.Row) template.HTML {
 		n := r.Str("creator_name")
 		if r["creator_name"] == nil {
 			n = "—"
@@ -354,12 +354,33 @@ func createdColumn(c *app.Ctx) app.Column {
 		}
 		pic := `<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-graphite-900/6 text-xs font-semibold text-graphite-700">` + app.E(conv.Initials(n)) + `</span>`
 		out := `<div class="flex min-w-0 max-w-[15rem] items-center gap-3">` + pic + `<div class="min-w-0">` + title + `<span class="block truncate text-xs text-steel">` + app.E(sub) + `</span>`
-		out += string(assignedChip(c, r)) + `</div></div>`
+		out += `</div></div>`
 		return h(out)
 	}}
 }
 
-// assignedChip: an amber tag when the record's owner is not the person who created it.
+// ownerColumn: who the record belongs to now. It starts as the creator and only changes when the record is handed over
+// (for example when its owner leaves); "Created by" keeps the original creator. A handed-over record says who had it first.
+func ownerColumn(c *app.Ctx) app.Column {
+	return app.Column{Key: "owner", Label: c.T("Owner"), Render: func(c *app.Ctx, r db.Row) template.HTML {
+		n := r.Str("owner_name")
+		if r["owner_name"] == nil {
+			return h(`<span class="text-steel">—</span>`)
+		}
+		tone, sub := "bg-graphite-900/6 text-graphite-700", ""
+		if r.Int("created_by") != r.Int("owner_id") {
+			tone = "bg-amber-50 text-amber-800 ring-1 ring-amber-600/25"
+			if r["creator_name"] != nil {
+				sub = `<span class="mt-0.5 block truncate text-[11px] font-medium text-amber-800" title="` + app.E(c.T("Handed over from :name", "name", r.Str("creator_name"))) + `">→ ` +
+					app.E(c.T("Handed over from :name", "name", r.Str("creator_name"))) + `</span>`
+			}
+		}
+		pic := `<span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ` + tone + `">` + app.E(conv.Initials(n)) + `</span>`
+		return h(`<div class="flex min-w-0 max-w-[15rem] items-center gap-3">` + pic + `<div class="min-w-0"><span class="block truncate font-medium">` + app.E(n) + `</span>` + sub + `</div></div>`)
+	}}
+}
+
+// assignedChip: an amber tag when the record's owner is not the person who created it (used in the "Created by" sheet).
 func assignedChip(c *app.Ctx, r db.Row) template.HTML {
 	if r.Int("owner_id") == 0 || r.Int("owner_id") == r.Int("created_by") || r["owner_name"] == nil {
 		return ""

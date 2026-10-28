@@ -135,6 +135,7 @@ type Column struct {
 	Primary bool
 	Sort    string // SQL expression; empty = not sortable
 	Tone    string // amber | sky | emerald
+	Off     bool   // hidden until the person turns it on in View
 	Render  func(c *Ctx, row db.Row) template.HTML
 }
 
@@ -446,11 +447,21 @@ func (r *Resource) Index(c *Ctx) {
 		actions[row.Int("id")] = a
 	}
 	key, dir := r.sorting(c)
+	prefs := TablePrefs(c.MustUser().ID, r.Resource)
+	hidden, _ := prefs["hidden"].([]string)
+	if prefs["hidden"] == nil { // never chosen: the list's own defaults
+		hidden = []string{}
+		for _, col := range r.Columns(c) {
+			if col.Off {
+				hidden = append(hidden, col.Key)
+			}
+		}
+	}
 	data := M{
 		"title": c.T(conv.Ucfirst(r.Plural)), "c": r.Meta(c), "rows": rows, "total": total,
 		"columns": r.Columns(c), "filters": r.filters(c), "rowActions": actions,
 		"perPage": r.pageSize(c), "page": max(1, conv.Int(c.Query("page", "1"))),
-		"hidden": TablePrefs(c.MustUser().ID, r.Resource)["hidden"],
+		"hidden": hidden,
 		"sort":   key, "dir": strings.ToLower(dir),
 		"canDelete": c.Can(r.Resource, "delete"), "canSearch": len(r.Searchable) > 0,
 		"hasSaved": len(SavedFilters(c.MustUser().ID, r.Resource)) > 0,
@@ -1091,12 +1102,15 @@ func (r *Resource) DisplayValues(c *Ctx, fields []Field, row db.Row) map[string]
 // TablePrefs: per person and list, the hidden columns and rows per page.
 func TablePrefs(userID int, resource string) M {
 	row := db.First("SELECT hidden, per_page FROM user_table_prefs WHERE user_id = ? AND resource = ?", userID, resource)
-	hidden := []string{}
 	if row != nil {
+		if row["hidden"] == nil {
+			return M{"hidden": nil, "per_page": row["per_page"]}
+		}
+		hidden := []string{}
 		_ = json.Unmarshal([]byte(row.Str("hidden")), &hidden)
 		return M{"hidden": hidden, "per_page": row["per_page"]}
 	}
-	return M{"hidden": hidden, "per_page": nil}
+	return M{"hidden": nil, "per_page": nil}
 }
 
 // SavedFilters are the filters a person kept on a list (filter name → value).
