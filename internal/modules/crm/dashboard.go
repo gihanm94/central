@@ -125,7 +125,7 @@ func dashboardIndex(c *app.Ctx) {
             LEFT JOIN currencies c ON c.code = t.currency GROUP BY m ORDER BY m`, params...)
 
 	// the same months again: new leads, and deals closed won / lost
-	series := `generate_series(LEAST(date_trunc('month', '`+lo+`'::date), date_trunc('month', '`+hi+`'::date) - interval '5 months'), date_trunc('month', '`+hi+`'::date), interval '1 month') m`
+	series := `generate_series(LEAST(date_trunc('month', '` + lo + `'::date), date_trunc('month', '` + hi + `'::date) - interval '5 months'), date_trunc('month', '` + hi + `'::date), interval '1 month') m`
 	leadMonths := q.Select(`SELECT to_char(m, 'Mon') AS label, count(t.id) AS n FROM `+series+`
             LEFT JOIN leads t ON t.deleted_at IS NULL AND date_trunc('month', t.created_at) = m AND `+sql+` GROUP BY m ORDER BY m`, params...)
 	closedMonths := q.Select(`SELECT to_char(m, 'Mon') AS label, count(t.id) FILTER (WHERE t.opportunity_stage = 'CLOSED_WON') AS won, count(t.id) FILTER (WHERE t.opportunity_stage = 'CLOSED_LOST') AS lost
