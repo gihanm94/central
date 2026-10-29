@@ -294,6 +294,8 @@ Run it inside this project folder (it needs internet once to download Tailwind).
 
 ## Deploying
 
+Step by step for a new Linux server (user, PostgreSQL, nginx, HTTPS, GitHub Action, backups): see [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ### systemd
 
 ```ini
